@@ -1,4 +1,4 @@
-using Blinked.Shared.Interfaces;
+using Tobiso.Web.Shared.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;

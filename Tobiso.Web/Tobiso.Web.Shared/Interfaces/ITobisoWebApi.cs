@@ -1,12 +1,10 @@
 ﻿using Refit;
+using Tobiso.Web.Shared.DTOs;
 
-namespace Blinked.Shared.Interfaces;
+namespace Tobiso.Web.Shared.Interfaces;
 
 public interface ITobisoWebApi
 {
-    /* 
-     - Example :)
-    [Get("/api/Links")]
-    Task<ApiResponse<ApiResult<IList<LinksResponse>>>> GetAllLinks([Body] LinksRequest request, int page = 1);
-    */
+    [Get("/api/Posts")]
+    Task<IList<PostResponse>> GetAllPosts();
 }

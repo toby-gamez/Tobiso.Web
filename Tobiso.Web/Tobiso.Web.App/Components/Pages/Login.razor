@@ -1,0 +1,119 @@
+@page "/login"
+@layout EmptyLayout
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.ComponentModel.DataAnnotations
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject Tobiso.Web.App.Authentication.CredentialStore CredentialStore
+@inject IJSRuntime JSRuntime
+@inject ILogger<Login> Logger
+
+<PageTitle>Login</PageTitle>
+
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="text-center mb-0">Login</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger" role="alert">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <InputText id="username" @bind-Value="loginModel.Username" class="form-control" placeholder="Enter username" />
+                                <ValidationMessage For="() => loginModel.Username" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <InputText id="password" @bind-Value="loginModel.Password" type="password" class="form-control" placeholder="Enter password" />
+                                <ValidationMessage For="() => loginModel.Password" class="text-danger" />
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" disabled="@isLoggingIn">
+                                    @if (isLoggingIn)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        <span>Logging in...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Login</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private bool isLoggingIn = false;
+    private string? errorMessage;
+
+    public class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Username is required")]
+        public string Username { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoggingIn = true;
+        errorMessage = null;
+
+        try
+        {
+            Console.WriteLine($"Attempting login for user: {loginModel.Username}");
+            Logger.LogInformation("Attempting login for user: {Username}", loginModel.Username);
+
+            // Store credentials using the correct method
+            await CredentialStore.SetAsync(loginModel.Username, loginModel.Password, JSRuntime);
+            
+            Console.WriteLine("Login successful, redirecting to home");
+            Logger.LogInformation("Login successful for user: {Username}", loginModel.Username);
+            
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Login failed. Please check your credentials.";
+            Console.WriteLine($"Login failed: {ex.Message}");
+            Logger.LogError(ex, "Login failed for user: {Username}", loginModel.Username);
+        }
+        finally
+        {
+            isLoggingIn = false;
+        }
+    }
+}
