@@ -8,14 +8,12 @@ public class TobisoDbContext : DbContext
     public TobisoDbContext(DbContextOptions<TobisoDbContext> options)
         : base(options) { }
 
-   // public DbSet<Link> Links { get; set; }
-   
+   public DbSet<Category> Categories { get; set; }
+    public DbSet<Post> Posts { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-    
-       // modelBuilder.Entity<UrlParam>().ToTable("BlinkedUrlParams");
-
     }
 }

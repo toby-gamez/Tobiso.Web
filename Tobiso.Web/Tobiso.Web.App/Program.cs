@@ -7,6 +7,7 @@ using Refit;
 using Serilog;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
+using Tobiso.Web.Api.Services;
 using Tobiso.Web.App.Authentication;
 using Tobiso.Web.App.Components;
 using Tobiso.Web.App.Handlers;
@@ -31,7 +32,7 @@ services.AddHttpContextAccessor();
 
 services.AddDbContext<TobisoDbContext>(options =>
 {
-    // options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
 services.AddAuthentication(BasicAuthConstants.Scheme).AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(
@@ -52,7 +53,7 @@ services.AddControllers()
     });
 services.AddEndpointsApiExplorer();
 
-// services.AddScoped<ILinkService, LinkService>();
+services.AddScoped<IPostService, PostService>();
 
 
 
