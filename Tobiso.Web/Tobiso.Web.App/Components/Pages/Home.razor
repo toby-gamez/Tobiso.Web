@@ -1,7 +1,129 @@
 ﻿@page "/"
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.Shared.DTOs
+@inject ITobisoWebApi Api
+@inject NavigationManager Navigation
+@inject ILogger<Home> Logger
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home - Posts</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Posts</h1>
 
-Welcome to your new app.
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>Error:</strong> @errorMessage
+    </div>
+}
+
+@if (posts == null)
+{
+    <p>Loading posts...</p>
+}
+else if (!posts.Any())
+{
+    <p>No posts found.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">File Path</th>
+                    <th scope="col">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var post in posts)
+                {
+                    <tr>
+                        <td>@post.Id</td>
+                        <td>
+                            <strong>@post.Title</strong>
+                        </td>
+                        <td>
+                            @if (post.Category != null)
+                            {
+                                <span class="badge bg-primary">@post.Category.Name</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(post.FilePath))
+                            {
+                                <code class="text-break">@post.FilePath</code>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (post.UpdatedAt.HasValue)
+                            {
+                                <small>@post.UpdatedAt.Value.ToString("MMM dd, yyyy HH:mm")</small>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-3">
+        <p class="text-muted">
+            <i class="bi bi-info-circle"></i> 
+            Total posts: <strong>@posts.Count</strong>
+        </p>
+    </div>
+}
+
+@code {
+    private IList<PostResponse>? posts;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPosts();
+    }
+
+    private async Task LoadPosts()
+    {
+        try
+        {
+            Console.WriteLine("Starting to load posts...");
+            Logger.LogInformation("Starting to load posts from API");
+            
+            posts = await Api.GetAllPosts();
+            
+            Console.WriteLine($"Successfully loaded {posts.Count} posts");
+            Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
+            
+            StateHasChanged();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Console.WriteLine("Unauthorized access - redirecting to login");
+            Logger.LogWarning("Unauthorized access to posts - redirecting to login");
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading posts: {ex.Message}";
+            Console.WriteLine($"Exception occurred while loading posts: {ex.Message}");
+            Console.WriteLine($"Exception details: {ex}");
+            Logger.LogError(ex, "Exception occurred while loading posts: {Message}", ex.Message);
+        }
+    }
+}
