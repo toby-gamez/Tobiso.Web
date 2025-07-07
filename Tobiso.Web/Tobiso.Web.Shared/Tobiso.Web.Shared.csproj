@@ -13,8 +13,4 @@
     <ProjectReference Include="..\Tobiso.Web.Domain\Tobiso.Web.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="DTOs\" />
-  </ItemGroup>
-
 </Project>
