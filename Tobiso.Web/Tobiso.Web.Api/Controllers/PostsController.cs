@@ -31,4 +31,42 @@ public class PostsController : ControllerBase
         var posts = await _postService.GetLinks();
         return Ok(posts);
     }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetPost(int id)
+    {
+        var post = await _postService.GetById(id);
+        if (post == null)
+            return NotFound();
+        return Ok(post);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdatePost(int id, [FromBody] Tobiso.Web.Shared.DTOs.PostResponse post)
+    {
+        if (id != post.Id)
+            return BadRequest("Id v URL neodpovídá Id v těle požadavku.");
+        var updated = await _postService.Update(post);
+        if (!updated)
+            return NotFound();
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeletePost(int id)
+    {
+        var deleted = await _postService.Delete(id);
+        if (!deleted)
+            return NotFound();
+        return NoContent();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreatePost([FromBody] Tobiso.Web.Shared.DTOs.PostResponse post)
+    {
+        var created = await _postService.Create(post);
+        if (created == null)
+            return BadRequest("Post se nepodařilo vytvořit.");
+        return CreatedAtAction(nameof(GetPost), new { id = created.Id }, created);
+    }
 }

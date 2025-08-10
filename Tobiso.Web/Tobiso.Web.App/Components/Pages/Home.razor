@@ -9,6 +9,8 @@
 
 <h1>Posts</h1>
 
+<button class="btn btn-success mb-3" @onclick="GoToAddPost">Přidat post</button>
+
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger" role="alert">
@@ -35,6 +37,7 @@ else
                     <th scope="col">Category</th>
                     <th scope="col">File Path</th>
                     <th scope="col">Updated</th>
+                    <th scope="col" style="width: 120px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -43,7 +46,9 @@ else
                     <tr>
                         <td>@post.Id</td>
                         <td>
-                            <strong>@post.Title</strong>
+                            <strong>
+                                <a href="/posts/edit/@post.Id" class="text-decoration-none">@post.Title</a>
+                            </strong>
                         </td>
                         <td>
                             @if (post.Category != null)
@@ -74,6 +79,9 @@ else
                             {
                                 <span class="text-muted">-</span>
                             }
+                        </td>
+                        <td>
+                            <button class="btn btn-danger btn-sm ms-2" @onclick="() => OnDeletePost(post.Id)">Smazat</button>
                         </td>
                     </tr>
                 }
@@ -125,5 +133,32 @@ else
             Console.WriteLine($"Exception details: {ex}");
             Logger.LogError(ex, "Exception occurred while loading posts: {Message}", ex.Message);
         }
+    }
+
+    private async Task OnDeletePost(int id)
+    {
+        if (!await JsConfirm($"Opravdu chcete smazat post s ID {id}?")) return;
+        try
+        {
+            await Api.DeletePost(id);
+            await LoadPosts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při mazání: {ex.Message}";
+        }
+    }
+
+    private void GoToAddPost()
+    {
+        Navigation.NavigateTo("/posts/add");
+    }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    private async Task<bool> JsConfirm(string message)
+    {
+        return await JS.InvokeAsync<bool>("confirm", message);
     }
 }

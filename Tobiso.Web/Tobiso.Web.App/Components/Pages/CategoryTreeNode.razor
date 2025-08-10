@@ -1,22 +1,94 @@
 @using Tobiso.Web.Shared.DTOs
+@using Microsoft.AspNetCore.Components
+
 @code {
     [Parameter]
     public List<CategoryTreeResponse>? Children { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnCategoryClick { get; set; }
+
+    private HashSet<int> expandedIds = new();
+
+    private void ToggleExpand(int id)
+    {
+        if (!expandedIds.Add(id))
+            expandedIds.Remove(id);
+    }
 }
 
 @if (Children != null && Children.Count > 0)
 {
-    <ul>
+    <ul class="category-tree-list">
         @foreach (var child in Children.OrderBy(c => c.Id))
         {
-            <li>
-                @child.Name
-                @if (child.Children != null && child.Children.Count > 0)
+            <li class="category-tree-item">
+                <div class="category-tree-row">
+                    @if (child.Children != null && child.Children.Count > 0)
+                    {
+                        <span class="category-tree-toggle" @onclick="() => ToggleExpand(child.Id)">
+                            <i class="bi" style="font-size:1.1em;">
+                                @(expandedIds.Contains(child.Id) ? "▼" : "▶")
+                            </i>
+                        </span>
+                    }
+                    <button class="btn btn-link category-tree-btn" @onclick="() => OnCategoryClick.InvokeAsync(child.Id)">@child.Name</button>
+                </div>
+                @if (child.Children != null && child.Children.Count > 0 && expandedIds.Contains(child.Id))
                 {
-                    <CategoryTreeNode Children="child.Children" />
+                    <ul class="category-tree-list category-tree-sub">
+                        <CategoryTreeNode Children="child.Children" OnCategoryClick="OnCategoryClick" />
+                    </ul>
                 }
             </li>
         }
     </ul>
 }
 
+<style>
+.category-tree-list {
+    list-style: none;
+    padding-left: 0.8em;
+    margin-bottom: 0;
+}
+.category-tree-item {
+    margin-bottom: 2px;
+}
+.category-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.2em 0.1em;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+.category-tree-row:hover {
+    background: #e9ecef;
+}
+.category-tree-toggle {
+    cursor: pointer;
+    margin-right: 0.3em;
+    color: #007bff;
+    user-select: none;
+}
+.category-tree-btn {
+    text-align: left;
+    padding: 0.1em 0.3em;
+    font-weight: 500;
+    color: #333;
+    background: none;
+    border: none;
+    outline: none;
+    transition: color 0.2s;
+}
+.category-tree-btn:hover {
+    color: #007bff;
+    text-decoration: underline;
+}
+.category-tree-sub {
+    margin-left: 1.2em;
+    border-left: 2px solid #e9ecef;
+    padding-left: 0.8em;
+    margin-top: 0.2em;
+}
+</style>
