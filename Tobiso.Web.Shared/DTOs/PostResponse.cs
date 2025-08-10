@@ -1,9 +1,4 @@
-﻿using Tobiso.Web.Domain.Entities;
-
-namespace Tobiso.Web.Shared.DTOs;
-
-public class PostResponse
-{
+// ...existing code...
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
@@ -11,4 +6,4 @@ public class PostResponse
     public DateTime? UpdatedAt { get; set; }
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
-}
+// ...existing code...
