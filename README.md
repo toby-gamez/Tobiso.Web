@@ -3,9 +3,10 @@ This is Tobiso web.
 
 ## Tasks
 
-- [ ] make a categories controller with service for categories - list categories
+- [x] make a categories controller with service for categories - list categories
 - [ ] make post endpoint in PostsController.cs for list of links but anonymous. this version is used to list post to users
-- [ ] make a clickable tree of categories in CategoriesControler
+- [x] make a clickable tree of categories in CategoriesControler
+- [ ] make editing, adding and removing categories like posts
 ## Migration
 
 Run from the root of your solution (or in Tobiso.Web.App folder):
