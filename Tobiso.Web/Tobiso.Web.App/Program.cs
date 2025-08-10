@@ -27,7 +27,7 @@ var services = builder.Services;
 
 // Add services
 services.Configure<BasicAuthOptions>(builder.Configuration.GetSection("Auth:Basic"));
-
+services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"]) });
 services.AddHttpContextAccessor();
 
 services.AddDbContext<TobisoDbContext>(options =>
@@ -45,7 +45,7 @@ services.AddCascadingAuthenticationState();
 services.AddScoped<AuthenticationStateProvider, BasicAuthenticationStateProvider>();
 
 services.AddRazorComponents().AddInteractiveServerComponents();
-
+services.AddScoped<ICategoryService, CategoryService>();
 services.AddControllers()
     .AddJsonOptions(options =>
     {
