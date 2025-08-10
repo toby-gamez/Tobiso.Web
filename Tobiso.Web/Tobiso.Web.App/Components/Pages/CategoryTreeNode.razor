@@ -1,0 +1,22 @@
+@using Tobiso.Web.Shared.DTOs
+@code {
+    [Parameter]
+    public List<CategoryTreeResponse>? Children { get; set; }
+}
+
+@if (Children != null && Children.Count > 0)
+{
+    <ul>
+        @foreach (var child in Children.OrderBy(c => c.Id))
+        {
+            <li>
+                @child.Name
+                @if (child.Children != null && child.Children.Count > 0)
+                {
+                    <CategoryTreeNode Children="child.Children" />
+                }
+            </li>
+        }
+    </ul>
+}
+

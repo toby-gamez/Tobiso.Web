@@ -7,6 +7,7 @@ namespace Tobiso.Web.Api.Services;
 public interface IPostService
 {
     Task<List<PostResponse>> GetAll();
+    Task<List<PostLinkResponse>> GetLinks();
 };
 public class PostService : IPostService
 {
@@ -32,5 +33,17 @@ public class PostService : IPostService
             })
             .ToListAsync();
 
+    }
+
+    public async Task<List<PostLinkResponse>> GetLinks()
+    {
+        return await _context.Posts
+            .Select(p => new PostLinkResponse
+            {
+                Id = p.Id,
+                Title = p.Title,
+                FilePath = p.FilePath
+            })
+            .ToListAsync();
     }
 }

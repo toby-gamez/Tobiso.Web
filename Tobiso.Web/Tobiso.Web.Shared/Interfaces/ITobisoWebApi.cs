@@ -7,4 +7,7 @@ public interface ITobisoWebApi
 {
     [Get("/api/Posts")]
     Task<IList<PostResponse>> GetAllPosts();
+
+    [Get("/api/Categories/tree")]
+    Task<IList<CategoryTreeResponse>> GetCategoryTree();
 }

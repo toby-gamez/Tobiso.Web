@@ -23,4 +23,12 @@ public class PostsController : ControllerBase
     {
         return Ok(await _postService.GetAll());
     }
+
+    [AllowAnonymous]
+    [HttpGet("links")]
+    public async Task<IActionResult> GetPostLinks()
+    {
+        var posts = await _postService.GetLinks();
+        return Ok(posts);
+    }
 }

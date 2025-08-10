@@ -1,0 +1,52 @@
+@page "/categories"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+@inject NavigationManager Navigation
+
+<PageTitle>Categories</PageTitle>
+<h3>Strom kategorií</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>Error:</strong> @errorMessage
+    </div>
+}
+
+@if (categoryTree == null)
+{
+    <p>Načítání...</p>
+}
+else
+{
+    <ul>
+        @foreach (var category in categoryTree.OrderBy(c => c.Id))
+        {
+            <li>
+                @category.Name
+                @if (category.Children != null && category.Children.Count > 0)
+                {
+                    <CategoryTreeNode Children="category.Children" />
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IList<CategoryTreeResponse>? categoryTree;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categoryTree = await Api.GetCategoryTree();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}
