@@ -26,3 +26,11 @@ dotnet ef database update --project Tobiso.Web.Api --startup-project Tobiso.Web.
 ```
 dotnet ef migrations script --project Tobiso.Web.Api --startup-project Tobiso.Web.App --output InitialCreate.sql
 ```
+
+## Content Migration
+Create a directory with html files, put their path to Tobiso.Migrator and wait. This creates Markdown files in the same directory. Then start Tobiso.Web and in CLI run with your login, password, and directory path:
+
+```
+curl -k -X POST "https://localhost:7270/api/posts/upload-md?directory={your full directory path}" -u {login}:{password}
+```
+**this upload doesn't include categories*
