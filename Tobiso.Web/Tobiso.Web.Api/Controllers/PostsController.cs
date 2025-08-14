@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tobiso.Api.Authentication;
+using Tobiso.Web.Api.Helpers;
 using Tobiso.Web.Api.Services;
 
 namespace Tobiso.Web.Api.Controllers;
@@ -68,5 +69,18 @@ public class PostsController : ControllerBase
         if (created == null)
             return BadRequest("Post se nepodařilo vytvořit.");
         return CreatedAtAction(nameof(GetPost), new { id = created.Id }, created);
+    }
+
+    [HttpPost("upload-md")]
+    public async Task<IActionResult> UploadMdFiles([FromQuery] string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            return BadRequest("Neplatná cesta ke složce.");
+        var uploader = new MdUploader(_postService);
+        var posts = await uploader.UploadFromDirectory(directory);
+        return Ok(new {
+            count = posts.Count,
+            titles = posts.Select(p => p.Title).ToList()
+        });
     }
 }
