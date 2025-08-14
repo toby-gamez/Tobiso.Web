@@ -63,9 +63,17 @@ else
                         <td>@post.Id</td>
                         <td><strong>@post.Title</strong></td>
                         <td>
-                            @if (post.Category != null)
+                            @if (post.CategoryId.HasValue)
                             {
-                                <span class="badge bg-primary">@post.Category.Name</span>
+                                var name = GetCategoryNameById(post.CategoryId);
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    <span class="badge bg-primary">@name</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
                             }
                             else
                             {
@@ -215,5 +223,28 @@ else
                 AddCategoryAndChildren(child);
             }
         }
+    }
+
+    private string? GetCategoryNameById(int? categoryId)
+    {
+        if (!categoryId.HasValue || categoryTree == null)
+            return null;
+        return FindCategoryName(categoryId.Value, categoryTree);
+    }
+
+    private string? FindCategoryName(int categoryId, IEnumerable<CategoryTreeResponse> categories)
+    {
+        foreach (var cat in categories)
+        {
+            if (cat.Id == categoryId)
+                return cat.Name;
+            if (cat.Children != null && cat.Children.Count > 0)
+            {
+                var name = FindCategoryName(categoryId, cat.Children);
+                if (!string.IsNullOrEmpty(name))
+                    return name;
+            }
+        }
+        return null;
     }
 }
