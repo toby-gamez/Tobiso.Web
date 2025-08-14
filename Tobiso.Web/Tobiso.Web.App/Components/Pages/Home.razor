@@ -51,9 +51,17 @@ else
                             </strong>
                         </td>
                         <td>
-                            @if (post.Category != null)
+                            @if (post.CategoryId.HasValue)
                             {
-                                <span class="badge bg-primary">@post.Category.Name</span>
+                                var name = GetCategoryNameById(post.CategoryId);
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    <span class="badge bg-primary">@name</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
                             }
                             else
                             {
@@ -99,11 +107,34 @@ else
 
 @code {
     private IList<PostResponse>? posts;
+    private IList<CategoryResponse>? categories;
+    private Dictionary<int, string>? categoryNames;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadCategories();
         await LoadPosts();
+    }
+
+    private async Task LoadCategories()
+    {
+        try
+        {
+            categories = await Api.GetAllCategories();
+            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading categories: {ex.Message}";
+        }
+    }
+
+    private string? GetCategoryNameById(int? categoryId)
+    {
+        if (!categoryId.HasValue || categoryNames == null)
+            return null;
+        return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
     }
 
     private async Task LoadPosts()

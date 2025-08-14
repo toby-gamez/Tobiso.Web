@@ -24,19 +24,25 @@ public class PostService : IPostService
 
     public async Task<List<PostResponse>> GetAll()
     {
-        return await _context.Posts
-            .Include(p => p.Category)
-            .Select(p => new PostResponse
+        try
+        {
+            var posts = await _context.Posts.ToListAsync();
+            return posts.Select(p => new PostResponse
             {
                 Id = p.Id,
                 Title = p.Title,
                 Content = p.Content,
                 FilePath = p.FilePath,
                 UpdatedAt = p.UpdatedAt,
-                CategoryId = p.CategoryId,
-                Category = p.Category
-            })
-            .ToListAsync();
+                CategoryId = p.CategoryId
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            // Logování chyby - prozatím do konzole, případně použít logger
+            Console.WriteLine($"Chyba při načítání příspěvků: {ex.Message}\n{ex.StackTrace}");
+            throw;
+        }
 
     }
 
@@ -54,20 +60,17 @@ public class PostService : IPostService
 
     public async Task<PostResponse?> GetById(int id)
     {
-        return await _context.Posts
-            .Include(p => p.Category)
-            .Where(p => p.Id == id)
-            .Select(p => new PostResponse
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Content = p.Content,
-                FilePath = p.FilePath,
-                UpdatedAt = p.UpdatedAt,
-                CategoryId = p.CategoryId,
-                Category = p.Category
-            })
-            .FirstOrDefaultAsync();
+        var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == id);
+        if (post == null) return null;
+        return new PostResponse
+        {
+            Id = post.Id,
+            Title = post.Title,
+            Content = post.Content,
+            FilePath = post.FilePath,
+            UpdatedAt = post.UpdatedAt,
+            CategoryId = post.CategoryId
+        };
     }
 
     public async Task<bool> Update(PostResponse post)
@@ -78,7 +81,7 @@ public class PostService : IPostService
         entity.Title = post.Title;
         entity.Content = post.Content;
         entity.FilePath = post.FilePath;
-        entity.UpdatedAt = post.UpdatedAt;
+        entity.UpdatedAt = DateTime.UtcNow;
         entity.CategoryId = post.CategoryId;
 
         await _context.SaveChangesAsync();
@@ -108,7 +111,7 @@ public class PostService : IPostService
         _context.Posts.Add(entity);
         await _context.SaveChangesAsync();
         // načtení včetně kategorie
-        var created = await _context.Posts.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == entity.Id);
+        var created = await _context.Posts.FirstOrDefaultAsync(p => p.Id == entity.Id);
         if (created == null) return null;
         return new PostResponse
         {
@@ -117,8 +120,7 @@ public class PostService : IPostService
             Content = created.Content,
             FilePath = created.FilePath,
             UpdatedAt = created.UpdatedAt,
-            CategoryId = created.CategoryId,
-            Category = created.Category
+            CategoryId = created.CategoryId
         };
     }
 }
