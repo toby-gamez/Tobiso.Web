@@ -1,12 +1,49 @@
 @page "/categories"
+@using DocumentFormat.OpenXml.Presentation
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Comment = DocumentFormat.OpenXml.Office2021.PowerPoint.Comment.Comment
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject ILogger<CategoryTree> Logger
+@inject IJSRuntime Js
 
 <PageTitle>Categories</PageTitle>
 <h3>Strom kategorií</h3>
+<button class="btn btn-success mb-2" @onclick="ShowAddCategoryModal">+ Přidat kategorii</button>
+
+@if (showCategoryModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((editCategoryId == null) ? "Přidat kategorii" : "Upravit kategorii")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCategoryModal"></button>
+                </div>
+                <div class="modal-body">
+                    <input class="form-control mb-2" placeholder="Název kategorie" @bind="categoryName" />
+                    <label for="parentCategorySelect">Rodičovská kategorie</label>
+                    <select id="parentCategorySelect" class="form-select" @bind="parentCategoryId">
+                        <option value="">Žádná (kořenová)</option>
+                        @foreach (var cat in allCategories)
+                        {
+                            if (editCategoryId == null || cat.Id != editCategoryId)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseCategoryModal">Zrušit</button>
+                    <button class="btn btn-primary" @onclick="SaveCategory">Uložit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -30,11 +67,13 @@ else
                         <i class="bi bi-folder2-open" style="font-size:1.2em; margin-right:0.3em;"></i>
                     </span>
                     <button class="category-tree-btn-root" @onclick="() => OnCategoryClick(category.Id)">@category.Name</button>
+                    <button class="btn btn-sm btn-outline-primary ms-2" title="Upravit" @onclick="() => ShowEditCategoryModal(category)">Upravit</button>
+                    <button class="btn btn-sm btn-outline-danger ms-1" title="Smazat" @onclick="() => DeleteCategory(category.Id)">Smazat</button>
                 </div>
                 @if (category.Children != null && category.Children.Count > 0)
                 {
                     <div class="category-tree-children">
-                        <CategoryTreeNode Children="category.Children" OnCategoryClick="OnCategoryClick" />
+                        <CategoryTreeNode Children="category.Children" OnCategoryClick="OnCategoryClick" OnEditCategory="ShowEditCategoryModal" OnDeleteCategory="DeleteCategory" />
                     </div>
                 }
             </li>
@@ -168,12 +207,19 @@ else
     private IList<PostResponse>? selectedPosts;
     private string? errorMessage;
     private HashSet<int> selectedCategoryIds = new();
+    private bool showCategoryModal = false;
+    private string categoryName = string.Empty;
+    private int? editCategoryId = null;
+    private int? parentCategoryId = null;
+
+    private IList<CategoryResponse> allCategories = new List<CategoryResponse>();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             categoryTree = await Api.GetCategoryTree();
+            allCategories = await Api.GetAllCategories();
         }
         catch (Exception ex)
         {
@@ -206,6 +252,7 @@ else
                 AddCategoryAndChildren(cat);
                 return;
             }
+
             if (cat.Children != null && cat.Children.Count > 0)
             {
                 CollectCategoryIds(categoryId, cat.Children);
@@ -245,6 +292,65 @@ else
                     return name;
             }
         }
+
         return null;
     }
+
+    private void ShowAddCategoryModal()
+    {
+        showCategoryModal = true;
+        categoryName = string.Empty;
+        editCategoryId = null;
+        parentCategoryId = null;
+    }
+
+    private void ShowEditCategoryModal(CategoryTreeResponse category)
+    {
+        showCategoryModal = true;
+        categoryName = category.Name;
+        editCategoryId = category.Id;
+        var cat = allCategories.FirstOrDefault(c => c.Id == category.Id);
+        parentCategoryId = cat?.ParentId;
+    }
+
+    private void CloseCategoryModal()
+    {
+        showCategoryModal = false;
+        categoryName = string.Empty;
+        editCategoryId = null;
+        parentCategoryId = null;
+    }
+
+    private async Task SaveCategory()
+    {
+        if (string.IsNullOrWhiteSpace(categoryName)) return;
+        if (editCategoryId == null)
+        {
+            // Přidání nové kategorie
+            await Api.CreateCategory(new CategoryResponse { Name = categoryName, ParentId = parentCategoryId });
+        }
+        else
+        {
+            // Úprava existující kategorie
+            await Api.UpdateCategory(editCategoryId.Value, new CategoryResponse { Name = categoryName, ParentId = parentCategoryId });
+        }
+
+        await LoadCategories();
+        CloseCategoryModal();
+    }
+
+    private async Task DeleteCategory(int id)
+    {
+        var confirmed = await Js.InvokeAsync<bool>("confirm", $"Opravdu chcete smazat kategorii s ID {id}?");
+        if (!confirmed) return;
+        await Api.DeleteCategory(id);
+        await LoadCategories();
+    }
+
+    private async Task LoadCategories()
+    {
+        categoryTree = await Api.GetCategoryTree();
+        StateHasChanged();
+    }
+
 }

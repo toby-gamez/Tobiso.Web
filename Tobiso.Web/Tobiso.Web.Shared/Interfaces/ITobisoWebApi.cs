@@ -28,4 +28,13 @@ public interface ITobisoWebApi
 
     [Post("/api/Posts")]
     Task<PostResponse> CreatePost([Body] PostResponse post);
+
+    [Post("/api/Categories")]
+    Task<CategoryResponse> CreateCategory([Body] CategoryResponse category);
+
+    [Put("/api/Categories/{id}")]
+    Task<CategoryResponse> UpdateCategory(int id, [Body] CategoryResponse category);
+
+    [Delete("/api/Categories/{id}")]
+    Task DeleteCategory(int id);
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.Api.Controllers;
 
@@ -26,5 +27,26 @@ public class CategoriesController : ControllerBase
     public async Task<IActionResult> GetCategoryTree()
     {
         return Ok(await _categoryService.GetTree());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateCategory([FromBody] CategoryResponse category)
+    {
+        var result = await _categoryService.Create(category);
+        return Ok(result);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateCategory(int id, [FromBody] CategoryResponse category)
+    {
+        var result = await _categoryService.Update(id, category);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCategory(int id)
+    {
+        await _categoryService.Delete(id);
+        return NoContent();
     }
 }

@@ -6,7 +6,7 @@ This is Tobiso web.
 - [x] make a categories controller with service for categories - list categories
 - [ ] make post endpoint in PostsController.cs for list of links but anonymous. this version is used to list post to users
 - [x] make a clickable tree of categories in CategoriesControler
-- [ ] make editing, adding and removing categories like posts
+- [x] make editing, adding and removing categories like posts
 ## Migration
 
 Run from the root of your solution (or in Tobiso.Web.App folder):
@@ -28,7 +28,7 @@ dotnet ef migrations script --project Tobiso.Web.Api --startup-project Tobiso.We
 ```
 
 ## Content Migration
-Create a directory with html files, put their path to Tobiso.Migrator and wait. This creates Markdown files in the same directory. Then start Tobiso.Web and in CLI run with your login, password, and directory path:
+Create a directory with html files, put their path to Tobiso.Migrator and wait. This creates Markdown files in the same directory. Then run Tobiso.Web and execute in CLI following command with your login, password, and directory path:
 
 ```
 curl -k -X POST "https://localhost:7270/api/posts/upload-md?directory={your full directory path}" -u {login}:{password}
