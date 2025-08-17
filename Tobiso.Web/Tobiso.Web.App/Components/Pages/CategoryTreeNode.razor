@@ -8,6 +8,12 @@
     [Parameter]
     public EventCallback<int> OnCategoryClick { get; set; }
 
+    [Parameter]
+    public EventCallback<CategoryTreeResponse> OnEditCategory { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnDeleteCategory { get; set; }
+
     private HashSet<int> expandedIds = new();
 
     private void ToggleExpand(int id)
@@ -33,11 +39,13 @@
                         </span>
                     }
                     <button class="btn btn-link category-tree-btn" @onclick="() => OnCategoryClick.InvokeAsync(child.Id)">@child.Name</button>
+                    <button class="btn btn-sm btn-outline-primary ms-2" title="Upravit" @onclick="() => OnEditCategory.InvokeAsync(child)">Upravit</button>
+                    <button class="btn btn-sm btn-outline-danger ms-1" title="Smazat" @onclick="() => OnDeleteCategory.InvokeAsync(child.Id)">Smazat</button>
                 </div>
                 @if (child.Children != null && child.Children.Count > 0 && expandedIds.Contains(child.Id))
                 {
                     <ul class="category-tree-list category-tree-sub">
-                        <CategoryTreeNode Children="child.Children" OnCategoryClick="OnCategoryClick" />
+                        <CategoryTreeNode Children="child.Children" OnCategoryClick="OnCategoryClick" OnEditCategory="OnEditCategory" OnDeleteCategory="OnDeleteCategory" />
                     </ul>
                 }
             </li>
