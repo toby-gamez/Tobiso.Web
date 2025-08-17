@@ -4,7 +4,7 @@ This is Tobiso web.
 ## Tasks
 
 - [x] make a categories controller with service for categories - list categories
-- [ ] make post endpoint in PostsController.cs for list of links but anonymous. this version is used to list post to users
+- [x] make post endpoint in PostsController.cs for list of links but anonymous. this version is used to list post to users
 - [x] make a clickable tree of categories in CategoriesControler
 - [x] make editing, adding and removing categories like posts
 ## Migration

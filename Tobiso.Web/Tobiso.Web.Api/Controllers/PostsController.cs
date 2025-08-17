@@ -33,6 +33,7 @@ public class PostsController : ControllerBase
         return Ok(posts);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPost(int id)
     {

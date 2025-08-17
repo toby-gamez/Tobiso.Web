@@ -37,4 +37,7 @@ public interface ITobisoWebApi
 
     [Delete("/api/Categories/{id}")]
     Task DeleteCategory(int id);
+
+    [Get("/api/Posts/links")]
+    Task<IList<PostLinkResponse>> GetPostLinks();
 }
