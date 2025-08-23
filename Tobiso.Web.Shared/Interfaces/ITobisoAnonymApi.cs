@@ -10,4 +10,10 @@ public interface ITobisoAnonymApi
 
     [Get("/api/Pages/{id}")]
     Task<PostResponse> GetPostById(int id);
+
+    [Get("/api/Categories")]
+    Task<List<CategoryResponse>> GetAllCategories();
+
+    [Get("/api/Categories/tree")]
+    Task<CategoryTreeResponse> GetTree();
 }
