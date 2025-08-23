@@ -35,6 +35,12 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+// Add Authentication and Authorization
+services.AddAuthentication(BasicAuthConstants.Scheme).AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(
+        BasicAuthConstants.Scheme, null);
+
+services.AddAuthorization();
+
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddScoped<ICategoryService, CategoryService>();
 services.AddControllers()
@@ -46,11 +52,8 @@ services.AddEndpointsApiExplorer();
 
 services.AddScoped<IPostService, PostService>();
 
-
-
 services.AddSingleton<CredentialStore>();
 services.AddTransient<HttpLoggingHandler>();
-
 
 services.AddRefitClient<ITobisoAnonymApi>()
     .ConfigureHttpClient(c =>
@@ -63,7 +66,6 @@ services.AddRefitClient<ITobisoAnonymApi>()
         c.BaseAddress = new Uri(baseAddress);
     })
     .AddHttpMessageHandler<HttpLoggingHandler>();
-
 
 services.AddSwaggerGen(options =>
 {
@@ -98,7 +100,6 @@ services.AddSwaggerGen(options =>
     });
 });
 
-
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -116,6 +117,11 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseRouting();
+
+// Add Authentication and Authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 app.MapControllers();
 
