@@ -2,7 +2,7 @@
 @using Markdig
 <h3>Posts</h3>
 @page "/posts-incognito"
-@inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi Api
+@inject Tobiso.Web.Shared.Interfaces.ITobisoWebApi Api
 <PageTitle>Incognito posts</PageTitle>
 <style>
     .sidebar {
@@ -62,7 +62,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-       // postLinks = await Api.GetPostLinks();
+        postLinks = await Api.GetPostLinks();
     }
 
     private async Task ShowPost(int id)

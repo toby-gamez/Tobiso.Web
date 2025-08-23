@@ -3,18 +3,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.App", "Tobiso.Web.App/Tobiso.Web.App.csproj", "{48810F2F-4918-41CA-9ABC-2804F223679C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.App", "Tobiso.Web.App\Tobiso.Web.App.csproj", "{48810F2F-4918-41CA-9ABC-2804F223679C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Api", "Tobiso.Web.Api/Tobiso.Web.Api.csproj", "{8568AAEE-3480-421C-B141-48E314174BE9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Api", "Tobiso.Web.Api\Tobiso.Web.Api.csproj", "{8568AAEE-3480-421C-B141-48E314174BE9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Shared", "Tobiso.Web.Shared/Tobiso.Web.Shared.csproj", "{DE82EAA4-3528-4AB4-AB61-176F85573055}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Shared", "Tobiso.Web.Shared\Tobiso.Web.Shared.csproj", "{DE82EAA4-3528-4AB4-AB61-176F85573055}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Domain", "Tobiso.Web.Domain/Tobiso.Web.Domain.csproj", "{FDD858D2-12F8-4CFC-9FC2-936AED062220}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Domain", "Tobiso.Web.Domain\Tobiso.Web.Domain.csproj", "{FDD858D2-12F8-4CFC-9FC2-936AED062220}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
 		..\README.md = ..\README.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.App.Admin", "Tobiso.Web.App.Admin\Tobiso.Web.App.Admin.csproj", "{24432969-F974-0913-DEA2-01E0B4589303}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -38,6 +40,10 @@ Global
 		{FDD858D2-12F8-4CFC-9FC2-936AED062220}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FDD858D2-12F8-4CFC-9FC2-936AED062220}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FDD858D2-12F8-4CFC-9FC2-936AED062220}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24432969-F974-0913-DEA2-01E0B4589303}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24432969-F974-0913-DEA2-01E0B4589303}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24432969-F974-0913-DEA2-01E0B4589303}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24432969-F974-0913-DEA2-01E0B4589303}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

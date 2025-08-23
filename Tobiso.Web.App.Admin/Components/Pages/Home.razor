@@ -1,13 +1,15 @@
 ﻿@page "/"
 @using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Shared.DTOs
-@inject ITobisoAnonymApi Api
+@inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject ILogger<Home> Logger
 
 <PageTitle>Home - Posts</PageTitle>
 
 <h1>Posts</h1>
+
+<button class="btn btn-success mb-3" @onclick="GoToAddPost">Přidat post</button>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -35,6 +37,7 @@ else
                     <th scope="col">Category</th>
                     <th scope="col">File Path</th>
                     <th scope="col">Updated</th>
+                    <th scope="col" style="width: 120px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,10 +47,27 @@ else
                         <td>@post.Id</td>
                         <td>
                             <strong>
-                                <a href="/post/@post.Id" class="text-decoration-none">@post.Title</a>
+                                <a href="/posts/edit/@post.Id" class="text-decoration-none">@post.Title</a>
                             </strong>
                         </td>
-                        <td></td>
+                        <td>
+                            @if (post.CategoryId.HasValue)
+                            {
+                                var name = GetCategoryNameById(post.CategoryId);
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    <span class="badge bg-primary">@name</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }+
+                        </td>
                         <td>
                             @if (!string.IsNullOrEmpty(post.FilePath))
                             {
@@ -68,15 +88,18 @@ else
                                 <span class="text-muted">-</span>
                             }
                         </td>
+                        <td>
+                            <button class="btn btn-danger btn-sm ms-2" @onclick="() => OnDeletePost(post.Id)">Smazat</button>
+                        </td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
-
+    
     <div class="mt-3">
         <p class="text-muted">
-            <i class="bi bi-info-circle"></i>
+            <i class="bi bi-info-circle"></i> 
             Total posts: <strong>@posts.Count</strong>
         </p>
     </div>
@@ -90,32 +113,76 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadCategories();
         await LoadPosts();
     }
 
+    private async Task LoadCategories()
+    {
+        try
+        {
+            categories = await Api.GetAllCategories();
+            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading categories: {ex.Message}";
+        }
+    }
+
+    private string? GetCategoryNameById(int? categoryId)
+    {
+        if (!categoryId.HasValue || categoryNames == null)
+            return null;
+        return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
+    }
 
     private async Task LoadPosts()
     {
         try
         {
+            Console.WriteLine("Starting to load posts...");
             Logger.LogInformation("Starting to load posts from API");
-
+            
             posts = await Api.GetAllPosts();
-
+            
+            Console.WriteLine($"Successfully loaded {posts.Count} posts");
             Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
-
+            
             StateHasChanged();
         }
-        catch (Refit.ApiException ex)
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            Logger.LogWarning($"Unauthorized access to posts - redirecting to login: {ex}");
-
+            Console.WriteLine("Unauthorized access - redirecting to login");
+            Logger.LogWarning("Unauthorized access to posts - redirecting to login");
+            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
             errorMessage = $"Error loading posts: {ex.Message}";
+            Console.WriteLine($"Exception occurred while loading posts: {ex.Message}");
+            Console.WriteLine($"Exception details: {ex}");
             Logger.LogError(ex, "Exception occurred while loading posts: {Message}", ex.Message);
         }
+    }
+
+    private async Task OnDeletePost(int id)
+    {
+        if (!await JsConfirm($"Opravdu chcete smazat post s ID {id}?")) return;
+        try
+        {
+            await Api.DeletePost(id);
+            await LoadPosts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při mazání: {ex.Message}";
+        }
+    }
+
+    private void GoToAddPost()
+    {
+        Navigation.NavigateTo("/posts/add");
     }
 
     [Inject]

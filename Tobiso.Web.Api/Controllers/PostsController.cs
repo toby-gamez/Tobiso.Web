@@ -19,6 +19,7 @@ public class PostsController : ControllerBase
         _postService = postService;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetPosts()
     {

@@ -9,7 +9,7 @@ using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.App.Authentication;
-using Tobiso.Web.App.Components;
+using Tobiso.Web.App.Admin.Components;
 using Tobiso.Web.App.Handlers;
 
 
@@ -35,6 +35,15 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+services.AddAuthentication(BasicAuthConstants.Scheme).AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(
+        BasicAuthConstants.Scheme, null);
+
+services.AddAuthorization();
+
+// Add Blazor authentication
+services.AddCascadingAuthenticationState();
+services.AddScoped<AuthenticationStateProvider, BasicAuthenticationStateProvider>();
+
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddScoped<ICategoryService, CategoryService>();
 services.AddControllers()
@@ -49,10 +58,11 @@ services.AddScoped<IPostService, PostService>();
 
 
 services.AddSingleton<CredentialStore>();
+services.AddTransient<AuthenticationHeaderHandler>();
 services.AddTransient<HttpLoggingHandler>();
 
 
-services.AddRefitClient<ITobisoAnonymApi>()
+services.AddRefitClient<ITobisoWebApi>()
     .ConfigureHttpClient(c =>
     {
         var baseAddress = builder.Configuration["Api:BaseAddress"];
@@ -62,6 +72,7 @@ services.AddRefitClient<ITobisoAnonymApi>()
         }
         c.BaseAddress = new Uri(baseAddress);
     })
+    .AddHttpMessageHandler<AuthenticationHeaderHandler>()
     .AddHttpMessageHandler<HttpLoggingHandler>();
 
 
@@ -117,6 +128,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
+
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
