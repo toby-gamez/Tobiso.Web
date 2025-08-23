@@ -5,6 +5,7 @@ namespace Tobiso.Web.Shared.Interfaces;
 
 public interface ITobisoWebApi
 {
+    // todo: odstranit, až bude náhrada, je anonymní
     [Get("/api/Posts")]
     Task<IList<PostResponse>> GetAllPosts();
 
