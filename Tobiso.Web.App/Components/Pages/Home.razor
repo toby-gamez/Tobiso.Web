@@ -47,7 +47,24 @@ else
                                 <a href="/post/@post.Id" class="text-decoration-none">@post.Title</a>
                             </strong>
                         </td>
-                        <td></td>
+                        <td>
+                            @if (post.CategoryId.HasValue)
+                            {
+                                var categoryName = GetCategoryNameById(post.CategoryId.Value);
+                                if (!string.IsNullOrEmpty(categoryName))
+                                {
+                                    <span class="badge bg-primary">@categoryName</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
                         <td>
                             @if (!string.IsNullOrEmpty(post.FilePath))
                             {
@@ -80,7 +97,7 @@ else
             Total posts: <strong>@posts.Count</strong>
         </p>
     </div>
-    
+
     @if (categories.Any())
     {
         <h2>Categories</h2>
@@ -107,6 +124,7 @@ else
 @code {
     private IList<PostResponse>? posts;
     private List<CategoryResponse> categories = new List<CategoryResponse>();
+    private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -149,20 +167,32 @@ else
             if (loadedCategories != null)
             {
                 categories = loadedCategories;
+                categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
                 Logger.LogInformation("Successfully loaded {CategoryCount} categories", categories.Count);
             }
             StateHasChanged();
         }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+        {
+            Logger.LogWarning("Server error while loading categories (500 Internal Server Error)");
+            // Don't show categories error to user as it's not critical for viewing posts
+            // Keep categories as empty list
+        }
         catch (Refit.ApiException ex)
         {
-            Logger.LogWarning("Api error while loading categories: {Message}", ex.Message);
-            // Keep categories as empty list, don't set error message for categories failure
+            Logger.LogWarning("Api error while loading categories: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
+            // Don't show categories error to user as it's not critical for viewing posts
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while loading categories: {Message}", ex.Message);
-            // Keep categories as empty list, don't set error message for categories failure
+            // Don't show categories error to user as it's not critical for viewing posts
         }
+    }
+
+    private string? GetCategoryNameById(int categoryId)
+    {
+        return categoryNames.TryGetValue(categoryId, out var name) ? name : null;
     }
 
     [Inject]
