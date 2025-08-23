@@ -66,7 +66,7 @@ else
                             else
                             {
                                 <span class="text-muted">-</span>
-                            }+
+                            }
                         </td>
                         <td>
                             @if (!string.IsNullOrEmpty(post.FilePath))
@@ -96,10 +96,10 @@ else
             </tbody>
         </table>
     </div>
-    
+
     <div class="mt-3">
         <p class="text-muted">
-            <i class="bi bi-info-circle"></i> 
+            <i class="bi bi-info-circle"></i>
             Total posts: <strong>@posts.Count</strong>
         </p>
     </div>
@@ -107,8 +107,8 @@ else
 
 @code {
     private IList<PostResponse>? posts;
-    private IList<CategoryResponse>? categories;
-    private Dictionary<int, string>? categoryNames;
+    private IList<CategoryResponse> categories = new List<CategoryResponse>();
+    private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -121,19 +121,31 @@ else
     {
         try
         {
-            categories = await Api.GetAllCategories();
-            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+            var loadedCategories = await Api.GetAllCategories();
+            if (loadedCategories != null)
+            {
+                categories = loadedCategories;
+                categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+                Logger.LogInformation("Successfully loaded {CategoryCount} categories", categories.Count);
+            }
         }
         catch (Exception ex)
         {
             errorMessage = $"Error loading categories: {ex.Message}";
+            Logger.LogError(ex, "Error loading categories: {Message}", ex.Message);
+            // Ensure collections remain initialized even on error
+            categories = new List<CategoryResponse>();
+            categoryNames = new Dictionary<int, string>();
         }
     }
 
     private string? GetCategoryNameById(int? categoryId)
     {
         if (!categoryId.HasValue || categoryNames == null)
+        {
             return null;
+        }
+
         return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
     }
 
@@ -143,12 +155,12 @@ else
         {
             Console.WriteLine("Starting to load posts...");
             Logger.LogInformation("Starting to load posts from API");
-            
+
             posts = await Api.GetAllPosts();
-            
+
             Console.WriteLine($"Successfully loaded {posts.Count} posts");
             Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
-            
+
             StateHasChanged();
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
