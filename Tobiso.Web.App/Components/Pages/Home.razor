@@ -1,205 +1,118 @@
-﻿@page "/"
-@using Tobiso.Web.Shared.Interfaces
-@using Tobiso.Web.Shared.DTOs
-@inject ITobisoAnonymApi Api
-@inject NavigationManager Navigation
-@inject ILogger<Home> Logger
-
-<PageTitle>Home - Posts</PageTitle>
-
-<h1>Posts</h1>
-
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger" role="alert">
-        <strong>Error:</strong> @errorMessage
-    </div>
-}
-
-@if (posts == null)
-{
-    <p>Loading posts...</p>
-}
-else if (!posts.Any())
-{
-    <p>No posts found.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead class="table-dark">
-                <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Title</th>
-                    <th scope="col">Category</th>
-                    <th scope="col">File Path</th>
-                    <th scope="col">Updated</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var post in posts)
-                {
-                    <tr>
-                        <td>@post.Id</td>
-                        <td>
-                            <strong>
-                                <a href="/post/@post.Id" class="text-decoration-none">@post.Title</a>
-                            </strong>
-                        </td>
-                        <td>
-                            @if (post.CategoryId.HasValue)
-                            {
-                                var categoryName = GetCategoryNameById(post.CategoryId.Value);
-                                if (!string.IsNullOrEmpty(categoryName))
-                                {
-                                    <span class="badge bg-primary">@categoryName</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">-</span>
-                                }
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(post.FilePath))
-                            {
-                                <code class="text-break">@post.FilePath</code>
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                        <td>
-                            @if (post.UpdatedAt.HasValue)
-                            {
-                                <small>@post.UpdatedAt.Value.ToString("MMM dd, yyyy HH:mm")</small>
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-
-    <div class="mt-3">
-        <p class="text-muted">
-            <i class="bi bi-info-circle"></i>
-            Total posts: <strong>@posts.Count</strong>
-        </p>
-    </div>
-
-    @if (categories.Any())
-    {
-        <h2>Categories</h2>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var category in categories)
-                {
-                    <tr>
-                        <td>@category.Id</td>
-                        <td>@category.Name</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+@page "/"
+<link rel="stylesheet" href="css/index-style.css"/>
+<style>
+    .sidebar {
+        display: none;
     }
-}
-
-@code {
-    private IList<PostResponse>? posts;
-    private List<CategoryResponse> categories = new List<CategoryResponse>();
-    private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
-    private string? errorMessage;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadPosts();
-        await LoadCategories();
+    .content {
+        padding: 0;
     }
-
-    private async Task LoadPosts()
-    {
-        try
-        {
-            Logger.LogInformation("Starting to load posts from API");
-
-            posts = await Api.GetAllPosts();
-
-            Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
-
-            StateHasChanged();
-        }
-        catch (Refit.ApiException ex)
-        {
-            Logger.LogWarning("Api error while loading posts: {Message}", ex.Message);
-            errorMessage = $"Error loading posts: {ex.Message}";
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error loading posts: {ex.Message}";
-            Logger.LogError(ex, "Exception occurred while loading posts: {Message}", ex.Message);
-        }
+    section:first-of-type {
+        padding: 0;
+        margin: 0;
     }
+    main {
+        margin: 0;    
+    }
+    footer p {
+        margin-left: 0;
+    }
+    .footer-content {
+         margin-left: 0;
+     }
+</style>
+<section class="hero">
+            <div class="hero-image hero-pc">
+                <img
+                    src="https://tobiso.com/images/ucivo.png"
+                    alt="Ilustrační obrázek školních předmětů"
+                />
+            </div>
+            <div class="hero-content">
+                <h1>Zápisy rychle, přesně</h1>
+                <div class="hero-image hero-mob">
+                    <img
+                        src="https://tobiso.com/images/ucivo.png"
+                        alt="Ilustrační obrázek školních předmětů"
+                    />
+                </div>
+                <p>
+                    Tobiso je vzdělávací platforma zaměřená na školní výuku pro
+                    žáky základních škol. Nabízí materiály, které pokrývají
+                    různé předměty, jako je mluvnice, literatura, sloh,
+                    matematika, chemie a hudební výchova. Také je skoro přesná
+                    kopie sešitů do předmětů.
+                </p>
+                <p class="sometimes-invisible">
+                    Platforma se zaměřuje na zpřístupnění učiva základní školy a
+                    usnadnění jeho pochopení, což může pomoci žákům efektivněji
+                    se učit. Celkově je Tobiso užitečným nástrojem pro všechny,
+                    kdo hledají kvalitní vzdělávací obsah na jednom místě.
+                </p>
+            </div>
+            <button
+                class="scroll-button"
+                onclick="document.getElementById('predmety').scrollIntoView({behavior: 'smooth'});"
+            >
+                ↓
+            </button>
+        </section>
 
-    private async Task LoadCategories()
-    {
-        try
-        {
-            Logger.LogInformation("Starting to load categories from API");
+        <section id="predmety">
+            <h2 class="verybig"><strong>Učivo</strong></h2>
+            <ul class="grid-predmety">
+                <li class="grid-item-pred">
+                    <a href="categories/2">
+                        <h3 class="grid-h3">mluvnice</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/5">
+                        <h3 class="grid-h3">literatura</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/3">
+                        <h3 class="grid-h3">sloh</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/4">
+                        <h3 class="grid-h3">hudební výchova</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/6">
+                        <h3 class="grid-h3">matematika</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/7">
+                        <h3 class="grid-h3">chemie</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/8">
+                        <h3 class="grid-h3">fyzika</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/9">
+                        <h3 class="grid-h3">přírodopis</h3>
+                    </a>
+                </li>
+                <li class="grid-item-pred">
+                    <a href="categories/10">
+                        <h3 class="grid-h3">zeměpis</h3>
+                    </a>
+                </li>
+            </ul>
+            <div style="margin-top: 60px"><button onclick="Home()">Domů</button></div>
+        </section>
+        
 
-            var loadedCategories = await Api.GetAllCategories();
-            if (loadedCategories != null)
-            {
-                categories = loadedCategories;
-                categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
-                Logger.LogInformation("Successfully loaded {CategoryCount} categories", categories.Count);
+        <script>
+            function Home() {
+                window.location.href = "categories";
             }
-            StateHasChanged();
-        }
-        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
-        {
-            Logger.LogWarning("Server error while loading categories (500 Internal Server Error)");
-            // Don't show categories error to user as it's not critical for viewing posts
-            // Keep categories as empty list
-        }
-        catch (Refit.ApiException ex)
-        {
-            Logger.LogWarning("Api error while loading categories: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
-            // Don't show categories error to user as it's not critical for viewing posts
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Exception occurred while loading categories: {Message}", ex.Message);
-            // Don't show categories error to user as it's not critical for viewing posts
-        }
-    }
-
-    private string? GetCategoryNameById(int categoryId)
-    {
-        return categoryNames.TryGetValue(categoryId, out var name) ? name : null;
-    }
-
-    [Inject]
-    private IJSRuntime JS { get; set; } = default!;
-
-    private async Task<bool> JsConfirm(string message)
-    {
-        return await JS.InvokeAsync<bool>("confirm", message);
-    }
-}
+        </script>
