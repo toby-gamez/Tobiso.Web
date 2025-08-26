@@ -1,29 +1,287 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Tobiso.Web.App</a>
+﻿<!-- Mobilní menu -->
+<nav id="myNavbar">
+    <div class="mobile-header">
+        <div>
+            <a href="categories">
+                <img class="navImg" src="https://tobiso.com/images/normal-logo.png" width="150px" alt="">
+            </a>
+        </div>
+        <div>
+            <i class="bi bi-sun"></i>
+            <label class="switch">
+                <input type="checkbox" id="dark-mode-toggle-mobile">
+                <span class="slider round"></span>
+            </label>
+            <i class="bi bi-moon"></i>
+        </div>
+        <div class="nav-link-content">
+            <span id="openSearch"><i class="bi bi-search"></i></span>
+        </div>
+
+        <button class="navbar-toggler" type="button" aria-label="Toggle navigation">
+            <i class="bi bi-list"></i>
+        </button>
     </div>
-</div>
+    <div class="mobile-menu">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link navHo" href="categories">
+                    <div class="nav-link-content">
+                        <i class="bi bi-house-door"></i>
+                        <span>Domů</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item" style="padding-top: 3rem">
+                <a class="nav-link navAb" href="categories/2">
+                    <div class="nav-link-content">
+                        <i class="bi bi-journal-text"></i>
+                        <span>Mluvnice</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navLi" href="categories/5">
+                    <div class="nav-link-content">
+                        <i class="bi bi-book"></i>
+                        <span>Literatura</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navSl" href="categories/3">
+                    <div class="nav-link-content">
+                        <i class="bi bi-pen"></i>
+                        <span>Sloh</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navHu" href="categories/4">
+                    <div class="nav-link-content">
+                        <i class="bi bi-music-note"></i>
+                        <span>Hudební výchova</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navMa" href="categories/6">
+                    <div class="nav-link-content">
+                        <i class="bi bi-calculator"></i>
+                        <span>Matematika</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navCh" href="categories/7">
+                    <div class="nav-link-content">
+                        <i class="bi bi-balloon"></i>
+                        <span>Chemie</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navFy" href="categories/8">
+                    <div class="nav-link-content">
+                        <i class="bi bi-gear"></i>
+                        <span>Fyzika</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navFy" href="categories/9">
+                    <div class="nav-link-content">
+                        <i class="bi bi-flower2"></i>
+                        <span>Přírodopis</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navFy" href="categories/10">
+                    <div class="nav-link-content">
+                        <i class="bi bi-globe-americas"></i>
+                        <span>Zeměpis</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item" style="padding-top: 3rem">
+                <a class="nav-link navAb" href="post/16">
+                    <div class="nav-link-content">
+                        <i class="bi bi-info-circle"></i>
+                        <span>O mně</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navCil" href="post/230">
+                    <div class="nav-link-content">
+                        <i class="bi bi-bullseye"></i>
+                        <span>Cíl projektu</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navNa" href="post/105">
+                    <div class="nav-link-content">
+                        <i class="bi bi-megaphone"></i>
+                        <span>Zpětná vazba</span>
+                    </div>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link navCha" href="post/134">
+                    <div class="nav-link-content">
+                        <i class="bi bi-file-text"></i>
+                        <span>Deník změn</span>
+                    </div>
+                </a>
+            </li>
+            <div class="version-info">1.5</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+            <li class="nav-item" style="padding-top: 3rem">
+                <a class="nav-link" href="#">
+                    <div class="nav-link-content">
+                    </div>
+                </a>
+            </li>
+        </ul>
+    </div>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
+    <!-- Desktop sidebar -->
+    <div id="MyNavBar">
+        <a href="categories"><img class="navImg" src="https://tobiso.com/images/normal-logo.png" width="150px"></a>
+        <div class="scrollable-menu">
+            <ul class="nav flex-column w-100">
+                <li class="nav-item">
+                    <a class="nav-link navHo" href="categories">
+                        <div class="nav-link-content">
+                            <i class="bi bi-house-door"></i>
+                            <span>Domů</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a id="openSearch" href="#" class="nav-link">
+                        <span><i class="bi bi-search"></i> Hledat</span>
+                        <span class="key-icon">K</span>
+                    </a>
+                </li>
+                <li class="nav-item" style="padding-top: 3rem">
+                    <a class="nav-link navAb" href="categories/2">
+                        <div class="nav-link-content">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Mluvnice</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navLi" href="categories/5">
+                        <div class="nav-link-content">
+                            <i class="bi bi-book"></i>
+                            <span>Literatura</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navSl" href="categories/3">
+                        <div class="nav-link-content">
+                            <i class="bi bi-pen"></i>
+                            <span>Sloh</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navHu" href="categories/4">
+                        <div class="nav-link-content">
+                            <i class="bi bi-music-note"></i>
+                            <span>Hudební výchova</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navMa" href="categories/6">
+                        <div class="nav-link-content">
+                            <i class="bi bi-calculator"></i>
+                            <span>Matematika</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navCh" href="categories/7">
+                        <div class="nav-link-content">
+                            <i class="bi bi-balloon"></i>
+                            <span>Chemie</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navFy" href="categories/8">
+                        <div class="nav-link-content">
+                            <i class="bi bi-gear"></i>
+                            <span>Fyzika</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navFy" href="categories/9">
+                        <div class="nav-link-content">
+                            <i class="bi bi-flower2"></i>
+                            <span>Přírodopis</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navFy" href="categories/10">
+                        <div class="nav-link-content">
+                            <i class="bi bi-globe-americas"></i>
+                            <span>Zeměpis</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item" style="padding-top: 3rem">
+                    <a class="nav-link navAb" href="post/16">
+                        <div class="nav-link-content">
+                            <i class="bi bi-info-circle"></i>
+                            <span>O mně</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navCil" href="post/230">
+                        <div class="nav-link-content">
+                            <i class="bi bi-bullseye"></i>
+                            <span>Cíl projektu</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navNa" href="post/105">
+                        <div class="nav-link-content">
+                            <i class="bi bi-megaphone"></i>
+                            <span>Zpětná vazba</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link navCha" href="post/134">
+                        <div class="nav-link-content">
+                            <i class="bi bi-file-text"></i>
+                            <span>Deník změn</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <div class="nav-link-content nav-text">
+                        <i class="bi bi-sun"></i>
+                        <label class="switch">
+                            <input type="checkbox" id="dark-mode-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <i class="bi bi-moon"></i>
+                    </div>
+                </li>
+            </ul>
         </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="categories">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Categories
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="posts-incognito">
-                <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Customer Pages
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+        <div class="version-info">1.6</div>
+    </div>
+</nav>
