@@ -1,41 +1,97 @@
-@page "/post/{id:int}"
+@page "/post/{Id:int}"
+@using System.Text.RegularExpressions
 @using Tobiso.Web.Shared.DTOs
-@using Markdig
-@inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi Api
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime Js
 @inject NavigationManager Navigation
-<style>
-    .sidebar {
-        display: none;
-    }
-</style>
-<PageTitle>Blogový post</PageTitle>
+<PageTitle>@(_post?.Title ?? "Blogový post")</PageTitle>
 
-@if (post == null)
+@if (_post == null)
 {
     <p>Načítám...</p>
 }
 else
 {
-    <button class="btn btn-secondary mb-3" @onclick="BackToList">Zpět na seznam</button>
-    <h2>@post.Title</h2>
+    <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
+    <h2 class="verybig">@_post.Title</h2>
     <div class="mb-4">
-        @((MarkupString)Markdig.Markdown.ToHtml(post.Content))
+        @((MarkupString)Markdig.Markdown.ToHtml(_transformedContent ?? _post.Content))
     </div>
 }
 
 @code {
     [Parameter]
-    public int id { get; set; }
-    private PostResponse? post;
+    public int Id { get; set; }
+    private PostResponse? _post;
+    private List<PostResponse>? _allPosts;
+    private string? _transformedContent;
+    private string? _returnUrl;
 
     protected override async Task OnInitializedAsync()
     {
-        post = await Api.GetPostById(id);
+        _post = await Api.GetPostById(Id);
+        _allPosts = (await Api.GetAllPosts()).ToList();
+        _transformedContent = TransformLinks(_post?.Content ?? "");
     }
 
-    private void BackToList()
+    protected override async Task OnParametersSetAsync()
     {
-        Navigation.NavigateTo("/posts-incognito");
+        var uri = new Uri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
+        _post = await Api.GetPostById(Id);
+        _allPosts = (await Api.GetAllPosts()).ToList();
+        _transformedContent = TransformLinks(_post?.Content ?? "");
+    }
+
+    private string TransformLinks(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return content;
+        var html = Markdig.Markdown.ToHtml(content);
+        var regex = new System.Text.RegularExpressions.Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return regex.Replace(html, new MatchEvaluator(match => {
+            var origHref = match.Groups[1].Value;
+            var attrs = match.Groups[2].Value;
+            var linkText = match.Groups[3].Value;
+            // Pokud je v odkazu http, otevři v nové kartě a nic nehledej
+            if (origHref.Contains("http"))
+            {
+                return string.Format("<a href=\"{0}\" target=\"_blank\" rel=\"noopener noreferrer\"{1}>{2}</a>", origHref, attrs, linkText);
+            }
+            // Pokud je v odkazu files, přidej prefix a otevři v nové kartě
+            if (origHref.Contains("files"))
+            {
+                var fullUrl = origHref.StartsWith("/") ? $"https://tobiso.com{origHref}" : $"https://tobiso.com/{origHref}";
+                return string.Format("<a href=\"{0}\" target=\"_blank\" rel=\"noopener noreferrer\"{1}>{2}</a>", fullUrl, attrs, linkText);
+            }
+            // Odstranění prefixu
+            var file = System.Text.RegularExpressions.Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-)", "");
+            // Nahrazení .html za .md
+            file = file.Replace(".html", ".md");
+            // Přidání / na začátek až po všech úpravách
+            if (!file.StartsWith("/")) file = "/" + file;
+            // Debug info: zobraz přeformátovaný filename (po všech úpravách)
+            var debugInfo = string.Format("<span style=\"color:blue; font-size:small;\">{0}</span> ", file);
+            // Najdi post podle FilePath
+            var postMatch = _allPosts?.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
+            if (postMatch != null)
+            {
+                return string.Format("{0}<a href=\"/post/{1}\"{2}>{3}</a>", debugInfo, postMatch.Id, attrs, linkText);
+            }
+            return string.Format("{0}<span style=\"color:gray; text-decoration:line-through;\">{1}</span>", debugInfo, linkText);
+        }));
+    }
+
+    private void BackHistory()
+    {
+        if (!string.IsNullOrEmpty(_returnUrl))
+        {
+            Js.InvokeVoidAsync("eval", $"window.location.href='{_returnUrl}'");
+        }
+        else
+        {
+            Navigation.NavigateTo("/categories", forceLoad: true);
+        }
     }
 }
-

@@ -1,0 +1,86 @@
+@page "/categories/{parentId:int?}"
+@using Tobiso.Web.Shared.DTOs
+@inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi Api
+@inject NavigationManager Navigation
+<PageTitle>@GetCategoryTitle()</PageTitle>
+<h1 class="verybig">@GetCategoryTitle()</h1>
+
+@if (categories == null)
+{
+    <p>Načítám...</p>
+}
+else
+{
+    <ul class="grid-predmety">
+        @foreach (var category in categories.Where(c => c.ParentId == parentId))
+        {
+            <li class="grid-item-pred">
+                <a href="@($"/categories/{category.Id}")">
+                    <h3>@category.Name</h3>
+                </a>
+            </li>
+        }
+        @if (posts != null && posts.Any())
+        {
+            @foreach (var post in posts)
+            {
+                <li class="grid-item-pred">
+                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")">
+                        <h3>@post.Title</h3>
+                    </a>
+                </li>
+            }
+        }
+    </ul>
+    @if (parentId != null)
+    {
+        <button class="btn btn-secondary mt-3" @onclick="BackToParent">Zpět</button>
+    }
+}
+
+@code {
+    [Parameter]
+    public int? parentId { get; set; }
+    private List<CategoryResponse>? categories;
+    private IList<PostResponse>? posts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        categories = await Api.GetAllCategories();
+        await LoadPosts();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (categories == null)
+            categories = await Api.GetAllCategories();
+        await LoadPosts();
+    }
+
+    private async Task LoadPosts()
+    {
+        if (parentId != null)
+        {
+            var allPosts = await Api.GetAllPosts();
+            posts = allPosts.Where(p => p.CategoryId == parentId).ToList();
+        }
+        else
+        {
+            posts = null;
+        }
+    }
+
+    private string GetCategoryTitle()
+    {
+        if (parentId == null || categories == null)
+            return "Domů";
+        var cat = categories.FirstOrDefault(c => c.Id == parentId);
+        return cat?.Name ?? "Domů";
+    }
+
+    private void BackToParent()
+    {
+        var parent = categories?.FirstOrDefault(c => c.Id == parentId)?.ParentId;
+        Navigation.NavigateTo(parent == null ? "/categories" : $"/categories/{parent}");
+    }
+}
