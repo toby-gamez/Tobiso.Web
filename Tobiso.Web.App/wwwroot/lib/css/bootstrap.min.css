@@ -1,0 +1,161 @@
+/* Základní styly pro Navbar */
+.navbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    position: relative;
+    /* Normální chování bez pevného umístění */
+    width: 100%;
+    background-color: #f8f9fa;
+    /* Výchozí barva pozadí pro Navbar */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    /* Oddělení od obsahu */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* Jemný stín pro vzhled */
+}
+
+.navbar-expand-lg {
+    flex-wrap: nowrap;
+}
+
+.navbar-collapse {
+    flex-basis: auto;
+    flex-grow: 1;
+    align-items: center;
+}
+
+.navbar-toggler {
+    padding: 0.25rem 0.75rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+}
+
+.navbar-toggler-icon {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
+    content: "";
+    background: no-repeat center center;
+    background-size: 100% 100%;
+}
+
+.navbar-brand {
+    display: inline-block;
+    padding-top: 0.3125rem;
+    padding-bottom: 0.3125rem;
+    margin-right: 1rem;
+    font-size: 1.25rem;
+    line-height: inherit;
+    white-space: nowrap;
+}
+
+/* Navigační seznam */
+.navbar-nav {
+    display: flex;
+    flex-direction: row;
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.nav-item {
+    margin-left: 1rem;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    color: #0d6efd;
+}
+
+.nav-link:hover {
+    text-decoration: underline;
+}
+
+/* Dropdown styly */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    display: none;
+    min-width: 10rem;
+    padding: 0.5rem 0;
+    margin: 0.125rem 0 0;
+    font-size: 1rem;
+    color: #212529;
+    text-align: left;
+    list-style: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.375rem;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.25rem 1rem;
+    clear: both;
+    text-align: inherit;
+    text-decoration: none;
+    color: #212529;
+    background-color: transparent;
+    border: 0;
+}
+
+.dropdown-item:hover {
+    color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+/* Flexbox závislosti */
+.d-flex {
+    display: flex !important;
+}
+
+.flex-row {
+    flex-direction: row !important;
+}
+
+/* Utility třídy pro zarovnání */
+.justify-content-between {
+    justify-content: space-between !important;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+/* Rozšířené třídy pro responzivitu */
+@media (max-width: 992px) {
+    .navbar-nav {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .nav-item {
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (min-width: 993px) {
+    .navbar-expand-lg .navbar-nav {
+        flex-direction: row;
+    }
+}
+
+nav li {
+    display: flex;
+    flex-direction: row;
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}

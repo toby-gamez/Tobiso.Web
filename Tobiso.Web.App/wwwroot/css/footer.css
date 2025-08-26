@@ -1,0 +1,36 @@
+footer {
+    background-color: transparent;
+    color: white;
+    padding: 20px 0;
+    text-align: center;
+}
+footer p,
+.footer-content {
+    text-decoration: none;
+    transition: all 0.3s ease;
+    margin-left: 18rem;
+    height: 50px;
+    display: flex;
+    border-radius: 10px;
+    gap: 10px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+}
+footer p {
+    margin: 0;
+    margin-left: 18rem;
+}
+.footer-content button {
+    padding: 2px 4px;
+}
+
+@media only screen and (max-width: 600px) {
+    .footer-content {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    footer p {
+        margin: 0;
+    }
+}

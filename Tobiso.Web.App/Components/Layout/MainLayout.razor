@@ -1,17 +1,73 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
+    <!-- Google Consent Mode -->
+    <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+
+            // Výchozí stav: souhlas odepřen
+            gtag("consent", "default", {
+                analytics_storage: "denied",
+            });
+            console.log("Google Consent Mode initialized with default: denied");
+        </script>
+
+    <!-- Google Analytics (nenačte se automaticky) -->
+    <script
+        async
+        src="https://www.googletagmanager.com/gtag/js?id=G-1CDLST0SSK"
+    ></script>
+    <script>
+            function loadGoogleAnalytics() {
+                console.log("Loading Google Analytics...");
+                gtag("js", new Date());
+                gtag("config", "G-1CDLST0SSK");
+                console.log("Google Analytics loaded.");
+            }
+        </script>
+    <div class="loading-bar-container">
+        <div class="loading-bar"></div>
+    </div>
+    <div id="searchModal" class="modal">
+        <div class="modal-content">
+            <span id="closeSearch">&times;</span>
+            <input type="text" id="search" placeholder="Hledat...">
+            <div id="results"></div>
+        </div>
+    </div>
+    <div id="cookie-consent" style="display: none;">
+        <p>Tento web používá cookies. Pokud nesouhlasíte, budou se posílat jen nezbytné cookies.</p>
+        <button onclick="acceptCookies()">Souhlasím</button>
+        <button class="decline" onclick="declineCookies()">Nesouhlasím</button>
+    </div>
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu/>
     </div>
 
     <main>
-        <article class="content px-4">
-            @Body
-        </article>
+        <section>
+            <article class="content px-4">
+                @Body
+            </article>
+        </section>
     </main>
+    <footer>
+        <p>© 2025, Všechna práva vyhrazena</p>
+        <div class="footer-content">
+            <button onclick="navigateTo('privacy-policy-cs.html')">Zásady ochrany osobních údajů</button>
+            <button onclick="navigateTo('about.html')">O mně</button>
+            <script>
+                    function navigateTo(url) {
+                        window.location.href = url;
+                    }
+                </script>
+        </div>
+    </footer>
 </div>
-
+<script src="js/script.js"></script>
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>

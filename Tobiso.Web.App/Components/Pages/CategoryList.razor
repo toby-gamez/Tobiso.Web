@@ -11,10 +11,10 @@
 }
 else
 {
-    <ul class="grid-predmety">
-        @foreach (var category in categories.Where(c => c.ParentId == parentId))
+    <ul class="grid">
+        @foreach (var category in GetFilteredCategories().Where(c => c.ParentId == parentId))
         {
-            <li class="grid-item-pred">
+            <li class="grid-item">
                 <a href="@($"/categories/{category.Id}")">
                     <h3>@category.Name</h3>
                 </a>
@@ -24,7 +24,7 @@ else
         {
             @foreach (var post in posts)
             {
-                <li class="grid-item-pred">
+                <li class="grid-item">
                     <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")">
                         <h3>@post.Title</h3>
                     </a>
@@ -76,6 +76,11 @@ else
             return "Domů";
         var cat = categories.FirstOrDefault(c => c.Id == parentId);
         return cat?.Name ?? "Domů";
+    }
+
+    private IEnumerable<CategoryResponse> GetFilteredCategories()
+    {
+        return categories?.Where(c => c.Id != 42) ?? Enumerable.Empty<CategoryResponse>();
     }
 
     private void BackToParent()
