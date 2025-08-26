@@ -399,27 +399,32 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
+// Cookie consent banner logic
+function showCookieBanner() {
+  const banner = document.getElementById("cookie-consent");
+  if (banner) banner.style.display = "block";
+}
+function hideCookieBanner() {
+  const banner = document.getElementById("cookie-consent");
+  if (banner) banner.style.display = "none";
+}
 function acceptCookies() {
-  localStorage.setItem("cookieConsent", "true");
-  document.getElementById("cookie-consent").style.display = "none";
-
-  console.log("User accepted cookies.");
-  gtag("consent", "update", {
-    analytics_storage: "granted",
-  });
-
-  loadGoogleAnalytics();
+  localStorage.setItem("cookieConsent", "accepted");
+  hideCookieBanner();
 }
-
 function declineCookies() {
-  localStorage.setItem("cookieConsent", "false");
-  document.getElementById("cookie-consent").style.display = "none";
-
-  console.log("User declined cookies.");
-  gtag("consent", "update", {
-    analytics_storage: "denied",
-  });
+  localStorage.setItem("cookieConsent", "declined");
+  hideCookieBanner();
 }
+document.addEventListener("DOMContentLoaded", function () {
+  // Cookie consent check
+  const consent = localStorage.getItem("cookieConsent");
+  if (!consent) {
+    showCookieBanner();
+  } else {
+    hideCookieBanner();
+  }
+});
 
 window.onload = function () {
   let consent = localStorage.getItem("cookieConsent");

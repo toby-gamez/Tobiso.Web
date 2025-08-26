@@ -4,7 +4,11 @@
 @inject NavigationManager Navigation
 <PageTitle>@GetCategoryTitle()</PageTitle>
 <h1 class="verybig">@GetCategoryTitle()</h1>
-
+<style>
+    section {
+        text-align: center;
+    }
+</style>
 @if (categories == null)
 {
     <p>Načítám...</p>
