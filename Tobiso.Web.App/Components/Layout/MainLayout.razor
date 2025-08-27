@@ -21,10 +21,8 @@
         </section>
     </main>
 </div>
-
 @* Search Modal *@
 <div id="searchModal" class="modal">
-    
     <div class="modal-content">
         <span id="closeSearch">&times;</span>
         <input type="text" id="search" placeholder="Hledat...">
@@ -36,8 +34,8 @@
 <div id="cookie-consent" style="display: none;">
     
     <p>Tento web používá cookies. Pokud nesouhlasíte, budou se posílat jen nezbytné cookies.</p>
-    <button onclick="acceptCookies()">Souhlasím</button>
-    <button class="decline" onclick="declineCookies()">Nesouhlasím</button>
+    <button @onclick="AcceptCookies">Souhlasím</button>
+    <button class="decline" @onclick="DeclineCookies">Nesouhlasím</button>
 </div>
 
 @code {

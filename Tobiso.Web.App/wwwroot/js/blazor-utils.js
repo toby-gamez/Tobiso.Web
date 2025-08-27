@@ -125,9 +125,14 @@ function initSearch() {
 
 async function loadSearchIndex() {
   try {
-    const response = await fetch("js/search-index.json");
+    const response = await fetch("/api/posts");
     const data = await response.json();
-    pages = data;
+    // Transformace dat pro Lunr index
+    pages = data.map(post => ({
+      url: `/post/${post.id}`,
+      title: post.title,
+      content: post.content
+    }));
 
     // Inicializace Lunr indexu
     index = lunr(function () {
@@ -135,7 +140,7 @@ async function loadSearchIndex() {
       this.field("title");
       this.field("content");
 
-      data.forEach((page) => {
+      pages.forEach((page) => {
         this.add(page);
       });
     });
