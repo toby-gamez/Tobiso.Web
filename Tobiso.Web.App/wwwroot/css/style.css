@@ -688,13 +688,15 @@ body.dark-mode .version-info,
 body.dark-mode button,
 body.dark-mode #myNavbar a,
 body.dark-mode .nav-text,
+body.dark-mode #MyNavBar .nav-link,
 body.dark-mode h1,
 body.dark-mode h2,
 body.dark-mode h3,
 body.dark-mode h4,
 body.dark-mode h5,
 body.dark-mode #MyNavBar .nav-text,
-body.dark-mode #MyNavBar .nav-item {
+body.dark-mode #MyNavBar .nav-item,
+body.dark-mode hr {
     color: #fcede9;
 }
 
@@ -707,9 +709,6 @@ body.dark-mode #MyNavBar .nav-link:hover {
     background-color: #942700;
 }
 
-body.dark-mode hr {
-    background-color: #fcede9;
-}
 
 body.dark-mode .footer-content a,
 body.dark-mode main a {
@@ -875,6 +874,7 @@ body.dark-mode .grid-item-sesit a:hover {
 
 body.dark-mode .intro {
     background-color: #2e0d00;
+    color: #fcede9;
 }
 
 body.dark-mode a:has(.navImg) {
