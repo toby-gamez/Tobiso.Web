@@ -11,6 +11,7 @@ using Tobiso.Web.Api.Services;
 using Tobiso.Web.App.Authentication;
 using Tobiso.Web.App.Components;
 using Tobiso.Web.App.Handlers;
+using Tobiso.Web.App.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ var services = builder.Services;
 // Add services
 services.Configure<BasicAuthOptions>(builder.Configuration.GetSection("Auth:Basic"));
 services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"]) });
+builder.Services.AddScoped<IPreferenceService, PreferenceService>();
 services.AddHttpContextAccessor();
 
 services.AddDbContext<TobisoDbContext>(options =>
