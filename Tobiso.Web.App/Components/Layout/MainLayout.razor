@@ -5,6 +5,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IPreferenceService PreferenceService
+@inject NavigationManager NavigationManager
 
 <div class="page" xmlns="http://www.w3.org/1999/html">
     <div class="sidebar">
@@ -21,18 +22,23 @@
         </section>
     </main>
 </div>
+<footer>
+    <p>© 2025, Všechna práva vyhrazena</p>
+    <div class="footer-content">
+        <button @onclick="NavigateToPrivacy">Zásady ochrany osobních údajů</button>
+        <button @onclick="NavigateToAbout">O mně</button>
+    </div>
+</footer>
 @* Search Modal *@
 <div id="searchModal" class="modal">
     <div class="modal-content">
         <span id="closeSearch">&times;</span>
-        <input type="text" id="search" placeholder="Hledat...">
+        <input type="text" id="search" placeholder="Hledat..." />
         <div id="results"></div>
     </div>
 </div>
-
 @* Cookie Consent Banner *@
 <div id="cookie-consent" style="display: none;">
-    
     <p>Tento web používá cookies. Pokud nesouhlasíte, budou se posílat jen nezbytné cookies.</p>
     <button @onclick="AcceptCookies">Souhlasím</button>
     <button class="decline" @onclick="DeclineCookies">Nesouhlasím</button>
@@ -41,16 +47,14 @@
 @code {
     private IJSObjectReference? jsModule;
     private DotNetObjectReference<MainLayout>? dotNetHelper;
-    
+
     private bool isDarkMode = false;
     private string? cookieConsent = null;
 
     protected override async Task OnInitializedAsync()
     {
-        // Načtení uložených preferencí
         var darkModePref = await PreferenceService.GetPreferenceAsync("darkMode");
         isDarkMode = bool.TryParse(darkModePref, out var darkMode) && darkMode;
-        
         cookieConsent = await PreferenceService.GetPreferenceAsync("cookieConsent");
     }
 
@@ -61,12 +65,12 @@
             // Načtení JavaScript modulu
             jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
                 "import", "./js/blazor-utils.js");
-            
+
             dotNetHelper = DotNetObjectReference.Create(this);
-            
+
             // Předání preferencí do JavaScriptu
             await SetInitialPreferences();
-            
+
             // Inicializace aplikace
             await jsModule.InvokeVoidAsync("initializeApp", dotNetHelper);
         }
@@ -77,14 +81,14 @@
         // Nastavení dark mode preference v DOM
         if (isDarkMode)
         {
-            await JSRuntime.InvokeVoidAsync("eval", 
+            await JSRuntime.InvokeVoidAsync("eval",
                 "document.body.classList.add('dark-mode-preferred')");
         }
-        
+
         // Nastavení cookie consent v DOM
         if (!string.IsNullOrEmpty(cookieConsent))
         {
-            await JSRuntime.InvokeVoidAsync("eval", 
+            await JSRuntime.InvokeVoidAsync("eval",
                 $"document.documentElement.dataset.cookieConsent = '{cookieConsent}'");
         }
     }
@@ -103,7 +107,6 @@
         try
         {
             var searchResults = JsonSerializer.Deserialize<SearchResult[]>(results);
-            // Zde můžete logovat vyhledávání nebo aktualizovat analytiky
             Console.WriteLine($"Search performed: {query}, Results count: {searchResults?.Length ?? 0}");
         }
         catch (Exception ex)
@@ -139,7 +142,6 @@
         }
     }
 
-    // Veřejné metody pro volání z Blazor komponent
     public async Task ScrollToTop()
     {
         if (jsModule != null)
@@ -170,7 +172,9 @@
             await jsModule.InvokeVoidAsync("removeCookieConsent");
     }
 
-    // Cleanup
+    private void NavigateToPrivacy() => NavigationManager.NavigateTo("post/70");
+    private void NavigateToAbout() => NavigationManager.NavigateTo("post/16");
+
     public async ValueTask DisposeAsync()
     {
         if (jsModule != null)
