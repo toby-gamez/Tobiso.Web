@@ -28,7 +28,9 @@
 
                         <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
                             <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
+                            
+                            @* Removed ValidationSummary to prevent duplicate messages and simplify the UI. *@
+                            @* <ValidationSummary class="text-danger" /> *@
 
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>

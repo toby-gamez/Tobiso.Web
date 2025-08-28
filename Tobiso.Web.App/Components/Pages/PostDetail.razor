@@ -22,7 +22,18 @@ else
 {
     <h1 class="verybig">@_post.Title</h1>
     <div class="mb-4">
-        @((MarkupString)Markdig.Markdown.ToHtml(_transformedContent ?? _post.Content))
+        @if (_fileSuffix == ".md")
+        {
+            @((MarkupString)TransformMarkdownContent(_post.Content))
+        }
+        else if (_fileSuffix == ".html")
+        {
+            @((MarkupString)(_post.Content))
+        }
+        else
+        {
+            @((MarkupString)(_post.Content))
+        }
     </div>
     <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
 }
@@ -32,14 +43,14 @@ else
     public int Id { get; set; }
     private PostResponse? _post;
     private List<PostResponse>? _allPosts;
-    private string? _transformedContent;
     private string? _returnUrl;
+    private string? _fileSuffix;
 
     protected override async Task OnInitializedAsync()
     {
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
-        _transformedContent = TransformLinks(_post?.Content ?? "");
+        SetFileSuffix();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -49,84 +60,83 @@ else
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
-        _transformedContent = TransformLinks(_post?.Content ?? "");
+        SetFileSuffix();
     }
 
-    private string TransformLinks(string content)
+    private void SetFileSuffix()
     {
-        if (string.IsNullOrEmpty(content)) return content;
+        if (_post != null && !string.IsNullOrEmpty(_post.FilePath))
+        {
+            if (_post.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                _fileSuffix = ".md";
+            else if (_post.FilePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                _fileSuffix = ".html";
+            else
+                _fileSuffix = null;
+        }
+        else
+        {
+            _fileSuffix = null;
+        }
+    }
+
+    private string TransformMarkdownContent(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
         var html = Markdig.Markdown.ToHtml(content);
         // Oprav obrázky: přidej prefix k src u <img>
-        var imgRegex = new System.Text.RegularExpressions.Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        html = imgRegex.Replace(html, new MatchEvaluator(match => {
+        var imgRegex = new Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+        html = imgRegex.Replace(html, match => {
             var origSrc = match.Groups[1].Value;
-            // Pokud už je tam http, ponech
             if (origSrc.Contains("http")) return match.Value;
-            // Pokud je tam images, přidej prefix
             if (origSrc.Contains("images"))
             {
                 var fullSrc = origSrc.StartsWith("/") ? $"https://tobiso.com{origSrc}" : $"https://tobiso.com/{origSrc}";
                 return match.Value.Replace(origSrc, fullSrc);
             }
             return match.Value;
-        }));
+        });
         // Zpracování odkazů
-        var regex = new System.Text.RegularExpressions.Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        html = regex.Replace(html, new MatchEvaluator(match => {
+        var regex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
+        html = regex.Replace(html, match => {
             var origHref = match.Groups[1].Value;
             var attrs = match.Groups[2].Value;
             var linkText = match.Groups[3].Value;
-            // Pokud je v odkazu http, otevři v nové kartě a nic nehledej
             if (origHref.Contains("http"))
             {
-                return string.Format("<a href=\"{0}\" target=\"_blank\" rel=\"noopener noreferrer\"{1}>{2}</a>", origHref, attrs, linkText);
+                return $"<a href=\"{origHref}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
             }
-            // Pokud je v odkazu files, přidej prefix a otevři v nové kartě
             if (origHref.Contains("files"))
             {
                 var fullUrl = origHref.StartsWith("/") ? $"https://tobiso.com{origHref}" : $"https://tobiso.com/{origHref}";
-                return string.Format("<a href=\"{0}\" target=\"_blank\" rel=\"noopener noreferrer\"{1}>{2}</a>", fullUrl, attrs, linkText);
+                return $"<a href=\"{fullUrl}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
             }
-            // Pokud je v odkazu mailto, otevři v prohlížeči
             if (origHref.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
             {
-                return string.Format("<a href=\"{0}\" onclick=\"window.location.href='{0}'; return false;\"{1}>{2}</a>", origHref, attrs, linkText);
+                return $"<a href=\"{origHref}\" onclick=\"window.location.href='{origHref}'; return false;\"{attrs}>{linkText}</a>";
             }
-            // Odstranění prefixu
-            var file = System.Text.RegularExpressions.Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-|geo-)", "");
-            // Nahrazení .html za .md
+            var file = Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-|geo-)", "");
             file = file.Replace(".html", ".md");
-            // Přidání / na začátek až po všech úpravách
             if (!file.StartsWith("/")) file = "/" + file;
-            // Debug info: zobraz přeformátovaný filename (po všech úpravách)
-            var debugInfo = string.Format("<span style=\"color:blue; font-size:small;\">{0}</span> ", file);
-            // Najdi post podle FilePath
             var postMatch = _allPosts?.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
             if (postMatch != null)
             {
-                return string.Format("<a href=\"/post/{0}\"{1}>{2}</a>", postMatch.Id, attrs, linkText);
+                return $"<a href=\"/post/{postMatch.Id}\"{attrs}>{linkText}</a>";
             }
-            return string.Format("<span style=\"color:gray; text-decoration:line-through;\">{0}</span>", linkText);
-        }));
+            return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
+        });
         // Zabal text v tečkách do divu s class intro
-        var dotsRegex = new System.Text.RegularExpressions.Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", System.Text.RegularExpressions.RegexOptions.Singleline);
+        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
         html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
-        // Odstraň samostatné ...
-        var singleDotsRegex = new System.Text.RegularExpressions.Regex(@"<p>\s*\.\.\.\s*<\/p>", System.Text.RegularExpressions.RegexOptions.Singleline);
+        var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
-        // Odstraň všechny zbylé ...
         html = html.Replace("...", "");
-        // --- Markdown tabulka na HTML table ---
         html = ConvertMarkdownTablesToHtml(html);
         return html;
     }
 
-    // Funkce pro převod markdown tabulky na HTML table
     private string ConvertMarkdownTablesToHtml(string html)
     {
-        // Najdi všechny tabulky v HTML (převedené z markdownu)
-        // Markdown tabulka je převedena na <table> pouze pokud Markdig použije Table extension, jinak zůstane jako <p>| ...
-        // Proto hledáme bloky začínající <p>| a končící </p>
         var tableRegex = new Regex(@"<p>(\|.+?\|\s*\n\|[-:| ]+\|\s*\n(?:\|.+?\|\s*\n?)+)</p>", RegexOptions.Singleline);
         html = tableRegex.Replace(html, match =>
         {
