@@ -691,9 +691,11 @@ body.dark-mode h3,
 body.dark-mode h4,
 body.dark-mode h5,
 body.dark-mode #MyNavBar .nav-text,
-body.dark-mode #MyNavBar .nav-item,
-body.dark-mode hr {
+body.dark-mode #MyNavBar .nav-item {
     color: #fcede9;
+}
+body.dark-mode hr {
+    background-color: #fcede9;
 }
 
 body.dark-mode .version-info {
