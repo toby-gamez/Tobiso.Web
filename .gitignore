@@ -387,3 +387,4 @@ MigrationBackup/
 .vscode/tasks.json
 /Blinked/Blinked.App/appsettings.Development.json
 /Blinked/Blinked.App/appsettings.json
+/tools/Addins
