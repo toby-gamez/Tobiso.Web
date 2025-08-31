@@ -28,6 +28,7 @@ function initDarkMode() {
     setDarkModePreference(true);
     logoElements.forEach((logo) => {
       logo.src = "https://tobiso.com/images/white-logo.png";
+      logo.alt = "bílé logo";
     });
 
     // Notifikace Blazor komponenty
