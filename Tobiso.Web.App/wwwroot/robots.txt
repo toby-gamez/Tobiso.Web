@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /fragments/
+Allow: /css/
+Allow: /js/
+Allow: /images/
+Allow: /videos/
+Allow: /files/
+Allow: /libs/
+Sitemap: https://tobiso.caloris.cz/sitemap.xml
