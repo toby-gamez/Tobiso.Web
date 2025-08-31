@@ -21,6 +21,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .CreateLogger();
 
+builder.Services.AddControllers();
 builder.Host.UseSerilog();
 
 
@@ -117,7 +118,6 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseRouting();
-
 // Add Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
