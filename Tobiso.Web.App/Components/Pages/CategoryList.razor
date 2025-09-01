@@ -28,8 +28,9 @@ else
         {
             @foreach (var post in posts)
             {
-                <li class="grid-item">
-                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")">
+                <li class="@(post.Title.ToLower().Contains("sešit") ? "grid-item-sesit" : "grid-item")">
+                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")" 
+                       class="">
                         <h3>@post.Title</h3>
                     </a>
                 </li>
