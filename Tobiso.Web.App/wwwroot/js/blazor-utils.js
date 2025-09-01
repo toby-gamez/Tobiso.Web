@@ -4,6 +4,7 @@ let index, pages;
 
 // Hlavní inicializační funkce
 export function initializeApp(dotNetRef) {
+  console.log("[blazor-utils] initializeApp called");
   dotNetHelper = dotNetRef;
 
   // Inicializace všech funkcionalit
@@ -281,20 +282,46 @@ function displaySearchResults(results) {
 }
 
 // Cookie consent
+function waitForGtag(callback, maxTries = 20, interval = 200) {
+  let tries = 0;
+  function check() {
+    if (typeof gtag === "function") {
+      callback();
+    } else if (tries < maxTries) {
+      tries++;
+      setTimeout(check, interval);
+    } else {
+      console.log("[blazor-utils] gtag still not defined after waiting");
+    }
+  }
+  check();
+}
+
 function initCookieConsent() {
+  console.log("[blazor-utils] initCookieConsent called");
   const consent = getCookieConsent();
+  // Nastavení Google Consent Mode při každém načítání stránky
+  waitForGtag(() => {
+    const analyticsConsent = (consent === "accepted") ? "granted" : "denied";
+    gtag("consent", "update", { analytics_storage: analyticsConsent });
+    console.log("[blazor-utils] Google running with consent:", analyticsConsent);
+  });
   if (!consent) {
     setTimeout(() => {
+      console.log("[blazor-utils] showCookieBanner called");
       showCookieBanner();
     }, 3000);
   }
 }
 
 function showCookieBanner() {
+  console.log("[blazor-utils] showCookieBanner executed");
   const banner = document.getElementById("cookie-consent");
   if (banner) {
     banner.style.display = "block";
     banner.classList.add("show");
+  } else {
+    console.log("[blazor-utils] Cookie banner element not found");
   }
 }
 
@@ -388,16 +415,30 @@ export function goBack() {
 }
 
 export function acceptCookies() {
+  console.log("Cookies accepted");
   setCookieConsent("accepted");
   hideCookieBanner();
+  document.documentElement.dataset.cookieConsent = "accepted";
+  waitForGtag(() => {
+    gtag("consent", "update", { analytics_storage: "granted" });
+    if (typeof loadGoogleAnalytics === "function") {
+      loadGoogleAnalytics();
+    }
+  });
   if (dotNetHelper) {
     dotNetHelper.invokeMethodAsync('OnCookieConsentChanged', "accepted");
+    console.log("Cookies finally accepted");
   }
 }
 
 export function declineCookies() {
+  console.log("Cookies DENIED");
   setCookieConsent("declined");
   hideCookieBanner();
+  document.documentElement.dataset.cookieConsent = "declined";
+  waitForGtag(() => {
+    gtag("consent", "update", { analytics_storage: "denied" });
+  });
   if (dotNetHelper) {
     dotNetHelper.invokeMethodAsync('OnCookieConsentChanged', "declined");
   }
