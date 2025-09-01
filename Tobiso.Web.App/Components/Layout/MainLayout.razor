@@ -20,6 +20,14 @@
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
 </HeadContent>
 
+<script>
+    function loadGoogleAnalytics() {
+        console.log("Loading Google Analytics...");
+        gtag("js", new Date());
+        gtag("config", "G-1CDLST0SSK");
+        console.log("Google Analytics loaded.");
+    }
+</script>
 <div class="page" xmlns="http://www.w3.org/1999/html">
     <div class="sidebar">
         <NavMenu />
@@ -75,9 +83,21 @@
     {
         if (firstRender)
         {
+            // Dynamicky vloží Google Analytics skript a inicializuje gtag
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                var script = document.createElement('script');
+                script.src = 'https://www.googletagmanager.com/gtag/js?id=G-1CDLST0SSK';
+                script.async = true;
+                document.head.appendChild(script);
+
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-1CDLST0SSK');
+            ");
+
             // Načtení JavaScript modulu
-            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./js/blazor-utils.js");
+            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js");
 
             dotNetHelper = DotNetObjectReference.Create(this);
 
