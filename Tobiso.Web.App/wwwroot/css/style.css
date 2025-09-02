@@ -15,8 +15,19 @@ textarea,
     font-style: normal;
     color: #000;
     font-size: 20px;
-    line-height: 1.5;
+    line-height: 1.4;
     text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+}
+.content li,
+.content p {
+    line-height: 1.7;
+}
+.content-info {
+    opacity: 65%;
+    text-align: right;
+}
+.content-info p {
+    font-size: 18px;
 }
 math {
     font-family: "Zilla Slab", serif;
