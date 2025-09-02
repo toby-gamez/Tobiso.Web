@@ -25,6 +25,9 @@ else
     <div class="mb-4">
         @if (_fileSuffix == ".md")
         {
+            <div class="content-info">
+                @((MarkupString)GetWordCountInfo(_post.Content))
+            </div>
             @((MarkupString)TransformMarkdownContent(_post.Content))
         }
         else if (_fileSuffix == ".html")
@@ -177,5 +180,13 @@ else
         {
             Navigation.NavigateTo("/categories", forceLoad: true);
         }
+    }
+
+    private string GetWordCountInfo(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return "";
+        var wordCount = Regex.Matches(content, "\\w+").Count;
+        var minutes = Math.Max(1, (int)Math.Ceiling(wordCount / 180.0));
+        return $"{wordCount} slov | <i class=\"bi bi-eye\"></i> {minutes} min";
     }
 }
