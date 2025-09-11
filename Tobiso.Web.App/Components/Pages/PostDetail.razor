@@ -88,6 +88,7 @@ else
     {
         if (string.IsNullOrEmpty(content)) return string.Empty;
         var html = Markdig.Markdown.ToHtml(content);
+        
         // Oprav obrázky: přidej prefix k src u <img>
         var imgRegex = new Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
         html = imgRegex.Replace(html, match => {
@@ -100,6 +101,7 @@ else
             }
             return match.Value;
         });
+        
         // Zpracování odkazů
         var regex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
         html = regex.Replace(html, match => {
@@ -129,6 +131,7 @@ else
             }
             return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
         });
+        
         // Zabal text v tečkách do divu s class intro
         var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
         html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
@@ -141,40 +144,121 @@ else
 
     private string ConvertMarkdownTablesToHtml(string html)
     {
-        var tableRegex = new Regex(@"<p>(\|.+?\|\s*\n\|[-:| ]+\|\s*\n(?:\|.+?\|\s*\n?)+)</p>", RegexOptions.Singleline);
+        // Tento vylepšený regex hledá <p> tag, který obsahuje text s pipe znaky (|) a <br> tagy,
+        // což je typický výsledek, když Markdig nerozpozná Markdown tabulku.
+        var tableRegex = new Regex(@"<p>(\s*\|.*(?:<br\s*/?>\s*\|.*)+)</p>", RegexOptions.Singleline);
+
         html = tableRegex.Replace(html, match =>
         {
-            var tableBlock = match.Groups[1].Value;
-            var lines = tableBlock.Split('\n');
-            if (lines.Length < 2) return match.Value;
-            var headerCells = lines[0].Split('|').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
-            var bodyLines = lines.Skip(2).ToList();
+            var tableContent = match.Groups[1].Value.Trim();
+
+            // Rozdělíme obsah na jednotlivé řádky podle <br> tagů.
+            var lines = Regex.Split(tableContent, @"<br\s*/?>")
+                             .Select(l => l.Trim())
+                             .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                             .ToList();
+
+            if (lines.Count < 2) return match.Value; // Není dost řádků pro záhlaví a tělo.
+
+            // Najdeme oddělovací řádek (např. |---|---|).
+            int separatorIndex = lines.FindIndex(line => Regex.IsMatch(line, @"^\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?$"));
+
+            // Pokud oddělovač chybí nebo je hned na prvním řádku, není to standardní tabulka.
+            if (separatorIndex < 1) return match.Value;
+
+            var headerLine = lines[separatorIndex - 1];
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+
+            var headerCells = ParseConcatenatedRow(headerLine);
+
             var sb = new System.Text.StringBuilder();
-            sb.Append("<table class=\"md-table\"><thead><tr>");
-            foreach (var cell in headerCells)
-                sb.Append($"<th>{System.Net.WebUtility.HtmlEncode(cell)}</th>");
-            sb.Append("</tr></thead><tbody>");
-            foreach (var line in bodyLines)
+            sb.Append("<table class=\"md-table\">");
+
+            // --- ZÁHLAVÍ ---
+            sb.Append("<thead><tr>");
+            foreach (var cellContent in headerCells)
             {
-                var cells = line.Split('|').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
-                if (cells.Count == headerCells.Count)
+                sb.Append($"<th>{System.Net.WebUtility.HtmlEncode(cellContent)}</th>");
+            }
+            sb.Append("</tr></thead>");
+
+            // --- TĚLO TABULKY ---
+            sb.Append("<tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseConcatenatedRow(bodyLine);
+                sb.Append("<tr>");
+                // Každý řádek má přesně tolik buněk jako záhlaví (přebytečné ignorujeme, chybějící doplníme prázdnými)
+                for (int i = 0; i < headerCells.Count; i++)
                 {
-                    sb.Append("<tr>");
-                    foreach (var cell in cells)
-                        sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(cell)}</td>");
-                    sb.Append("</tr>");
+                    var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
+                    sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(cellContent)}</td>");
                 }
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+
+            return sb.ToString();
+        });
+
+        // Univerzální detekce tabulky v <p>...</p> (řádky oddělené \n nebo <br>)
+        var universalTableRegex = new Regex(@"<p>((?:\|[^\n]+\n)+\|[^\n]+)</p>", RegexOptions.Singleline);
+        html = universalTableRegex.Replace(html, match =>
+        {
+            var tableContent = match.Groups[1].Value.Trim();
+            // Rozdělit na řádky podle \n nebo <br>
+            var lines = Regex.Split(tableContent, @"\r?\n|<br\s*/?>")
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                .ToList();
+            if (lines.Count < 2) return match.Value;
+            int separatorIndex = lines.FindIndex(line => Regex.IsMatch(line, @"^\|?([\-: ]+\|)+[\-: ]*\|?$"));
+            if (separatorIndex < 1) return match.Value;
+            var headerLine = lines[separatorIndex - 1];
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+            var headerCells = ParseConcatenatedRow(headerLine);
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<table class=\"md-table\">");
+            sb.Append("<thead><tr>");
+            foreach (var cellContent in headerCells)
+                sb.Append($"<th>{System.Net.WebUtility.HtmlEncode(cellContent)}</th>");
+            sb.Append("</tr></thead>");
+            sb.Append("<tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseConcatenatedRow(bodyLine);
+                sb.Append("<tr>");
+                for (int i = 0; i < headerCells.Count; i++)
+                {
+                    var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
+                    sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(cellContent)}</td>");
+                }
+                sb.Append("</tr>");
             }
             sb.Append("</tbody></table>");
             return sb.ToString();
         });
         return html;
     }
-    private void BackHistory()
+
+    private List<string> ParseConcatenatedRow(string rowText)
+    {
+        // Odstraníme svislice na začátku a na konci řádku, ale neztrácíme prázdné buňky.
+        var cleanRowText = rowText;
+        if (cleanRowText.StartsWith("|")) cleanRowText = cleanRowText.Substring(1);
+        if (cleanRowText.EndsWith("|")) cleanRowText = cleanRowText.Substring(0, cleanRowText.Length - 1);
+
+        // Rozdělíme řádek na buňky podle svislic, zachováme prázdné buňky.
+        return cleanRowText.Split('|', StringSplitOptions.None)
+            .Select(s => s.Trim())
+            .ToList();
+    }
+    
+    private async Task BackHistory()
     {
         if (!string.IsNullOrEmpty(_returnUrl))
         {
-            Js.InvokeVoidAsync("eval", $"window.location.href='{_returnUrl}'");
+            await Js.InvokeVoidAsync("eval", $"window.location.href='{_returnUrl}'");
         }
         else
         {
