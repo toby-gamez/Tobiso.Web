@@ -22,6 +22,9 @@ textarea,
 .content p {
     line-height: 1.7;
 }
+ul p {
+    margin: 0;
+}
 .content-info {
     opacity: 65%;
     text-align: right;
