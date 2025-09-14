@@ -39,6 +39,10 @@ else
             @((MarkupString)(_post.Content))
         }
     </div>
+    @if (_hasQuestions)
+    {
+        <button class="btn btn-secondary mb-3" style="float: right" @onclick="ToQuestions">Prověrka</button>
+    }
     <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
 }
 
@@ -49,12 +53,14 @@ else
     private List<PostResponse>? _allPosts;
     private string? _returnUrl;
     private string? _fileSuffix;
+    private bool _hasQuestions = false;
 
     protected override async Task OnInitializedAsync()
     {
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
         SetFileSuffix();
+        await CheckForQuestions();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -65,6 +71,7 @@ else
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
         SetFileSuffix();
+        await CheckForQuestions();
     }
 
     private void SetFileSuffix()
@@ -81,6 +88,22 @@ else
         else
         {
             _fileSuffix = null;
+        }
+    }
+
+    private async Task CheckForQuestions()
+    {
+        try
+        {
+            if (_post?.Id != null)
+            {
+                var questions = await Api.GetQuestionsByPostId(_post.Id);
+                _hasQuestions = questions?.Any() == true;
+            }
+        }
+        catch (Exception)
+        {
+            _hasQuestions = false;
         }
     }
 
@@ -264,6 +287,10 @@ else
         {
             Navigation.NavigateTo("/categories", forceLoad: true);
         }
+    }
+    private async Task ToQuestions()
+    {
+        Navigation.NavigateTo($"/questions/{Id}", forceLoad: true);
     }
 
     private string GetWordCountInfo(string? content)
