@@ -90,7 +90,10 @@ public class PostService : IPostService
 
     public async Task<bool> Delete(int id)
     {
-        var entity = await _context.Posts.FindAsync(id);
+        var entity = await _context.Posts
+            .Include(p => p.Questions)
+            .ThenInclude(q => q.Answers)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (entity == null) return false;
 
         _context.Posts.Remove(entity);

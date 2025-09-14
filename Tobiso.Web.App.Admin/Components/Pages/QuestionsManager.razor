@@ -1,0 +1,316 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Api.Services
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>Otázky a odpovědi</h5>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <!-- Seznam existujících otázek -->
+        @if (questions.Any())
+        {
+            <h6>Existující otázky:</h6>
+            @foreach (var question in questions)
+            {
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>@question.QuestionText</span>
+                        <div>
+                            <button class="btn btn-sm btn-primary me-2" @onclick="() => StartEditQuestion(question)">
+                                Editovat
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuestion(question.Id)">
+                                Smazat
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (editingQuestionId == question.Id)
+                        {
+                            <!-- Editace otázky -->
+                            <div class="mb-3">
+                                <label class="form-label">Text otázky:</label>
+                                <input type="text" class="form-control" @bind="editQuestion.QuestionText" />
+                            </div>
+                            <h6>Odpovědi:</h6>
+                            @for (int i = 0; i < editQuestion.Answers.Count; i++)
+                            {
+                                var index = i;
+                                <div class="row mb-2">
+                                    <div class="col-8">
+                                        <input type="text" class="form-control" @bind="editQuestion.Answers[index].AnswerText" placeholder="Text odpovědi" />
+                                    </div>
+                                    <div class="col-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   checked="@(editQuestion.Answers[index].Correct == 1)" 
+                                                   @onchange="@((ChangeEventArgs e) => editQuestion.Answers[index].Correct = (bool)e.Value! ? 1 : 0)" />
+                                            <label class="form-check-label">Správná</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveEditAnswer(index)">
+                                            Odstranit
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-secondary mb-3" @onclick="AddEditAnswer">
+                                Přidat odpověď
+                            </button>
+                            <div>
+                                <button type="button" class="btn btn-success me-2" @onclick="SaveEditQuestion">
+                                    Uložit změny
+                                </button>
+                                <button type="button" class="btn btn-secondary" @onclick="CancelEdit">
+                                    Zrušit
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Zobrazení otázky -->
+                            <h6>Odpovědi:</h6>
+                            @foreach (var answer in question.Answers)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" checked="@(answer.Correct == 1)" disabled>
+                                    <label class="form-check-label">
+                                        @answer.AnswerText
+                                    </label>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Formulář pro novou otázku -->
+        <h6>Přidat novou otázku:</h6>
+        <div class="mb-3">
+            <label for="newQuestionText" class="form-label">Text otázky:</label>
+            <input type="text" id="newQuestionText" class="form-control" @bind="newQuestion.QuestionText" />
+        </div>
+
+        <h6>Odpovědi:</h6>
+        @for (int i = 0; i < newQuestion.Answers.Count; i++)
+        {
+            var index = i; // Capture the loop variable
+            <div class="row mb-2">
+                <div class="col-8">
+                    <input type="text" class="form-control" @bind="newQuestion.Answers[index].AnswerText" placeholder="Text odpovědi" />
+                </div>
+                <div class="col-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" 
+                               checked="@(newQuestion.Answers[index].Correct == 1)" 
+                               @onchange="@((ChangeEventArgs e) => newQuestion.Answers[index].Correct = (bool)e.Value! ? 1 : 0)" />
+                        <label class="form-check-label">Správná</label>
+                    </div>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveAnswer(index)">
+                        Odstranit
+                    </button>
+                </div>
+            </div>
+        }
+
+        <button type="button" class="btn btn-sm btn-secondary mb-3" @onclick="AddAnswer">
+            Přidat odpověď
+        </button>
+
+        <div>
+            <button type="button" class="btn btn-primary" @onclick="SaveQuestion" disabled="@(string.IsNullOrWhiteSpace(newQuestion.QuestionText) || !newQuestion.Answers.Any(a => !string.IsNullOrWhiteSpace(a.AnswerText)))">
+                Přidat otázku
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Inject] private IQuestionService QuestionService { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private List<QuestionResponse> questions = new();
+    private CreateQuestionRequest newQuestion = new();
+    private UpdateQuestionRequest editQuestion = new();
+    private int? editingQuestionId = null;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuestions();
+        ResetNewQuestion();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PostId > 0)
+        {
+            await LoadQuestions();
+        }
+    }
+
+    private async Task LoadQuestions()
+    {
+        try
+        {
+            questions = await QuestionService.GetByPostId(PostId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při načítání otázek: {ex.Message}";
+        }
+    }
+
+    private void ResetNewQuestion()
+    {
+        newQuestion = new CreateQuestionRequest
+        {
+            PostId = PostId,
+            QuestionText = "",
+            Answers = new List<CreateAnswerRequest>
+            {
+                new() { AnswerText = "", Correct = 0 },
+                new() { AnswerText = "", Correct = 0 }
+            }
+        };
+    }
+
+    private void AddAnswer()
+    {
+        newQuestion.Answers.Add(new CreateAnswerRequest { AnswerText = "", Correct = 0 });
+    }
+
+    private void RemoveAnswer(int index)
+    {
+        if (newQuestion.Answers.Count > 1)
+        {
+            newQuestion.Answers.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveQuestion()
+    {
+        try
+        {
+            // Filter out empty answers
+            newQuestion.Answers = newQuestion.Answers
+                .Where(a => !string.IsNullOrWhiteSpace(a.AnswerText))
+                .ToList();
+
+            if (!newQuestion.Answers.Any())
+            {
+                errorMessage = "Otázka musí mít alespoň jednu odpověď.";
+                return;
+            }
+
+            await QuestionService.Create(newQuestion);
+            await LoadQuestions();
+            ResetNewQuestion();
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při ukládání otázky: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteQuestion(int questionId)
+    {
+        if (!await JsConfirm("Opravdu chcete smazat tuto otázku?"))
+            return;
+
+        try
+        {
+            await QuestionService.Delete(questionId);
+            await LoadQuestions();
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při mazání otázky: {ex.Message}";
+        }
+    }
+
+    private async Task<bool> JsConfirm(string message)
+    {
+        return await JS.InvokeAsync<bool>("confirm", message);
+    }
+
+    // Edit question methods
+    private void StartEditQuestion(QuestionResponse question)
+    {
+        editingQuestionId = question.Id;
+        editQuestion = new UpdateQuestionRequest
+        {
+            Id = question.Id,
+            QuestionText = question.QuestionText,
+            Answers = question.Answers.Select(a => new UpdateAnswerRequest
+            {
+                Id = a.Id,
+                AnswerText = a.AnswerText,
+                Correct = a.Correct,
+                QuestionId = a.QuestionId
+            }).ToList()
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editingQuestionId = null;
+        editQuestion = new UpdateQuestionRequest();
+    }
+
+    private void AddEditAnswer()
+    {
+        editQuestion.Answers.Add(new UpdateAnswerRequest 
+        { 
+            AnswerText = "", 
+            Correct = 0,
+            QuestionId = editQuestion.Id
+        });
+    }
+
+    private void RemoveEditAnswer(int index)
+    {
+        if (editQuestion.Answers.Count > 1)
+        {
+            editQuestion.Answers.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveEditQuestion()
+    {
+        try
+        {
+            // Filter out empty answers
+            editQuestion.Answers = editQuestion.Answers
+                .Where(a => !string.IsNullOrWhiteSpace(a.AnswerText))
+                .ToList();
+
+            if (!editQuestion.Answers.Any())
+            {
+                errorMessage = "Otázka musí mít alespoň jednu odpověď.";
+                return;
+            }
+
+            await QuestionService.Update(editQuestion);
+            await LoadQuestions();
+            CancelEdit();
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při aktualizaci otázky: {ex.Message}";
+        }
+    }
+}

@@ -44,7 +44,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error during logout: {ex.Message}");
-            // Even if there's an error, navigate to login
+            // Even if there's an error, navigate to log in
             Navigation.NavigateTo("/login", forceLoad: true);
         }
     }

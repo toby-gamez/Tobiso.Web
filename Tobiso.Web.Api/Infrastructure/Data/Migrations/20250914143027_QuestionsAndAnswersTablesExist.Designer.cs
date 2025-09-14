@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250914143027_QuestionsAndAnswersTablesExist")]
+    partial class QuestionsAndAnswersTablesExist
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,8 +38,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int>("Correct")
-                        .HasColumnType("int");
+                    b.Property<bool>("Correct")
+                        .HasColumnType("bit");
 
                     b.Property<int>("QuestionId")
                         .HasColumnType("int");
@@ -126,8 +129,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("QuestionText")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("Question");
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -168,7 +170,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Question", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
-                        .WithMany("Questions")
+                        .WithMany()
                         .HasForeignKey("PostId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -179,11 +181,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Category", b =>
                 {
                     b.Navigation("Children");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.Post", b =>
-                {
-                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Question", b =>

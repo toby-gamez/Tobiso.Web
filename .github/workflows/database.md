@@ -76,6 +76,7 @@ CREATE TABLE [Questions] (
 CREATE TABLE [Answers] (
 	[Id] INT PRIMARY KEY IDENTITY(1,1),
 	[AnswerText] NVARCHAR(200) NOT NULL,
+	[Correct] INT NOT NULL,
 	[QuestionId] INT NOT NULL,
 	FOREIGN KEY ([QuestionId]) REFERENCES [Questions]([Id])
 );

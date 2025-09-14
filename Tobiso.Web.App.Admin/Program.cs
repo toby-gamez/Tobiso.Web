@@ -59,6 +59,7 @@ services
 services.AddEndpointsApiExplorer();
 
 services.AddScoped<IPostService, PostService>();
+services.AddScoped<IQuestionService, QuestionService>();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<AuthenticationHeaderHandler>();

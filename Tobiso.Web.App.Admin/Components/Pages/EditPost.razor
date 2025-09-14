@@ -2,6 +2,7 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.AspNetCore.Components.Authorization
+@using Tobiso.Web.Api.Services
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -48,6 +49,9 @@ else
         <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
         <button type="button" class="btn btn-danger ms-2" @onclick="OnDeletePost">Smazat</button>
     </EditForm>
+
+    <!-- Přidání komponenty pro správu otázek -->
+    <QuestionsManager PostId="@Id" />
 }
 
 @code {

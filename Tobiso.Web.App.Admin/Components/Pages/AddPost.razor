@@ -2,6 +2,7 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.AspNetCore.Components.Authorization
+@using Tobiso.Web.Api.Services
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -42,10 +43,17 @@
     <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
 </EditForm>
 
+@if (createdPostId.HasValue)
+{
+    <!-- Přidání komponenty pro správu otázek po vytvoření postu -->
+    <QuestionsManager PostId="@createdPostId.Value" />
+}
+
 @code {
     private PostResponse post = new();
     private List<CategoryResponse> categories = new();
     private string? errorMessage;
+    private int? createdPostId = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,7 +80,8 @@
         try
         {
             var created = await Api.CreatePost(post);
-            Navigation.NavigateTo($"/posts/edit/{created.Id}");
+            createdPostId = created.Id;
+            errorMessage = null;
         }
         catch (Exception ex)
         {
