@@ -1,0 +1,369 @@
+@page "/questions/{PostId:int}"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<PageTitle>Otázky a test - Tobiso</PageTitle>
+
+<style>
+    .question-container {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background-color: #f8f9fa;
+    }
+
+    .question-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #495057;
+    }
+
+    .answer-option {
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+        border: 2px solid #dee2e6;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: white;
+    }
+
+    .answer-option:hover {
+        border-color: #007bff;
+        background-color: #f8f9ff;
+    }
+
+    .answer-option.selected {
+        border-color: #007bff;
+        background-color: #e7f3ff;
+        font-weight: 500;
+    }
+
+    .answer-option.correct {
+        border-color: #28a745;
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .answer-option.incorrect {
+        border-color: #dc3545;
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .test-summary {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        border-radius: 0.375rem;
+        text-align: center;
+    }
+
+    .test-summary.excellent {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    .test-summary.good {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+    }
+
+    .test-summary.poor {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .progress-bar {
+        height: 20px;
+        background-color: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+        border-radius: 10px;
+    }
+
+    .question-counter {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+</style>
+
+@if (_questions == null)
+{
+    <div class="text-center">
+        <p>Načítám otázky...</p>
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!_questions.Any())
+{
+    <div class="text-center">
+        <h2>Žádné otázky</h2>
+        <p>Pro tento post nejsou k dispozici žádné otázky.</p>
+        <button class="btn btn-primary" @onclick="BackToPost">Zpět na post</button>
+    </div>
+}
+else
+{
+    <div class="container">
+        <h1 class="mb-4">Otázky a test</h1>
+        
+        @if (!_testCompleted)
+        {
+            <div class="question-counter">
+                Otázka @(_currentQuestionIndex + 1) z @_questions.Count
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: @((_currentQuestionIndex + 1) / (double)_questions.Count * 100)%"></div>
+            </div>
+        }
+
+        @if (_testCompleted)
+        {
+            <!-- Zobrazení výsledků -->
+            <div class="test-summary @GetSummaryClass()">
+                <h2>Výsledky testu</h2>
+                <p class="fs-4">
+                    <strong>@_correctAnswers</strong> ze <strong>@_questions.Count</strong> správných odpovědí
+                </p>
+                <p class="fs-5">
+                    Úspěšnost: <strong>@(Math.Round(_successRate, 1))%</strong>
+                </p>
+                @GetSummaryMessage()
+            </div>
+
+            <!-- Přehled všech otázek s odpověďmi -->
+            <h3 class="mt-4">Přehled otázek</h3>
+            
+            @for (int i = 0; i < _questions.Count; i++)
+            {
+                var question = _questions[i];
+                var isCorrect = _userAnswers.ContainsKey(question.Id) && 
+                              question.Answers.Any(a => a.Id == _userAnswers[question.Id] && a.Correct == 1);
+                
+                <div class="question-container">
+                    <div class="question-title">
+                        @(i + 1). @question.QuestionText
+                        @if (isCorrect)
+                        {
+                            <i class="bi bi-check-circle-fill text-success ms-2"></i>
+                        }
+                        else
+                        {
+                            <i class="bi bi-x-circle-fill text-danger ms-2"></i>
+                        }
+                    </div>
+                    
+                    @foreach (var answer in question.Answers)
+                    {
+                        var isUserAnswer = _userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id] == answer.Id;
+                        var isCorrectAnswer = answer.Correct == 1;
+                        var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
+                        
+                        <div class="answer-option @cssClass">
+                            @if (isUserAnswer)
+                            {
+                                <i class="bi bi-arrow-right-circle-fill me-2"></i>
+                            }
+                            @if (isCorrectAnswer)
+                            {
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                            }
+                            @answer.AnswerText
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <!-- Aktuální otázka -->
+            var currentQuestion = _questions[_currentQuestionIndex];
+            
+            <div class="question-container">
+                <div class="question-title">
+                    @currentQuestion.QuestionText
+                </div>
+                
+                @foreach (var answer in currentQuestion.Answers)
+                {
+                    var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
+                                   _selectedAnswers[currentQuestion.Id] == answer.Id;
+                    
+                    <div class="answer-option @(isSelected ? "selected" : "")" 
+                         @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
+                        <i class="bi @(isSelected ? "bi-circle-fill" : "bi-circle") me-2"></i>
+                        @answer.AnswerText
+                    </div>
+                }
+            </div>
+            
+            <div class="d-flex justify-content-between mt-3">
+                <button class="btn btn-secondary" 
+                        @onclick="PreviousQuestion"
+                        disabled="@(_currentQuestionIndex == 0)">
+                    <i class="bi bi-arrow-left"></i> Předchozí
+                </button>
+                
+                @if (_currentQuestionIndex == _questions.Count - 1)
+                {
+                    <button class="btn btn-success" 
+                            @onclick="FinishTest"
+                            disabled="@(!AllQuestionsAnswered())">
+                        <i class="bi bi-check-circle"></i> Dokončit test
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary" 
+                            @onclick="NextQuestion"
+                            disabled="@(_currentQuestionIndex >= _questions.Count - 1)">
+                        Další <i class="bi bi-arrow-right"></i>
+                    </button>
+                }
+            </div>
+        }
+        
+        <div class="mt-4">
+            <button class="btn btn-outline-secondary" @onclick="BackToPost">
+                <i class="bi bi-arrow-left"></i> Zpět na post
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int PostId { get; set; }
+
+    private List<QuestionResponse>? _questions;
+    private Dictionary<int, int> _selectedAnswers = new();
+    private Dictionary<int, int> _userAnswers = new();
+    private int _currentQuestionIndex = 0;
+    private bool _testCompleted = false;
+    private int _correctAnswers = 0;
+    private double _successRate = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuestions();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadQuestions();
+    }
+
+    private async Task LoadQuestions()
+    {
+        try
+        {
+            _questions = await Api.GetQuestionsByPostId(PostId);
+            // Reset stavu při načtení nových otázek
+            _selectedAnswers.Clear();
+            _userAnswers.Clear();
+            _currentQuestionIndex = 0;
+            _testCompleted = false;
+            _correctAnswers = 0;
+            _successRate = 0;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při načítání otázek: {ex.Message}");
+            _questions = new List<QuestionResponse>();
+        }
+    }
+
+    private void SelectAnswer(int questionId, int answerId)
+    {
+        _selectedAnswers[questionId] = answerId;
+        StateHasChanged();
+    }
+
+    private void NextQuestion()
+    {
+        if (_currentQuestionIndex < _questions!.Count - 1)
+        {
+            _currentQuestionIndex++;
+            StateHasChanged();
+        }
+    }
+
+    private void PreviousQuestion()
+    {
+        if (_currentQuestionIndex > 0)
+        {
+            _currentQuestionIndex--;
+            StateHasChanged();
+        }
+    }
+
+    private bool AllQuestionsAnswered()
+    {
+        return _questions?.All(q => _selectedAnswers.ContainsKey(q.Id)) ?? false;
+    }
+
+    private void FinishTest()
+    {
+        _userAnswers = new Dictionary<int, int>(_selectedAnswers);
+        _correctAnswers = 0;
+
+        foreach (var question in _questions!)
+        {
+            if (_userAnswers.ContainsKey(question.Id))
+            {
+                var userAnswerId = _userAnswers[question.Id];
+                var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                
+                if (correctAnswer != null && userAnswerId == correctAnswer.Id)
+                {
+                    _correctAnswers++;
+                }
+            }
+        }
+
+        _successRate = _questions.Count > 0 ? (_correctAnswers / (double)_questions.Count) * 100 : 0;
+        _testCompleted = true;
+        StateHasChanged();
+    }
+
+    private string GetSummaryClass()
+    {
+        if (_successRate >= 80) return "excellent";
+        if (_successRate >= 60) return "good";
+        return "poor";
+    }
+
+    private MarkupString GetSummaryMessage()
+    {
+        if (_successRate >= 80)
+            return new MarkupString("<p><i class=\"bi bi-star-fill\"></i> Výborně! Máte skvělé znalosti tématu.</p>");
+        if (_successRate >= 60)
+            return new MarkupString("<p><i class=\"bi bi-thumbs-up\"></i> Dobře! Většinu otázek jste zodpověděli správně.</p>");
+        return new MarkupString("<p><i class=\"bi bi-book\"></i> Doporučujeme si téma prostudovat znovu.</p>");
+    }
+
+    private void BackToPost()
+    {
+        Navigation.NavigateTo($"/post/{PostId}");
+    }
+}
