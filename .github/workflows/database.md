@@ -28,13 +28,13 @@
 
 ```mermaid
 erDiagram
-	CATEGORY {
+	Category {
 		int Id PK
 		string Name
 		string Slug
 		int ParentId FK
 	}
-	POST {
+	Post {
 		int Id PK
 		string Title
 		string Content
@@ -43,20 +43,40 @@ erDiagram
 		datetime UpdatedAt
 		int CategoryId FK
 	}
-	QUESTION {
+	Question {
 		int Id PK
 		nvarchar(200) Question
 		int PostId FK
 	}
-	ANSWER {
+	Answer {
 		int Id PK
 		nvarchar(200) AnswerText
 		int QuestionId FK
 	}
-	CATEGORY ||--o| CATEGORY : Parent
-	CATEGORY ||--o| POST : "Has Posts"
-	POST }o--|| CATEGORY : "Belongs to"
-	QUESTION }o--|| POST : "Relates to"
-	ANSWER }o--|| QUESTION : "Possible Answers"
+	Category ||--o| Category : Parent
+	Category ||--o| Post : "Has Posts"
+	Post }o--|| Category : "Belongs to"
+	Question }o--|| Post : "Relates to"
+	Answer }o--|| Question : "Possible Answers"
 
+```
+
+---
+
+### SQL for New Tables
+
+```sql
+CREATE TABLE [Questions] (
+	[Id] INT PRIMARY KEY IDENTITY(1,1),
+	[Question] NVARCHAR(200) NOT NULL,
+	[PostId] INT NOT NULL,
+	FOREIGN KEY ([PostId]) REFERENCES [Post]([Id])
+);
+
+CREATE TABLE [Answers] (
+	[Id] INT PRIMARY KEY IDENTITY(1,1),
+	[AnswerText] NVARCHAR(200) NOT NULL,
+	[QuestionId] INT NOT NULL,
+	FOREIGN KEY ([QuestionId]) REFERENCES [Questions]([Id])
+);
 ```
