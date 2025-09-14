@@ -1,8 +1,10 @@
 @page "/posts/add"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <h3>Přidat nový post</h3>
 
@@ -47,6 +49,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         try
         {
             categories = (await Api.GetAllCategories()).ToList();

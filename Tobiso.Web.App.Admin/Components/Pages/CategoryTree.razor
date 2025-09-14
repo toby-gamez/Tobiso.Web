@@ -3,10 +3,12 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Comment = DocumentFormat.OpenXml.Office2021.PowerPoint.Comment.Comment
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject ILogger<CategoryTree> Logger
 @inject IJSRuntime Js
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Categories</PageTitle>
 <h3>Strom kategorií</h3>
@@ -216,6 +218,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         try
         {
             categoryTree = await Api.GetCategoryTree();

@@ -1,8 +1,10 @@
 @page "/posts/edit/{Id:int}"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <h3>Editace postu</h3>
 
@@ -58,6 +60,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         try
         {
             post = await Api.GetPostById(Id);

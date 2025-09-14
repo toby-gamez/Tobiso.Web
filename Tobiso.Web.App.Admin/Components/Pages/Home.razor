@@ -1,14 +1,15 @@
 ﻿@page "/"
 @using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject ILogger<Home> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Home - Posts</PageTitle>
 
 <h1>Posts</h1>
-<a class="btn btn-primary mb-3" href="login">Přihlásit se</a>
 <button class="btn btn-success mb-3" @onclick="GoToAddPost">Přidat post</button>
 
 @if (!string.IsNullOrEmpty(errorMessage))
@@ -113,6 +114,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         await LoadCategories();
         await LoadPosts();
     }
@@ -148,7 +157,6 @@ else
 
         return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
     }
-
     private async Task LoadPosts()
     {
         try
