@@ -95,6 +95,22 @@ else
                             @answer.AnswerText
                         </div>
                     }
+                    
+                    @* Zobrazení vysvětlení pro chybně zodpověděné otázky *@
+                    @if (!isCorrect && question.Explanations.Any())
+                    {
+                        <div class="explanations-section intro">
+                            <span class="text-muted" style="font-size: 1.1em;">
+                                <i class="bi bi-lightbulb"></i> Vysvětlení:
+                            </span>
+                            @foreach (var explanation in question.Explanations)
+                            {
+                                <div class="alert alert-info explanation-box">
+                                    @explanation.Text
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             }
             <div class="mt-4">

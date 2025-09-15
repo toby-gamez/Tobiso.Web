@@ -12,4 +12,5 @@ public class Question
     public int PostId { get; set; }
     public Post? Post { get; set; }
     public List<Answer> Answers { get; set; } = new();
+    public List<Explanation> Explanations { get; set; } = new();
 }

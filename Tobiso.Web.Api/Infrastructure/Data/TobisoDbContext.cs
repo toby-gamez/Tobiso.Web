@@ -12,6 +12,7 @@ public class TobisoDbContext : DbContext
     public DbSet<Post> Posts { get; set; }
     public DbSet<Question> Questions { get; set; }
     public DbSet<Answer> Answers { get; set; }
+    public DbSet<Explanation> Explanations { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -44,6 +45,19 @@ public class TobisoDbContext : DbContext
                 
             entity.HasOne(e => e.Question)
                 .WithMany(q => q.Answers)
+                .HasForeignKey(e => e.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // Configure Explanation entity
+        modelBuilder.Entity<Explanation>(entity =>
+        {
+            entity.Property(e => e.Text)
+                .IsRequired()
+                .HasMaxLength(500);
+                
+            entity.HasOne(e => e.Question)
+                .WithMany(q => q.Explanations)
                 .HasForeignKey(e => e.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

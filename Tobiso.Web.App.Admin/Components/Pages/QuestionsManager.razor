@@ -63,6 +63,25 @@
                             <button type="button" class="btn btn-sm btn-secondary mb-3" @onclick="AddEditAnswer">
                                 Přidat odpověď
                             </button>
+
+                            <h6>Vysvětlení:</h6>
+                            @for (int i = 0; i < editQuestion.Explanations.Count; i++)
+                            {
+                                var index = i;
+                                <div class="row mb-2">
+                                    <div class="col-10">
+                                        <textarea class="form-control" rows="2" @bind="editQuestion.Explanations[index].Text" placeholder="Text vysvětlení"></textarea>
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveEditExplanation(index)">
+                                            Odstranit
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-success mb-3" @onclick="AddEditExplanation">
+                                + Přidat vysvětlení
+                            </button>
                             <div>
                                 <button type="button" class="btn btn-success me-2" @onclick="SaveEditQuestion">
                                     Uložit změny
@@ -84,6 +103,17 @@
                                         @answer.AnswerText
                                     </label>
                                 </div>
+                            }
+                            
+                            @if (question.Explanations.Any())
+                            {
+                                <h6 class="mt-3">Vysvětlení:</h6>
+                                @foreach (var explanation in question.Explanations)
+                                {
+                                    <div class="alert alert-info">
+                                        @explanation.Text
+                                    </div>
+                                }
                             }
                         }
                     </div>
@@ -124,6 +154,26 @@
 
         <button type="button" class="btn btn-sm btn-secondary mb-3" @onclick="AddAnswer">
             Přidat odpověď
+        </button>
+
+        <h6>Vysvětlení:</h6>
+        @for (int i = 0; i < newQuestion.Explanations.Count; i++)
+        {
+            var index = i;
+            <div class="row mb-2">
+                <div class="col-10">
+                    <textarea class="form-control" rows="2" @bind="newQuestion.Explanations[index].Text" placeholder="Text vysvětlení"></textarea>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveExplanation(index)">
+                        Odstranit
+                    </button>
+                </div>
+            </div>
+        }
+
+        <button type="button" class="btn btn-success mb-3" @onclick="AddExplanation">
+            + Přidat vysvětlení
         </button>
 
         <div>
@@ -181,6 +231,10 @@
             {
                 new() { AnswerText = "", Correct = 0 },
                 new() { AnswerText = "", Correct = 0 }
+            },
+            Explanations = new List<CreateExplanationRequest>
+            {
+                new() { Text = "", QuestionId = PostId }
             }
         };
     }
@@ -205,6 +259,11 @@
             // Filter out empty answers
             newQuestion.Answers = newQuestion.Answers
                 .Where(a => !string.IsNullOrWhiteSpace(a.AnswerText))
+                .ToList();
+
+            // Filter out empty explanations
+            newQuestion.Explanations = newQuestion.Explanations
+                .Where(e => !string.IsNullOrWhiteSpace(e.Text))
                 .ToList();
 
             if (!newQuestion.Answers.Any())
@@ -260,6 +319,12 @@
                 AnswerText = a.AnswerText,
                 Correct = a.Correct,
                 QuestionId = a.QuestionId
+            }).ToList(),
+            Explanations = question.Explanations.Select(e => new UpdateExplanationRequest
+            {
+                Id = e.Id,
+                Text = e.Text,
+                QuestionId = e.QuestionId
             }).ToList()
         };
     }
@@ -297,6 +362,11 @@
                 .Where(a => !string.IsNullOrWhiteSpace(a.AnswerText))
                 .ToList();
 
+            // Filter out empty explanations
+            editQuestion.Explanations = editQuestion.Explanations
+                .Where(e => !string.IsNullOrWhiteSpace(e.Text))
+                .ToList();
+
             if (!editQuestion.Answers.Any())
             {
                 errorMessage = "Otázka musí mít alespoň jednu odpověď.";
@@ -312,5 +382,31 @@
         {
             errorMessage = $"Chyba při aktualizaci otázky: {ex.Message}";
         }
+    }
+
+    // Explanation methods for new questions
+    private void AddExplanation()
+    {
+        newQuestion.Explanations.Add(new CreateExplanationRequest { Text = "", QuestionId = PostId });
+    }
+
+    private void RemoveExplanation(int index)
+    {
+        newQuestion.Explanations.RemoveAt(index);
+    }
+
+    // Explanation methods for editing questions
+    private void AddEditExplanation()
+    {
+        editQuestion.Explanations.Add(new UpdateExplanationRequest 
+        { 
+            Text = "", 
+            QuestionId = editQuestion.Id
+        });
+    }
+
+    private void RemoveEditExplanation(int index)
+    {
+        editQuestion.Explanations.RemoveAt(index);
     }
 }

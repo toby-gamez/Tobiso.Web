@@ -55,6 +55,7 @@ services.AddEndpointsApiExplorer();
 
 services.AddScoped<IPostService, PostService>();
 services.AddScoped<IQuestionService, QuestionService>();
+services.AddScoped<IExplanationService, ExplanationService>();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<HttpLoggingHandler>();

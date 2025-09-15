@@ -18,9 +18,28 @@
 - `UpdatedAt` (datetime2, nullable)
 - `CategoryId` (int, FK, nullable) → references `Category(Id)`
 
+#### Question
+- `Id` (int, PK)
+- `QuestionText` (nvarchar(200), required)
+- `PostId` (int, FK, required) → references `Post(Id)`
+
+#### Answer
+- `Id` (int, PK)
+- `AnswerText` (nvarchar(200), required)
+- `Correct` (int, required)
+- `QuestionId` (int, FK, required) → references `Question(Id)`
+
+#### Explanation
+- `Id` (int, PK)
+- `Text` (nvarchar(500), required)
+- `QuestionId` (int, FK, required) → references `Question(Id)`
+
 ### Relationships
 - Category has self-referencing parent/child relationship.
 - Post optionally belongs to a Category.
+- Question is related to a Post.
+- Answer belongs to a Question.
+- Explanation belongs to a Question.
 
 ---
 
@@ -53,11 +72,17 @@ erDiagram
 		nvarchar(200) AnswerText
 		int QuestionId FK
 	}
+	Explanation {
+		int Id PK
+		nvarchar(500) Text
+		int QuestionId FK
+	}
 	Category ||--o| Category : Parent
 	Category ||--o| Post : "Has Posts"
 	Post }o--|| Category : "Belongs to"
 	Question }o--|| Post : "Relates to"
 	Answer }o--|| Question : "Possible Answers"
+	Explanation }o--|| Question : "Contains Explanations"
 
 ```
 
@@ -77,6 +102,13 @@ CREATE TABLE [Answers] (
 	[Id] INT PRIMARY KEY IDENTITY(1,1),
 	[AnswerText] NVARCHAR(200) NOT NULL,
 	[Correct] INT NOT NULL,
+	[QuestionId] INT NOT NULL,
+	FOREIGN KEY ([QuestionId]) REFERENCES [Questions]([Id])
+);
+
+CREATE TABLE [Explanations] (
+	[Id] INT PRIMARY KEY IDENTITY(1,1),
+	[Text] NVARCHAR(500) NOT NULL,
 	[QuestionId] INT NOT NULL,
 	FOREIGN KEY ([QuestionId]) REFERENCES [Questions]([Id])
 );

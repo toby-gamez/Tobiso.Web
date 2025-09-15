@@ -29,6 +29,7 @@ public class QuestionService : IQuestionService
         {
             var questions = await _context.Questions
                 .Include(q => q.Answers)
+                .Include(q => q.Explanations)
                 .Where(q => q.PostId == postId)
                 .ToListAsync();
 
@@ -43,6 +44,12 @@ public class QuestionService : IQuestionService
                     AnswerText = a.AnswerText,
                     Correct = a.Correct,
                     QuestionId = a.QuestionId
+                }).ToList(),
+                Explanations = q.Explanations.Select(e => new ExplanationResponse
+                {
+                    Id = e.Id,
+                    Text = e.Text,
+                    QuestionId = e.QuestionId
                 }).ToList()
             }).ToList();
         }
@@ -57,6 +64,7 @@ public class QuestionService : IQuestionService
     {
         var question = await _context.Questions
             .Include(q => q.Answers)
+            .Include(q => q.Explanations)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (question == null) return null;
@@ -72,6 +80,12 @@ public class QuestionService : IQuestionService
                 AnswerText = a.AnswerText,
                 Correct = a.Correct,
                 QuestionId = a.QuestionId
+            }).ToList(),
+            Explanations = question.Explanations.Select(e => new ExplanationResponse
+            {
+                Id = e.Id,
+                Text = e.Text,
+                QuestionId = e.QuestionId
             }).ToList()
         };
     }
@@ -102,6 +116,19 @@ public class QuestionService : IQuestionService
                 _context.Answers.AddRange(answers);
                 await _context.SaveChangesAsync();
             }
+            
+            // Přidání vysvětlení
+            if (request.Explanations.Any())
+            {
+                var explanations = request.Explanations.Select(e => new Explanation
+                {
+                    Text = e.Text,
+                    QuestionId = question.Id
+                }).ToList();
+
+                _context.Explanations.AddRange(explanations);
+                await _context.SaveChangesAsync();
+            }
 
             return await GetById(question.Id);
         }
@@ -118,6 +145,7 @@ public class QuestionService : IQuestionService
         {
             var question = await _context.Questions
                 .Include(q => q.Answers)
+                .Include(q => q.Explanations)
                 .FirstOrDefaultAsync(q => q.Id == request.Id);
 
             if (question == null) return false;
@@ -126,6 +154,9 @@ public class QuestionService : IQuestionService
 
             // Odstranění starých odpovědí
             _context.Answers.RemoveRange(question.Answers);
+            
+            // Odstranění starých vysvětlení
+            _context.Explanations.RemoveRange(question.Explanations);
 
             // Přidání nových odpovědí
             if (request.Answers.Any())
@@ -138,6 +169,18 @@ public class QuestionService : IQuestionService
                 }).ToList();
 
                 _context.Answers.AddRange(answers);
+            }
+            
+            // Přidání nových vysvětlení
+            if (request.Explanations.Any())
+            {
+                var explanations = request.Explanations.Select(e => new Explanation
+                {
+                    Text = e.Text,
+                    QuestionId = question.Id
+                }).ToList();
+
+                _context.Explanations.AddRange(explanations);
             }
 
             await _context.SaveChangesAsync();
@@ -156,6 +199,7 @@ public class QuestionService : IQuestionService
         {
             var question = await _context.Questions
                 .Include(q => q.Answers)
+                .Include(q => q.Explanations)
                 .FirstOrDefaultAsync(q => q.Id == id);
 
             if (question == null) return false;
