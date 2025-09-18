@@ -679,14 +679,14 @@ body.scroll-lock {
 
 .answer-option.correct {
     border-color: #90c695;
-    background-color: #90c695;
-    color: white;
+    background-color: #d4edda;
+    color: #155724;
 }
 
 .answer-option.incorrect {
-    border-color: #ff9999;
-    background-color: #ff9999;
-    color: white;
+    border-color: #ff6868;
+    background-color: #ffb9b9;
+    color: #ff6868;
 }
 
 .test-summary {
@@ -733,6 +733,62 @@ body.scroll-lock {
     font-size: 0.9rem;
     opacity: 75%;
     margin-bottom: 1rem;
+}
+
+.text-input-container {
+    margin-bottom: 1rem;
+}
+
+.text-answer-input {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 10px;
+    border: 2px solid #ffad8f;
+    background-color: #ffad8f;
+    color: #220b00;
+    font-family: "Zilla Slab", serif;
+    font-size: 20px;
+    transition: all 0.2s ease;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.text-answer-input:focus {
+    border: 2px solid #220b00;
+    outline: none;
+}
+
+.text-answer-input::placeholder {
+    color: #5a2b00;
+    opacity: 0.7;
+}
+
+.text-answer-review {
+    margin-bottom: 1rem;
+}
+
+.user-text-answer, .correct-text-answer {
+    padding: 0.75rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    border: 2px solid;
+}
+
+.user-text-answer.correct {
+    border-color: #90c695;
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.user-text-answer.incorrect {
+    border-color: #ff6868;
+    background-color: #ffa5a5;
+    color: #ff6868;
+}
+
+.correct-text-answer {
+    border-color: #90c695;
+    background-color: #d4edda;
+    color: #155724;
 }
 /* Dark mode styles */
 
@@ -1054,4 +1110,38 @@ body.dark-mode .btn-success {
 }
 body.dark-mode .btn-success:hover {
     background-color: #155426;
+}
+
+body.dark-mode .text-answer-input {
+    border: 2px solid #942700;
+    background-color: #942700;
+    color: #fcede9;
+}
+
+body.dark-mode .text-answer-input:focus {
+    border: 2px solid #fcede9;
+    outline: none;
+}
+
+body.dark-mode .text-answer-input::placeholder {
+    color: #d4a389;
+    opacity: 0.7;
+}
+
+body.dark-mode .user-text-answer.correct {
+    border-color: #4a7c59;
+    background-color: #4a7c59;
+    color: white;
+}
+
+body.dark-mode .user-text-answer.incorrect {
+    border-color: #cc4444;
+    background-color: #cc4444;
+    color: white;
+}
+
+body.dark-mode .correct-text-answer {
+    border-color: #4a7c59;
+    background-color: #1e3a2a;
+    color: #90c695;
 }

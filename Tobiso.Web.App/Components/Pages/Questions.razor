@@ -1,6 +1,7 @@
 @page "/questions/{PostId:int}"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components
 @inject ITobisoAnonymApi Api
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
@@ -61,8 +62,23 @@ else
             @for (int i = 0; i < _questions.Count; i++)
             {
                 var question = _questions[i];
-                var isCorrect = _userAnswers.ContainsKey(question.Id) && 
-                              question.Answers.Any(a => a.Id == _userAnswers[question.Id] && a.Correct == 1);
+                bool isCorrect = false;
+                
+                if (IsTextQuestion(question))
+                {
+                    if (_userTextAnswers.ContainsKey(question.Id))
+                    {
+                        var userText = _userTextAnswers[question.Id].Trim();
+                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                        isCorrect = correctAnswer != null && 
+                                   string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+                else
+                {
+                    isCorrect = _userAnswers.ContainsKey(question.Id) && 
+                               question.Answers.Any(a => a.Id == _userAnswers[question.Id] && a.Correct == 1);
+                }
                 
                 <div class="question-container">
                     <div class="question-title">
@@ -77,23 +93,45 @@ else
                         }
                     </div>
                     
-                    @foreach (var answer in question.Answers)
+                    @if (IsTextQuestion(question))
                     {
-                        var isUserAnswer = _userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id] == answer.Id;
-                        var isCorrectAnswer = answer.Correct == 1;
-                        var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
+                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                        var userText = _userTextAnswers.ContainsKey(question.Id) ? _userTextAnswers[question.Id] : "";
                         
-                        <div class="answer-option @cssClass">
-                            @if (isUserAnswer)
+                        <div class="text-answer-review">
+                            <div class="user-text-answer @(isCorrect ? "correct" : "incorrect")">
+                                <i class="bi bi-arrow-right-circle-fill me-2"></i>
+                                <strong>Vaše odpověď:</strong> @userText
+                            </div>
+                            @if (!isCorrect && correctAnswer != null)
                             {
-                                <i class="bi bi-arrow-right-circle-fill me-2"></i>  
+                                <div class="correct-text-answer">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    <strong>Správná odpověď:</strong> @correctAnswer.AnswerText
+                                </div>
                             }
-                            @if (isCorrectAnswer)
-                            {
-                                <i class="bi bi-check-circle-fill me-2"></i>  
-                            }
-                            @answer.AnswerText
                         </div>
+                    }
+                    else
+                    {
+                        @foreach (var answer in question.Answers)
+                        {
+                            var isUserAnswer = _userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id] == answer.Id;
+                            var isCorrectAnswer = answer.Correct == 1;
+                            var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
+                            
+                            <div class="answer-option @cssClass">
+                                @if (isUserAnswer)
+                                {
+                                    <i class="bi bi-arrow-right-circle-fill me-2"></i>  
+                                }
+                                @if (isCorrectAnswer)
+                                {
+                                    <i class="bi bi-check-circle-fill me-2"></i>  
+                                }
+                                @answer.AnswerText
+                            </div>
+                        }
                     }
                     
                     @* Zobrazení vysvětlení pro chybně zodpověděné otázky *@
@@ -129,16 +167,31 @@ else
                     @currentQuestion.QuestionText
                 </div>
                 
-                @foreach (var answer in currentQuestion.Answers)
+                @if (IsTextQuestion(currentQuestion))
                 {
-                    var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
-                                   _selectedAnswers[currentQuestion.Id] == answer.Id;
-                    
-                    <div class="answer-option @(isSelected ? "selected" : "")" 
-                         @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
-                        <i class="bi @(isSelected ? "bi-circle-fill" : "bi-circle") me-2"></i>
-                        @answer.AnswerText
+                    <!-- Textové pole pro textové otázky -->
+                    <div class="text-input-container">
+                        <input type="text" 
+                               class="form-control text-answer-input"
+                               placeholder="Zadejte vaši odpověď..."
+                               value="@(_textAnswers.ContainsKey(currentQuestion.Id) ? _textAnswers[currentQuestion.Id] : "")"
+                               @oninput="@((ChangeEventArgs e) => SetTextAnswer(currentQuestion.Id, e.Value?.ToString() ?? ""))" />
                     </div>
+                }
+                else
+                {
+                    <!-- Výběr z možností pro běžné otázky -->
+                    @foreach (var answer in currentQuestion.Answers)
+                    {
+                        var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
+                                       _selectedAnswers[currentQuestion.Id] == answer.Id;
+                        
+                        <div class="answer-option @(isSelected ? "selected" : "")" 
+                             @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
+                            <i class="bi @(isSelected ? "bi-circle-fill" : "bi-circle") me-2"></i>
+                            @answer.AnswerText
+                        </div>
+                    }
                 }
             </div>
             
@@ -177,6 +230,8 @@ else
     private List<QuestionResponse>? _questions;
     private Dictionary<int, int> _selectedAnswers = new();
     private Dictionary<int, int> _userAnswers = new();
+    private Dictionary<int, string> _textAnswers = new();
+    private Dictionary<int, string> _userTextAnswers = new();
     private int _currentQuestionIndex = 0;
     private bool _testCompleted = false;
     private int _correctAnswers = 0;
@@ -200,6 +255,8 @@ else
             // Reset stavu při načtení nových otázek
             _selectedAnswers.Clear();
             _userAnswers.Clear();
+            _textAnswers.Clear();
+            _userTextAnswers.Clear();
             _currentQuestionIndex = 0;
             _testCompleted = false;
             _correctAnswers = 0;
@@ -213,9 +270,20 @@ else
         }
     }
 
+    private bool IsTextQuestion(QuestionResponse question)
+    {
+        return question.Answers.Count == 1 && question.Answers.First().Correct == 1;
+    }
+
     private void SelectAnswer(int questionId, int answerId)
     {
         _selectedAnswers[questionId] = answerId;
+        StateHasChanged();
+    }
+
+    private void SetTextAnswer(int questionId, string text)
+    {
+        _textAnswers[questionId] = text;
         StateHasChanged();
     }
 
@@ -239,24 +307,54 @@ else
 
     private bool AllQuestionsAnswered()
     {
-        return _questions?.All(q => _selectedAnswers.ContainsKey(q.Id)) ?? false;
+        if (_questions == null) return false;
+        
+        return _questions.All(q => 
+        {
+            if (IsTextQuestion(q))
+            {
+                return _textAnswers.ContainsKey(q.Id) && !string.IsNullOrWhiteSpace(_textAnswers[q.Id]);
+            }
+            else
+            {
+                return _selectedAnswers.ContainsKey(q.Id);
+            }
+        });
     }
 
     private void FinishTest()
     {
         _userAnswers = new Dictionary<int, int>(_selectedAnswers);
+        _userTextAnswers = new Dictionary<int, string>(_textAnswers);
         _correctAnswers = 0;
 
         foreach (var question in _questions!)
         {
-            if (_userAnswers.ContainsKey(question.Id))
+            if (IsTextQuestion(question))
             {
-                var userAnswerId = _userAnswers[question.Id];
-                var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                
-                if (correctAnswer != null && userAnswerId == correctAnswer.Id)
+                if (_userTextAnswers.ContainsKey(question.Id))
                 {
-                    _correctAnswers++;
+                    var userText = _userTextAnswers[question.Id].Trim();
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    
+                    if (correctAnswer != null && 
+                        string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        _correctAnswers++;
+                    }
+                }
+            }
+            else
+            {
+                if (_userAnswers.ContainsKey(question.Id))
+                {
+                    var userAnswerId = _userAnswers[question.Id];
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    
+                    if (correctAnswer != null && userAnswerId == correctAnswer.Id)
+                    {
+                        _correctAnswers++;
+                    }
                 }
             }
         }
