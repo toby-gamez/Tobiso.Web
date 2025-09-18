@@ -201,7 +201,7 @@ else
             sb.Append("<thead><tr>");
             foreach (var cellContent in headerCells)
             {
-                sb.Append($"<th>{System.Net.WebUtility.HtmlEncode(cellContent)}</th>");
+                sb.Append($"<th>{cellContent}</th>");
             }
             sb.Append("</tr></thead>");
 
@@ -215,7 +215,7 @@ else
                 for (int i = 0; i < headerCells.Count; i++)
                 {
                     var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
-                    sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(cellContent)}</td>");
+                    sb.Append($"<td>{cellContent}</td>");
                 }
                 sb.Append("</tr>");
             }
@@ -244,7 +244,7 @@ else
             sb.Append("<table class=\"md-table\">");
             sb.Append("<thead><tr>");
             foreach (var cellContent in headerCells)
-                sb.Append($"<th>{System.Net.WebUtility.HtmlEncode(cellContent)}</th>");
+                sb.Append($"<th>{cellContent}</th>");
             sb.Append("</tr></thead>");
             sb.Append("<tbody>");
             foreach (var bodyLine in bodyLines)
@@ -254,7 +254,7 @@ else
                 for (int i = 0; i < headerCells.Count; i++)
                 {
                     var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
-                    sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(cellContent)}</td>");
+                    sb.Append($"<td>{cellContent}</td>");
                 }
                 sb.Append("</tr>");
             }
