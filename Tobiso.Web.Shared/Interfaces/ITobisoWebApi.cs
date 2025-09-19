@@ -41,4 +41,26 @@ public interface ITobisoWebApi
 
     [Get("/api/Posts/links")]
     Task<IList<PostLinkResponse>> GetPostLinks();
+
+    // Events API
+    [Get("/api/Events")]
+    Task<IList<EventResponse>> GetAllEvents();
+
+    [Get("/api/Events?startDate={startDate}&endDate={endDate}")]
+    Task<IList<EventResponse>> GetEventsByDateRange(DateTime startDate, DateTime endDate);
+
+    [Get("/api/Events/{id}")]
+    Task<EventResponse> GetEventById(int id);
+
+    [Post("/api/Events")]
+    Task<EventResponse> CreateEvent([Body] CreateEventRequest request);
+
+    [Put("/api/Events/{id}")]
+    Task UpdateEvent(int id, [Body] UpdateEventRequest request);
+
+    [Delete("/api/Events/{id}")]
+    Task DeleteEvent(int id);
+
+    [Get("/api/Events/search?searchTerm={searchTerm}")]
+    Task<IList<EventResponse>> SearchEvents(string searchTerm);
 }

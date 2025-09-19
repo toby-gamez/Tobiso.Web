@@ -29,7 +29,7 @@ var services = builder.Services;
 
 // Add services
 services.Configure<BasicAuthOptions>(builder.Configuration.GetSection("Auth:Basic"));
-services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"]) });
+services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? "https://localhost:7270") });
 builder.Services.AddScoped<IPreferenceService, PreferenceService>();
 services.AddHttpContextAccessor();
 
@@ -56,6 +56,7 @@ services.AddEndpointsApiExplorer();
 services.AddScoped<IPostService, PostService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
+services.AddScoped<IEventService, EventService>();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<HttpLoggingHandler>();

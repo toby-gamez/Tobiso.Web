@@ -1,0 +1,443 @@
+@page "/events"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+@inject IJSRuntime JSRuntime
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>Správa událostí - Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Správa událostí</h3>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <i class="bi bi-plus-circle"></i> Nová událost
+        </button>
+    </div>
+
+    @if (events == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Načítám...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" @bind="searchTerm" @onkeyup="OnSearchChanged" 
+                       placeholder="Hledat událost..." />
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" @bind="filterStartDate" @bind:after="OnFilterChanged" />
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" @bind="filterEndDate" @bind:after="OnFilterChanged" />
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Název</th>
+                        <th>Datum začátku</th>
+                        <th>Datum konce</th>
+                        <th>Typ</th>
+                        <th>Místo</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!filteredEvents.Any())
+                    {
+                        <tr><td colspan="6" class="text-center">Žádné události k zobrazení.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var eventItem in filteredEvents)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="event-color-indicator" style="background-color: @eventItem.Color"></div>
+                                        @eventItem.Title
+                                    </div>
+                                </td>
+                                <td>@eventItem.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@(eventItem.EndDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
+                                <td>
+                                    @if (eventItem.IsAllDay)
+                                    {
+                                        <span class="badge bg-info">Celodenní</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Časová</span>
+                                    }
+                                    @if (eventItem.IsRecurring)
+                                    {
+                                        <span class="badge bg-warning">Opakující se</span>
+                                    }
+                                </td>
+                                <td>@(eventItem.Location ?? "-")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" @onclick="() => ShowEditModal(eventItem)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" @onclick="() => DeleteEvent(eventItem.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* Modal pro vytvoření/editaci události *@
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Upravit událost" : "Nová událost")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="eventModel" OnValidSubmit="SaveEvent">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Název události *</label>
+                                    <InputText class="form-control" @bind-Value="eventModel.Title" />
+                                    <ValidationMessage For="@(() => eventModel.Title)" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Barva</label>
+                                    <InputText type="color" class="form-control form-control-color" @bind-Value="eventModel.Color" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Popis</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="eventModel.Description" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Datum začátku *</label>
+                                    <InputDate class="form-control" @bind-Value="startDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Čas začátku</label>
+                                    <InputText type="time" class="form-control" @bind-Value="startTime" disabled="@eventModel.IsAllDay" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3 form-check" style="margin-top: 2rem;">
+                                    <InputCheckbox class="form-check-input" @bind-Value="eventModel.IsAllDay" />
+                                    <label class="form-check-label">Celodenní událost</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (!eventModel.IsAllDay)
+                        {
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Datum konce</label>
+                                        <InputDate class="form-control" @bind-Value="endDate" />
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Čas konce</label>
+                                        <InputText type="time" class="form-control" @bind-Value="endTime" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Místo</label>
+                            <InputText class="form-control" @bind-Value="eventModel.Location" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3 form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="eventModel.IsRecurring" />
+                                    <label class="form-check-label">Opakující se událost</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (eventModel.IsRecurring)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Vzor opakování</label>
+                                        <InputSelect class="form-select" @bind-Value="eventModel.RecurrencePattern">
+                                            <option value="">Vyberte vzor</option>
+                                            <option value="daily">Denně</option>
+                                            <option value="weekly">Týdně</option>
+                                            <option value="monthly">Měsíčně</option>
+                                            <option value="yearly">Ročně</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Konec opakování</label>
+                                        <InputDate class="form-control" @bind-Value="recurrenceEndDate" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Zrušit</button>
+                            <button type="submit" class="btn btn-primary">@(isEditing ? "Uložit změny" : "Vytvořit událost")</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+<style>
+    .event-color-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+        display: inline-block;
+    }
+</style>
+
+@code {
+    private List<EventResponse>? events;
+    private List<EventResponse> filteredEvents = new();
+    private string searchTerm = "";
+    private DateTime? filterStartDate;
+    private DateTime? filterEndDate;
+    
+    private bool showModal = false;
+    private bool isEditing = false;
+    private EventModel eventModel = new();
+    
+    // Pomocné properties pro formulář
+    private DateTime startDate = DateTime.Today;
+    private string startTime = "";
+    private DateTime? endDate;
+    private string endTime = "";
+    private DateTime? recurrenceEndDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            events = (await Api.GetAllEvents()).ToList();
+            FilterEvents();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Chyba při načítání událostí: {ex.Message}");
+        }
+    }
+
+    private void FilterEvents()
+    {
+        if (events == null) return;
+
+        filteredEvents = events.Where(e =>
+            (string.IsNullOrWhiteSpace(searchTerm) || 
+             e.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             (e.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (!filterStartDate.HasValue || e.StartDate.Date >= filterStartDate.Value.Date) &&
+            (!filterEndDate.HasValue || e.StartDate.Date <= filterEndDate.Value.Date)
+        ).OrderBy(e => e.StartDate).ToList();
+    }
+
+    private void OnSearchChanged()
+    {
+        FilterEvents();
+        StateHasChanged();
+    }
+
+    private void OnFilterChanged()
+    {
+        FilterEvents();
+        StateHasChanged();
+    }
+
+    private void ShowCreateModal()
+    {
+        isEditing = false;
+        eventModel = new EventModel();
+        startDate = DateTime.Today;
+        startTime = "";
+        endDate = null;
+        endTime = "";
+        recurrenceEndDate = null;
+        showModal = true;
+    }
+
+    private void ShowEditModal(EventResponse eventResponse)
+    {
+        isEditing = true;
+        eventModel = new EventModel
+        {
+            Id = eventResponse.Id,
+            Title = eventResponse.Title,
+            Description = eventResponse.Description,
+            IsAllDay = eventResponse.IsAllDay,
+            Location = eventResponse.Location,
+            Color = eventResponse.Color,
+            IsRecurring = eventResponse.IsRecurring,
+            RecurrencePattern = eventResponse.RecurrencePattern
+        };
+        
+        startDate = eventResponse.StartDate.Date;
+        startTime = eventResponse.IsAllDay ? "" : eventResponse.StartDate.ToString("HH:mm");
+        endDate = eventResponse.EndDate?.Date;
+        endTime = eventResponse.EndDate?.ToString("HH:mm") ?? "";
+        recurrenceEndDate = eventResponse.RecurrenceEndDate?.Date;
+        
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        eventModel = new EventModel();
+    }
+
+    private async Task SaveEvent()
+    {
+        try
+        {
+            // Sestavení DateTime hodnot
+            var startDateTime = startDate;
+            if (!eventModel.IsAllDay && !string.IsNullOrWhiteSpace(startTime))
+            {
+                if (TimeSpan.TryParse(startTime, out var time))
+                {
+                    startDateTime = startDate.Add(time);
+                }
+            }
+
+            DateTime? endDateTime = null;
+            if (!eventModel.IsAllDay && endDate.HasValue)
+            {
+                endDateTime = endDate.Value;
+                if (!string.IsNullOrWhiteSpace(endTime) && TimeSpan.TryParse(endTime, out var endTimeSpan))
+                {
+                    endDateTime = endDate.Value.Add(endTimeSpan);
+                }
+            }
+
+            if (isEditing)
+            {
+                var updateRequest = new UpdateEventRequest
+                {
+                    Title = eventModel.Title,
+                    Description = eventModel.Description,
+                    StartDate = startDateTime,
+                    EndDate = endDateTime,
+                    IsAllDay = eventModel.IsAllDay,
+                    Location = eventModel.Location,
+                    Color = eventModel.Color,
+                    IsRecurring = eventModel.IsRecurring,
+                    RecurrencePattern = eventModel.RecurrencePattern,
+                    RecurrenceEndDate = recurrenceEndDate
+                };
+
+                await Api.UpdateEvent(eventModel.Id, updateRequest);
+                await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně upravena.");
+            }
+            else
+            {
+                var createRequest = new CreateEventRequest
+                {
+                    Title = eventModel.Title,
+                    Description = eventModel.Description,
+                    StartDate = startDateTime,
+                    EndDate = endDateTime,
+                    IsAllDay = eventModel.IsAllDay,
+                    Location = eventModel.Location,
+                    Color = eventModel.Color,
+                    IsRecurring = eventModel.IsRecurring,
+                    RecurrencePattern = eventModel.RecurrencePattern,
+                    RecurrenceEndDate = recurrenceEndDate
+                };
+
+                await Api.CreateEvent(createRequest);
+                await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně vytvořena.");
+            }
+
+            CloseModal();
+            await LoadEvents();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Chyba při ukládání události: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteEvent(int eventId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete smazat tuto událost?"))
+        {
+            try
+            {
+                await Api.DeleteEvent(eventId);
+                await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně smazána.");
+                await LoadEvents();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Chyba při mazání události: {ex.Message}");
+            }
+        }
+    }
+
+    private class EventModel
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public bool IsAllDay { get; set; }
+        public string? Location { get; set; }
+        public string Color { get; set; } = "#007bff";
+        public bool IsRecurring { get; set; }
+        public string? RecurrencePattern { get; set; }
+    }
+}

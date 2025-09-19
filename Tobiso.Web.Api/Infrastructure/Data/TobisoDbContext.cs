@@ -13,6 +13,7 @@ public class TobisoDbContext : DbContext
     public DbSet<Question> Questions { get; set; }
     public DbSet<Answer> Answers { get; set; }
     public DbSet<Explanation> Explanations { get; set; }
+    public DbSet<Event> Events { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,6 +61,30 @@ public class TobisoDbContext : DbContext
                 .WithMany(q => q.Explanations)
                 .HasForeignKey(e => e.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure Event entity
+        modelBuilder.Entity<Event>(entity =>
+        {
+            entity.Property(e => e.Title)
+                .IsRequired()
+                .HasMaxLength(200);
+                
+            entity.Property(e => e.Description)
+                .HasMaxLength(1000);
+                
+            entity.Property(e => e.Location)
+                .HasMaxLength(200);
+                
+            entity.Property(e => e.Color)
+                .HasMaxLength(7)
+                .HasDefaultValue("#007bff");
+                
+            entity.Property(e => e.RecurrencePattern)
+                .HasMaxLength(50);
+                
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
         });
     }
 }

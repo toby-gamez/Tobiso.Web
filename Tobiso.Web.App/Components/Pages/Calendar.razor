@@ -1,0 +1,312 @@
+@page "/calendar"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Kalendář - Tobiso</PageTitle>
+
+<div class="calendar-container">
+    <div class="calendar-header">
+        <button class="btn btn-outline-primary" @onclick="PreviousMonth">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <h2>@CurrentDate.ToString("MMMM yyyy")</h2>
+        <button class="btn btn-outline-primary" @onclick="NextMonth">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+
+    <div class="calendar-grid">
+        <div class="day-header">Po</div>
+        <div class="day-header">Út</div>
+        <div class="day-header">St</div>
+        <div class="day-header">Čt</div>
+        <div class="day-header">Pá</div>
+        <div class="day-header">So</div>
+        <div class="day-header">Ne</div>
+
+        @foreach (var day in CalendarDays)
+        {
+            <div class="day-cell @(day.IsCurrentMonth ? "" : "other-month") @(day.IsToday ? "today" : "")">
+                <div class="day-number">@day.Day.Day</div>
+                @if (day.Events.Any())
+                {
+                    <div class="events-container">
+                        @foreach (var eventItem in day.Events.Take(3))
+                        {
+                            <div class="event-item" style="background-color: @eventItem.Color" 
+                                 @onclick="() => ShowEventDetails(eventItem)" 
+                                 title="@eventItem.Title">
+                                @if (eventItem.IsAllDay)
+                                {
+                                    <span class="event-title">@eventItem.Title</span>
+                                }
+                                else
+                                {
+                                    <span class="event-time">@eventItem.StartDate.ToString("HH:mm")</span>
+                                    <span class="event-title">@eventItem.Title</span>
+                                }
+                            </div>
+                        }
+                        @if (day.Events.Count > 3)
+                        {
+                            <div class="more-events" @onclick="() => ShowDayEvents(day.Day)">
+                                +@(day.Events.Count - 3) dalších
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (ShowEventModal && SelectedEvent != null)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@SelectedEvent.Title</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEventModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Datum:</strong> @SelectedEvent.StartDate.ToString("dd.MM.yyyy")</p>
+                    @if (!SelectedEvent.IsAllDay)
+                    {
+                        <p><strong>Čas:</strong> @SelectedEvent.StartDate.ToString("HH:mm") 
+                        @if (SelectedEvent.EndDate.HasValue)
+                        {
+                            <span> - @SelectedEvent.EndDate.Value.ToString("HH:mm")</span>
+                        }
+                        </p>
+                    }
+                    else
+                    {
+                        <p><strong>Celodenní událost</strong></p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(SelectedEvent.Description))
+                    {
+                        <p><strong>Popis:</strong> @SelectedEvent.Description</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(SelectedEvent.Location))
+                    {
+                        <p><strong>Místo:</strong> @SelectedEvent.Location</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEventModal">Zavřít</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+<style>
+    .calendar-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background-color: #dee2e6;
+        border: 1px solid #dee2e6;
+    }
+
+    .day-header {
+        background-color: #f8f9fa;
+        padding: 10px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .day-cell {
+        background-color: white;
+        min-height: 120px;
+        padding: 5px;
+        position: relative;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .day-cell:hover {
+        background-color: #f8f9fa;
+    }
+
+    .day-cell.other-month {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+
+    .day-cell.today {
+        background-color: #e3f2fd;
+    }
+
+    .day-number {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .events-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .event-item {
+        background-color: #007bff;
+        color: white;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 0.8em;
+        cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .event-time {
+        font-weight: bold;
+        margin-right: 4px;
+    }
+
+    .event-title {
+        font-size: 0.75em;
+    }
+
+    .more-events {
+        color: #6c757d;
+        font-size: 0.7em;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+
+    @@media (max-width: 768px) {
+        .calendar-grid {
+            font-size: 0.8em;
+        }
+        
+        .day-cell {
+            min-height: 80px;
+        }
+        
+        .event-item {
+            font-size: 0.7em;
+            padding: 1px 2px;
+        }
+    }
+</style>
+
+@code {
+    private DateTime CurrentDate = DateTime.Now;
+    private List<EventResponse> Events = new();
+    private List<CalendarDay> CalendarDays = new();
+    private bool ShowEventModal = false;
+    private EventResponse? SelectedEvent = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+        GenerateCalendarDays();
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            var startDate = new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddDays(-7);
+            var endDate = startDate.AddDays(42);
+            
+            Events = await Api.GetEventsByDateRange(startDate, endDate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při načítání událostí: {ex.Message}");
+        }
+    }
+
+    private void GenerateCalendarDays()
+    {
+        CalendarDays.Clear();
+        
+        var firstDayOfMonth = new DateTime(CurrentDate.Year, CurrentDate.Month, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+        
+        // Czech culture - Monday is first day of week (DayOfWeek.Monday = 1)
+        var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek + 1);
+        if (firstDayOfMonth.DayOfWeek == DayOfWeek.Sunday)
+            startDate = startDate.AddDays(-7);
+        
+        var endDate = startDate.AddDays(41); // 6 weeks * 7 days
+        
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var dayEvents = Events.Where(e => 
+                (e.IsAllDay && e.StartDate.Date == date.Date) ||
+                (!e.IsAllDay && e.StartDate.Date == date.Date)
+            ).OrderBy(e => e.IsAllDay ? TimeSpan.Zero : e.StartDate.TimeOfDay).ToList();
+            
+            CalendarDays.Add(new CalendarDay
+            {
+                Day = date,
+                IsCurrentMonth = date.Month == CurrentDate.Month,
+                IsToday = date.Date == DateTime.Today,
+                Events = dayEvents
+            });
+        }
+    }
+
+    private async Task PreviousMonth()
+    {
+        CurrentDate = CurrentDate.AddMonths(-1);
+        await LoadEvents();
+        GenerateCalendarDays();
+    }
+
+    private async Task NextMonth()
+    {
+        CurrentDate = CurrentDate.AddMonths(1);
+        await LoadEvents();
+        GenerateCalendarDays();
+    }
+
+    private void ShowEventDetails(EventResponse eventItem)
+    {
+        SelectedEvent = eventItem;
+        ShowEventModal = true;
+    }
+
+    private void CloseEventModal()
+    {
+        ShowEventModal = false;
+        SelectedEvent = null;
+    }
+
+    private void ShowDayEvents(DateTime day)
+    {
+        // Implementace pro zobrazení všech událostí dne
+        // Zatím jen zavře modal
+        CloseEventModal();
+    }
+
+    private class CalendarDay
+    {
+        public DateTime Day { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public bool IsToday { get; set; }
+        public List<EventResponse> Events { get; set; } = new();
+    }
+}
