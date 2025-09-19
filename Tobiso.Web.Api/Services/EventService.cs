@@ -47,12 +47,32 @@ public class EventService : IEventService
         try
         {
             var events = await _context.Events
-                .Where(e => e.StartDate <= endDate && 
-                           (e.EndDate == null || e.EndDate >= startDate))
+                .Where(e => (e.StartDate <= endDate && 
+                           (e.EndDate == null || e.EndDate >= startDate)) ||
+                           (e.IsRecurring && 
+                           (e.RecurrenceEndDate == null || e.RecurrenceEndDate >= startDate) &&
+                           e.StartDate <= endDate))
                 .OrderBy(e => e.StartDate)
                 .ToListAsync();
             
-            return events.Select(MapToResponse).ToList();
+            var eventResponses = new List<EventResponse>();
+            
+            foreach (var eventEntity in events)
+            {
+                if (!eventEntity.IsRecurring)
+                {
+                    // Jednorázová událost
+                    eventResponses.Add(MapToResponse(eventEntity));
+                }
+                else
+                {
+                    // Opakovaná událost - generuj instance
+                    var instances = GenerateRecurringInstances(eventEntity, startDate, endDate);
+                    eventResponses.AddRange(instances);
+                }
+            }
+            
+            return eventResponses.OrderBy(e => e.StartDate).ToList();
         }
         catch (Exception ex)
         {
@@ -180,6 +200,62 @@ public class EventService : IEventService
             IsRecurring = eventEntity.IsRecurring,
             RecurrencePattern = eventEntity.RecurrencePattern,
             RecurrenceEndDate = eventEntity.RecurrenceEndDate
+        };
+    }
+
+    private static List<EventResponse> GenerateRecurringInstances(Event eventEntity, DateTime rangeStart, DateTime rangeEnd)
+    {
+        var instances = new List<EventResponse>();
+        
+        if (string.IsNullOrEmpty(eventEntity.RecurrencePattern))
+            return instances;
+
+        var currentDate = eventEntity.StartDate;
+        var eventDuration = eventEntity.EndDate?.Subtract(eventEntity.StartDate) ?? TimeSpan.Zero;
+        
+        // Najdi první instanci v požadovaném rozsahu
+        while (currentDate < rangeStart && 
+               (eventEntity.RecurrenceEndDate == null || currentDate <= eventEntity.RecurrenceEndDate))
+        {
+            currentDate = GetNextOccurrence(currentDate, eventEntity.RecurrencePattern);
+        }
+        
+        // Generuj instance v rozsahu
+        while (currentDate <= rangeEnd && 
+               (eventEntity.RecurrenceEndDate == null || currentDate <= eventEntity.RecurrenceEndDate))
+        {
+            var instanceEndDate = eventEntity.EndDate?.Add(currentDate.Subtract(eventEntity.StartDate));
+            
+            instances.Add(new EventResponse
+            {
+                Id = eventEntity.Id, // Zachováváme původní ID pro identifikaci
+                Title = eventEntity.Title,
+                Description = eventEntity.Description,
+                StartDate = currentDate,
+                EndDate = instanceEndDate,
+                IsAllDay = eventEntity.IsAllDay,
+                Location = eventEntity.Location,
+                Color = eventEntity.Color,
+                IsRecurring = eventEntity.IsRecurring,
+                RecurrencePattern = eventEntity.RecurrencePattern,
+                RecurrenceEndDate = eventEntity.RecurrenceEndDate
+            });
+            
+            currentDate = GetNextOccurrence(currentDate, eventEntity.RecurrencePattern);
+        }
+        
+        return instances;
+    }
+    
+    private static DateTime GetNextOccurrence(DateTime currentDate, string recurrencePattern)
+    {
+        return recurrencePattern.ToLowerInvariant() switch
+        {
+            "daily" => currentDate.AddDays(1),
+            "weekly" => currentDate.AddDays(7),
+            "monthly" => currentDate.AddMonths(1),
+            "yearly" => currentDate.AddYears(1),
+            _ => currentDate.AddDays(7) // Default to weekly
         };
     }
 }

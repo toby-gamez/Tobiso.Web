@@ -33,19 +33,24 @@
                 @if (day.Events.Any())
                 {
                     <div class="events-container">
-                        @foreach (var eventItem in day.Events.Take(3))
+                        @foreach (var eventInfo in day.Events.Take(3))
                         {
-                            <div class="event-item" style="background-color: @eventItem.Color" 
-                                 @onclick="() => ShowEventDetails(eventItem)" 
-                                 title="@eventItem.Title">
-                                @if (eventItem.IsAllDay)
+                            <div class="event-item @GetEventCssClass(eventInfo.EventType)" 
+                                 style="background-color: @eventInfo.Event.Color" 
+                                 @onclick="() => ShowEventDetails(eventInfo.Event)" 
+                                 title="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)">
+                                @if (eventInfo.Event.IsAllDay)
                                 {
-                                    <span class="event-title">@eventItem.Title</span>
+                                    <span class="event-title">@GetEventDisplayTitle(eventInfo.Event, eventInfo.EventType)</span>
                                 }
                                 else
                                 {
-                                    <span class="event-time">@eventItem.StartDate.ToString("HH:mm")</span>
-                                    <span class="event-title">@eventItem.Title</span>
+                                    @if ((eventInfo.EventType == EventDisplayType.SingleDay || eventInfo.EventType == EventDisplayType.FirstDay) && 
+                                         eventInfo.Event.StartDate.TimeOfDay != TimeSpan.Zero)
+                                    {
+                                        <span class="event-time">@eventInfo.Event.StartDate.ToString("HH:mm")</span>
+                                    }
+                                    <span class="event-title">@GetEventDisplayTitle(eventInfo.Event, eventInfo.EventType)</span>
                                 }
                             </div>
                         }
@@ -86,6 +91,23 @@
                     {
                         <p><strong>Celodenní událost</strong></p>
                     }
+                    @if (SelectedEvent.IsRecurring && !string.IsNullOrEmpty(SelectedEvent.RecurrencePattern))
+                    {
+                        <p><strong>Opakování:</strong> 
+                        @switch (SelectedEvent.RecurrencePattern.ToLowerInvariant())
+                        {
+                            case "daily": <span>Denně</span> break;
+                            case "weekly": <span>Týdně</span> break;
+                            case "monthly": <span>Měsíčně</span> break;
+                            case "yearly": <span>Ročně</span> break;
+                            default: <span>@SelectedEvent.RecurrencePattern</span> break;
+                        }
+                        @if (SelectedEvent.RecurrenceEndDate.HasValue)
+                        {
+                            <span> (do @SelectedEvent.RecurrenceEndDate.Value.ToString("dd.MM.yyyy"))</span>
+                        }
+                        </p>
+                    }
                     @if (!string.IsNullOrWhiteSpace(SelectedEvent.Description))
                     {
                         <p><strong>Popis:</strong> @SelectedEvent.Description</p>
@@ -106,7 +128,7 @@
 
 <style>
     .calendar-container {
-        max-width: 1200px;
+        width: 100%;
         margin: 0 auto;
         padding: 20px;
     }
@@ -124,6 +146,7 @@
         gap: 1px;
         background-color: #dee2e6;
         border: 1px solid #dee2e6;
+        width: 100%;
     }
 
     .day-header {
@@ -135,11 +158,12 @@
 
     .day-cell {
         background-color: white;
-        min-height: 120px;
+        height: 150px; /* Větší fixní výška pro pojmutí více událostí */
         padding: 5px;
         position: relative;
         cursor: pointer;
         transition: background-color 0.2s;
+        overflow: hidden; /* Skryje přetékající obsah */
     }
 
     .day-cell:hover {
@@ -163,7 +187,9 @@
     .events-container {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 1px;
+        height: calc(100% - 25px); /* Využije zbývající místo po dni čísla */
+        overflow: hidden;
     }
 
     .event-item {
@@ -173,9 +199,13 @@
         border-radius: 3px;
         font-size: 0.8em;
         cursor: pointer;
+        position: relative;
+        margin-bottom: 1px;
+        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        display: block;
     }
 
     .event-time {
@@ -185,6 +215,11 @@
 
     .event-title {
         font-size: 0.75em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+        max-width: calc(100% - 30px); /* Rezerva pro čas */
     }
 
     .more-events {
@@ -200,7 +235,7 @@
         }
         
         .day-cell {
-            min-height: 80px;
+            height: 100px; /* Větší fixní výška pro mobily */
         }
         
         .event-item {
@@ -254,10 +289,14 @@
         
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
-            var dayEvents = Events.Where(e => 
-                (e.IsAllDay && e.StartDate.Date == date.Date) ||
-                (!e.IsAllDay && e.StartDate.Date == date.Date)
-            ).OrderBy(e => e.IsAllDay ? TimeSpan.Zero : e.StartDate.TimeOfDay).ToList();
+            var dayEvents = Events.Where(e => IsEventOnDate(e, date))
+                .Select(e => new CalendarEventInfo
+                {
+                    Event = e,
+                    EventType = GetEventTypeForDate(e, date)
+                })
+                .OrderBy(e => e.Event.IsAllDay ? TimeSpan.Zero : e.Event.StartDate.TimeOfDay)
+                .ToList();
             
             CalendarDays.Add(new CalendarDay
             {
@@ -267,6 +306,112 @@
                 Events = dayEvents
             });
         }
+    }
+
+    private string GetEventCssClass(EventDisplayType eventType)
+    {
+        // Všechny události mají stejný vzhled
+        return "";
+    }
+
+    private string GetEventDisplayTitle(EventResponse eventItem, EventDisplayType eventType)
+    {
+        // Vrací pouze název události, bez speciálních znaků
+        return eventItem.Title;
+    }
+
+    private string GetEventTooltip(EventResponse eventItem, EventDisplayType eventType)
+    {
+        var tooltip = eventItem.Title;
+        
+        // Přidat datum
+        if (eventItem.EndDate.HasValue && eventItem.StartDate.Date != eventItem.EndDate.Value.Date)
+        {
+            tooltip += $"\n📅 {eventItem.StartDate:dd.MM.yyyy} - {eventItem.EndDate.Value:dd.MM.yyyy}";
+        }
+        else
+        {
+            tooltip += $"\n📅 {eventItem.StartDate:dd.MM.yyyy}";
+        }
+        
+        // Přidat čas (pokud není celodenní)
+        if (!eventItem.IsAllDay)
+        {
+            if (eventItem.EndDate.HasValue)
+            {
+                tooltip += $"\n🕐 {eventItem.StartDate:HH:mm} - {eventItem.EndDate.Value:HH:mm}";
+            }
+            else
+            {
+                tooltip += $"\n🕐 {eventItem.StartDate:HH:mm}";
+            }
+        }
+        else
+        {
+            tooltip += "\n⏰ Celodenní událost";
+        }
+        
+        // Přidat opakování
+        if (eventItem.IsRecurring && !string.IsNullOrEmpty(eventItem.RecurrencePattern))
+        {
+            var recurrenceText = eventItem.RecurrencePattern.ToLowerInvariant() switch
+            {
+                "daily" => "Denně",
+                "weekly" => "Týdně",
+                "monthly" => "Měsíčně", 
+                "yearly" => "Ročně",
+                _ => eventItem.RecurrencePattern
+            };
+            tooltip += $"\n🔄 {recurrenceText}";
+            
+            if (eventItem.RecurrenceEndDate.HasValue)
+            {
+                tooltip += $" (do {eventItem.RecurrenceEndDate.Value:dd.MM.yyyy})";
+            }
+        }
+        
+        // Přidat místo
+        if (!string.IsNullOrWhiteSpace(eventItem.Location))
+        {
+            tooltip += $"\n📍 {eventItem.Location}";
+        }
+        
+        // Přidat popis
+        if (!string.IsNullOrWhiteSpace(eventItem.Description))
+        {
+            var description = eventItem.Description.Length > 100 
+                ? eventItem.Description.Substring(0, 100) + "..." 
+                : eventItem.Description;
+            tooltip += $"\n📝 {description}";
+        }
+        
+        return tooltip;
+    }
+
+    private bool IsEventOnDate(EventResponse eventItem, DateTime date)
+    {
+        // Pro opakované události porovnáváme přímo datum z instance
+        var eventStartDate = eventItem.StartDate.Date;
+        var eventEndDate = eventItem.EndDate?.Date ?? eventStartDate;
+        
+        return date.Date >= eventStartDate && date.Date <= eventEndDate;
+    }
+
+    private EventDisplayType GetEventTypeForDate(EventResponse eventItem, DateTime date)
+    {
+        // Pro opakované události porovnáváme přímo datum z instance
+        var eventStartDate = eventItem.StartDate.Date;
+        var eventEndDate = eventItem.EndDate?.Date ?? eventStartDate;
+        
+        if (eventStartDate == eventEndDate)
+            return EventDisplayType.SingleDay;
+        
+        if (date.Date == eventStartDate)
+            return EventDisplayType.FirstDay;
+        else if (date.Date == eventEndDate)
+            return EventDisplayType.LastDay;
+        else
+            return EventDisplayType.MiddleDay;
     }
 
     private async Task PreviousMonth()
@@ -307,6 +452,20 @@
         public DateTime Day { get; set; }
         public bool IsCurrentMonth { get; set; }
         public bool IsToday { get; set; }
-        public List<EventResponse> Events { get; set; } = new();
+        public List<CalendarEventInfo> Events { get; set; } = new();
+    }
+
+    private class CalendarEventInfo
+    {
+        public EventResponse Event { get; set; } = null!;
+        public EventDisplayType EventType { get; set; }
+    }
+
+    private enum EventDisplayType
+    {
+        SingleDay,
+        FirstDay,
+        MiddleDay,
+        LastDay
     }
 }
