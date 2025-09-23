@@ -43,7 +43,7 @@ else
         </div>
         <div class="mb-3">
             <label for="content" class="form-label">Obsah</label>
-            <textarea id="content" class="form-control" rows="8" @bind="post.Content"></textarea>
+            <MarkdownEditor @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
         </div>
         <button type="submit" class="btn btn-primary">Uložit změny</button>
         <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>

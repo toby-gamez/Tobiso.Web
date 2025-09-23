@@ -1,0 +1,95 @@
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Linq.Expressions
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+<div>
+    <textarea id="@textareaId" class="form-control" style="display: none;">@Value</textarea>
+    @if (For != null && CascadedEditContext != null)
+    {
+        <ValidationMessage For="For" />
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; } = "Začněte psát váš Markdown obsah...";
+    [Parameter] public int Rows { get; set; } = 10;
+    [Parameter] public Expression<Func<string>>? For { get; set; }
+
+    [CascadingParameter] EditContext? CascadedEditContext { get; set; }
+    
+    private FieldIdentifier FieldIdentifier;
+    private string textareaId = $"markdown-editor-{Guid.NewGuid():N}";
+    private IJSObjectReference? jsModule;
+    private bool isInitialized = false;
+
+    protected override void OnParametersSet()
+    {
+        if (For != null && CascadedEditContext != null)
+        {
+            FieldIdentifier = FieldIdentifier.Create(For);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeEditor();
+        }
+    }
+
+    private async Task InitializeEditor()
+    {
+        try
+        {
+            // Načteme JavaScript modul pro Markdown editor
+            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/markdown-editor.js");
+            
+            // Inicializujeme editor
+            var dotNetRef = DotNetObjectReference.Create(this);
+            await jsModule.InvokeVoidAsync("initializeMarkdownEditor", textareaId, dotNetRef, Placeholder, Value ?? "");
+            
+            isInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při inicializaci Markdown editoru: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnContentChanged(string content)
+    {
+        Value = content;
+        await ValueChanged.InvokeAsync(content);
+    }
+
+    public async Task SetValue(string content)
+    {
+        if (isInitialized && jsModule != null)
+        {
+            await jsModule.InvokeVoidAsync("setEditorValue", textareaId, content);
+        }
+        Value = content;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (jsModule != null)
+        {
+            try
+            {
+                await jsModule.InvokeVoidAsync("disposeMarkdownEditor", textareaId);
+                await jsModule.DisposeAsync();
+            }
+            catch (Exception)
+            {
+                // Ignore dispose errors
+            }
+        }
+    }
+}
