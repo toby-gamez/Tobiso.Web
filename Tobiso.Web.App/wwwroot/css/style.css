@@ -790,6 +790,304 @@ body.scroll-lock {
     background-color: #d4edda;
     color: #155724;
 }
+ .calendar-container {
+     width: 100%;
+     margin: 0 auto;
+     padding: 20px;
+ }
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.calendar-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.mobile-swipe-hint {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    background-color: #ffad8f;
+    border: 1px solid #ffad8f;
+    width: 100%;
+    border-radius: 10px;
+}
+
+.day-header {
+    background-color: #ff946c;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    border-radius: 10px;
+}
+
+.day-cell {
+    background-color: #fdbaa1;
+    height: 150px; /* Větší fixní výška pro pojmutí více událostí */
+    padding: 5px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    overflow: hidden; /* Skryje přetékající obsah */
+    border-radius: 10px;
+    border: 2px solid #fdbaa1;
+    min-width: 0; /* Umožní flexibilní šířku na mobilu */
+}
+
+.day-cell:hover {
+    opacity: 70%;
+}
+
+.day-cell.other-month {
+    background-color: #fdbaa1;
+    opacity: 60%;
+}
+
+.day-cell.today {
+    border-color: black;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.events-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    height: calc(100% - 25px); /* Využije zbývající místo po dni čísla */
+    overflow: hidden;
+}
+
+.event-item {
+    background-color: #007bff;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    cursor: pointer;
+    position: relative;
+    margin-bottom: 1px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.event-time {
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.event-title {
+    font-size: 0.75em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    max-width: calc(100% - 30px); /* Rezerva pro čas */
+}
+
+.more-events {
+    color: #6c757d;
+    font-size: 0.7em;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 2px;
+}
+
+/* Desktop styly - pouze pro větší obrazovky */
+@media (min-width: 769px) {
+    .day-cell {
+        width: 95px;
+    }
+}
+
+/* Mobilní styly */
+@media (max-width: 768px) {
+    .calendar-container {
+        padding: 10px;
+    }
+
+    .calendar-header {
+        margin-bottom: 15px;
+    }
+
+    .calendar-header h2 {
+        font-size: 1.2rem;
+    }
+
+    .calendar-header .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .calendar-grid {
+        gap: 2px;
+        font-size: 0.8em;
+    }
+
+    .day-header {
+        padding: 8px 4px;
+        font-size: 0.8em;
+    }
+
+    .day-cell {
+        height: 80px;
+        padding: 3px;
+        -webkit-tap-highlight-color: transparent; /* Odstranění highlightu na iOS */
+        user-select: none; /* Zabránění výběru textu */
+    }
+
+    .day-number {
+        font-size: 0.9em;
+        margin-bottom: 3px;
+    }
+
+    .events-container {
+        height: calc(100% - 18px);
+        gap: 1px;
+    }
+
+    .event-item {
+        font-size: 0.65em;
+        padding: 1px 2px;
+        margin-bottom: 0;
+        border-radius: 2px;
+        line-height: 1.2;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation; /* Optimalizace pro dotyky */
+    }
+
+    .event-time {
+        font-size: 0.6em;
+        margin-right: 2px;
+    }
+
+    .event-title {
+        font-size: 0.65em;
+        max-width: calc(100% - 25px);
+    }
+
+    .more-events {
+        font-size: 0.6em;
+        margin-top: 1px;
+    }
+
+    /* Modal optimalizace pro mobily */
+    .modal-dialog {
+        margin: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+
+    .modal-header {
+        padding: 0.75rem 1rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .modal-footer {
+        padding: 0.75rem 1rem;
+    }
+
+    .modal-title {
+        font-size: 1.1rem;
+    }
+}
+
+/* Extra malé mobilní zařízení */
+@media (max-width: 480px) {
+    .calendar-container {
+        padding: 5px;
+    }
+
+    .calendar-header h2 {
+        font-size: 1rem;
+    }
+
+    .calendar-header .btn {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.8rem;
+    }
+
+    .day-cell {
+        height: 70px;
+        padding: 2px;
+    }
+
+    .day-number {
+        font-size: 0.8em;
+        margin-bottom: 2px;
+    }
+
+    .events-container {
+        height: calc(100% - 15px);
+    }
+
+    .event-item {
+        font-size: 0.6em;
+        padding: 1px;
+    }
+
+    .event-time {
+        font-size: 0.55em;
+    }
+
+    .event-title {
+        font-size: 0.6em;
+        max-width: calc(100% - 20px);
+    }
+
+    .more-events {
+        font-size: 0.55em;
+    }
+}
+
+/* Styly pro vylepšený modal */
+.event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.detail-row i {
+    margin-top: 0.1rem;
+    width: 16px;
+    color: #6c757d;
+}
+
+.detail-row.description {
+    align-items: flex-start;
+}
+
+.description-text {
+    margin-top: 0.25rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
 /* Dark mode styles */
 
 body.dark-mode {
@@ -1144,4 +1442,35 @@ body.dark-mode .correct-text-answer {
     border-color: #4a7c59;
     background-color: #1e3a2a;
     color: #90c695;
+}
+
+body.dark-mode .calendar-grid {
+    background-color: #942700;
+    border: 1px solid #942700;
+}
+
+body.dark-mode .day-header {
+    background-color: #701e00;
+}
+
+body.dark-mode .day-cell {
+    background-color: #a12b01;
+    border: 2px solid #a12b01;
+}
+
+body.dark-mode .day-cell.today {
+    border-color: white;
+}
+
+body.dark-mode .event-item {
+    background-color: #007bff;
+    color: white;
+}
+
+body.dark-mode .more-events {
+    color: #6c757d;
+}
+
+body.dark-mode .detail-row i {
+    color: #6c757d;
 }

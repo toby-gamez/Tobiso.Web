@@ -17,7 +17,7 @@
         </button>
     </div>
 
-    <div class="calendar-grid">
+    <div class="calendar-grid" @ontouchstart="OnTouchStart" @ontouchend="OnTouchEnd">
         <div class="day-header">Po</div>
         <div class="day-header">Út</div>
         <div class="day-header">St</div>
@@ -69,53 +69,74 @@
 
 @if (ShowEventModal && SelectedEvent != null)
 {
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog">
+    <div class="modal show d-block" tabindex="-1" @onclick="CloseEventModal">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">@SelectedEvent.Title</h5>
-                    <button type="button" class="btn-close" @onclick="CloseEventModal"></button>
+                    <button type="button" class="btn-close" @onclick="CloseEventModal" aria-label="Zavřít"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Datum:</strong> @SelectedEvent.StartDate.ToString("dd.MM.yyyy")</p>
-                    @if (!SelectedEvent.IsAllDay)
-                    {
-                        <p><strong>Čas:</strong> @SelectedEvent.StartDate.ToString("HH:mm") 
-                        @if (SelectedEvent.EndDate.HasValue)
+                    <div class="event-details">
+                        <div class="detail-row">
+                            <i class="bi bi-calendar"></i>
+                            <strong>Datum:</strong> @SelectedEvent.StartDate.ToString("dd.MM.yyyy")
+                        </div>
+                        @if (!SelectedEvent.IsAllDay)
                         {
-                            <span> - @SelectedEvent.EndDate.Value.ToString("HH:mm")</span>
+                            <div class="detail-row">
+                                <i class="bi bi-clock"></i>
+                                <strong>Čas:</strong> @SelectedEvent.StartDate.ToString("HH:mm") 
+                                @if (SelectedEvent.EndDate.HasValue)
+                                {
+                                    <span> - @SelectedEvent.EndDate.Value.ToString("HH:mm")</span>
+                                }
+                            </div>
                         }
-                        </p>
-                    }
-                    else
-                    {
-                        <p><strong>Celodenní událost</strong></p>
-                    }
-                    @if (SelectedEvent.IsRecurring && !string.IsNullOrEmpty(SelectedEvent.RecurrencePattern))
-                    {
-                        <p><strong>Opakování:</strong> 
-                        @switch (SelectedEvent.RecurrencePattern.ToLowerInvariant())
+                        else
                         {
-                            case "daily": <span>Denně</span> break;
-                            case "weekly": <span>Týdně</span> break;
-                            case "monthly": <span>Měsíčně</span> break;
-                            case "yearly": <span>Ročně</span> break;
-                            default: <span>@SelectedEvent.RecurrencePattern</span> break;
+                            <div class="detail-row">
+                                <i class="bi bi-sun"></i>
+                                <strong>Celodenní událost</strong>
+                            </div>
                         }
-                        @if (SelectedEvent.RecurrenceEndDate.HasValue)
+                        @if (SelectedEvent.IsRecurring && !string.IsNullOrEmpty(SelectedEvent.RecurrencePattern))
                         {
-                            <span> (do @SelectedEvent.RecurrenceEndDate.Value.ToString("dd.MM.yyyy"))</span>
+                            <div class="detail-row">
+                                <i class="bi bi-arrow-repeat"></i>
+                                <strong>Opakování:</strong> 
+                                @switch (SelectedEvent.RecurrencePattern.ToLowerInvariant())
+                                {
+                                    case "daily": <span>Denně</span> break;
+                                    case "weekly": <span>Týdně</span> break;
+                                    case "monthly": <span>Měsíčně</span> break;
+                                    case "yearly": <span>Ročně</span> break;
+                                    default: <span>@SelectedEvent.RecurrencePattern</span> break;
+                                }
+                                @if (SelectedEvent.RecurrenceEndDate.HasValue)
+                                {
+                                    <span> (do @SelectedEvent.RecurrenceEndDate.Value.ToString("dd.MM.yyyy"))</span>
+                                }
+                            </div>
                         }
-                        </p>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(SelectedEvent.Description))
-                    {
-                        <p><strong>Popis:</strong> @SelectedEvent.Description</p>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(SelectedEvent.Location))
-                    {
-                        <p><strong>Místo:</strong> @SelectedEvent.Location</p>
-                    }
+                        @if (!string.IsNullOrWhiteSpace(SelectedEvent.Location))
+                        {
+                            <div class="detail-row">
+                                <i class="bi bi-geo-alt"></i>
+                                <strong>Místo:</strong> @SelectedEvent.Location
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(SelectedEvent.Description))
+                        {
+                            <div class="detail-row description">
+                                <i class="bi bi-file-text"></i>
+                                <div>
+                                    <strong>Popis:</strong>
+                                    <div class="description-text">@SelectedEvent.Description</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseEventModal">Zavřít</button>
@@ -126,136 +147,29 @@
     <div class="modal-backdrop show"></div>
 }
 
-<style>
-    .calendar-container {
-        width: 100%;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .calendar-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 1px;
-        background-color: #dee2e6;
-        border: 1px solid #dee2e6;
-        width: 100%;
-    }
-
-    .day-header {
-        background-color: #f8f9fa;
-        padding: 10px;
-        text-align: center;
-        font-weight: bold;
-    }
-
-    .day-cell {
-        background-color: white;
-        height: 150px; /* Větší fixní výška pro pojmutí více událostí */
-        padding: 5px;
-        position: relative;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        overflow: hidden; /* Skryje přetékající obsah */
-    }
-
-    .day-cell:hover {
-        background-color: #f8f9fa;
-    }
-
-    .day-cell.other-month {
-        background-color: #f8f9fa;
-        color: #6c757d;
-    }
-
-    .day-cell.today {
-        background-color: #e3f2fd;
-    }
-
-    .day-number {
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-
-    .events-container {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        height: calc(100% - 25px); /* Využije zbývající místo po dni čísla */
-        overflow: hidden;
-    }
-
-    .event-item {
-        background-color: #007bff;
-        color: white;
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-size: 0.8em;
-        cursor: pointer;
-        position: relative;
-        margin-bottom: 1px;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        display: block;
-    }
-
-    .event-time {
-        font-weight: bold;
-        margin-right: 4px;
-    }
-
-    .event-title {
-        font-size: 0.75em;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        display: inline-block;
-        max-width: calc(100% - 30px); /* Rezerva pro čas */
-    }
-
-    .more-events {
-        color: #6c757d;
-        font-size: 0.7em;
-        cursor: pointer;
-        text-decoration: underline;
-    }
-
-    @@media (max-width: 768px) {
-        .calendar-grid {
-            font-size: 0.8em;
-        }
-        
-        .day-cell {
-            height: 100px; /* Větší fixní výška pro mobily */
-        }
-        
-        .event-item {
-            font-size: 0.7em;
-            padding: 1px 2px;
-        }
-    }
-</style>
-
 @code {
     private DateTime CurrentDate = DateTime.Now;
     private List<EventResponse> Events = new();
     private List<CalendarDay> CalendarDays = new();
     private bool ShowEventModal = false;
     private EventResponse? SelectedEvent = null;
+    private double touchStartX = 0;
+    private bool isTouchDevice = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadEvents();
         GenerateCalendarDays();
+        
+        // Detekce dotykového zařízení
+        try
+        {
+            isTouchDevice = await JSRuntime.InvokeAsync<bool>("eval", "'ontouchstart' in window");
+        }
+        catch
+        {
+            isTouchDevice = false;
+        }
     }
 
     private async Task LoadEvents()
@@ -445,6 +359,39 @@
         // Implementace pro zobrazení všech událostí dne
         // Zatím jen zavře modal
         CloseEventModal();
+    }
+
+    private void OnTouchStart(TouchEventArgs e)
+    {
+        if (e.Touches.Length > 0)
+        {
+            touchStartX = e.Touches[0].ClientX;
+        }
+    }
+
+    private async void OnTouchEnd(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length > 0 && isTouchDevice)
+        {
+            var touchEndX = e.ChangedTouches[0].ClientX;
+            var swipeDistance = touchStartX - touchEndX;
+            var minimumSwipeDistance = 50;
+
+            if (Math.Abs(swipeDistance) > minimumSwipeDistance)
+            {
+                if (swipeDistance > 0)
+                {
+                    // Swipe doleva - další měsíc
+                    await NextMonth();
+                }
+                else
+                {
+                    // Swipe doprava - předchozí měsíc
+                    await PreviousMonth();
+                }
+                StateHasChanged();
+            }
+        }
     }
 
     private class CalendarDay
