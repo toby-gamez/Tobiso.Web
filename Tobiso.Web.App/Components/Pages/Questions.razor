@@ -37,9 +37,12 @@ else
                 Otázka @(_currentQuestionIndex + 1) z @_questions.Count
             </div>
             
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: @((_currentQuestionIndex + 1) / (double)_questions.Count * 100)%"></div>
-            </div>
+            @if (_questions.Count > 0)
+            {
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: @(Math.Round((_currentQuestionIndex + 1) / (double)_questions.Count * 100, 2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
+            }
         }
 
         @if (_testCompleted)
@@ -228,6 +231,7 @@ else
     public int PostId { get; set; }
 
     private List<QuestionResponse>? _questions;
+    private List<QuestionResponse>? _originalQuestions;
     private Dictionary<int, int> _selectedAnswers = new();
     private Dictionary<int, int> _userAnswers = new();
     private Dictionary<int, string> _textAnswers = new();
@@ -251,7 +255,19 @@ else
     {
         try
         {
-            _questions = await Api.GetQuestionsByPostId(PostId);
+            _originalQuestions = await Api.GetQuestionsByPostId(PostId);
+            
+            // Zamíchání otázek do náhodného pořadí
+            if (_originalQuestions != null && _originalQuestions.Any())
+            {
+                var random = new Random();
+                _questions = _originalQuestions.OrderBy(x => random.Next()).ToList();
+            }
+            else
+            {
+                _questions = _originalQuestions;
+            }
+            
             // Reset stavu při načtení nových otázek
             _selectedAnswers.Clear();
             _userAnswers.Clear();
@@ -267,6 +283,7 @@ else
         {
             Console.WriteLine($"Chyba při načítání otázek: {ex.Message}");
             _questions = new List<QuestionResponse>();
+            _originalQuestions = new List<QuestionResponse>();
         }
     }
 

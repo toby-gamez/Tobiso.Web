@@ -1,10 +1,18 @@
 @page "/calendar"
+@rendermode InteractiveServer
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoAnonymApi Api
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <PageTitle>Kalendář - Tobiso</PageTitle>
+<h1 class="verybig">Kalendář</h1>
+
+@* Debug info *@
+<div style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-size: 12px;">
+    Debug: Events loaded: @Events.Count | Modal visible: @ShowEventModal | Selected event: @(SelectedEvent?.Title ?? "None")
+</div>
 
 <div class="calendar-container">
     <div class="calendar-header">
@@ -36,8 +44,9 @@
                         @foreach (var eventInfo in day.Events.Take(3))
                         {
                             <div class="event-item @GetEventCssClass(eventInfo.EventType)" 
-                                 style="background-color: @eventInfo.Event.Color" 
+                                 style="background-color: @eventInfo.Event.Color; cursor: pointer;" 
                                  @onclick="() => ShowEventDetails(eventInfo.Event)" 
+                                 @onclick:stopPropagation="true"
                                  title="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)">
                                 @if (eventInfo.Event.IsAllDay)
                                 {
@@ -69,22 +78,24 @@
 
 @if (ShowEventModal && SelectedEvent != null)
 {
-    <div class="modal show d-block" tabindex="-1" @onclick="CloseEventModal">
-        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@SelectedEvent.Title</h5>
-                    <button type="button" class="btn-close" @onclick="CloseEventModal" aria-label="Zavřít"></button>
+    <div class="modal show d-block event-modal-overlay" tabindex="-1" @onclick="CloseEventModal">
+        <div class="event-modal-content" @onclick:stopPropagation="true">
+                <div class="event-title-section">
+                    <div class="title-and-color">
+                        <h5 class="modal-event-title">@SelectedEvent.Title</h5>
+                        <div class="event-color-circle" style="background-color: @SelectedEvent.Color;"></div>
+                    </div>
+                    <button type="button" class="event-modal-close" @onclick="CloseEventModal" aria-label="Zavřít">×</button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body event-modal-body">
                     <div class="event-details">
-                        <div class="detail-row">
+                        <div>
                             <i class="bi bi-calendar"></i>
                             <strong>Datum:</strong> @SelectedEvent.StartDate.ToString("dd.MM.yyyy")
                         </div>
-                        @if (!SelectedEvent.IsAllDay)
+                        @if (!SelectedEvent.IsAllDay && !(SelectedEvent.StartDate.TimeOfDay == TimeSpan.Zero && SelectedEvent.EndDate?.TimeOfDay == TimeSpan.FromHours(23).Add(TimeSpan.FromMinutes(59))))
                         {
-                            <div class="detail-row">
+                            <div>
                                 <i class="bi bi-clock"></i>
                                 <strong>Čas:</strong> @SelectedEvent.StartDate.ToString("HH:mm") 
                                 @if (SelectedEvent.EndDate.HasValue)
@@ -95,14 +106,14 @@
                         }
                         else
                         {
-                            <div class="detail-row">
+                            <div>
                                 <i class="bi bi-sun"></i>
                                 <strong>Celodenní událost</strong>
                             </div>
                         }
                         @if (SelectedEvent.IsRecurring && !string.IsNullOrEmpty(SelectedEvent.RecurrencePattern))
                         {
-                            <div class="detail-row">
+                            <div>
                                 <i class="bi bi-arrow-repeat"></i>
                                 <strong>Opakování:</strong> 
                                 @switch (SelectedEvent.RecurrencePattern.ToLowerInvariant())
@@ -121,30 +132,23 @@
                         }
                         @if (!string.IsNullOrWhiteSpace(SelectedEvent.Location))
                         {
-                            <div class="detail-row">
+                            <div>
                                 <i class="bi bi-geo-alt"></i>
                                 <strong>Místo:</strong> @SelectedEvent.Location
                             </div>
                         }
                         @if (!string.IsNullOrWhiteSpace(SelectedEvent.Description))
                         {
-                            <div class="detail-row description">
+                            <div>
                                 <i class="bi bi-file-text"></i>
-                                <div>
-                                    <strong>Popis:</strong>
-                                    <div class="description-text">@SelectedEvent.Description</div>
-                                </div>
+                                <strong>Popis:</strong> @SelectedEvent.Description
                             </div>
                         }
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseEventModal">Zavřít</button>
-                </div>
             </div>
         </div>
-    </div>
-    <div class="modal-backdrop show"></div>
+    <div class="modal-backdrop show event-modal-backdrop"></div>
 }
 
 @code {
@@ -158,8 +162,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine("Calendar OnInitializedAsync started");
         await LoadEvents();
         GenerateCalendarDays();
+        Console.WriteLine($"Calendar initialized with {Events.Count} events and {CalendarDays.Count} calendar days");
         
         // Detekce dotykového zařízení
         try
@@ -172,6 +178,15 @@
         }
     }
 
+    public void Dispose()
+    {
+        // Ensure scroll is re-enabled if component is disposed while modal is open
+        if (ShowEventModal)
+        {
+            _ = JSRuntime.InvokeVoidAsync("eval", "document.body.style.overflow = ''");
+        }
+    }
+
     private async Task LoadEvents()
     {
         try
@@ -179,11 +194,14 @@
             var startDate = new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddDays(-7);
             var endDate = startDate.AddDays(42);
             
+            Console.WriteLine($"Loading events from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
             Events = await Api.GetEventsByDateRange(startDate, endDate);
+            Console.WriteLine($"Loaded {Events.Count} events");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Chyba při načítání událostí: {ex.Message}");
+            Events = new List<EventResponse>(); // Initialize empty list on error
         }
     }
 
@@ -344,14 +362,23 @@
 
     private void ShowEventDetails(EventResponse eventItem)
     {
+        Console.WriteLine($"ShowEventDetails called for event: {eventItem.Title}");
         SelectedEvent = eventItem;
         ShowEventModal = true;
+        
+        // Disable body scroll
+        _ = JSRuntime.InvokeVoidAsync("eval", "document.body.style.overflow = 'hidden'");
+        
+        StateHasChanged(); // Explicit call to update UI
     }
 
     private void CloseEventModal()
     {
         ShowEventModal = false;
         SelectedEvent = null;
+        
+        // Re-enable body scroll
+        _ = JSRuntime.InvokeVoidAsync("eval", "document.body.style.overflow = ''");
     }
 
     private void ShowDayEvents(DateTime day)
@@ -416,3 +443,8 @@
         LastDay
     }
 }
+
+<style>
+/* Event Modal Styles - specifické pro tento modal */
+
+</style>
