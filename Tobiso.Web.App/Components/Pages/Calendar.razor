@@ -9,11 +9,6 @@
 <PageTitle>Kalendář - Tobiso</PageTitle>
 <h1 class="verybig">Kalendář</h1>
 
-@* Debug info *@
-<div style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-size: 12px;">
-    Debug: Events loaded: @Events.Count | Modal visible: @ShowEventModal | Selected event: @(SelectedEvent?.Title ?? "None")
-</div>
-
 <div class="calendar-container">
     <div class="calendar-header">
         <button class="btn btn-outline-primary" @onclick="PreviousMonth">
