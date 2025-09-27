@@ -50,11 +50,46 @@
     </div>
 </footer>
 @* Search Modal *@
-<div id="searchModal" class="modal">
-    <div class="modal-content">
-        <span id="closeSearch">&times;</span>
-        <input type="text" id="search" placeholder="Hledat..." />
-        <div id="results"></div>
+<div id="searchModal" class="search-modal">
+    <div class="search-backdrop"></div>
+    <div class="search-container">
+        <div class="search-header">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" id="search" placeholder="Začněte psát a vyhledejte..." autocomplete="off" spellcheck="false" />
+                <button id="closeSearch" class="search-close" title="Zavřít (Esc)">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="search-shortcuts">
+                <span class="search-shortcut">
+                    <span class="key-icon">↑</span>
+                    <span class="key-icon">↓</span>
+                    <span>navigace</span>
+                </span>
+                <span class="search-shortcut">
+                    <span class="key-icon">Enter</span>
+                    <span>vybrat</span>
+                </span>
+                <span class="search-shortcut">
+                    <span class="key-icon">Esc</span>
+                    <span>zavřít</span>
+                </span>
+            </div>
+        </div>
+        <div class="search-content">
+            <div id="results" class="search-results"></div>
+            <div id="search-empty" class="search-empty" style="display: none;">
+                <i class="bi bi-search"></i>
+                <h3>Začněte psát pro vyhledávání</h3>
+                <p>Zadejte alespoň 2 znaky</p>
+            </div>
+            <div id="search-no-results" class="search-no-results" style="display: none;">
+                <i class="bi bi-emoji-frown"></i>
+                <h3>Žádné výsledky</h3>
+                <p>Zkuste jiný dotaz nebo méně specifické slova</p>
+            </div>
+        </div>
     </div>
 </div>
 @* Cookie Consent Banner *@
@@ -84,7 +119,7 @@
         {
 
             // Načtení JavaScript modulu
-            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js");
+            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=6");
 
             dotNetHelper = DotNetObjectReference.Create(this);
 
@@ -197,10 +232,18 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (jsModule != null)
+        try
         {
-            await jsModule.DisposeAsync();
+            if (jsModule != null)
+            {
+                await jsModule.DisposeAsync();
+            }
         }
+        catch (JSDisconnectedException)
+        {
+            // Ignore JSDisconnectedException - circuit is already disconnected
+        }
+        
         dotNetHelper?.Dispose();
     }
 }

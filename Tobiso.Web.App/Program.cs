@@ -71,6 +71,16 @@ services.AddRefitClient<ITobisoAnonymApi>()
         }
         c.BaseAddress = new Uri(baseAddress);
     })
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Ignore SSL certificate errors in development
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        }
+        return handler;
+    })
     .AddHttpMessageHandler<HttpLoggingHandler>();
 
 services.AddSwaggerGen(options =>

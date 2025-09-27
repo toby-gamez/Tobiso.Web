@@ -355,8 +355,7 @@ mi {
 
 textarea,
 .email-input,
-.opinion-input,
-#search {
+.opinion-input {
     border-radius: 10px;
     border: 2px solid #ffad8f;
     background-color: #ffad8f;
@@ -370,14 +369,17 @@ textarea {
     resize: none;
 }
 .email-input,
-.opinion-input,
-#search {
+.opinion-input
+{
     width: 20rem;
     margin-bottom: 1rem;
 }
+#search {
+    width: 20rem;
+    border-radius: 10px;
+}
 .email-input:focus,
 .opinion-input:focus,
-#search:focus,
 textarea:focus {
     border: 2px solid #220b00;
     outline: none;
@@ -458,7 +460,8 @@ textarea:focus {
     }
 }
 
-.modal {
+/* Search Modal - v souladu se stylem stránky */
+.search-modal {
     display: none;
     position: fixed;
     z-index: 1050;
@@ -466,125 +469,332 @@ textarea:focus {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    justify-content: center;
-    align-items: center;
-    transition: all ease 0.3s;
 }
 
-.modal.active {
+.search-modal.active {
     display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 8vh;
 }
 
-.modal-content {
-    background: whitesmoke;
-    padding: 15px;
-    border-radius: 10px;
-    width: 40vw;
-    height: calc(40vw * 9 / 16);
-    max-width: 600px;
-    max-height: 350px;
-    text-align: center;
+.search-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.search-container {
     position: relative;
+    width: 90%;
+    max-width: 600px;
+    background: whitesmoke;
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+    max-height: 75vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
 }
 
-#closeSearch {
-    top: 10px;
-    right: 15px;
-    margin-left: auto;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0 10px;
-    border-radius: 10px;
-    transition: all ease 0.3s;
+.search-header {
+    padding: 20px;
+    border-bottom: 2px solid black;
 }
 
-#closeSearch:hover {
-    background-color: #d4332e;
-    transform: scale(1.05);
-    color: white;
-}
-#search {
-    margin: 20px auto 10px;
-    margin-top: 0;
-}
-
-#results {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    border-radius: 10px;
-    border: 1px solid #fb8241;
-    overflow: hidden;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-    max-height: 300px;
-    overflow-y: auto;
-    scrollbar-color: #ff9c66 transparent;
-    transition: all 0.3s ease;
-    background: #ffad8f;
-}
-
-#results div {
-    list-style: none;
-    padding: 0;
-    background: #ffad8f;
+.search-input-wrapper {
+    position: relative;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    background: whitesmoke;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 0 15px;
     transition: all 0.3s ease;
+}
+
+.search-input-wrapper:focus-within {
+    border-color: black;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.search-icon {
+    color: #220b00;
+    font-size: 18px;
+    margin-right: 10px;
+}
+
+#search {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 18px;
+    font-weight: 450;
+    padding: 15px 0;
+    color: #220b00;
+    font-family: "Zilla Slab", serif;
+}
+
+#search::placeholder {
+    color: #666;
+}
+
+.search-close {
+    background: none;
+    border: none;
+    color: #220b00;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.search-close:hover {
+    background: #d4332e;
+    color: white;
+    transform: scale(1.05);
+}
+
+.search-shortcuts {
+    display: flex;
+    gap: 15px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.search-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #220b00;
+    font-family: "Poppins", sans-serif;
+}
+
+.search-shortcut .key-icon {
+    background: whitesmoke;
+    border: 1px solid gray;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #220b00;
+    min-width: 20px;
+    text-align: center;
+}
+
+.search-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.search-results {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ff946c whitesmoke;
+}
+
+.search-results::-webkit-scrollbar {
+    width: 8px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: whitesmoke;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background: #ffad8f;
+    border-radius: 10px;
 }
 
 .search-result {
-    border-bottom: 1px solid #fb8241;
-}
-#results div:last-child {
-    border-bottom: none;
-}
-
-#results a {
     display: block;
-    width: 100%;
-    padding: 15px;
-    background-color: transparent;
-    text-align: left;
+    padding: 15px 20px;
     text-decoration: none;
     color: inherit;
-    font-size: 18px;
-    max-width: 300px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 10px;
 }
 
-#results a:hover {
-    background-color: #ff7340;
-    transition: background-color 0.3s ease-in-out;
+.search-result:hover {
+    border: 2px solid black;
+}
+
+/* Vypnutí hover efektů při keyboard navigaci */
+.search-results.keyboard-navigation .search-result:hover {
+    transform: none;
+}
+
+.search-result.selected {
+    border: 2px solid black;
+}
+
+.result-title {
+    font-family: "Poppins", sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #000;
+    margin-bottom: 5px;
+    line-height: 1.3;
 }
 
 .search-snippet {
-    font-size: 0.9em;
-    text-align: right;
-    min-width: 120px;
-    max-width: 180px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    font-family: "Zilla Slab", serif;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
 }
 
-.search-snippet span {
-    font-weight: bold;
+.search-snippet strong {
+    background: #ff7340;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
 }
 
-@media (max-width: 600px) {
-    .modal-content {
-        width: 80vw;
-        height: 80vw;
-        max-width: 480px;
-        max-height: 480px;
+.search-more-results {
+    padding: 12px 20px;
+    text-align: center;
+    border-top: 2px solid black;
+    color: white;
+    font-family: "Poppins", sans-serif;
+    font-size: 13px;
+}
+
+.search-more-results p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.search-empty,
+.search-no-results {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 50px 20px;
+    text-align: center;
+    color: #220b00;
+    background: whitesmoke;
+}
+
+.search-empty i,
+.search-no-results i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ffad8f;
+}
+
+.search-empty h3,
+.search-no-results h3 {
+    font-family: "Poppins", sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: #220b00;
+}
+
+.search-empty p,
+.search-no-results p {
+    font-family: "Zilla Slab", serif;
+    font-size: 14px;
+    margin: 0;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .search-modal.active {
+        padding-top: 5vh;
     }
-
+    
+    .search-container {
+        width: 95%;
+        margin: 0 auto;
+        max-height: 85vh;
+    }
+    
+    .search-header {
+        padding: 15px;
+    }
+    
+    .search-input-wrapper {
+        padding: 0 12px;
+    }
+    
     #search {
-        width: 80%;
-        margin: 20px auto 10px;
+        font-size: 16px;
+        padding: 12px 0;
+    }
+    
+    .search-shortcuts {
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .search-shortcut {
+        font-size: 11px;
+        gap: 4px;
+    }
+    
+    .search-shortcut .key-icon {
+        padding: 1px 4px;
+        font-size: 10px;
+        min-width: 18px;
+    }
+    
+    .search-result {
+        padding: 12px 15px;
+    }
+    
+    .result-title {
+        font-size: 15px;
+    }
+    
+    .search-snippet {
+        font-size: 13px;
+    }
+    
+    .search-empty,
+    .search-no-results {
+        padding: 40px 15px;
+    }
+    
+    .search-empty i,
+    .search-no-results i {
+        font-size: 36px;
+    }
+    
+    .search-empty h3,
+    .search-no-results h3 {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-container {
+        width: 98%;
+    }
+    
+    .search-shortcuts {
+        display: none;
+    }
+    
+    .search-header {
+        padding: 12px;
     }
 }
 
@@ -1310,23 +1520,127 @@ body.dark-mode .underlined::selection {
     color: #382a27;
 }
 
-body.dark-mode .modal-content {
-    background: #701e00;
+body.dark-mode .search-container {
+    background: #1f0900;
 }
 
-body.dark-mode #results {
-    scrollbar-color: #942700 #701e00;
-    border: 1px solid #701e00;
-    background: #942700;
+body.dark-mode .search-header {
+    border-bottom-color: white;
 }
 
-body.dark-mode #results div {
+body.dark-mode .search-input-wrapper {
     background: #942700;
+    border-color: #942700;
+}
+
+body.dark-mode .search-input-wrapper:focus-within {
+    border-color: white;
+}
+body.dark-mode .search-input-wrapper #search {
+    background-color: transparent;
+    border: none;
+}
+
+body.dark-mode .search-icon {
+    color: #fcede9;
+}
+
+body.dark-mode #search {
+    color: #fcede9;
+}
+
+body.dark-mode #search::placeholder {
+    color: white;
+    opacity: 0.7;
+}
+
+body.dark-mode .search-close {
+    color: #fcede9;
+}
+
+body.dark-mode .search-close:hover {
+    color: white;
+}
+
+body.dark-mode .search-shortcut {
+    color: #fcede9;
+}
+
+body.dark-mode .search-shortcut .key-icon {
+    background: transparent;
+    border-color: #ffffffaa;
+    color: #fcede9;
+}
+
+body.dark-mode .search-results {
+    scrollbar-color: #942700 #1f0900;
 }
 
 body.dark-mode .search-result {
     color: #fcede9;
-    border-bottom: 1px solid #701e00;
+    border-color: transparent;
+    background: transparent;
+}
+
+body.dark-mode .search-result:hover {
+    border-color: white;
+    background: transparent;
+}
+
+/* Vypnutí hover efektů při keyboard navigaci v dark mode */
+body.dark-mode .search-results.keyboard-navigation .search-result:hover {
+    background: transparent;
+}
+
+body.dark-mode .search-result.selected {
+    border-color: white;
+}
+
+body.dark-mode .result-title {
+    color: white;
+}
+
+body.dark-mode .search-result.selected .result-title {
+    color: white;
+}
+
+body.dark-mode .search-snippet {
+    color: white;
+}
+
+body.dark-mode .search-result.selected .search-snippet {
+    color: white;
+}
+
+body.dark-mode .search-snippet strong {
+    background: #ff7340;
+    color: white;
+}
+
+body.dark-mode .search-empty,
+body.dark-mode .search-no-results {
+    color: #fcede9;
+    background: #1f0900;
+}
+
+body.dark-mode .search-empty h3,
+body.dark-mode .search-no-results h3 {
+    color: #fcede9;
+}
+
+body.dark-mode .search-empty i,
+body.dark-mode .search-no-results i {
+    color: #942700;
+}
+
+body.dark-mode .search-empty p,
+body.dark-mode .search-no-results p {
+    color: #b8956f;
+}
+
+body.dark-mode .search-more-results {
+    border-top-color: white;
+    color: white;
 }
 
 body.dark-mode .key-icon {
@@ -1397,7 +1711,6 @@ body.dark-mode .grid-item a:hover {
 }
 
 body.dark-mode #results a:hover {
-    background-color: #701e00;
     color: #fcede9;
 }
 

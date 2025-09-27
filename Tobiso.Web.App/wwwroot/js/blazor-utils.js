@@ -2,6 +2,18 @@
 let dotNetHelper;
 let index, pages;
 
+// Pomocná funkce pro bezpečné volání .NET metod
+async function safeInvokeDotNet(methodName, ...args) {
+  if (!dotNetHelper) return;
+  
+  try {
+    return await dotNetHelper.invokeMethodAsync(methodName, ...args);
+  } catch (error) {
+    console.log(`[blazor-utils] Blazor circuit disconnected, ignoring ${methodName} call:`, error);
+    return null;
+  }
+}
+
 // Hlavní inicializační funkce
 export function initializeApp(dotNetRef) {
   console.log("[blazor-utils] initializeApp called");
@@ -33,9 +45,7 @@ function initDarkMode() {
     });
 
     // Notifikace Blazor komponenty
-    if (dotNetHelper) {
-      dotNetHelper.invokeMethodAsync('OnDarkModeToggled', true);
-    }
+    safeInvokeDotNet('OnDarkModeToggled', true);
   }
 
   function disableDarkMode() {
@@ -46,9 +56,7 @@ function initDarkMode() {
     });
 
     // Notifikace Blazor komponenty
-    if (dotNetHelper) {
-      dotNetHelper.invokeMethodAsync('OnDarkModeToggled', false);
-    }
+    safeInvokeDotNet('OnDarkModeToggled', false);
   }
 
   // Kontrola uložené preference
@@ -126,28 +134,23 @@ function initSearch() {
 }
 
 async function loadSearchIndex() {
+  console.log("[blazor-utils] loadSearchIndex started - v3");
   try {
-    const response = await fetch("/api/posts");
+    console.log("[blazor-utils] About to fetch /api/Pages");
+    const response = await fetch("/api/Pages");
+    console.log("[blazor-utils] Fetch completed, parsing JSON");
     const data = await response.json();
-    // Transformace dat pro Lunr index
+    console.log("[blazor-utils] JSON parsed, mapping data");
+    // Transformace dat pro vyhledávání
     pages = data.map(post => ({
       url: `/post/${post.id}`,
       title: post.title,
       content: post.content
     }));
 
-    // Inicializace Lunr indexu
-    index = lunr(function () {
-      this.ref("url");
-      this.field("title");
-      this.field("content");
-
-      pages.forEach((page) => {
-        this.add(page);
-      });
-    });
+    console.log(`[blazor-utils] Loaded ${pages.length} pages for search - v3 SUCCESS`);
   } catch (error) {
-    console.error("Chyba při načítání indexu:", error);
+    console.error("Chyba při načítání indexu (v3):", error);
   }
 }
 
@@ -156,14 +159,23 @@ function initSearchModal() {
   const closeBtn = document.getElementById("closeSearch");
   const searchInput = document.getElementById("search");
   const openBtns = document.querySelectorAll("#openSearch");
+  const resultsContainer = document.getElementById("results");
+  const emptyState = document.getElementById("search-empty");
+  const noResultsState = document.getElementById("search-no-results");
 
   if (!modal || !searchInput) return;
+
+  let selectedIndex = -1;
+  let currentResults = [];
+  let keyboardMode = false; // Flag pro rozlišení klávesnice vs myš
 
   openBtns.forEach((btn) => {
     btn.addEventListener("click", function () {
       modal.classList.add("active");
       toggleScrollLock(true);
-      searchInput.focus();
+      setTimeout(() => searchInput.focus(), 100);
+      showEmptyState();
+      resetSelection();
     });
   });
 
@@ -171,20 +183,121 @@ function initSearchModal() {
     closeBtn.addEventListener("click", closeSearchModal);
   }
 
-  window.addEventListener("click", function (event) {
-    if (event.target === modal) {
+  // Kliknutí na backdrop zavře modal
+  modal.addEventListener("click", function (event) {
+    if (event.target === modal || event.target.classList.contains("search-backdrop")) {
       closeSearchModal();
     }
   });
 
   searchInput.addEventListener("input", function () {
-    const query = searchInput.value;
-    if (query.length >= 2) {
+    const query = searchInput.value.trim();
+    resetSelection();
+    
+    if (query.length === 0) {
+      showEmptyState();
+    } else if (query.length >= 2) {
       performSearch(query);
     } else {
-      document.getElementById("results").innerHTML = "";
+      hideAllStates();
     }
   });
+
+  // Klávesové zkratky pro navigaci - pouze jeden event listener
+  searchInput.addEventListener("keydown", function (event) {
+    const resultElements = document.querySelectorAll(".search-result");
+    
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      keyboardMode = true;
+      disableMouseEvents();
+      navigateResults(1, resultElements);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      keyboardMode = true;
+      disableMouseEvents();
+      navigateResults(-1, resultElements);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (selectedIndex >= 0 && currentResults[selectedIndex]) {
+        window.location.href = currentResults[selectedIndex].url;
+      }
+    }
+  });
+
+  function resetSelection() {
+    selectedIndex = -1;
+    keyboardMode = false;
+    enableMouseEvents();
+    // Odstranit všechny selected třídy
+    document.querySelectorAll(".search-result.selected").forEach(el => {
+      el.classList.remove("selected");
+    });
+  }
+
+  function disableMouseEvents() {
+    // Přidej třídu pro CSS, která vypne hover efekty
+    if (resultsContainer) {
+      resultsContainer.classList.add("keyboard-navigation");
+    }
+  }
+
+  function enableMouseEvents() {
+    // Odeber třídu pro povolení hover efektů
+    if (resultsContainer) {
+      resultsContainer.classList.remove("keyboard-navigation");
+    }
+  }
+
+  function showEmptyState() {
+    hideAllStates();
+    resetSelection();
+    if (emptyState) emptyState.style.display = "flex";
+  }
+
+  function showNoResultsState() {
+    hideAllStates();
+    resetSelection();
+    if (noResultsState) noResultsState.style.display = "flex";
+  }
+
+  function hideAllStates() {
+    if (resultsContainer) resultsContainer.innerHTML = "";
+    if (emptyState) emptyState.style.display = "none";
+    if (noResultsState) noResultsState.style.display = "none";
+    resetSelection();
+  }
+
+  function navigateResults(direction, resultElements) {
+    if (resultElements.length === 0) return;
+
+    // Odebrat všechny selected třídy
+    resultElements.forEach(el => el.classList.remove("selected"));
+
+    // Vypočítat nový index
+    selectedIndex += direction;
+    if (selectedIndex < 0) selectedIndex = resultElements.length - 1;
+    if (selectedIndex >= resultElements.length) selectedIndex = 0;
+
+    // Přidat selected třídu pouze k aktuálnímu elementu
+    if (resultElements[selectedIndex]) {
+      resultElements[selectedIndex].classList.add("selected");
+      resultElements[selectedIndex].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  // Uložit referenci na funkce pro použití v ostatních částech
+  window.searchModalFunctions = {
+    showEmptyState,
+    showNoResultsState,
+    hideAllStates,
+    setCurrentResults: (results) => { 
+      currentResults = results; 
+      resetSelection();
+    },
+    enableMouseEvents,
+    disableMouseEvents
+  };
 }
 
 function closeSearchModal() {
@@ -194,19 +307,25 @@ function closeSearchModal() {
   modal.classList.remove("active");
   toggleScrollLock(false);
   searchInput.value = "";
-  document.getElementById("results").innerHTML = "";
+  
+  if (window.searchModalFunctions) {
+    window.searchModalFunctions.hideAllStates();
+    window.searchModalFunctions.setCurrentResults([]);
+  }
 }
 
-function performSearch(query) {
+async function performSearch(query) {
   if (!pages || query.length < 2) return;
 
   const results = searchPages(query);
   displaySearchResults(results);
+  
+  if (window.searchModalFunctions) {
+    window.searchModalFunctions.setCurrentResults(results);
+  }
 
   // Notifikace Blazor komponenty
-  if (dotNetHelper) {
-    dotNetHelper.invokeMethodAsync('OnSearchPerformed', query, JSON.stringify(results));
-  }
+  await safeInvokeDotNet('OnSearchPerformed', query, JSON.stringify(results));
 }
 
 function searchPages(query) {
@@ -248,37 +367,75 @@ function searchPages(query) {
 
 function displaySearchResults(results) {
   const resultsContainer = document.getElementById("results");
-  if (!resultsContainer) return;
-
-  resultsContainer.innerHTML = "";
+  if (!resultsContainer || !window.searchModalFunctions) return;
 
   if (results.length === 0) {
-    resultsContainer.innerHTML = "<div class='no-results'>Žádné výsledky nenalezeny</div>";
+    window.searchModalFunctions.showNoResultsState();
     return;
   }
 
-  results.forEach((result) => {
-    const resultItem = document.createElement("div");
+  window.searchModalFunctions.hideAllStates();
+
+  results.slice(0, 8).forEach((result, index) => {
+    const resultItem = document.createElement("a");
     resultItem.classList.add("search-result");
+    resultItem.href = result.url;
     resultItem.dataset.url = result.url;
-    resultItem.style.cursor = "pointer";
+    resultItem.dataset.index = index; // Přidat index pro snadnější navigaci
 
     let snippetText = result.highlightedTerm;
     if (result.foundInTitle && !result.foundInContent) {
-      snippetText = "V textu není zmínka";
+      snippetText = "Shoda pouze v názvu";
+    } else if (!snippetText) {
+      snippetText = "Bez náhledu obsahu";
     }
 
     resultItem.innerHTML = `
-            <div class="result-title">${result.title}</div>
-            <p class="search-snippet">${snippetText}</p>
-        `;
+      <div class="result-title">${escapeHtml(result.title)}</div>
+      <p class="search-snippet">${snippetText}</p>
+    `;
 
-    resultItem.addEventListener("click", function () {
+    resultItem.addEventListener("click", function (event) {
+      event.preventDefault();
       window.location.href = result.url;
+    });
+
+    // Hover efekty pro myš - pouze pokud není keyboard mode
+    resultItem.addEventListener("mouseenter", function () {
+      const container = document.getElementById("results");
+      if (!container || container.classList.contains("keyboard-navigation")) {
+        return; // Neprovádět hover efekty v keyboard módu
+      }
+      
+      // Odstranit všechny selected třídy pouze při mouse hover
+      document.querySelectorAll(".search-result.selected").forEach(el => {
+        el.classList.remove("selected");
+      });
+      resultItem.classList.add("selected");
+    });
+
+    // Reset keyboard módu při pohybu myši
+    resultItem.addEventListener("mousemove", function () {
+      if (window.searchModalFunctions) {
+        window.searchModalFunctions.enableMouseEvents();
+      }
     });
 
     resultsContainer.appendChild(resultItem);
   });
+
+  if (results.length > 8) {
+    const moreResults = document.createElement("div");
+    moreResults.classList.add("search-more-results");
+    moreResults.innerHTML = `<p>A dalších ${results.length - 8} výsledků...</p>`;
+    resultsContainer.appendChild(moreResults);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Cookie consent
@@ -336,29 +493,44 @@ function hideCookieBanner() {
 // Keyboard shortcuts
 function initKeyboardShortcuts() {
   window.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
+    const modal = document.getElementById("searchModal");
+    const isModalOpen = modal && modal.classList.contains("active");
+    
+    if (event.key === "Escape" && isModalOpen) {
       closeSearchModal();
+      return;
     }
 
     const activeElement = document.activeElement.tagName.toLowerCase();
     const isTyping = activeElement === "input" || activeElement === "textarea" || activeElement === "select";
 
-    if (event.key.toLowerCase() === "k" && !isTyping) {
+    // Otevření vyhledávání klávesou K (jen když není modal otevřený)
+    if (event.key.toLowerCase() === "k" && !isTyping && !isModalOpen) {
       event.preventDefault();
       event.stopPropagation();
-      const modal = document.getElementById("searchModal");
       const searchInput = document.getElementById("search");
       if (modal && searchInput) {
         modal.classList.add("active");
         toggleScrollLock(true);
-        searchInput.focus();
+        setTimeout(() => searchInput.focus(), 100);
+        if (window.searchModalFunctions) {
+          window.searchModalFunctions.showEmptyState();
+        }
       }
     }
 
-    if (event.key === "Enter") {
-      const firstResult = document.querySelector(".search-result");
-      if (firstResult && firstResult.dataset.url) {
-        window.location.href = firstResult.dataset.url;
+    // Cmd/Ctrl + K pro otevření vyhledávání
+    if (event.key.toLowerCase() === "k" && (event.ctrlKey || event.metaKey) && !isModalOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      const searchInput = document.getElementById("search");
+      if (modal && searchInput) {
+        modal.classList.add("active");
+        toggleScrollLock(true);
+        setTimeout(() => searchInput.focus(), 100);
+        if (window.searchModalFunctions) {
+          window.searchModalFunctions.showEmptyState();
+        }
       }
     }
   });
@@ -455,9 +627,7 @@ export function removeCookieConsent() {
 // Funkce pro práci s preferencemi (místo localStorage)
 // Tyto funkce budou volat Blazor API pro uložení dat
 function setDarkModePreference(isDark) {
-  if (dotNetHelper) {
-    dotNetHelper.invokeMethodAsync('SetPreference', 'darkMode', isDark.toString());
-  }
+  safeInvokeDotNet('SetPreference', 'darkMode', isDark.toString());
 }
 
 function getDarkModePreference() {
@@ -466,9 +636,7 @@ function getDarkModePreference() {
 }
 
 function setCookieConsent(consent) {
-  if (dotNetHelper) {
-    dotNetHelper.invokeMethodAsync('SetPreference', 'cookieConsent', consent || '');
-  }
+  safeInvokeDotNet('SetPreference', 'cookieConsent', consent || '');
 }
 
 function getCookieConsent() {
