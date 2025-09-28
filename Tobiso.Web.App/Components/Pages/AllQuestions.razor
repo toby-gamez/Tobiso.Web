@@ -47,6 +47,8 @@
         color: #220b00;
     }
     
+
+    
     .question-detail-row {
         background-color: #ffbca4 !important;
     }
@@ -135,6 +137,10 @@
         .question-detail-row-flex {
             flex-direction: column;
             gap: 0.5rem;
+        }
+        
+        .detail-section {
+            min-height: 120px;
         }
     }
     
@@ -344,6 +350,49 @@
         color: #fcede9;
     }
     
+
+    
+    /* Badge styles to match site design */
+    .questions-table .badge {
+        font-family: "Poppins", sans-serif;
+        font-weight: 500;
+        font-size: 12px;
+        padding: 0.35em 0.65em;
+        border-radius: 0.375rem;
+    }
+    
+    .questions-table .badge.bg-primary {
+        background-color: #ff946c !important;
+        color: #220b00;
+    }
+    
+    .questions-table .badge.bg-info {
+        background-color: #ffad8f !important;
+        color: #220b00;
+    }
+    
+    body.dark-mode .questions-table .badge.bg-primary {
+        background-color: #701e00 !important;
+        color: #fcede9;
+    }
+    
+    body.dark-mode .questions-table .badge.bg-info {
+        background-color: #942700 !important;
+        color: #fcede9;
+    }
+    
+
+    
+    .text-muted {
+        color: #8B5A3C !important;
+    }
+    
+
+    
+    body.dark-mode .text-muted {
+        color: #b8956f !important;
+    }
+    
     body.dark-mode .filter-panel {
         background-color: #852401;
     }
@@ -417,38 +466,323 @@
         color: white;
     }
     
-    /* Practice Controls */
-    .practice-controls button {
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-family: "Poppins", sans-serif;
-        font-size: 14px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    
+    /* Mobile Responsive Styles */
+    @@media (max-width: 1024px) {
+        .container {
+            padding: 0 1rem;
+        }
     }
     
-    .practice-controls .btn-success {
-        background-color: #28a745;
-        border: 2px solid #28a745;
-        color: white;
+    @@media (max-width: 768px) {
+        /* Mobile layout adjustments */
+        .verybig {
+            font-size: 2rem !important;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        /* Filter toggle button for mobile */
+        .mobile-filter-toggle {
+            display: block;
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background-color: #ff946c;
+            border: 2px solid #220b00;
+            border-radius: 8px;
+            color: #220b00;
+            font-family: "Poppins", sans-serif;
+            font-weight: 500;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mobile-filter-toggle:hover {
+            background-color: #ffad8f;
+        }
+        
+        .mobile-filter-toggle i {
+            transition: transform 0.3s ease;
+        }
+        
+        .mobile-filter-toggle.collapsed i {
+            transform: rotate(-180deg);
+        }
+        
+        body.dark-mode .mobile-filter-toggle {
+            background-color: #701e00;
+            border-color: #fcede9;
+            color: #fcede9;
+        }
+        
+        body.dark-mode .mobile-filter-toggle:hover {
+            background-color: #942700;
+        }
+        
+        /* Mobile filter panel */
+        .mobile-filter-wrapper {
+            margin-bottom: 1rem;
+        }
+        
+        .mobile-filter-wrapper.collapsed .filter-panel {
+            display: none;
+        }
+        
+        /* Mobile cards instead of table */
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-questions-list {
+            display: block;
+        }
+        
+        .mobile-question-card {
+            background-color: #ffbca4;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .mobile-question-card:hover {
+            border-color: #220b00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .mobile-question-card.expanded {
+            border-color: #220b00;
+            background-color: #ffad8f;
+        }
+        
+        .mobile-question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .mobile-question-id {
+            font-weight: 600;
+            font-size: 18px;
+            color: #220b00;
+            margin-right: 1rem;
+            min-width: fit-content;
+        }
+        
+        .mobile-question-text {
+            flex: 1;
+            color: #220b00;
+            line-height: 1.4;
+        }
+        
+        .mobile-question-text.expanded {
+            font-weight: 600;
+        }
+        
+        .mobile-question-meta {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        
+        .mobile-meta-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .mobile-meta-badge.answers {
+            background-color: #ff946c;
+            color: #220b00;
+        }
+        
+        .mobile-meta-badge.explanations {
+            background-color: #ffad8f;
+            color: #220b00;
+        }
+        
+        .mobile-question-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .mobile-question-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        /* Mobile detail content */
+        .mobile-question-detail {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #ff946c;
+        }
+        
+        /* Touch-friendly improvements */
+        .category-item, .post-item {
+            min-height: 44px;
+            padding: 0.75rem;
+        }
+        
+        .expand-toggle {
+            min-width: 44px;
+            min-height: 44px;
+        }
+        
+        /* Mobile info display improvements */
+        .mobile-filter-info {
+            background-color: #ffad8f;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .mobile-filter-info .intro {
+            margin: 0;
+            font-size: 16px;
+        }
+        
+        .mobile-practice-button {
+            width: 100%;
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            min-height: 50px;
+        }
+        
+        /* Dark mode mobile styles */
+        body.dark-mode .mobile-question-card {
+            background-color: #852401;
+        }
+        
+        body.dark-mode .mobile-question-card:hover {
+            border-color: #fcede9;
+        }
+        
+        body.dark-mode .mobile-question-card.expanded {
+            border-color: #fcede9;
+            background-color: #942700;
+        }
+        
+        body.dark-mode .mobile-question-id,
+        body.dark-mode .mobile-question-text {
+            color: #fcede9;
+        }
+        
+        body.dark-mode .mobile-question-detail {
+            border-top-color: #701e00;
+        }
+        
+        body.dark-mode .mobile-filter-info {
+            background-color: #942700;
+        }
+        
+
+        
+        /* Dark mode mobile badge styles */
+        body.dark-mode .mobile-meta-badge.answers {
+            background-color: #701e00;
+            color: #fcede9;
+        }
+        
+        body.dark-mode .mobile-meta-badge.explanations {
+            background-color: #942700;
+            color: #fcede9;
+        }
     }
     
-    .practice-controls .btn-success:hover {
-        background-color: #218838;
-        border-color: #1e7e34;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    @@media (max-width: 480px) {
+        .container {
+            padding: 0 0.5rem;
+        }
+        
+        .verybig {
+            font-size: 1.75rem !important;
+            margin-bottom: 0.75rem;
+        }
+        
+        .filter-panel {
+            padding: 0.75rem;
+        }
+        
+        .mobile-question-card {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .category-children {
+            margin-left: 0.75rem;
+            padding-left: 0.5rem;
+        }
+        
+        .mobile-question-actions {
+            justify-content: stretch;
+        }
+        
+        .mobile-question-id {
+            font-size: 16px;
+        }
+        
+        .mobile-question-text {
+            font-size: 15px;
+        }
+        
+        .mobile-meta-badge {
+            font-size: 11px;
+        }
+        
+        .mobile-filter-toggle {
+            font-size: 15px;
+            padding: 0.625rem;
+        }
+        
+        .detail-section {
+            padding: 0.5rem;
+            min-height: 100px;
+        }
+        
+        .detail-section h6 {
+            font-size: 13px;
+            margin-bottom: 0.4rem;
+        }
+        
+        .answer-item, .explanation-item {
+            font-size: 14px;
+            padding: 0.375rem 0.5rem;
+        }
     }
     
-    body.dark-mode .practice-controls .btn-success {
-        background-color: #1e5f32;
-        border-color: #1e5f32;
+    /* Hide mobile elements on desktop */
+    @@media (min-width: 769px) {
+        .mobile-filter-toggle,
+        .mobile-questions-list,
+        .mobile-filter-info,
+        .mobile-filter-wrapper {
+            display: none !important;
+        }
+        
+        .d-none.d-md-block {
+            display: block !important;
+        }
     }
     
-    body.dark-mode .practice-controls .btn-success:hover {
-        background-color: #155426;
-        border-color: #0f3d1c;
+    /* Hide desktop elements on mobile */
+    @@media (max-width: 768px) {
+        .d-none.d-md-block {
+            display: none !important;
+        }
     }
 </style>
 
@@ -480,8 +814,58 @@
     }
     else
     {
-        <!-- Filtr kategorií a postů -->
-        <div class="mb-4">
+        <!-- Mobile Filter Toggle -->
+        <button type="button" class="mobile-filter-toggle @(mobileFilterCollapsed ? "collapsed" : "")" @onclick="ToggleMobileFilter">
+            <i class="bi bi-funnel me-2"></i>
+            Filtrovat téma
+            <i class="bi bi-chevron-up ms-auto"></i>
+        </button>
+
+        <!-- Mobile Filter Info -->
+        <div class="mobile-filter-info">
+            <div class="intro">
+                <i class="bi bi-question-circle"></i> 
+                <strong>Zobrazeno: @(filteredQuestions?.Count ?? 0) z @(questions?.Count ?? 0) otázek</strong>
+                @if (selectedCategoryId.HasValue || selectedPostId.HasValue)
+                {
+                    <br><small class="text-muted">
+                        Filtr: @GetCurrentFilterName()
+                        <button type="button" class="btn-danger" @onclick="ClearFilter" style="font-size: 12px; margin-left: 0.5rem;">
+                            <i class="bi bi-x-circle"></i> Zrušit
+                        </button>
+                    </small>
+                }
+                @if (filteredQuestions != null && filteredQuestions.Any())
+                {
+                    <div class="practice-controls">
+                        <button type="button" class="btn-success mobile-practice-button" @onclick="StartPractice">
+                            <i class="bi bi-play-circle"></i> Procvičovat (@(filteredQuestions.Count))
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Mobile Filter Panel -->
+        <div class="mobile-filter-wrapper @(mobileFilterCollapsed ? "collapsed" : "")">
+            <div class="filter-panel">
+                <h6 class="filter-header">
+                    <i class="bi bi-funnel"></i> Filtrovat téma
+                </h6>
+                <div class="category-tree">
+                    @if (categories != null)
+                    {
+                        @foreach (var category in categories.Where(c => c.ParentId == null).OrderBy(c => c.Name))
+                        {
+                            @RenderCategoryNode(category)
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop Layout -->
+        <div class="mb-4 d-none d-md-block">
             <div class="row">
                 <div class="col-md-4">
                     <div class="filter-panel">
@@ -502,7 +886,7 @@
                 <div class="col-md-8">
                     <div class="mb-3 intro" style="margin-top: 5px;">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div style="align-content: center;">
+                            <div class="intro">
                                 <i class="bi bi-question-circle"></i> 
                                 <strong>Zobrazeno: @(filteredQuestions?.Count ?? 0) z @(questions?.Count ?? 0) otázek</strong>
                                 @if (selectedCategoryId.HasValue || selectedPostId.HasValue)
@@ -514,21 +898,22 @@
                                         </button>
                                     </small>
                                 }
+                                @if (filteredQuestions != null && filteredQuestions.Any())
+                                {
+                                    <div class="practice-controls" style="margin-top: 0.75rem;">
+                                        <button type="button" class="btn-success" @onclick="StartPractice">
+                                            <i class="bi bi-play-circle"></i> Procvičovat (@(filteredQuestions.Count))
+                                        </button>
+                                    </div>
+                                }
                             </div>
-                            @if (filteredQuestions != null && filteredQuestions.Any())
-                            {
-                                <div class="practice-controls">
-                                    <button type="button" class="btn-success" @onclick="StartPractice">
-                                        <i class="bi bi-play-circle"></i> Procvičovat (@(filteredQuestions.Count))
-                                    </button>
-                                </div>
-                            }
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Desktop Table View -->
         <div class="table-responsive">
             <table class="questions-table table">
                 <thead>
@@ -646,6 +1031,116 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile Cards View -->
+        <div class="mobile-questions-list">
+            @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
+            {
+                <div class="mobile-question-card @(expandedQuestionId == question.Id ? "expanded" : "")">
+                    <div class="mobile-question-header" @onclick="() => ToggleQuestionDetail(question.Id)">
+                        <div class="mobile-question-id">#@question.Id</div>
+                        <div class="mobile-question-text @(expandedQuestionId == question.Id ? "expanded" : "")">
+                            @if (expandedQuestionId == question.Id)
+                            {
+                                @question.QuestionText
+                            }
+                            else
+                            {
+                                @(question.QuestionText.Length > 80 ? question.QuestionText.Substring(0, 80) + "..." : question.QuestionText)
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="mobile-question-meta">
+                        <span class="mobile-meta-badge answers">
+                            <i class="bi bi-list-check"></i> @question.Answers.Count odpovědi
+                        </span>
+                        <span class="mobile-meta-badge explanations">
+                            <i class="bi bi-lightbulb"></i> @question.Explanations.Count vysvětlení
+                        </span>
+                    </div>
+                    
+                    <div class="mobile-question-actions">
+                        <button type="button" @onclick="() => GoToPost(question.PostId)">
+                            <i class="bi bi-arrow-right"></i> Jít na článek
+                        </button>
+                        @if (expandedQuestionId == question.Id)
+                        {
+                            <button type="button" class="btn-danger" @onclick="() => CloseDetail()">
+                                <i class="bi bi-x"></i> Zavřít
+                            </button>
+                        }
+                    </div>
+                    
+                    @if (expandedQuestionId == question.Id)
+                    {
+                        <div class="mobile-question-detail">
+                            <div class="question-detail-row-flex">
+                                <div class="detail-col">
+                                    <div class="detail-section">
+                                        @if (question.Answers.Any())
+                                        {
+                                            <h6><i class="bi bi-list-check"></i> Odpovědi:</h6>
+                                            <div class="answers-list">
+                                                @foreach (var answer in question.Answers)
+                                                {
+                                                    <div class="answer-item @(answer.Correct == 1 ? "correct-answer" : "")">
+                                                        @if (answer.Correct == 1)
+                                                        {
+                                                            <i class="bi bi-check-circle-fill me-1"></i>
+                                                        }
+                                                        else
+                                                        {
+                                                            <i class="bi bi-circle me-1"></i>
+                                                        }
+                                                        @answer.AnswerText
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <h6><i class="bi bi-list-check"></i> Odpovědi:</h6>
+                                            <p style="color: #666; font-style: italic;">Žádné odpovědi</p>
+                                        }
+                                    </div>
+                                </div>
+                                
+                                <div class="detail-col">
+                                    <div class="detail-section">
+                                        @if (question.Explanations.Any())
+                                        {
+                                            <h6><i class="bi bi-lightbulb"></i> Vysvětlení:</h6>
+                                            <div class="explanations-list">
+                                                @foreach (var explanation in question.Explanations)
+                                                {
+                                                    <div class="explanation-item">
+                                                        <i class="bi bi-info-circle me-1"></i>
+                                                        @explanation.Text
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <h6><i class="bi bi-lightbulb"></i> Vysvětlení:</h6>
+                                            <p style="color: #666; font-style: italic;">Žádná vysvětlení</p>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-file-text"></i> @GetPostTitle(question.PostId)
+                                    <span class="text-muted">(ID: @question.PostId)</span>
+                                </small>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     }
 
 
@@ -663,6 +1158,7 @@
     private int? selectedCategoryId;
     private int? selectedPostId;
     private HashSet<int> expandedCategoryIds = new();
+    private bool mobileFilterCollapsed = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1197,7 +1693,7 @@
         if (selectedPostId.HasValue)
         {
             var post = posts?.FirstOrDefault(p => p.Id == selectedPostId.Value);
-            return post != null ? $"Post: {post.Title}" : "Neznámý post";
+            return post != null ? $"Článek: {post.Title}" : "Neznámý článek";
         }
         
         if (selectedCategoryId.HasValue)
@@ -1222,5 +1718,11 @@
         
         // Přesměrujeme na novou stránku pro procvičování s vybranými otázkami
         Navigation.NavigateTo($"/practice?questions={questionIds}");
+    }
+
+    private void ToggleMobileFilter()
+    {
+        mobileFilterCollapsed = !mobileFilterCollapsed;
+        StateHasChanged();
     }
 }
