@@ -70,6 +70,18 @@ else
             </div>
         </div>
         
+        <div class="mb-3">
+            <div class="form-check">
+                <InputCheckbox id="createReverse" class="form-check-input" @bind-Value="request.CreateReverse" />
+                <label class="form-check-label" for="createReverse">
+                    Vytvořit i opačné spojení
+                </label>
+                <div class="form-text">
+                    Zaškrtni pro vytvoření obousměrného spojení (doporučeno). Pokud nezaškrtneš, vytvoří se pouze jednosměrné spojení.
+                </div>
+            </div>
+        </div>
+        
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
                 @if (isSubmitting)

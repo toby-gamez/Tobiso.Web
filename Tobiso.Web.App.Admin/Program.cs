@@ -25,9 +25,20 @@ var services = builder.Services;
 
 // Add services
 services.Configure<BasicAuthOptions>(builder.Configuration.GetSection("Auth:Basic"));
-services.AddScoped(sp => new HttpClient
+services.AddScoped(sp =>
 {
-    BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? "https://localhost:7270"),
+    var httpClientHandler = new HttpClientHandler();
+    
+    // In development, bypass SSL certificate validation
+    if (builder.Environment.IsDevelopment())
+    {
+        httpClientHandler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+    }
+    
+    return new HttpClient(httpClientHandler)
+    {
+        BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? "https://localhost:7270"),
+    };
 });
 services.AddHttpContextAccessor();
 
@@ -78,6 +89,18 @@ services
             throw new InvalidOperationException("API base address is not configured.");
         }
         c.BaseAddress = new Uri(baseAddress);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        
+        // In development, bypass SSL certificate validation
+        if (builder.Environment.IsDevelopment())
+        {
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        }
+        
+        return handler;
     })
     .AddHttpMessageHandler<AuthenticationHeaderHandler>()
     .AddHttpMessageHandler<HttpLoggingHandler>();

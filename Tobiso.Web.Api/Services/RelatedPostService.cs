@@ -112,6 +112,14 @@ public class RelatedPostService : IRelatedPostService
             if (request.PostId == request.RelatedPostId)
                 return null;
 
+            // Ověř, že spojení už neexistuje v tomto směru
+            var existingConnection = await _context.RelatedPosts
+                .AnyAsync(rp => rp.PostId == request.PostId && rp.RelatedPostId == request.RelatedPostId);
+
+            if (existingConnection)
+                return null;
+
+            // Vytvoř hlavní spojení
             var entity = new RelatedPost
             {
                 PostId = request.PostId,
@@ -120,6 +128,20 @@ public class RelatedPostService : IRelatedPostService
             };
 
             _context.RelatedPosts.Add(entity);
+
+            // Vytvoř opačné spojení pouze pokud je to požadováno
+            if (request.CreateReverse)
+            {
+                var reverseEntity = new RelatedPost
+                {
+                    PostId = request.RelatedPostId,
+                    RelatedPostId = request.PostId,
+                    Text = request.Text // Stejný text pro obě směry
+                };
+
+                _context.RelatedPosts.Add(reverseEntity);
+            }
+
             await _context.SaveChangesAsync();
 
             // Načti vytvořený záznam s navigačními vlastnostmi

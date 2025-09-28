@@ -26,6 +26,8 @@ public class CreateRelatedPostRequest
     
     [MaxLength(500, ErrorMessage = "Text nesmí být delší než 500 znaků")]
     public string? Text { get; set; }
+    
+    public bool CreateReverse { get; set; } = true; // Default true pro kompatibilitu
 }
 
 public class UpdateRelatedPostRequest
