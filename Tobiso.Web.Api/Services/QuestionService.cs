@@ -7,6 +7,7 @@ namespace Tobiso.Web.Api.Services;
 
 public interface IQuestionService
 {
+    Task<List<QuestionResponse>> GetAll();
     Task<List<QuestionResponse>> GetByPostId(int postId);
     Task<QuestionResponse?> GetById(int id);
     Task<QuestionResponse?> Create(CreateQuestionRequest request);
@@ -21,6 +22,43 @@ public class QuestionService : IQuestionService
     public QuestionService(TobisoDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+    }
+
+    public async Task<List<QuestionResponse>> GetAll()
+    {
+        try
+        {
+            var questions = await _context.Questions
+                .Include(q => q.Answers)
+                .Include(q => q.Explanations)
+                .Include(q => q.Post)
+                .ToListAsync();
+
+            return questions.Select(q => new QuestionResponse
+            {
+                Id = q.Id,
+                QuestionText = q.QuestionText,
+                PostId = q.PostId,
+                Answers = q.Answers.Select(a => new AnswerResponse
+                {
+                    Id = a.Id,
+                    AnswerText = a.AnswerText,
+                    Correct = a.Correct,
+                    QuestionId = a.QuestionId
+                }).ToList(),
+                Explanations = q.Explanations.Select(e => new ExplanationResponse
+                {
+                    Id = e.Id,
+                    Text = e.Text,
+                    QuestionId = e.QuestionId
+                }).ToList()
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při načítání všech otázek: {ex.Message}\n{ex.StackTrace}");
+            throw;
+        }
     }
 
     public async Task<List<QuestionResponse>> GetByPostId(int postId)

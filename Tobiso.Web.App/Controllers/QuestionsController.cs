@@ -19,6 +19,14 @@ public class QuestionsController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> GetAllQuestions()
+    {
+        var questions = await _questionService.GetAll();
+        return Ok(questions);
+    }
+
+    [AllowAnonymous]
     [HttpGet("post/{postId}")]
     public async Task<IActionResult> GetQuestionsByPostId(int postId)
     {

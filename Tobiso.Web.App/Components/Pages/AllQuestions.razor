@@ -1,0 +1,320 @@
+@page "/all-questions"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components
+@inject ITobisoAnonymApi Api
+@inject NavigationManager Navigation
+@inject ILogger<AllQuestions> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Všechny otázky - Tobiso</PageTitle>
+
+<style>
+    .questions-table {
+        font-family: "Zilla Slab", serif;
+        font-weight: 450;
+        font-size: 18px;
+    }
+    
+    .questions-table th {
+        font-family: "Poppins", sans-serif;
+        font-weight: 500;
+        font-size: 16px;
+        background-color: #ff946c !important;
+        color: #220b00;
+        border: none;
+    }
+    
+    .questions-table td {
+        padding: 0.5rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #ffad8f;
+    }
+    
+    .questions-table tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .questions-table tbody tr:hover:not(.question-detail-row) {
+        background-color: #ffad8f !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .questions-table tbody tr.table-active {
+        background-color: #ff946c !important;
+        color: #220b00;
+    }
+    
+    .question-detail-row {
+        background-color: #ffbca4 !important;
+    }
+    
+    .question-detail-content {
+        padding: 1rem;
+        background-color: #ffbca4;
+        border-radius: 10px;
+        margin: 0.5rem;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-section {
+        background-color: #ffad8f;
+        padding: 0.75rem;
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
+        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-section h6 {
+        font-family: "Poppins", sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 0.5rem;
+        color: #220b00;
+    }
+    
+    .answer-item {
+        padding: 0.25rem 0.5rem;
+        margin-bottom: 0.25rem;
+        border-radius: 5px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        background-color: #ff946c;
+        color: #220b00;
+    }
+    
+    .answer-item.correct-answer {
+        background-color: #d4edda;
+        border-left: 3px solid #28a745;
+    }
+    
+    .explanation-item {
+        padding: 0.5rem;
+        margin-bottom: 0.25rem;
+        background-color: #ff946c;
+        border-left: 3px solid #220b00;
+        border-radius: 5px;
+        font-size: 16px;
+        color: #220b00;
+    }
+    
+    .answers-list, .explanations-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .question-text-full {
+        font-weight: 600;
+        color: #220b00;
+    }
+    
+    .compact-button {
+        padding: 0.25rem 0.5rem;
+        font-size: 12px;
+        margin: 0.1rem;
+    }
+</style>
+
+<div class="container">
+    <h1 class="verybig">Všechny otázky</h1>
+    <p class="intro">Přehled všech otázek v systému pro rychlé procházení a kontrolu</p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div style="background-color: #ff946c; color: #220b00; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
+            <strong>Chyba:</strong> @errorMessage
+        </div>
+    }
+
+    @if (questions == null)
+    {
+        <div class="text-center">
+            <p class="intro">Načítám otázky...</p>
+            <div class="spinner-border" role="status" style="color: #ff946c;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!questions.Any())
+    {
+        <div class="text-center">
+            <h2>Žádné otázky</h2>
+            <p class="intro">V systému nejsou k dispozici žádné otázky.</p>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3 intro">
+            <i class="bi bi-question-circle"></i> <strong>Celkem otázek: @questions.Count</strong>
+            <span class="text-muted ms-3">Klikněte na řádek pro zobrazení detailu</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="questions-table table">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Otázka</th>
+                        <th scope="col">Odpovědi</th>
+                        <th scope="col">Vysvětlení</th>
+                        <th scope="col">Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var question in questions)
+                    {
+                        <tr style="cursor: pointer;" @onclick="() => ToggleQuestionDetail(question.Id)" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
+                            <td><strong>@question.Id</strong></td>
+                            <td>
+                                <div title="@question.QuestionText">
+                                    @if (expandedQuestionId == question.Id)
+                                    {
+                                        <span class="question-text-full">@question.QuestionText</span>
+                                    }
+                                    else
+                                    {
+                                        @(question.QuestionText.Length > 60 ? question.QuestionText.Substring(0, 60) + "..." : question.QuestionText)
+                                    }
+                                </div>
+                            </td>
+                            <td class="text-center"><span class="badge bg-primary">@question.Answers.Count</span></td>
+                            <td class="text-center"><span class="badge bg-info">@question.Explanations.Count</span></td>
+                            <td>
+                                <button class="compact-button" style="background-color: #28a745; color: white; border: none; border-radius: 5px;" @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-arrow-right"></i> Post
+                                </button>
+                                @if (expandedQuestionId == question.Id)
+                                {
+                                    <button class="compact-button" style="background-color: #6c757d; color: white; border: none; border-radius: 5px;" @onclick="() => CloseDetail()" @onclick:stopPropagation="true">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                        
+                        @if (expandedQuestionId == question.Id)
+                        {
+                            <tr class="question-detail-row">
+                                <td colspan="5" class="p-0">
+                                    <div class="question-detail-content">
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <div class="detail-section">
+                                                    @if (question.Answers.Any())
+                                                    {
+                                                        <h6><i class="bi bi-list-check"></i> Odpovědi:</h6>
+                                                        <div class="answers-list">
+                                                            @foreach (var answer in question.Answers)
+                                                            {
+                                                                <div class="answer-item @(answer.Correct == 1 ? "correct-answer" : "")">
+                                                                    @if (answer.Correct == 1)
+                                                                    {
+                                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <i class="bi bi-circle me-1"></i>
+                                                                    }
+                                                                    @answer.AnswerText
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <h6><i class="bi bi-list-check"></i> Odpovědi:</h6>
+                                                        <p class="text-muted"><i>Žádné odpovědi</i></p>
+                                                    }
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div class="detail-section">
+                                                    @if (question.Explanations.Any())
+                                                    {
+                                                        <h6><i class="bi bi-lightbulb"></i> Vysvětlení:</h6>
+                                                        <div class="explanations-list">
+                                                            @foreach (var explanation in question.Explanations)
+                                                            {
+                                                                <div class="explanation-item">
+                                                                    <i class="bi bi-info-circle me-1"></i>
+                                                                    @explanation.Text
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <h6><i class="bi bi-lightbulb"></i> Vysvětlení:</h6>
+                                                        <p class="text-muted"><i>Žádná vysvětlení</i></p>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-center mt-2">
+                                            <small class="text-muted">Post ID: @question.PostId</small>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+
+</div>
+
+@code {
+    private List<QuestionResponse>? questions;
+    private int? expandedQuestionId;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuestions();
+    }
+
+    private async Task LoadQuestions()
+    {
+        try
+        {
+            questions = await Api.GetAllQuestions();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při načítání otázek: {ex.Message}";
+            Logger.LogError(ex, "Chyba při načítání všech otázek");
+            questions = new List<QuestionResponse>();
+        }
+    }
+
+    private void ToggleQuestionDetail(int questionId)
+    {
+        if (expandedQuestionId == questionId)
+        {
+            expandedQuestionId = null;
+        }
+        else
+        {
+            expandedQuestionId = questionId;
+        }
+        StateHasChanged();
+    }
+
+    private void CloseDetail()
+    {
+        expandedQuestionId = null;
+        StateHasChanged();
+    }
+
+    private void GoToPost(int postId)
+    {
+        Navigation.NavigateTo($"/post/{postId}");
+    }
+}

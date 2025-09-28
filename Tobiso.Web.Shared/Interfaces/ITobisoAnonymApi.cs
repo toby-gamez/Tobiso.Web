@@ -17,6 +17,9 @@ public interface ITobisoAnonymApi
     [Get("/api/Categories/tree")]
     Task<CategoryTreeResponse> GetTree();
 
+    [Get("/api/Questions")]
+    Task<List<QuestionResponse>> GetAllQuestions();
+
     [Get("/api/Questions/post/{postId}")]
     Task<List<QuestionResponse>> GetQuestionsByPostId(int postId);
 
