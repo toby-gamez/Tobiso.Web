@@ -63,4 +63,23 @@ public interface ITobisoWebApi
 
     [Get("/api/Events/search?searchTerm={searchTerm}")]
     Task<IList<EventResponse>> SearchEvents(string searchTerm);
+
+    // RelatedPosts API
+    [Get("/api/RelatedPosts")]
+    Task<IList<RelatedPostResponse>> GetAllRelatedPosts();
+
+    [Get("/api/RelatedPosts/by-post/{postId}")]
+    Task<IList<RelatedPostResponse>> GetRelatedPostsByPostId(int postId);
+
+    [Get("/api/RelatedPosts/{id}")]
+    Task<RelatedPostResponse> GetRelatedPostById(int id);
+
+    [Post("/api/RelatedPosts")]
+    Task<RelatedPostResponse> CreateRelatedPost([Body] CreateRelatedPostRequest request);
+
+    [Put("/api/RelatedPosts/{id}")]
+    Task UpdateRelatedPost(int id, [Body] UpdateRelatedPostRequest request);
+
+    [Delete("/api/RelatedPosts/{id}")]
+    Task DeleteRelatedPost(int id);
 }

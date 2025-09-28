@@ -1,0 +1,153 @@
+@page "/related-posts/add"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+@inject NavigationManager Navigation
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="bi bi-plus-circle"></i>
+        Přidat souvisejíci post
+    </h2>
+    <button class="btn btn-secondary" @onclick="BackToList">
+        <i class="bi bi-arrow-left"></i>
+        Zpět
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (posts == null)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Načítání...</span>
+        </div>
+    </div>
+}
+else
+{
+    <EditForm Model="request" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="alert alert-warning" />
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="postId" class="form-label">Hlavní post <span class="text-danger">*</span></label>
+                    <InputSelect id="postId" class="form-select" @bind-Value="request.PostId">
+                        <option value="0">-- Vyberte post --</option>
+                        @foreach (var post in posts)
+                        {
+                            <option value="@post.Id">@post.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="relatedPostId" class="form-label">Souvisejíci post <span class="text-danger">*</span></label>
+                    <InputSelect id="relatedPostId" class="form-select" @bind-Value="request.RelatedPostId">
+                        <option value="0">-- Vyberte související post --</option>
+                        @foreach (var post in posts.Where(p => p.Id != request.PostId))
+                        {
+                            <option value="@post.Id">@post.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="text" class="form-label">Popisek souvislosti (volitelný)</label>
+            <InputTextArea id="text" class="form-control" rows="3" @bind-Value="request.Text" 
+                          placeholder="Například: 'Navazuje na tuto lekci' nebo 'Doporučeno přečíst po tomto článku'"/>
+            <div class="form-text">
+                Krátký popis toho, jak spolu posty souvisí. Zobrazí se uživatelům jako nápověda.
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Ukládám...</span>
+                }
+                else
+                {
+                    <i class="bi bi-check-circle"></i>
+                    <span>Vytvořit souvislost</span>
+                }
+            </button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="BackToList">
+                <i class="bi bi-x-circle"></i>
+                Zrušit
+            </button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    private CreateRelatedPostRequest request = new();
+    private IList<PostLinkResponse>? posts;
+    private string? errorMessage;
+    private bool isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPosts();
+    }
+
+    private async Task LoadPosts()
+    {
+        try
+        {
+            posts = await Api.GetPostLinks();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při načítání postů: {ex.Message}";
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (request.PostId == 0 || request.RelatedPostId == 0)
+        {
+            errorMessage = "Musíte vybrat oba posty.";
+            return;
+        }
+
+        if (request.PostId == request.RelatedPostId)
+        {
+            errorMessage = "Post nemůže odkazovat sám na sebe.";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var created = await Api.CreateRelatedPost(request);
+            Navigation.NavigateTo("/related-posts");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při vytváření souvisejícího postu: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void BackToList()
+    {
+        Navigation.NavigateTo("/related-posts");
+    }
+}

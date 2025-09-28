@@ -14,6 +14,7 @@ public class TobisoDbContext : DbContext
     public DbSet<Answer> Answers { get; set; }
     public DbSet<Explanation> Explanations { get; set; }
     public DbSet<Event> Events { get; set; }
+    public DbSet<RelatedPost> RelatedPosts { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -85,6 +86,32 @@ public class TobisoDbContext : DbContext
                 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
+        });
+
+        // Configure RelatedPost entity
+        modelBuilder.Entity<RelatedPost>(entity =>
+        {
+            entity.Property(e => e.Text)
+                .HasMaxLength(500);
+                
+            // Konfigurace relace k hlavnímu postu
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Konfigurace relace k souvisejícímu postu
+            entity.HasOne(e => e.RelatedPostRef)
+                .WithMany()
+                .HasForeignKey(e => e.RelatedPostId)
+                .OnDelete(DeleteBehavior.NoAction); // Zabránit cascade na sobě
+
+            // Unique constraint pro kombinaci PostId a RelatedPostId
+            entity.HasIndex(e => new { e.PostId, e.RelatedPostId })
+                .IsUnique();
+                
+            // Konfigurace tabulky s check constraint
+            entity.ToTable(t => t.HasCheckConstraint("CK_RelatedPost_DifferentPosts", "[PostId] <> [RelatedPostId]"));
         });
     }
 }

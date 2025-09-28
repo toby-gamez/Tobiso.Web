@@ -57,6 +57,7 @@ services.AddScoped<IPostService, PostService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
+services.AddScoped<IRelatedPostService, RelatedPostService>();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<HttpLoggingHandler>();
