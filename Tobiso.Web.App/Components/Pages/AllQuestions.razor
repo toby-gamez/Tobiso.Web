@@ -2,6 +2,7 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.AspNetCore.Components
+@using System.Linq
 @inject ITobisoAnonymApi Api
 @inject NavigationManager Navigation
 @inject ILogger<AllQuestions> Logger
@@ -64,6 +65,10 @@
         border-radius: 10px;
         margin-bottom: 0.5rem;
         box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
     }
     
     .detail-section h6 {
@@ -86,8 +91,9 @@
     }
     
     .answer-item.correct-answer {
+        border-color: #90c695;
         background-color: #d4edda;
-        border-left: 3px solid #28a745;
+        color: #155724;
     }
     
     .explanation-item {
@@ -110,16 +116,344 @@
         color: #220b00;
     }
     
-    .compact-button {
-        padding: 0.25rem 0.5rem;
+
+    
+    .question-detail-row-flex {
+        display: flex;
+        gap: 1rem;
+        width: 100%;
+        align-items: stretch;
+    }
+    
+    .detail-col {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+    }
+    
+    @@media (max-width: 768px) {
+        .question-detail-row-flex {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+    }
+    
+    /* Filter Panel Styles */
+    .filter-panel {
+        background-color: #ffbca4;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    
+    .filter-header {
+        font-family: "Poppins", sans-serif;
+        font-weight: 500;
+        font-size: 16px;
+        margin-bottom: 0.75rem;
+        color: #220b00;
+        border-bottom: 2px solid #ff946c;
+        padding-bottom: 0.5rem;
+    }
+    
+    .filter-controls {
+        margin-bottom: 1rem;
+    }
+    
+    .category-tree {
+        font-family: "Zilla Slab", serif;
+        font-size: 16px;
+    }
+    
+    .category-node {
+        margin-bottom: 0.25rem;
+    }
+    
+    .category-item {
+        display: flex;
+        align-items: center;
+        padding: 0.375rem 0.5rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #ffad8f;
+        border: 2px solid transparent;
+        margin-bottom: 2px;
+    }
+    
+    .category-item:hover {
+        border-color: #220b00;
+    }
+    
+    .category-item.selected {
+        border-color: #220b00;
+        font-weight: 600;
+        background-color: #ff946c;
+    }
+    
+    .category-item.has-children {
+        font-weight: 500;
+    }
+    
+    .expand-toggle {
+        background: none;
+        border: none;
+        color: #220b00;
+        cursor: pointer;
+        padding: 0;
+        margin-right: 0.5rem;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 12px;
-        margin: 0.1rem;
+    }
+    
+    .expand-toggle:hover {
+        color: #000;
+    }
+    
+    .category-children {
+        margin-left: 1.25rem;
+        border-left: 2px solid #ff946c;
+        padding-left: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    
+    .post-item {
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #d4edda;
+        border: 2px solid transparent;
+        margin-bottom: 2px;
+        font-size: 14px;
+    }
+    
+    .post-item:hover {
+        border-color: #155724;
+    }
+    
+    .post-item.selected {
+        border-color: #155724;
+        font-weight: 600;
+        background-color: #c3e6cb;
+    }
+    
+    .post-icon {
+        margin-right: 0.5rem;
+        color: #155724;
+    }
+    
+    .question-count {
+        margin-left: 0.5rem;
+        font-weight: 500;
+        color: #666;
+        font-size: 0.9em;
+        opacity: 0.8;
+    }
+    
+    .category-item .question-count {
+        color: #5a2b00;
+    }
+    
+    .category-item.selected .question-count {
+        color: #220b00;
+        font-weight: 600;
+    }
+    
+    .post-item .question-count {
+        color: #0d5016;
+    }
+    
+    .post-item.selected .question-count {
+        color: #155724;
+        font-weight: 600;
+    }
+    
+    @@media (max-width: 768px) {
+        .filter-panel {
+            max-height: 400px;
+        }
+        
+        .category-children {
+            margin-left: 1rem;
+            padding-left: 0.5rem;
+        }
+    }
+    
+    /* Dark Mode Styles */
+    body.dark-mode .questions-table th {
+        background-color: #701e00 !important;
+        color: #fcede9;
+    }
+    
+    body.dark-mode .questions-table td {
+        border-bottom: 1px solid #942700;
+    }
+    
+    body.dark-mode .questions-table tbody tr:hover:not(.question-detail-row) {
+        background-color: #942700 !important;
+    }
+    
+    body.dark-mode .questions-table tbody tr.table-active {
+        background-color: #701e00 !important;
+        color: #fcede9;
+    }
+    
+    body.dark-mode .question-detail-row {
+        background-color: #852401 !important;
+    }
+    
+    body.dark-mode .question-detail-content {
+        background-color: #852401;
+    }
+    
+    body.dark-mode .detail-section {
+        background-color: #942700;
+    }
+    
+    body.dark-mode .detail-section h6 {
+        color: #fcede9;
+    }
+    
+    body.dark-mode .answer-item {
+        background-color: #701e00;
+        color: #fcede9;
+    }
+    
+    body.dark-mode .answer-item.correct-answer {
+        border-color: #4a7c59;
+        background-color: #4a7c59;
+        color: white;
+    }
+    
+    body.dark-mode .explanation-item {
+        background-color: #701e00;
+        border-left: 3px solid #fcede9;
+        color: #fcede9;
+    }
+    
+    body.dark-mode .question-text-full {
+        color: #fcede9;
+    }
+    
+    body.dark-mode .filter-panel {
+        background-color: #852401;
+    }
+    
+    body.dark-mode .filter-header {
+        color: #fcede9;
+        border-bottom: 2px solid #701e00;
+    }
+    
+    
+    
+    body.dark-mode .category-item {
+        background-color: #942700;
+    }
+    
+    body.dark-mode .category-item:hover {
+        border-color: #fcede9;
+    }
+    
+    body.dark-mode .category-item.selected {
+        border-color: #fcede9;
+        background-color: #701e00;
+    }
+    
+    body.dark-mode .expand-toggle {
+        color: #fcede9;
+    }
+    
+    body.dark-mode .expand-toggle:hover {
+        color: white;
+    }
+    
+    body.dark-mode .category-children {
+        border-left: 2px solid #701e00;
+    }
+    
+    body.dark-mode .post-item {
+        background-color: #1e3a2a;
+    }
+    
+    body.dark-mode .post-item:hover {
+        border-color: #90c695;
+    }
+    
+    body.dark-mode .post-item.selected {
+        border-color: #90c695;
+        background-color: #2d5a3d;
+    }
+    
+    body.dark-mode .post-icon {
+        color: #90c695;
+    }
+    
+    body.dark-mode .question-count {
+        color: #b8956f;
+    }
+    
+    body.dark-mode .category-item .question-count {
+        color: #d4a389;
+    }
+    
+    body.dark-mode .category-item.selected .question-count {
+        color: #fcede9;
+    }
+    
+    body.dark-mode .post-item .question-count {
+        color: #90c695;
+    }
+    
+    body.dark-mode .post-item.selected .question-count {
+        color: white;
+    }
+    
+    /* Practice Controls */
+    .practice-controls button {
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-family: "Poppins", sans-serif;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .practice-controls .btn-success {
+        background-color: #28a745;
+        border: 2px solid #28a745;
+        color: white;
+    }
+    
+    .practice-controls .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    body.dark-mode .practice-controls .btn-success {
+        background-color: #1e5f32;
+        border-color: #1e5f32;
+    }
+    
+    body.dark-mode .practice-controls .btn-success:hover {
+        background-color: #155426;
+        border-color: #0f3d1c;
     }
 </style>
 
 <div class="container">
     <h1 class="verybig">Všechny otázky</h1>
-    <p class="intro">Přehled všech otázek v systému pro rychlé procházení a kontrolu</p>
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -131,7 +465,7 @@
     @if (questions == null)
     {
         <div class="text-center">
-            <p class="intro">Načítám otázky...</p>
+            <p class="">Načítám otázky...</p>
             <div class="spinner-border" role="status" style="color: #ff946c;">
                 <span class="visually-hidden">Loading...</span>
             </div>
@@ -146,9 +480,53 @@
     }
     else
     {
-        <div class="mb-3 intro">
-            <i class="bi bi-question-circle"></i> <strong>Celkem otázek: @questions.Count</strong>
-            <span class="text-muted ms-3">Klikněte na řádek pro zobrazení detailu</span>
+        <!-- Filtr kategorií a postů -->
+        <div class="mb-4">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="filter-panel">
+                        <h6 class="filter-header">
+                            <i class="bi bi-funnel"></i> Filtrovat téma
+                        </h6>
+                        <div class="category-tree">
+                            @if (categories != null)
+                            {
+                                @foreach (var category in categories.Where(c => c.ParentId == null).OrderBy(c => c.Name))
+                                {
+                                    @RenderCategoryNode(category)
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="mb-3 intro" style="margin-top: 5px;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div style="align-content: center;">
+                                <i class="bi bi-question-circle"></i> 
+                                <strong>Zobrazeno: @(filteredQuestions?.Count ?? 0) z @(questions?.Count ?? 0) otázek</strong>
+                                @if (selectedCategoryId.HasValue || selectedPostId.HasValue)
+                                {
+                                    <br><small class="text-muted">
+                                        Filtr: @GetCurrentFilterName()
+                                        <button type="button" class="btn-danger" @onclick="ClearFilter" style="font-size: 12px;">
+                                            <i class="bi bi-x-circle"></i> Zrušit
+                                        </button>
+                                    </small>
+                                }
+                            </div>
+                            @if (filteredQuestions != null && filteredQuestions.Any())
+                            {
+                                <div class="practice-controls">
+                                    <button type="button" class="btn-success" @onclick="StartPractice">
+                                        <i class="bi bi-play-circle"></i> Procvičovat (@(filteredQuestions.Count))
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -163,7 +541,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var question in questions)
+                    @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
                     {
                         <tr style="cursor: pointer;" @onclick="() => ToggleQuestionDetail(question.Id)" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
                             <td><strong>@question.Id</strong></td>
@@ -182,12 +560,12 @@
                             <td class="text-center"><span class="badge bg-primary">@question.Answers.Count</span></td>
                             <td class="text-center"><span class="badge bg-info">@question.Explanations.Count</span></td>
                             <td>
-                                <button class="compact-button" style="background-color: #28a745; color: white; border: none; border-radius: 5px;" @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
+                                <button @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
                                     <i class="bi bi-arrow-right"></i> Post
                                 </button>
                                 @if (expandedQuestionId == question.Id)
                                 {
-                                    <button class="compact-button" style="background-color: #6c757d; color: white; border: none; border-radius: 5px;" @onclick="() => CloseDetail()" @onclick:stopPropagation="true">
+                                    <button class="btn-danger" @onclick="() => CloseDetail()" @onclick:stopPropagation="true">
                                         <i class="bi bi-x"></i>
                                     </button>
                                 }
@@ -199,8 +577,8 @@
                             <tr class="question-detail-row">
                                 <td colspan="5" class="p-0">
                                     <div class="question-detail-content">
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
+                                        <div class="question-detail-row-flex">
+                                            <div class="detail-col">
                                                 <div class="detail-section">
                                                     @if (question.Answers.Any())
                                                     {
@@ -211,7 +589,7 @@
                                                                 <div class="answer-item @(answer.Correct == 1 ? "correct-answer" : "")">
                                                                     @if (answer.Correct == 1)
                                                                     {
-                                                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                                                        <i class="bi bi-check-circle-fill me-1"></i>
                                                                     }
                                                                     else
                                                                     {
@@ -225,12 +603,12 @@
                                                     else
                                                     {
                                                         <h6><i class="bi bi-list-check"></i> Odpovědi:</h6>
-                                                        <p class="text-muted"><i>Žádné odpovědi</i></p>
+                                                        <p style="color: #666; font-style: italic;">Žádné odpovědi</p>
                                                     }
                                                 </div>
                                             </div>
                                             
-                                            <div class="col-md-6">
+                                            <div class="detail-col">
                                                 <div class="detail-section">
                                                     @if (question.Explanations.Any())
                                                     {
@@ -248,14 +626,17 @@
                                                     else
                                                     {
                                                         <h6><i class="bi bi-lightbulb"></i> Vysvětlení:</h6>
-                                                        <p class="text-muted"><i>Žádná vysvětlení</i></p>
+                                                        <p style="color: #666; font-style: italic;">Žádná vysvětlení</p>
                                                     }
                                                 </div>
                                             </div>
                                         </div>
                                         
                                         <div class="text-center mt-2">
-                                            <small class="text-muted">Post ID: @question.PostId</small>
+                                            <small class="text-muted">
+                                                <i class="bi bi-file-text"></i> @GetPostTitle(question.PostId)
+                                                <span class="text-muted">(ID: @question.PostId)</span>
+                                            </small>
                                         </div>
                                     </div>
                                 </td>
@@ -272,26 +653,83 @@
 
 @code {
     private List<QuestionResponse>? questions;
+    private List<QuestionResponse>? filteredQuestions;
+    private List<CategoryResponse>? categories;
+    private List<PostResponse>? posts;
+    private Dictionary<int, string> postTitles = new();
+    private Dictionary<int, string> postCategories = new();
     private int? expandedQuestionId;
     private string? errorMessage;
+    private int? selectedCategoryId;
+    private int? selectedPostId;
+    private HashSet<int> expandedCategoryIds = new();
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadQuestions();
+        await LoadAllData();
     }
 
-    private async Task LoadQuestions()
+    private async Task LoadAllData()
     {
         try
         {
-            questions = await Api.GetAllQuestions();
+            // Načtení všech dat paralelně
+            var questionsTask = Api.GetAllQuestions();
+            var categoriesTask = Api.GetAllCategories();
+            var postsTask = Api.GetAllPosts();
+
+            await Task.WhenAll(questionsTask, categoriesTask, postsTask);
+
+            questions = questionsTask.Result;
+            categories = categoriesTask.Result;
+            posts = postsTask.Result.ToList();
+
+            await LoadPostTitles();
+            BuildPostCategoriesMapping();
+            FilterCategoriesToOnlyThoseWithQuestions();
+            ApplyFilter();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při načítání otázek: {ex.Message}";
-            Logger.LogError(ex, "Chyba při načítání všech otázek");
+            errorMessage = $"Chyba při načítání dat: {ex.Message}";
+            Logger.LogError(ex, "Chyba při načítání dat pro otázky");
             questions = new List<QuestionResponse>();
+            filteredQuestions = new List<QuestionResponse>();
+            categories = new List<CategoryResponse>();
+            posts = new List<PostResponse>();
         }
+    }
+
+    private async Task LoadPostTitles()
+    {
+        try
+        {
+            if (questions == null) return;
+            
+            var uniquePostIds = questions.Select(q => q.PostId).Distinct().ToList();
+            
+            foreach (var postId in uniquePostIds)
+            {
+                try
+                {
+                    var post = await Api.GetPostById(postId);
+                    postTitles[postId] = post.Title;
+                }
+                catch
+                {
+                    postTitles[postId] = $"Post {postId}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Chyba při načítání názvů postů");
+        }
+    }
+
+    private string GetPostTitle(int postId)
+    {
+        return postTitles.ContainsKey(postId) ? postTitles[postId] : $"Post {postId}";
     }
 
     private void ToggleQuestionDetail(int questionId)
@@ -316,5 +754,473 @@
     private void GoToPost(int postId)
     {
         Navigation.NavigateTo($"/post/{postId}");
+    }
+
+    private void BuildPostCategoriesMapping()
+    {
+        if (posts == null || categories == null) return;
+
+        foreach (var post in posts)
+        {
+            if (post.CategoryId.HasValue)
+            {
+                var category = categories.FirstOrDefault(c => c.Id == post.CategoryId.Value);
+                if (category != null)
+                {
+                    postCategories[post.Id] = GetCategoryFullPath(category);
+                }
+            }
+        }
+    }
+
+    private string GetCategoryFullPath(CategoryResponse category)
+    {
+        if (categories == null) return category.Name;
+
+        var path = new List<string>();
+        var current = category;
+        
+        while (current != null)
+        {
+            path.Insert(0, current.Name);
+            current = current.ParentId.HasValue 
+                ? categories.FirstOrDefault(c => c.Id == current.ParentId.Value)
+                : null;
+        }
+        
+        return string.Join(" > ", path);
+    }
+
+    private void FilterCategoriesToOnlyThoseWithQuestions()
+    {
+        if (categories == null || questions == null || posts == null) return;
+
+        // Získáme ID postů, které mají otázky
+        var postIdsWithQuestions = questions.Select(q => q.PostId).Distinct().ToHashSet();
+        
+        // Získáme kategorie těchto postů
+        var categoryIdsWithQuestions = posts
+            .Where(p => postIdsWithQuestions.Contains(p.Id) && p.CategoryId.HasValue)
+            .Select(p => p.CategoryId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        // Přidáme i rodičovské kategorie
+        var allRelevantCategoryIds = new HashSet<int>(categoryIdsWithQuestions);
+        foreach (var categoryId in categoryIdsWithQuestions)
+        {
+            var category = categories.FirstOrDefault(c => c.Id == categoryId);
+            while (category?.ParentId.HasValue == true)
+            {
+                allRelevantCategoryIds.Add(category.ParentId.Value);
+                category = categories.FirstOrDefault(c => c.Id == category.ParentId.Value);
+            }
+        }
+
+        // Filtrujeme kategorie pouze na ty relevantní
+        categories = categories.Where(c => allRelevantCategoryIds.Contains(c.Id)).ToList();
+    }
+
+    private void ApplyFilter()
+    {
+        if (questions == null)
+        {
+            filteredQuestions = new List<QuestionResponse>();
+            return;
+        }
+
+        // Filtr podle konkrétního postu
+        if (selectedPostId.HasValue)
+        {
+            filteredQuestions = questions.Where(q => q.PostId == selectedPostId.Value).ToList();
+            return;
+        }
+
+        // Filtr podle kategorie
+        if (selectedCategoryId.HasValue)
+        {
+            if (posts == null)
+            {
+                filteredQuestions = new List<QuestionResponse>();
+                return;
+            }
+
+            // Získáme všechny podkategorie vybrané kategorie
+            var relevantCategoryIds = GetAllSubcategoryIds(selectedCategoryId.Value);
+            
+            // Filtrujeme posty podle kategorií
+            var relevantPostIds = posts
+                .Where(p => p.CategoryId.HasValue && relevantCategoryIds.Contains(p.CategoryId.Value))
+                .Select(p => p.Id)
+                .ToHashSet();
+
+            // Filtrujeme otázky podle postů
+            filteredQuestions = questions
+                .Where(q => relevantPostIds.Contains(q.PostId))
+                .ToList();
+            return;
+        }
+
+        // Žádný filtr - zobraz vše
+        filteredQuestions = questions.ToList();
+    }
+
+    private HashSet<int> GetAllSubcategoryIds(int categoryId)
+    {
+        if (categories == null) return new HashSet<int> { categoryId };
+
+        var result = new HashSet<int> { categoryId };
+        var subcategories = categories.Where(c => c.ParentId == categoryId);
+        
+        foreach (var subcategory in subcategories)
+        {
+            var subIds = GetAllSubcategoryIds(subcategory.Id);
+            foreach (var id in subIds)
+            {
+                result.Add(id);
+            }
+        }
+        
+        return result;
+    }
+
+    private void OnCategoryFilterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var categoryId))
+        {
+            selectedCategoryId = categoryId;
+        }
+        else
+        {
+            selectedCategoryId = null;
+        }
+        
+        ApplyFilter();
+        StateHasChanged();
+    }
+
+    private string GetSelectedCategoryName()
+    {
+        if (!selectedCategoryId.HasValue || categories == null) return "";
+        
+        var category = categories.FirstOrDefault(c => c.Id == selectedCategoryId.Value);
+        return category != null ? GetCategoryFullPath(category) : "";
+    }
+
+    private RenderFragment RenderCategoryOption(CategoryResponse category, int level) => __builder =>
+    {
+        var prefix = GetCategoryPrefix(category.Id, level);
+        
+        <option value="@category.Id">@(prefix + category.Name)</option>
+        
+        if (categories != null)
+        {
+            foreach (var subcategory in categories.Where(c => c.ParentId == category.Id).OrderBy(c => c.Name))
+            {
+                @RenderCategoryOption(subcategory, level + 1)
+            }
+        }
+    };
+
+    private string GetCategoryPrefix(int categoryId, int level)
+    {
+        if (level == 0) return "";
+        if (categories == null) return "";
+
+        var category = categories.FirstOrDefault(c => c.Id == categoryId);
+        if (category?.ParentId == null) return "";
+
+        var siblings = categories.Where(c => c.ParentId == category.ParentId).OrderBy(c => c.Name).ToList();
+        var isLast = siblings.Last().Id == categoryId;
+        
+        var parentPrefix = "";
+        if (level > 1)
+        {
+            parentPrefix = GetParentPrefix(category.ParentId.Value, level - 1);
+        }
+        
+        var currentPrefix = isLast ? "└─ " : "├─ ";
+        
+        return parentPrefix + currentPrefix;
+    }
+
+    private string GetParentPrefix(int parentId, int level)
+    {
+        if (level == 0) return "";
+        if (categories == null) return "";
+        
+        var parentCategory = categories.FirstOrDefault(c => c.Id == parentId);
+        if (parentCategory?.ParentId == null) return "│  ";
+        
+        var parentSiblings = categories.Where(c => c.ParentId == parentCategory.ParentId).OrderBy(c => c.Name).ToList();
+        var parentIsLast = parentSiblings.Last().Id == parentId;
+        
+        var grandParentPrefix = "";
+        if (level > 1)
+        {
+            grandParentPrefix = GetParentPrefix(parentCategory.ParentId.Value, level - 1);
+        }
+        
+        var currentPrefix = parentIsLast ? "   " : "│  ";
+        
+        return grandParentPrefix + currentPrefix;
+    }
+
+    private List<CategoryResponse> GetOrderedCategories()
+    {
+        if (categories == null) return new List<CategoryResponse>();
+        
+        var result = new List<CategoryResponse>();
+        var rootCategories = categories.Where(c => c.ParentId == null).OrderBy(c => c.Name);
+        
+        foreach (var rootCategory in rootCategories)
+        {
+            AddCategoryAndChildrenToList(rootCategory, result);
+        }
+        
+        return result;
+    }
+
+    private void AddCategoryAndChildrenToList(CategoryResponse category, List<CategoryResponse> result)
+    {
+        if (categories == null) return;
+        
+        result.Add(category);
+        
+        var children = categories.Where(c => c.ParentId == category.Id).OrderBy(c => c.Name);
+        foreach (var child in children)
+        {
+            AddCategoryAndChildrenToList(child, result);
+        }
+    }
+
+    private RenderFragment RenderCategoryOptionFlat(CategoryResponse category) => __builder =>
+    {
+        var level = GetCategoryLevel(category.Id);
+        var prefix = GetCategoryPrefixForLevel(category.Id, level);
+        
+        <option value="@category.Id">@(prefix + category.Name)</option>
+    };
+
+    private int GetCategoryLevel(int categoryId)
+    {
+        if (categories == null) return 0;
+        
+        var category = categories.FirstOrDefault(c => c.Id == categoryId);
+        if (category?.ParentId == null) return 0;
+        
+        return 1 + GetCategoryLevel(category.ParentId.Value);
+    }
+
+    private string GetCategoryPrefixForLevel(int categoryId, int level)
+    {
+        if (level == 0) return "";
+        if (categories == null) return "";
+
+        var category = categories.FirstOrDefault(c => c.Id == categoryId);
+        if (category?.ParentId == null) return "";
+
+        // Zjistíme, jestli je to poslední sourozenec
+        var siblings = categories.Where(c => c.ParentId == category.ParentId).OrderBy(c => c.Name).ToList();
+        var isLast = siblings.Last().Id == categoryId;
+        
+        // Sestavíme prefix podle všech nadřazených úrovní
+        var prefixParts = new List<string>();
+        var currentCat = category;
+        var currentLevel = level;
+        
+        while (currentCat?.ParentId != null && currentLevel > 0)
+        {
+            var currentSiblings = categories.Where(c => c.ParentId == currentCat.ParentId).OrderBy(c => c.Name).ToList();
+            var currentIsLast = currentSiblings.Last().Id == currentCat.Id;
+            
+            if (currentLevel == 1)
+            {
+                prefixParts.Insert(0, currentIsLast ? "└─ " : "├─ ");
+            }
+            else
+            {
+                prefixParts.Insert(0, currentIsLast ? "   " : "│  ");
+            }
+            
+            currentCat = categories.FirstOrDefault(c => c.Id == currentCat.ParentId);
+            currentLevel--;
+        }
+        
+        return string.Join("", prefixParts);
+    }
+
+    private RenderFragment RenderCategoryNode(CategoryResponse category) => __builder =>
+    {
+        var hasChildren = categories?.Any(c => c.ParentId == category.Id) == true;
+        var hasPostsWithQuestions = GetPostsWithQuestionsInCategory(category.Id).Any();
+        var isExpanded = expandedCategoryIds.Contains(category.Id);
+        var isSelected = selectedCategoryId == category.Id;
+        
+        <div class="category-node">
+            <div class="category-item @(isSelected ? "selected" : "") @(hasChildren ? "has-children" : "")" 
+                 @onclick="() => OnCategoryClick(category.Id)">
+                @if (hasChildren)
+                {
+                    <button type="button" class="expand-toggle" @onclick="() => ToggleCategoryExpansion(category.Id)" @onclick:stopPropagation="true">
+                        <i class="bi @(isExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                    </button>
+                }
+                else
+                {
+                    <span class="expand-toggle"></span>
+                }
+                <i class="bi bi-folder me-2"></i>
+                @category.Name
+                @{
+                    var questionCount = GetQuestionCountInCategory(category.Id);
+                }
+                <span class="question-count">(@questionCount)</span>
+            </div>
+            
+            @if ((isExpanded && hasChildren) || (!hasChildren && hasPostsWithQuestions))
+            {
+                <div class="category-children">
+                    @if (categories != null && hasChildren)
+                    {
+                        @foreach (var child in categories.Where(c => c.ParentId == category.Id).OrderBy(c => c.Name))
+                        {
+                            @RenderCategoryNode(child)
+                        }
+                    }
+                    
+                    @* Zobrazit posty v této kategorii *@
+                    @foreach (var post in GetPostsWithQuestionsInCategory(category.Id))
+                    {
+                        @RenderPostNode(post)
+                    }
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderPostNode(PostResponse post) => __builder =>
+    {
+        var questionCount = questions?.Count(q => q.PostId == post.Id) ?? 0;
+        var isSelected = selectedPostId == post.Id;
+        
+        <div class="post-item @(isSelected ? "selected" : "")" @onclick="() => OnPostClick(post.Id)">
+            <i class="bi bi-file-earmark-text post-icon"></i>
+            @post.Title
+            <span class="question-count">(@questionCount)</span>
+        </div>
+    };
+
+    private void ClearFilter()
+    {
+        selectedCategoryId = null;
+        selectedPostId = null;
+        ApplyFilter();
+        StateHasChanged();
+    }
+
+    private void OnCategoryClick(int categoryId)
+    {
+        if (selectedCategoryId == categoryId)
+        {
+            // Zrušit výběr pokud kliknu na stejnou kategorii
+            selectedCategoryId = null;
+        }
+        else
+        {
+            selectedCategoryId = categoryId;
+            selectedPostId = null; // Zrušit výběr postu
+        }
+        
+        ApplyFilter();
+        StateHasChanged();
+    }
+
+    private void OnPostClick(int postId)
+    {
+        if (selectedPostId == postId)
+        {
+            // Zrušit výběr pokud kliknu na stejný post
+            selectedPostId = null;
+        }
+        else
+        {
+            selectedPostId = postId;
+            selectedCategoryId = null; // Zrušit výběr kategorie
+        }
+        
+        ApplyFilter();
+        StateHasChanged();
+    }
+
+    private void ToggleCategoryExpansion(int categoryId)
+    {
+        if (expandedCategoryIds.Contains(categoryId))
+        {
+            expandedCategoryIds.Remove(categoryId);
+        }
+        else
+        {
+            expandedCategoryIds.Add(categoryId);
+        }
+        StateHasChanged();
+    }
+
+    private List<PostResponse> GetPostsWithQuestionsInCategory(int categoryId)
+    {
+        if (posts == null || questions == null) return new List<PostResponse>();
+        
+        var postsWithQuestions = posts
+            .Where(p => p.CategoryId == categoryId)
+            .Where(p => questions.Any(q => q.PostId == p.Id))
+            .OrderBy(p => p.Title)
+            .ToList();
+        
+        return postsWithQuestions;
+    }
+
+    private int GetQuestionCountInCategory(int categoryId)
+    {
+        if (posts == null || questions == null) return 0;
+        
+        var relevantCategoryIds = GetAllSubcategoryIds(categoryId);
+        var postIds = posts
+            .Where(p => p.CategoryId.HasValue && relevantCategoryIds.Contains(p.CategoryId.Value))
+            .Select(p => p.Id)
+            .ToHashSet();
+        
+        return questions.Count(q => postIds.Contains(q.PostId));
+    }
+
+    private string GetCurrentFilterName()
+    {
+        if (selectedPostId.HasValue)
+        {
+            var post = posts?.FirstOrDefault(p => p.Id == selectedPostId.Value);
+            return post != null ? $"Post: {post.Title}" : "Neznámý post";
+        }
+        
+        if (selectedCategoryId.HasValue)
+        {
+            var category = categories?.FirstOrDefault(c => c.Id == selectedCategoryId.Value);
+            return category != null ? $"Kategorie: {GetCategoryFullPath(category)}" : "Neznámá kategorie";
+        }
+        
+        return "";
+    }
+
+    private void StartPractice()
+    {
+        if (filteredQuestions == null || !filteredQuestions.Any())
+        {
+            return;
+        }
+
+        // Uložíme filtrované otázky do session storage nebo jiného úložiště
+        // Pro jednoduchost použijeme query parametry s IDs otázek
+        var questionIds = string.Join(",", filteredQuestions.Select(q => q.Id));
+        
+        // Přesměrujeme na novou stránku pro procvičování s vybranými otázkami
+        Navigation.NavigateTo($"/practice?questions={questionIds}");
     }
 }

@@ -1,0 +1,433 @@
+@page "/practice"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using System.Linq
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Procvičování - Tobiso</PageTitle>
+
+@if (_questions == null)
+{
+    <div class="text-center">
+        <p>Načítám otázky pro procvičování...</p>
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!_questions.Any())
+{
+    <div class="text-center">
+        <h2>Žádné otázky</h2>
+        <p>Nebyly vybrány žádné otázky k procvičování.</p>
+        <button @onclick="BackToAllQuestions">Zpět na všechny otázky</button>
+    </div>
+}
+else
+{
+    <div class="container">
+        <h1 class="verybig">Procvičování</h1>
+        <p class="intro">Procvičujte si vybrané otázky v náhodném pořadí</p>
+        
+        @if (!_testCompleted)
+        {
+            <div class="question-counter">
+                Otázka @(_currentQuestionIndex + 1) z @_questions.Count
+            </div>
+            
+            @if (_questions.Count > 0)
+            {
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: @(Math.Round((_currentQuestionIndex + 1) / (double)_questions.Count * 100, 2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
+            }
+        }
+
+        @if (_testCompleted)
+        {
+            <!-- Zobrazení výsledků -->
+            <div class="test-summary @GetSummaryClass()">
+                <h2>Výsledky procvičování</h2>
+                <p class="fs-4">
+                    <strong>@_correctAnswers</strong> ze <strong>@_questions.Count</strong> správných odpovědí
+                </p>
+                <p class="fs-5">
+                    Úspěšnost: <strong>@(Math.Round(_successRate, 1))%</strong>
+                </p>
+                @GetSummaryMessage()
+            </div>
+
+            <!-- Přehled všech otázek s odpověďmi -->
+            <h3 class="mt-4">Přehled otázek</h3>
+            
+            @for (int i = 0; i < _questions.Count; i++)
+            {
+                var question = _questions[i];
+                bool isCorrect = false;
+                
+                if (IsTextQuestion(question))
+                {
+                    if (_userTextAnswers.ContainsKey(question.Id))
+                    {
+                        var userText = _userTextAnswers[question.Id].Trim();
+                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                        isCorrect = correctAnswer != null && 
+                                   string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+                else
+                {
+                    isCorrect = _userAnswers.ContainsKey(question.Id) && 
+                               question.Answers.Any(a => a.Id == _userAnswers[question.Id] && a.Correct == 1);
+                }
+                
+                <div class="question-container">
+                    <div class="question-title">
+                        @(i + 1). @question.QuestionText
+                        @if (isCorrect)
+                        {
+                              <i class="bi bi-check-circle-fill text-success ms-2"></i> 
+                        }
+                        else
+                        {
+                              <i class="bi bi-x-circle-fill text-danger ms-2"></i> 
+                        }
+                    </div>
+                    
+                    @if (IsTextQuestion(question))
+                    {
+                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                        var userText = _userTextAnswers.ContainsKey(question.Id) ? _userTextAnswers[question.Id] : "";
+                        
+                        <div class="text-answer-review">
+                            <div class="user-text-answer @(isCorrect ? "correct" : "incorrect")">
+                                <i class="bi bi-arrow-right-circle-fill me-2"></i>
+                                <strong>Vaše odpověď:</strong> @userText
+                            </div>
+                            @if (!isCorrect && correctAnswer != null)
+                            {
+                                <div class="correct-text-answer">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    <strong>Správná odpověď:</strong> @correctAnswer.AnswerText
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var answer in question.Answers)
+                        {
+                            var isUserAnswer = _userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id] == answer.Id;
+                            var isCorrectAnswer = answer.Correct == 1;
+                            var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
+                            
+                            <div class="answer-option @cssClass">
+                                @if (isUserAnswer)
+                                {
+                                    <i class="bi bi-arrow-right-circle-fill me-2"></i>  
+                                }
+                                @if (isCorrectAnswer)
+                                {
+                                    <i class="bi bi-check-circle-fill me-2"></i>  
+                                }
+                                @answer.AnswerText
+                            </div>
+                        }
+                    }
+                    
+                    @* Zobrazení vysvětlení pro chybně zodpověděné otázky *@
+                    @if (!isCorrect && question.Explanations.Any())
+                    {
+                        <div class="explanations-section intro">
+                            <span class="text-muted" style="font-size: 1.1em;">
+                                <i class="bi bi-lightbulb"></i> Vysvětlení:
+                            </span>
+                            @foreach (var explanation in question.Explanations)
+                            {
+                                <div class="alert alert-info explanation-box">
+                                    @explanation.Text
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            <div class="mt-4">
+                <button @onclick="RestartPractice" class="me-2">
+                    <i class="bi bi-arrow-clockwise"></i> Procvičovat znovu
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="BackToAllQuestions">
+                    <i class="bi bi-arrow-left"></i> Zpět na všechny otázky
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Aktuální otázka -->
+            var currentQuestion = _questions[_currentQuestionIndex];
+            
+            <div class="question-container">
+                <div class="question-title">
+                    @currentQuestion.QuestionText
+                </div>
+                
+                @if (IsTextQuestion(currentQuestion))
+                {
+                    <!-- Textové pole pro textové otázky -->
+                    <div class="text-input-container">
+                        <input type="text" 
+                               class="form-control text-answer-input"
+                               placeholder="Zadejte vaši odpověď..."
+                               value="@(_textAnswers.ContainsKey(currentQuestion.Id) ? _textAnswers[currentQuestion.Id] : "")"
+                               @oninput="@((ChangeEventArgs e) => SetTextAnswer(currentQuestion.Id, e.Value?.ToString() ?? ""))" />
+                    </div>
+                }
+                else
+                {
+                    <!-- Výběr z možností pro běžné otázky -->
+                    @foreach (var answer in currentQuestion.Answers)
+                    {
+                        var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
+                                       _selectedAnswers[currentQuestion.Id] == answer.Id;
+                        
+                        <div class="answer-option @(isSelected ? "selected" : "")" 
+                             @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
+                            <i class="bi @(isSelected ? "bi-circle-fill" : "bi-circle") me-2"></i>
+                            @answer.AnswerText
+                        </div>
+                    }
+                }
+            </div>
+            
+            <div class="d-flex justify-content-between mt-3">
+                <button
+                        @onclick="PreviousQuestion"
+                        disabled="@(_currentQuestionIndex == 0)">
+                    <i class="bi bi-arrow-left"></i> Předchozí
+                </button>
+                
+                @if (_currentQuestionIndex == _questions.Count - 1)
+                {
+                    <button class="btn btn-success" 
+                            @onclick="FinishTest"
+                            disabled="@(!AllQuestionsAnswered())">
+                        <i class="bi bi-check-circle"></i> Dokončit procvičování
+                    </button>
+                }
+                else
+                {
+                    <button 
+                            @onclick="NextQuestion"
+                            disabled="@(_currentQuestionIndex >= _questions.Count - 1)">
+                        Další <i class="bi bi-arrow-right"></i>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<QuestionResponse>? _questions;
+    private Dictionary<int, int> _selectedAnswers = new();
+    private Dictionary<int, int> _userAnswers = new();
+    private Dictionary<int, string> _textAnswers = new();
+    private Dictionary<int, string> _userTextAnswers = new();
+    private int _currentQuestionIndex = 0;
+    private bool _testCompleted = false;
+    private int _correctAnswers = 0;
+    private double _successRate = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuestionsFromParameters();
+    }
+
+    private async Task LoadQuestionsFromParameters()
+    {
+        try
+        {
+            var uri = new Uri(Navigation.Uri);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+            
+            if (query.TryGetValue("questions", out var questionIdsParam))
+            {
+                var questionIds = questionIdsParam.ToString().Split(',')
+                    .Where(id => int.TryParse(id, out _))
+                    .Select(int.Parse)
+                    .ToList();
+
+                if (questionIds.Any())
+                {
+                    // Načteme všechny otázky a filtrujeme podle ID
+                    var allQuestions = await Api.GetAllQuestions();
+                    var selectedQuestions = allQuestions.Where(q => questionIds.Contains(q.Id)).ToList();
+                    
+                    // Zamícháme otázky do náhodného pořadí
+                    var random = new Random();
+                    _questions = selectedQuestions.OrderBy(x => random.Next()).ToList();
+                }
+            }
+            
+            if (_questions == null || !_questions.Any())
+            {
+                _questions = new List<QuestionResponse>();
+            }
+            
+            ResetState();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při načítání otázek: {ex.Message}");
+            _questions = new List<QuestionResponse>();
+            ResetState();
+        }
+    }
+
+    private void ResetState()
+    {
+        _selectedAnswers.Clear();
+        _userAnswers.Clear();
+        _textAnswers.Clear();
+        _userTextAnswers.Clear();
+        _currentQuestionIndex = 0;
+        _testCompleted = false;
+        _correctAnswers = 0;
+        _successRate = 0;
+    }
+
+    private bool IsTextQuestion(QuestionResponse question)
+    {
+        return question.Answers.Count == 1 && question.Answers.First().Correct == 1;
+    }
+
+    private void SelectAnswer(int questionId, int answerId)
+    {
+        _selectedAnswers[questionId] = answerId;
+        StateHasChanged();
+    }
+
+    private void SetTextAnswer(int questionId, string text)
+    {
+        _textAnswers[questionId] = text;
+        StateHasChanged();
+    }
+
+    private void NextQuestion()
+    {
+        if (_currentQuestionIndex < _questions!.Count - 1)
+        {
+            _currentQuestionIndex++;
+            StateHasChanged();
+        }
+    }
+
+    private void PreviousQuestion()
+    {
+        if (_currentQuestionIndex > 0)
+        {
+            _currentQuestionIndex--;
+            StateHasChanged();
+        }
+    }
+
+    private bool AllQuestionsAnswered()
+    {
+        if (_questions == null) return false;
+        
+        return _questions.All(q => 
+        {
+            if (IsTextQuestion(q))
+            {
+                return _textAnswers.ContainsKey(q.Id) && !string.IsNullOrWhiteSpace(_textAnswers[q.Id]);
+            }
+            else
+            {
+                return _selectedAnswers.ContainsKey(q.Id);
+            }
+        });
+    }
+
+    private void FinishTest()
+    {
+        _userAnswers = new Dictionary<int, int>(_selectedAnswers);
+        _userTextAnswers = new Dictionary<int, string>(_textAnswers);
+        _correctAnswers = 0;
+
+        foreach (var question in _questions!)
+        {
+            if (IsTextQuestion(question))
+            {
+                if (_userTextAnswers.ContainsKey(question.Id))
+                {
+                    var userText = _userTextAnswers[question.Id].Trim();
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    
+                    if (correctAnswer != null && 
+                        string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        _correctAnswers++;
+                    }
+                }
+            }
+            else
+            {
+                if (_userAnswers.ContainsKey(question.Id))
+                {
+                    var userAnswerId = _userAnswers[question.Id];
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    
+                    if (correctAnswer != null && userAnswerId == correctAnswer.Id)
+                    {
+                        _correctAnswers++;
+                    }
+                }
+            }
+        }
+
+        _successRate = _questions.Count > 0 ? (_correctAnswers / (double)_questions.Count) * 100 : 0;
+        _testCompleted = true;
+        StateHasChanged();
+    }
+
+    private string GetSummaryClass()
+    {
+        if (_successRate >= 80) return "excellent";
+        if (_successRate >= 60) return "good";
+        return "poor";
+    }
+
+    private MarkupString GetSummaryMessage()
+    {
+        if (_successRate >= 80)
+            return new MarkupString("<p><i class=\"bi bi-star-fill\"></i> Výborně! Máte skvělé znalosti tématu.</p>");
+        if (_successRate >= 60)
+            return new MarkupString("<p><i class=\"bi bi-thumbs-up\"></i> Dobře! Většinu otázek jste zodpověděli správně.</p>");
+        return new MarkupString("<p><i class=\"bi bi-book\"></i> Doporučujeme si téma prostudovat znovu.</p>");
+    }
+
+    private void RestartPractice()
+    {
+        ResetState();
+        
+        // Znovu zamícháme otázky
+        if (_questions != null && _questions.Any())
+        {
+            var random = new Random();
+            _questions = _questions.OrderBy(x => random.Next()).ToList();
+        }
+        
+        StateHasChanged();
+    }
+
+    private void BackToAllQuestions()
+    {
+        Navigation.NavigateTo("/all-questions");
+    }
+}

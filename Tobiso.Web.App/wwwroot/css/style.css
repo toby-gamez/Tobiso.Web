@@ -336,6 +336,13 @@ button:disabled {
 .btn-success:hover {
     background-color: #218838;
 }
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+.btn-danger:hover {
+    background-color: #c82333;
+}
 @media only screen and (max-width: 600px) {
     .nav-button,
     .opennav-button {
@@ -1812,6 +1819,12 @@ body.dark-mode .btn-success {
 }
 body.dark-mode .btn-success:hover {
     background-color: #155426;
+}
+body.dark-mode .btn-danger {
+    background-color: #dc3545;
+}
+body.dark-mode .btn-danger:hover {
+    background-color: #c82333;
 }
 
 body.dark-mode .text-answer-input {
