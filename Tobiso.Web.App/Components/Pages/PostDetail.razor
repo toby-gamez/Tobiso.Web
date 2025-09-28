@@ -39,6 +39,42 @@ else
             @((MarkupString)(_post.Content))
         }
     </div>
+    @if (_relatedPosts != null && _relatedPosts.Any())
+    {
+        <div class="intro">
+            <h3 style="margin: 0">
+                <i class="bi bi-link-45deg"></i>
+                Související články
+            </h3>
+
+            <div class="">
+                @foreach (var relatedPost in _relatedPosts)
+                {
+                    var relatedPostData = _allPosts?.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
+                    if (relatedPostData != null)
+                    {
+                        <div>
+                            <h5 >
+                                @relatedPostData.Title
+                            </h5>
+                            @if (!string.IsNullOrEmpty(relatedPost.Text))
+                            {
+                                
+                                <span>
+                                    @relatedPost.Text, 
+                                </span>
+                                <a href="/post/@relatedPost.RelatedPostId" style="background-color: none">
+                                odkaz na článek
+                            </a>
+                            }
+                            
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+    
     @if (_hasQuestions)
     {
         <button class="btn btn-secondary mb-3" style="float: right" @onclick="ToQuestions">Prověrka</button>
@@ -51,6 +87,7 @@ else
     public int Id { get; set; }
     private PostResponse? _post;
     private List<PostResponse>? _allPosts;
+    private List<RelatedPostResponse>? _relatedPosts;
     private string? _returnUrl;
     private string? _fileSuffix;
     private bool _hasQuestions = false;
@@ -61,6 +98,7 @@ else
         _allPosts = (await Api.GetAllPosts()).ToList();
         SetFileSuffix();
         await CheckForQuestions();
+        await LoadRelatedPosts();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -72,6 +110,7 @@ else
         _allPosts = (await Api.GetAllPosts()).ToList();
         SetFileSuffix();
         await CheckForQuestions();
+        await LoadRelatedPosts();
     }
 
     private void SetFileSuffix()
@@ -104,6 +143,21 @@ else
         catch (Exception)
         {
             _hasQuestions = false;
+        }
+    }
+
+    private async Task LoadRelatedPosts()
+    {
+        try
+        {
+            if (_post?.Id != null)
+            {
+                _relatedPosts = (await Api.GetRelatedPostsByPostId(_post.Id)).ToList();
+            }
+        }
+        catch (Exception)
+        {
+            _relatedPosts = new List<RelatedPostResponse>();
         }
     }
 
@@ -288,7 +342,7 @@ else
             Navigation.NavigateTo("/categories", forceLoad: true);
         }
     }
-    private async Task ToQuestions()
+    private void ToQuestions()
     {
         Navigation.NavigateTo($"/questions/{Id}", forceLoad: true);
     }

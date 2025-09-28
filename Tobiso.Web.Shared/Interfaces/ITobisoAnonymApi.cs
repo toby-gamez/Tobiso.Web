@@ -32,4 +32,8 @@ public interface ITobisoAnonymApi
 
     [Get("/api/Events/{id}")]
     Task<EventResponse> GetEventById(int id);
+
+    // Related Posts API - anonymní přístup pro čtení
+    [Get("/api/RelatedPosts/by-post/{postId}")]
+    Task<List<RelatedPostResponse>> GetRelatedPostsByPostId(int postId);
 }
