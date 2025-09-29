@@ -98,6 +98,43 @@
     font-size: 12px;
 }
 
+/* PostSearchComponent Styles */
+.post-search-dropdown {
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1050;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
+}
+
+.post-search-dropdown .dropdown-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.post-search-dropdown .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.post-search-dropdown .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.post-search-dropdown .dropdown-item:active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.post-search-dropdown .dropdown-item .fw-bold {
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.post-search-dropdown .dropdown-item small {
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
     .editor-toolbar {
@@ -123,5 +160,15 @@
         background-color: #343a40;
         border-color: #495057;
         color: #adb5bd;
+    }
+    
+    .post-search-dropdown .dropdown-item {
+        background-color: #212529;
+        color: #ffffff;
+        border-bottom-color: #495057;
+    }
+    
+    .post-search-dropdown .dropdown-item:hover {
+        background-color: #343a40;
     }
 }

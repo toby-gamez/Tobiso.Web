@@ -1,0 +1,185 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+
+<div class="position-relative">
+    <div class="input-group">
+        <span class="input-group-text">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" 
+               class="form-control @(IsValid ? "" : "is-invalid")" 
+               placeholder="@Placeholder"
+               @bind="searchText" 
+               @oninput="OnSearchTextChanged"
+               @onfocus="ShowDropdown"
+               @onblur="HideDropdownDelayed" />
+        @if (SelectedPost != null)
+        {
+            <button type="button" 
+                    class="btn btn-outline-secondary" 
+                    @onclick="ClearSelection">
+                <i class="bi bi-x"></i>
+            </button>
+        }
+    </div>
+    
+    @if (!IsValid)
+    {
+        <div class="invalid-feedback d-block">
+            @ErrorMessage
+        </div>
+    }
+
+    @if (showDropdown && searchResults?.Any() == true)
+    {
+        <div class="dropdown-menu show position-absolute w-100 mt-1 post-search-dropdown">
+            @foreach (var post in searchResults)
+            {
+                <button type="button" 
+                        class="dropdown-item d-flex flex-column align-items-start"
+                        @onmousedown:preventDefault="true"
+                        @onclick="() => SelectPost(post)">
+                    <div class="fw-bold">@post.Title</div>
+                    <small class="text-muted">ID: @post.Id</small>
+                </button>
+            }
+        </div>
+    }
+
+    @if (showDropdown && !string.IsNullOrEmpty(searchText) && searchResults?.Any() != true && !isLoading)
+    {
+        <div class="dropdown-menu show position-absolute w-100 mt-1">
+            <div class="dropdown-item-text text-muted">
+                <i class="bi bi-info-circle"></i>
+                Žádné posty nenalezeny
+            </div>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="dropdown-menu show position-absolute w-100 mt-1">
+            <div class="dropdown-item-text">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Vyhledávání...
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public PostLinkResponse? SelectedPost { get; set; }
+    [Parameter] public EventCallback<PostLinkResponse?> SelectedPostChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Vyhledejte post...";
+    [Parameter] public bool IsValid { get; set; } = true;
+    [Parameter] public string ErrorMessage { get; set; } = "";
+    [Parameter] public int? ExcludePostId { get; set; } // Pro vyloučení konkrétního postu z výsledků
+
+    private string searchText = "";
+    private List<PostLinkResponse>? searchResults;
+    private bool showDropdown = false;
+    private bool isLoading = false;
+    private Timer? searchTimer;
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedPost != null && string.IsNullOrEmpty(searchText))
+        {
+            searchText = SelectedPost.Title ?? "";
+        }
+    }
+
+    private async Task OnSearchTextChanged(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        
+        // Zrušit předchozí výběr pokud se text změnil
+        if (SelectedPost != null && SelectedPost.Title != searchText)
+        {
+            SelectedPost = null;
+            await SelectedPostChanged.InvokeAsync(null);
+        }
+
+        // Debounce search
+        searchTimer?.Dispose();
+        searchTimer = new Timer(async _ => await InvokeAsync(PerformSearch), null, 300, Timeout.Infinite);
+        
+        showDropdown = !string.IsNullOrEmpty(searchText);
+    }
+
+    private async Task PerformSearch()
+    {
+        if (string.IsNullOrEmpty(searchText) || searchText.Length < 2)
+        {
+            searchResults = null;
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var allPosts = await Api.GetPostLinks();
+            
+            searchResults = allPosts
+                .Where(p => (ExcludePostId == null || p.Id != ExcludePostId) &&
+                           p.Title?.Contains(searchText, StringComparison.OrdinalIgnoreCase) == true)
+                .OrderBy(p => p.Title)
+                .Take(10)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chyba při vyhledávání postů: {ex.Message}");
+            searchResults = new List<PostLinkResponse>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectPost(PostLinkResponse post)
+    {
+        SelectedPost = post;
+        searchText = post.Title ?? "";
+        showDropdown = false;
+        await SelectedPostChanged.InvokeAsync(post);
+        StateHasChanged();
+    }
+
+    private async Task ClearSelection()
+    {
+        SelectedPost = null;
+        searchText = "";
+        searchResults = null;
+        showDropdown = false;
+        await SelectedPostChanged.InvokeAsync(null);
+    }
+
+    private void ShowDropdown()
+    {
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            showDropdown = true;
+        }
+    }
+
+    private async Task HideDropdownDelayed()
+    {
+        // Malé zpoždění aby fungoval klik na dropdown item
+        await Task.Delay(150);
+        showDropdown = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        searchTimer?.Dispose();
+    }
+}

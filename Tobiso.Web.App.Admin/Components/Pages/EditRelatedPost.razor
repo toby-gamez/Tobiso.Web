@@ -20,7 +20,7 @@
     <div class="alert alert-danger">@errorMessage</div>
 }
 
-@if (posts == null || relatedPost == null)
+@if (relatedPost == null)
 {
     <div class="d-flex justify-content-center">
         <div class="spinner-border" role="status">
@@ -32,31 +32,32 @@ else
 {
     <EditForm Model="request" OnValidSubmit="HandleValidSubmit">
         <DataAnnotationsValidator />
-        <ValidationSummary class="alert alert-warning" />
+        
+        @if (!string.IsNullOrEmpty(validationErrorMessage))
+        {
+            <div class="alert alert-warning">@validationErrorMessage</div>
+        }
         
         <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label for="postId" class="form-label">Hlavní post <span class="text-danger">*</span></label>
-                    <InputSelect id="postId" class="form-select" @bind-Value="request.PostId">
-                        <option value="0">-- Vyberte post --</option>
-                        @foreach (var post in posts)
-                        {
-                            <option value="@post.Id">@post.Title</option>
-                        }
-                    </InputSelect>
+                    <label class="form-label">Hlavní post <span class="text-danger">*</span></label>
+                    <PostSearchComponent SelectedPost="selectedMainPost" 
+                                       SelectedPostChanged="@((PostLinkResponse? post) => selectedMainPost = post)"
+                                       Placeholder="Vyhledejte hlavní post..."
+                                       IsValid="@(string.IsNullOrEmpty(mainPostError))"
+                                       ErrorMessage="@mainPostError" />
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label for="relatedPostId" class="form-label">Souvisejíci post <span class="text-danger">*</span></label>
-                    <InputSelect id="relatedPostId" class="form-select" @bind-Value="request.RelatedPostId">
-                        <option value="0">-- Vyberte související post --</option>
-                        @foreach (var post in posts.Where(p => p.Id != request.PostId))
-                        {
-                            <option value="@post.Id">@post.Title</option>
-                        }
-                    </InputSelect>
+                    <label class="form-label">Souvisejíci post <span class="text-danger">*</span></label>
+                    <PostSearchComponent SelectedPost="selectedRelatedPost" 
+                                       SelectedPostChanged="@((PostLinkResponse? post) => selectedRelatedPost = post)"
+                                       Placeholder="Vyhledejte související post..."
+                                       IsValid="@(string.IsNullOrEmpty(relatedPostError))"
+                                       ErrorMessage="@relatedPostError"
+                                       ExcludePostId="@selectedMainPost?.Id" />
                 </div>
             </div>
         </div>
@@ -98,7 +99,12 @@ else
     private UpdateRelatedPostRequest request = new();
     private RelatedPostResponse? relatedPost;
     private IList<PostLinkResponse>? posts;
+    private PostLinkResponse? selectedMainPost;
+    private PostLinkResponse? selectedRelatedPost;
     private string? errorMessage;
+    private string? validationErrorMessage;
+    private string? mainPostError;
+    private string? relatedPostError;
     private bool isSubmitting;
 
     protected override async Task OnInitializedAsync()
@@ -118,11 +124,15 @@ else
             posts = await loadPostsTask;
             relatedPost = await loadRelatedPostTask;
 
-            if (relatedPost != null)
+            if (relatedPost != null && posts != null)
             {
                 request.PostId = relatedPost.PostId;
                 request.RelatedPostId = relatedPost.RelatedPostId;
                 request.Text = relatedPost.Text;
+                
+                // Najít odpovídající posty pro komponenty
+                selectedMainPost = posts.FirstOrDefault(p => p.Id == relatedPost.PostId);
+                selectedRelatedPost = posts.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
             }
         }
         catch (Exception ex)
@@ -133,23 +143,18 @@ else
 
     private async Task HandleValidSubmit()
     {
-        if (request.PostId == 0 || request.RelatedPostId == 0)
-        {
-            errorMessage = "Musíte vybrat oba posty.";
+        if (!ValidateForm())
             return;
-        }
-
-        if (request.PostId == request.RelatedPostId)
-        {
-            errorMessage = "Post nemůže odkazovat sám na sebe.";
-            return;
-        }
 
         isSubmitting = true;
         errorMessage = null;
+        validationErrorMessage = null;
 
         try
         {
+            request.PostId = selectedMainPost!.Id;
+            request.RelatedPostId = selectedRelatedPost!.Id;
+            
             await Api.UpdateRelatedPost(Id, request);
             Navigation.NavigateTo("/related-posts");
         }
@@ -161,6 +166,35 @@ else
         {
             isSubmitting = false;
         }
+    }
+
+    private bool ValidateForm()
+    {
+        bool isValid = true;
+        
+        mainPostError = null;
+        relatedPostError = null;
+        validationErrorMessage = null;
+
+        if (selectedMainPost == null)
+        {
+            mainPostError = "Hlavní post je povinný.";
+            isValid = false;
+        }
+
+        if (selectedRelatedPost == null)
+        {
+            relatedPostError = "Související post je povinný.";
+            isValid = false;
+        }
+
+        if (selectedMainPost != null && selectedRelatedPost != null && selectedMainPost.Id == selectedRelatedPost.Id)
+        {
+            validationErrorMessage = "Post nemůže odkazovat sám na sebe.";
+            isValid = false;
+        }
+
+        return isValid;
     }
 
     private void BackToList()
