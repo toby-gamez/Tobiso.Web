@@ -56,12 +56,12 @@ else
                     <tr>
                         <td>@relatedPost.Id</td>
                         <td>
-                            <strong>@relatedPost.PostTitle</strong>
+                            <strong>@(postTitles.TryGetValue(relatedPost.PostId, out var title) ? title : $"ID: {relatedPost.PostId}")</strong>
                             <br>
                             <small class="text-muted">ID: @relatedPost.PostId</small>
                         </td>
                         <td>
-                            <strong>@relatedPost.RelatedPostTitle</strong>
+                            <strong>@(postTitles.TryGetValue(relatedPost.RelatedPostId, out var relTitle) ? relTitle : $"ID: {relatedPost.RelatedPostId}")</strong>
                             <br>
                             <small class="text-muted">ID: @relatedPost.RelatedPostId</small>
                         </td>
@@ -105,15 +105,30 @@ else
 
 @code {
     private IList<RelatedPostResponse>? relatedPosts;
+    private Dictionary<int, string> postTitles = new();
     private string? errorMessage;
     private string? errorDetail;
     private string? errorFullDetail;
+
+    private async Task LoadPostTitles()
+    {
+        try
+        {
+            var posts = await Api.GetPostLinks();
+            postTitles = posts.ToDictionary(p => p.Id, p => p.Title);
+        }
+        catch (Exception ex)
+        {
+            await LogErrorToConsole("Chyba při načítání názvů článků:", ex.Message);
+        }
+    }
 
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadPostTitles();
         await LoadRelatedPosts();
     }
 
