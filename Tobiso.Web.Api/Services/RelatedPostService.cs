@@ -28,23 +28,18 @@ public class RelatedPostService : IRelatedPostService
     {
         try
         {
-            var relatedPosts = await _context.RelatedPosts
-                .Include(rp => rp.Post)
-                .Include(rp => rp.RelatedPostRef)
-                .ToListAsync();
-
+            var relatedPosts = await _context.RelatedPosts.ToListAsync();
             return relatedPosts.Select(rp => new RelatedPostResponse
             {
                 Id = rp.Id,
                 PostId = rp.PostId,
                 RelatedPostId = rp.RelatedPostId,
                 Text = rp.Text,
-                PostTitle = rp.Post?.Title,
-                RelatedPostTitle = rp.RelatedPostRef?.Title
             }).ToList();
         }
         catch (Exception ex)
         {
+            // Logování chyby - prozatím do konzole, případně použít logger
             Console.WriteLine($"Chyba při načítání souvisejících postů: {ex.Message}\n{ex.StackTrace}");
             throw;
         }
@@ -55,8 +50,6 @@ public class RelatedPostService : IRelatedPostService
         try
         {
             var relatedPosts = await _context.RelatedPosts
-                .Include(rp => rp.Post)
-                .Include(rp => rp.RelatedPostRef)
                 .Where(rp => rp.PostId == postId)
                 .ToListAsync();
 
@@ -66,8 +59,6 @@ public class RelatedPostService : IRelatedPostService
                 PostId = rp.PostId,
                 RelatedPostId = rp.RelatedPostId,
                 Text = rp.Text,
-                PostTitle = rp.Post?.Title,
-                RelatedPostTitle = rp.RelatedPostRef?.Title
             }).ToList();
         }
         catch (Exception ex)
@@ -79,21 +70,15 @@ public class RelatedPostService : IRelatedPostService
 
     public async Task<RelatedPostResponse?> GetById(int id)
     {
-        var relatedPost = await _context.RelatedPosts
-            .Include(rp => rp.Post)
-            .Include(rp => rp.RelatedPostRef)
-            .FirstOrDefaultAsync(rp => rp.Id == id);
-
+        var relatedPost = await _context.RelatedPosts.FirstOrDefaultAsync(rp => rp.Id == id);
         if (relatedPost == null) return null;
-
+        
         return new RelatedPostResponse
         {
             Id = relatedPost.Id,
             PostId = relatedPost.PostId,
             RelatedPostId = relatedPost.RelatedPostId,
             Text = relatedPost.Text,
-            PostTitle = relatedPost.Post?.Title,
-            RelatedPostTitle = relatedPost.RelatedPostRef?.Title
         };
     }
 

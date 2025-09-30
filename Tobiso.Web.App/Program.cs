@@ -47,13 +47,12 @@ services.AddAuthorization();
 services.AddRazorComponents().AddInteractiveServerComponents();
 
 // Register API services from Tobiso.Web.Api.Services
-services.AddScoped<Tobiso.Web.Api.Services.ICategoryService, Tobiso.Web.Api.Services.CategoryService>();
-services.AddScoped<Tobiso.Web.Api.Services.IPostService, Tobiso.Web.Api.Services.PostService>();
-services.AddScoped<Tobiso.Web.Api.Services.IQuestionService, Tobiso.Web.Api.Services.QuestionService>();
-services.AddScoped<Tobiso.Web.Api.Services.IExplanationService, Tobiso.Web.Api.Services.ExplanationService>();
-services.AddScoped<Tobiso.Web.Api.Services.IEventService, Tobiso.Web.Api.Services.EventService>();
-services.AddScoped<Tobiso.Web.Api.Services.IRelatedPostService, Tobiso.Web.Api.Services.RelatedPostService>();
-
+services.AddScoped<ICategoryService, CategoryService>();
+services.AddScoped<IPostService, PostService>();
+services.AddScoped<IQuestionService, QuestionService>();
+services.AddScoped<IExplanationService, ExplanationService>();
+services.AddScoped<IEventService, EventService>();
+services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddControllers()
     .AddJsonOptions(options =>
     {

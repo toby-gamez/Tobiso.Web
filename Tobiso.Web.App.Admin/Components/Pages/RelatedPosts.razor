@@ -3,6 +3,7 @@
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+<PageTitle>Související články</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>
@@ -17,7 +18,15 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert alert-danger">
+        <strong>Chyba:</strong> @errorMessage
+        <details class="mt-2">
+            <summary>Detail chyby</summary>
+            <pre>
+@errorFullDetail
+            </pre>
+        </details>
+    </div>
 }
 
 @if (relatedPosts == null)
@@ -97,6 +106,11 @@ else
 @code {
     private IList<RelatedPostResponse>? relatedPosts;
     private string? errorMessage;
+    private string? errorDetail;
+    private string? errorFullDetail;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,10 +122,16 @@ else
         try
         {
             relatedPosts = await Api.GetAllRelatedPosts();
+            errorMessage = null;
+            errorDetail = null;
+            errorFullDetail = null;
         }
         catch (Exception ex)
         {
             errorMessage = $"Chyba při načítání souvisejících postů: {ex.Message}";
+            errorDetail = ex.StackTrace;
+            errorFullDetail = GetFullExceptionDetail(ex);
+            await LogErrorToConsole(errorMessage, errorFullDetail);
         }
     }
 
@@ -127,8 +147,33 @@ else
             catch (Exception ex)
             {
                 errorMessage = $"Chyba při mazání souvisejícího postu: {ex.Message}";
+                errorDetail = ex.StackTrace;
+                errorFullDetail = GetFullExceptionDetail(ex);
+                await LogErrorToConsole(errorMessage, errorFullDetail);
             }
         }
+    }
+    private string GetFullExceptionDetail(Exception ex)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Message: {ex.Message}");
+        sb.AppendLine($"Type: {ex.GetType().FullName}");
+        sb.AppendLine($"Source: {ex.Source}");
+        sb.AppendLine($"StackTrace: {ex.StackTrace}");
+        if (ex.Data != null && ex.Data.Count > 0)
+        {
+            sb.AppendLine("Data:");
+            foreach (var key in ex.Data.Keys)
+            {
+                sb.AppendLine($"  {key}: {ex.Data[key]}");
+            }
+        }
+        if (ex.InnerException != null)
+        {
+            sb.AppendLine("InnerException:");
+            sb.AppendLine(GetFullExceptionDetail(ex.InnerException));
+        }
+        return sb.ToString();
     }
 
     private void NavigateToAdd()
@@ -143,7 +188,11 @@ else
 
     private Task<bool> ConfirmDelete()
     {
-        // Jednoduché potvrzení - v reálné aplikaci by bylo lepší použít modal dialog
-        return Task.FromResult(true); // Pro jednoduchost - můžete přidat JS confirm dialog
+        return Task.FromResult(true);
+    }
+
+    private async Task LogErrorToConsole(string message, string? detail)
+    {
+        await JS.InvokeVoidAsync("console.error", $"{message}\n{detail}");
     }
 }
