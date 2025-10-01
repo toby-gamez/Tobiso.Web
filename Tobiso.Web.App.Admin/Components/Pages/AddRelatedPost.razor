@@ -33,7 +33,7 @@
             <div class="mb-3">
                 <label class="form-label">Hlavní post <span class="text-danger">*</span></label>
                 <PostSearchComponent SelectedPost="selectedMainPost" 
-                                   SelectedPostChanged="@((PostLinkResponse? post) => selectedMainPost = post)"
+                                   SelectedPostChanged="@OnMainPostChanged"
                                    Placeholder="Vyhledejte hlavní post..."
                                    IsValid="@(string.IsNullOrEmpty(mainPostError))"
                                    ErrorMessage="@mainPostError" />
@@ -43,7 +43,7 @@
             <div class="mb-3">
                 <label class="form-label">Souvisejíci post <span class="text-danger">*</span></label>
                 <PostSearchComponent SelectedPost="selectedRelatedPost" 
-                                   SelectedPostChanged="@((PostLinkResponse? post) => selectedRelatedPost = post)"
+                                   SelectedPostChanged="@OnRelatedPostChanged"
                                    Placeholder="Vyhledejte související post..."
                                    IsValid="@(string.IsNullOrEmpty(relatedPostError))"
                                    ErrorMessage="@relatedPostError"
@@ -103,6 +103,40 @@
     private string? relatedPostError;
     private bool isSubmitting;
 
+    private void OnMainPostChanged(PostLinkResponse? post)
+    {
+        selectedMainPost = post;
+        request.PostId = post?.Id ?? 0;
+        mainPostError = null;
+        
+        // Clear validation error if both posts are now selected
+        if (selectedMainPost != null && selectedRelatedPost != null && selectedMainPost.Id == selectedRelatedPost.Id)
+        {
+            validationErrorMessage = "Post nemůže odkazovat sám na sebe.";
+        }
+        else
+        {
+            validationErrorMessage = null;
+        }
+    }
+
+    private void OnRelatedPostChanged(PostLinkResponse? post)
+    {
+        selectedRelatedPost = post;
+        request.RelatedPostId = post?.Id ?? 0;
+        relatedPostError = null;
+        
+        // Clear validation error if both posts are now selected
+        if (selectedMainPost != null && selectedRelatedPost != null && selectedMainPost.Id == selectedRelatedPost.Id)
+        {
+            validationErrorMessage = "Post nemůže odkazovat sám na sebe.";
+        }
+        else
+        {
+            validationErrorMessage = null;
+        }
+    }
+
     private async Task HandleValidSubmit()
     {
         if (!ValidateForm())
@@ -114,9 +148,6 @@
 
         try
         {
-            request.PostId = selectedMainPost!.Id;
-            request.RelatedPostId = selectedRelatedPost!.Id;
-            
             var created = await Api.CreateRelatedPost(request);
             Navigation.NavigateTo("/related-posts");
         }
@@ -138,19 +169,19 @@
         relatedPostError = null;
         validationErrorMessage = null;
 
-        if (selectedMainPost == null)
+        if (request.PostId <= 0)
         {
             mainPostError = "Hlavní post je povinný.";
             isValid = false;
         }
 
-        if (selectedRelatedPost == null)
+        if (request.RelatedPostId <= 0)
         {
             relatedPostError = "Související post je povinný.";
             isValid = false;
         }
 
-        if (selectedMainPost != null && selectedRelatedPost != null && selectedMainPost.Id == selectedRelatedPost.Id)
+        if (request.PostId > 0 && request.RelatedPostId > 0 && request.PostId == request.RelatedPostId)
         {
             validationErrorMessage = "Post nemůže odkazovat sám na sebe.";
             isValid = false;
