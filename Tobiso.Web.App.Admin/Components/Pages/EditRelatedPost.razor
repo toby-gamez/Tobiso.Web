@@ -1,8 +1,10 @@
 @page "/related-posts/edit/{Id:int}"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>
@@ -109,6 +111,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         await LoadData();
     }
 
@@ -135,6 +145,10 @@ else
                 selectedRelatedPost = posts.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
             }
         }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
         catch (Exception ex)
         {
             errorMessage = $"Chyba při načítání dat: {ex.Message}";
@@ -157,6 +171,10 @@ else
             
             await Api.UpdateRelatedPost(Id, request);
             Navigation.NavigateTo("/related-posts");
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {

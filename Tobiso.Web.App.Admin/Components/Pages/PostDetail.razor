@@ -1,8 +1,10 @@
 @page "/post/{id:int}"
 @using Tobiso.Web.Shared.DTOs
 @using Markdig
+@using Microsoft.AspNetCore.Components.Authorization
 @inject Tobiso.Web.Shared.Interfaces.ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 <style>
     .sidebar {
         display: none;
@@ -30,7 +32,22 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        post = await Api.GetPostById(id);
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            post = await Api.GetPostById(id);
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
     }
 
     private void BackToList()

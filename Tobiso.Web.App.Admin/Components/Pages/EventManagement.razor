@@ -1,8 +1,11 @@
 @page "/events"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
 <PageTitle>Správa událostí - Admin</PageTitle>
@@ -257,6 +260,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         await LoadEvents();
     }
 
@@ -266,6 +277,10 @@
         {
             events = (await Api.GetAllEvents()).ToList();
             FilterEvents();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
@@ -406,6 +421,10 @@
             CloseModal();
             await LoadEvents();
         }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Chyba při ukládání události: {ex.Message}");
@@ -421,6 +440,10 @@
                 await Api.DeleteEvent(eventId);
                 await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně smazána.");
                 await LoadEvents();
+            }
+            catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
             }
             catch (Exception ex)
             {

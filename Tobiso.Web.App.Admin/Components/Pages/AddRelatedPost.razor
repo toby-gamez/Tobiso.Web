@@ -1,8 +1,10 @@
 @page "/related-posts/add"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>
@@ -103,6 +105,17 @@
     private string? relatedPostError;
     private bool isSubmitting;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+
     private void OnMainPostChanged(PostLinkResponse? post)
     {
         selectedMainPost = post;
@@ -150,6 +163,10 @@
         {
             var created = await Api.CreateRelatedPost(request);
             Navigation.NavigateTo("/related-posts");
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {

@@ -1,8 +1,10 @@
 @page "/related-posts"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 <PageTitle>Související články</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -117,6 +119,10 @@ else
             var posts = await Api.GetPostLinks();
             postTitles = posts.ToDictionary(p => p.Id, p => p.Title);
         }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
         catch (Exception ex)
         {
             await LogErrorToConsole("Chyba při načítání názvů článků:", ex.Message);
@@ -128,6 +134,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         await LoadPostTitles();
         await LoadRelatedPosts();
     }
@@ -140,6 +154,10 @@ else
             errorMessage = null;
             errorDetail = null;
             errorFullDetail = null;
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
@@ -158,6 +176,10 @@ else
             {
                 await Api.DeleteRelatedPost(id);
                 await LoadRelatedPosts(); // Obnovit seznam
+            }
+            catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
             }
             catch (Exception ex)
             {
