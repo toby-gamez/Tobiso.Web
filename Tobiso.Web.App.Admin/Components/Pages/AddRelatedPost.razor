@@ -19,7 +19,16 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert alert-danger">
+        <strong>Chyba:</strong> @errorMessage
+        @if (!string.IsNullOrEmpty(errorFullDetail))
+        {
+            <details class="mt-2">
+                <summary>Detail chyby</summary>
+                <pre>@errorFullDetail</pre>
+            </details>
+        }
+    </div>
 }
 
 <EditForm Model="request" OnValidSubmit="HandleValidSubmit">
@@ -103,7 +112,11 @@
     private string? validationErrorMessage;
     private string? mainPostError;
     private string? relatedPostError;
+    private string? errorFullDetail;
     private bool isSubmitting;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -171,6 +184,8 @@
         catch (Exception ex)
         {
             errorMessage = $"Chyba při vytváření souvisejícího postu: {ex.Message}";
+            errorFullDetail = GetFullExceptionDetail(ex);
+            await LogErrorToConsole(errorMessage, errorFullDetail);
         }
         finally
         {
@@ -210,5 +225,33 @@
     private void BackToList()
     {
         Navigation.NavigateTo("/related-posts");
+    }
+
+    private string GetFullExceptionDetail(Exception ex)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Message: {ex.Message}");
+        sb.AppendLine($"Type: {ex.GetType().FullName}");
+        sb.AppendLine($"Source: {ex.Source}");
+        sb.AppendLine($"StackTrace: {ex.StackTrace}");
+        if (ex.Data != null && ex.Data.Count > 0)
+        {
+            sb.AppendLine("Data:");
+            foreach (var key in ex.Data.Keys)
+            {
+                sb.AppendLine($"  {key}: {ex.Data[key]}");
+            }
+        }
+        if (ex.InnerException != null)
+        {
+            sb.AppendLine("InnerException:");
+            sb.AppendLine(GetFullExceptionDetail(ex.InnerException));
+        }
+        return sb.ToString();
+    }
+
+    private async Task LogErrorToConsole(string message, string? detail)
+    {
+        await JS.InvokeVoidAsync("console.error", $"{message}\n{detail}");
     }
 }

@@ -38,11 +38,44 @@ namespace Tobiso.Web.App.Controllers
                 xml.AppendLine("    <priority>0.80</priority>");
                 xml.AppendLine("  </url>");
                 
+                // Přidání hlavní stránky pro všechny otázky
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/all-questions</loc>");
+                xml.AppendLine("    <priority>0.90</priority>");
+                xml.AppendLine("  </url>");
+                
+                // Přidání hlavní stránky pro kalendář
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/calendar</loc>");
+                xml.AppendLine("    <priority>0.90</priority>");
+                xml.AppendLine("  </url>");
+                
+                // Přidání hlavní stránky pro chybu
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/Error</loc>");
+                xml.AppendLine("    <priority>0.80</priority>");
+                xml.AppendLine("  </url>");
+                
+                // Přidání hlavní stránky pro opakování
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/practice</loc>");
+                xml.AppendLine("    <priority>0.80</priority>");
+                xml.AppendLine("  </url>");
+                
                 // Přidání jednotlivých postů
                 foreach (var post in posts)
                 {
                     xml.AppendLine("  <url>");
                     xml.AppendLine($"    <loc>https://www.tobiso.com/post/{post.Id}</loc>");
+                    xml.AppendLine("    <priority>0.80</priority>");
+                    xml.AppendLine("  </url>");
+                }
+                
+                // Přidání jednotlivých prověrek
+                foreach (var post in posts)
+                {
+                    xml.AppendLine("  <url>");
+                    xml.AppendLine($"    <loc>https://www.tobiso.com/questions/{post.Id}</loc>");
                     xml.AppendLine("    <priority>0.80</priority>");
                     xml.AppendLine("  </url>");
                 }
