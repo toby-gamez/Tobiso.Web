@@ -157,13 +157,20 @@
             Logger.LogInformation("Attempting auth verification for {Username} against {BaseAddress}", username, baseAddress);
             
             // Make authenticated request to verify credentials
-            var response = await httpClient.GetAsync("/api/auth/verify");
+            // Use PUT /api/categories/{nonExistentId} which requires authentication on both local and production
+            // This will return 401 for bad auth, or 404/500 for good auth (since category doesn't exist)
+            var testData = new { Id = 999999, Name = "__auth_test__", Description = "temp", ParentCategoryId = (int?)null };
+            var json = System.Text.Json.JsonSerializer.Serialize(testData);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await httpClient.PutAsync("/api/categories/999999", content);
             
             Logger.LogInformation("Auth verification for {Username}: {StatusCode} from {BaseAddress}", 
                 username, response.StatusCode, baseAddress);
             
-            // 200 = OK (credentials valid), 401 = Unauthorized (credentials invalid)
-            return response.IsSuccessStatusCode;
+            // 401 = Unauthorized (bad credentials)
+            // Anything else (404, 500, etc.) = credentials are valid, but request failed for other reasons
+            return response.StatusCode != System.Net.HttpStatusCode.Unauthorized;
         }
         catch (Exception ex)
         {
