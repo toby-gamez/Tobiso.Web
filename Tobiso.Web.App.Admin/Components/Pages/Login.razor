@@ -2,11 +2,13 @@
 @layout EmptyLayout
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Headers
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @inject Tobiso.Web.App.Authentication.CredentialStore CredentialStore
 @inject IJSRuntime JSRuntime
 @inject ILogger<Login> Logger
+@inject IConfiguration Configuration
 
 <PageTitle>Login</PageTitle>
 
@@ -100,6 +102,14 @@
             Console.WriteLine($"Attempting login for user: {loginModel.Username}");
             Logger.LogInformation("Attempting login for user: {Username}", loginModel.Username);
 
+            // Verify credentials by making a test API call
+            if (!await VerifyCredentialsAsync(loginModel.Username, loginModel.Password))
+            {
+                errorMessage = "Invalid username or password.";
+                Logger.LogWarning("Login failed - invalid credentials for user: {Username}", loginModel.Username);
+                return;
+            }
+
             // Store credentials using the correct method
             await CredentialStore.SetAsync(loginModel.Username, loginModel.Password, JSRuntime);
             
@@ -117,6 +127,48 @@
         finally
         {
             isLoggingIn = false;
+        }
+    }
+
+    private async Task<bool> VerifyCredentialsAsync(string username, string password)
+    {
+        try
+        {
+            // Create HttpClientHandler with SSL bypass for development
+            var handler = new HttpClientHandler();
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+            
+            using var httpClient = new HttpClient(handler);
+            
+            // Get API base address from configuration
+            var baseAddress = Configuration["Api:BaseAddress"];
+            if (string.IsNullOrEmpty(baseAddress))
+            {
+                Logger.LogError("API base address is not configured");
+                return false;
+            }
+            
+            httpClient.BaseAddress = new Uri(baseAddress);
+            
+            // Add Basic Auth header
+            var credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
+            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+            
+            Logger.LogInformation("Attempting auth verification for {Username} against {BaseAddress}", username, baseAddress);
+            
+            // Make authenticated request to verify credentials
+            var response = await httpClient.GetAsync("/api/auth/verify");
+            
+            Logger.LogInformation("Auth verification for {Username}: {StatusCode} from {BaseAddress}", 
+                username, response.StatusCode, baseAddress);
+            
+            // 200 = OK (credentials valid), 401 = Unauthorized (credentials invalid)
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to verify credentials for user: {Username}: {Message}", username, ex.Message);
+            return false;
         }
     }
 }
