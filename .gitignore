@@ -388,3 +388,7 @@ MigrationBackup/
 /Blinked/Blinked.App/appsettings.Development.json
 /Blinked/Blinked.App/appsettings.json
 /tools/Addins
+/Tobiso.Web.App/appsettings.Development.json
+/Tobiso.Web.App/appsettings.json
+/Tobiso.Web.App.Admin/appsettings.Development.json
+/Tobiso.Web.App.Admin/appsettings.json
