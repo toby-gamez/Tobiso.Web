@@ -1396,6 +1396,21 @@ body.scroll-lock {
     overflow-y: auto;
     max-height: calc(90vh - 140px);
 }
+.related-posts a {
+    padding: 0;
+    margin: 0;
+}
+.related-posts-div {
+    padding: 10px;
+    border-radius: 10px;
+    transition: all ease 0.3s;
+}
+.related-posts-div h5 {
+    margin: 0;
+}
+.related-posts-div:hover {
+    background-color: #e8e8e8;
+}
 /* Dark mode styles */
 
 body.dark-mode {
@@ -1894,4 +1909,7 @@ body.dark-mode .detail-row i {
 
 body.dark-mode .event-modal-content {
     background-color: #701e00;
+}
+body.dark-mode .related-posts-div:hover {
+    background-color: #240800;
 }

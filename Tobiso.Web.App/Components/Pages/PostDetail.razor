@@ -41,7 +41,7 @@ else
     </div>
     @if (_relatedPosts != null && _relatedPosts.Any())
     {
-        <div class="intro">
+        <div class="intro related-posts">
             <h3 style="margin: 0">
                 <i class="bi bi-link-45deg"></i>
                 Související články
@@ -53,22 +53,20 @@ else
                     var relatedPostData = _allPosts?.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
                     if (relatedPostData != null)
                     {
-                        <div>
+                        <a href="/post/@relatedPost.RelatedPostId">
+                        <div class="related-posts-div">
+                        
                             <h5 >
                                 @relatedPostData.Title
                             </h5>
                             @if (!string.IsNullOrEmpty(relatedPost.Text))
                             {
-                                
-                                <span>
-                                    @relatedPost.Text, 
+                                <span class="related-posts-text">
+                                    @relatedPost.Text
                                 </span>
-                                <a href="/post/@relatedPost.RelatedPostId" style="background-color: none">
-                                odkaz na článek
-                            </a>
                             }
-                            
                         </div>
+                        </a>
                     }
                 }
             </div>
