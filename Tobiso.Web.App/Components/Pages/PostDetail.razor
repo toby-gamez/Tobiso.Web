@@ -162,6 +162,9 @@ else
     private string TransformMarkdownContent(string? content)
     {
         if (string.IsNullOrEmpty(content)) return string.Empty;
+        // Pokud obsahuje Markdown-styl mailto odkazy, převedeme je na <a href="mailto:..."> před zpracováním,
+        // protože někteří autoři mohou mít odkazy, které Markdig neparsuje (nebo obsah přijde již upravený).
+        content = ReplaceMarkdownMailtoInText(content);
         var html = Markdig.Markdown.ToHtml(content);
         
         // Oprav obrázky: přidej prefix k src u <img>
@@ -194,7 +197,36 @@ else
             }
             if (origHref.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
             {
-                return $"<a href=\"{origHref}\" onclick=\"window.location.href='{origHref}'; return false;\"{attrs}>{linkText}</a>";
+                // Ensure mailto query parameters are URL-encoded (subjects, body, etc.)
+                try
+                {
+                    var mailto = origHref.Substring("mailto:".Length);
+                    var parts = mailto.Split('?', 2);
+                    var address = parts[0] ?? "";
+                    var encodedQuery = "";
+                    if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        encodedQuery = string.Join("&",
+                            parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(p =>
+                                {
+                                    var kv = p.Split('=', 2);
+                                    var k = kv[0];
+                                    var v = kv.Length > 1 ? kv[1] : "";
+                                    // Ensure value is properly encoded. If it is already encoded, Uri.EscapeDataString of UnescapeDataString keeps it safe.
+                                    return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                                })
+                        );
+                    }
+                    var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                    // Render a plain anchor with the encoded mailto href. Avoid JS onclick which can interfere in some environments.
+                    return $"<a href=\"{href}\"{attrs}>{linkText}</a>";
+                }
+                catch
+                {
+                    // Fallback: render the original href if encoding fails for any reason
+                    return $"<a href=\"{origHref}\"{attrs}>{linkText}</a>";
+                }
             }
             var file = Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-|geo-)", "");
             file = file.Replace(".html", ".md");
@@ -215,6 +247,45 @@ else
         html = html.Replace("...", "");
         html = ConvertMarkdownTablesToHtml(html);
         return html;
+    }
+
+    private string ReplaceMarkdownMailtoInText(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.Contains("mailto:", StringComparison.OrdinalIgnoreCase))
+            return input ?? string.Empty;
+
+        var mdMailtoRegex = new Regex(@"\[([^\]]+)\]\((mailto:([^\)\s]+)(\?[^\)]*)?)\)", RegexOptions.IgnoreCase);
+        return mdMailtoRegex.Replace(input, match =>
+        {
+            try
+            {
+                var linkText = match.Groups[1].Value;
+                var full = match.Groups[2].Value; // mailto:address?query
+                var mailto = full.Substring("mailto:".Length);
+                var parts = mailto.Split('?', 2);
+                var address = parts[0] ?? "";
+                var encodedQuery = "";
+                if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                {
+                    encodedQuery = string.Join("&",
+                        parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(p =>
+                            {
+                                var kv = p.Split('=', 2);
+                                var k = kv[0];
+                                var v = kv.Length > 1 ? kv[1] : "";
+                                return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                            })
+                    );
+                }
+                var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                return $"<a href=\"{href}\">{linkText}</a>";
+            }
+            catch
+            {
+                return match.Value; // fallback to original
+            }
+        });
     }
 
     private string ConvertMarkdownTablesToHtml(string html)
