@@ -1,3 +1,4 @@
+/* Nav menu styles using centralized CSS variables */
 #MyNavBar {
     height: 99vh;
     /* Ensure it takes full height */
@@ -7,7 +8,7 @@
     top: 0;
     padding-top: 1rem;
     padding-bottom: 1rem;
-    background-color: #ffad8f;
+    background-color: var(--color-accent);
     display: flex;
     flex-direction: column;
     z-index: 1040;
@@ -21,7 +22,7 @@
     /* Adjust height to enable scrolling */
     scrollbar-width: auto;
     /* For Firefox */
-    scrollbar-color: #ff9c66 #ffad8f;
+    scrollbar-color: var(--light-accent) var(--color-accent);
     /* For Firefox */
 }
 
@@ -31,12 +32,12 @@
 }
 
 .scrollable-menu::-webkit-scrollbar-thumb {
-    background-color: #ff9c66;
+    background-color: var(--light-accent);
     border-radius: 10px;
 }
 
 .scrollable-menu::-webkit-scrollbar-track {
-    background-color: #ffad8f;
+    background-color: var(--color-accent);
 }
 
 nav {
@@ -47,7 +48,7 @@ nav {
 }
 
 #MyNavBar .nav-link {
-    color: #160703;
+    color: var(--color-grid-border-hover);
     padding: 0.8rem 0 0.8rem 0;
     text-align: center;
     transition: all 0.3s ease;
@@ -69,7 +70,7 @@ a:has(.navImg) {
     margin-left: 15px;
     margin-right: 15px;
     text-align: center;
-    border-bottom: 3px solid #ff9c66;
+    border-bottom: 3px solid var(--light-accent);
 }
 .navImg {
     transition: all 0.3s ease;
@@ -83,7 +84,7 @@ a:has(.navImg) {
     text-decoration: none;
 }
 #MyNavBar .nav-link:hover {
-    background-color: #ff9c66;
+    background-color: var(--light-accent);
 }
 
 .navImg:active,
@@ -107,8 +108,8 @@ a:has(.navImg) {
     padding-right: 0;
     text-align: right;
     font-size: 0.8rem;
-    color: #741f00;
-    border-top: 3px solid #ff9c66;
+    color: var(--color-version);
+    border-top: 3px solid var(--light-accent);
     margin-left: 15px;
     margin-right: 15px;
 }
@@ -121,7 +122,7 @@ a:has(.navImg) {
     height: 47px;
     right: 0;
     z-index: 1040;
-    background-color: #ffad8f;
+    background-color: var(--color-accent);
     padding: 1rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -132,7 +133,7 @@ a:has(.navImg) {
     right: -350px;
     width: 300px;
     height: calc(100vh - 70px);
-    background-color: #ffad8f;
+    background-color: var(--color-accent);
     padding: 1rem;
     transition: right 0.3s ease-in-out;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
@@ -140,7 +141,7 @@ a:has(.navImg) {
     z-index: 1040;
     margin-top: 9px;
     /* For Firefox */
-    scrollbar-color: #ff9c66 #ffad8f;
+    scrollbar-color: var(--light-accent) var(--color-accent);
     /* For Firefox */
 }
 
@@ -150,12 +151,12 @@ a:has(.navImg) {
 }
 
 .mobile-menu::-webkit-scrollbar-thumb {
-    background-color: #ff9c66;
+    background-color: var(--light-accent);
     border-radius: 10px;
 }
 
 .mobile-menu::-webkit-scrollbar-track {
-    background-color: #ffad8f;
+    background-color: var(--color-accent);
 }
 
 .mobile-menu.show {
@@ -210,7 +211,7 @@ a:has(.navImg) {
     }
 
     .mobile-menu .nav-link:hover {
-        background-color: #ff9c66;
+        background-color: var(--light-accent);
         transform: translateX(5px);
     }
 
@@ -236,7 +237,7 @@ a:has(.navImg) {
 
 .openNav {
     visibility: hidden;
-    color: #220b00;
+    color: var(--color-button-text);
 }
 
 .switch {
@@ -259,7 +260,7 @@ a:has(.navImg) {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ffcab7;
+    background-color: var(--color-toggle-bg);
     transition: 0.4s;
     border-radius: 34px;
 }
@@ -277,7 +278,7 @@ a:has(.navImg) {
 }
 
 input:checked + .slider {
-    background-color: #942700;
+    background-color: var(--color-accent-dark);
 }
 
 input:checked + .slider:before {
@@ -285,7 +286,7 @@ input:checked + .slider:before {
 }
 
 #MyNavBar .nav-text {
-    color: #160703;
+    color: var(--color-grid-border-hover);
     padding: 0.8rem 0 0.8rem 0;
     text-align: center;
     transition: all 0.3s ease;

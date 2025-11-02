@@ -1,6 +1,8 @@
+@import "./variables.css";
+
 footer {
     background-color: transparent;
-    color: white;
+    color: var(--color-white);
     padding: 20px 0;
     text-align: center;
 }

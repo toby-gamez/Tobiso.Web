@@ -1,0 +1,201 @@
+/* Theme variables: light + dark variants (same name + -dark) */
+:root {
+    --font-family-sans: "Poppins", sans-serif;
+    --font-family-serif: "Zilla Slab", serif;
+
+    /* Core */
+    --background-main: whitesmoke;
+    --background-main-dark: #1f0900;
+
+    --text-main: #000;
+    --text-main-dark: #fcede9;
+    --text-muted: #666;
+    --text-muted-dark: #b8956f;
+
+    /* Accents */
+    --accent: #ffad8f; /* main warm accent */
+    --accent-dark: #942700;
+    --accent-2: #ff946c; /* secondary */
+    --accent-2-dark: #701e00;
+    --accent-3: #ff7340; /* highlight */
+    --accent-3-dark: #701e00;
+    --accent-4: #ffbca4;
+    --accent-4-dark: #852401;
+    --accent-strong: #fb8241;
+    --accent-strong-dark: #fb8241;
+
+    --border-main: #ff946c;
+    --border-main-dark: #701e00;
+
+    --button-bg: #ff946c;
+    --button-bg-dark: #942700;
+    --button-hover: #ff7340;
+    --button-hover-dark: #701e00;
+    --button-text: #220b00;
+    --button-text-dark: #fcede9;
+
+    /* Cards */
+    --card-bg: #ffad8f;
+    --card-bg-dark: #942700;
+    --card-top: #ff946c;
+    --card-top-dark: #701e00;
+
+    /* Selection */
+    --selection-bg: #fb8241;
+    --selection-text: #382a27;
+    --selection-bg-dark: #fb8241;
+    --selection-text-dark: #382a27;
+
+    /* Status colors */
+    --success: #28a745;
+    --success-dark: #1e5f32;
+    --success-hover: #218838;
+    --success-hover-dark: #155426;
+    --danger: #dc3545;
+    --danger-dark: #dc3545;
+    --danger-hover: #c82333;
+    --danger-hover-dark: #c82333;
+
+    --primary: #007bff;
+    --primary-dark: #007bff;
+
+    /* Misc */
+    --white: #fff;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --shadow-medium: rgba(0, 0, 0, 0.2);
+    --shadow-strong: rgba(0, 0, 0, 0.3);
+    --shadow-none: rgba(0, 0, 0, 0);
+    --backdrop: rgba(0, 0, 0, 0.6);
+    --overlay-bg: rgba(0, 0, 0, 0.5);
+    --muted-gray: #6c757d;
+    --muted-gray-dark: #6c757d;
+
+    --good: #90c695;
+    --good-bg: #d4edda;
+    --good-text: #155724;
+    --good-dark: #90c695;
+
+    --danger-weak: #ffb9b9;
+    --danger-weak-dark: #cc4444;
+
+    --muted-brown: #6e2300;
+    --muted-brown-dark: #be3300;
+
+    --modal-bg: #f5f5f5;
+    --modal-bg-dark: #701e00;
+
+    --calendar-day: #fdbaa1;
+    --calendar-day-dark: #a12b01;
+
+    --light-accent: #ff9c66;
+    --light-accent-dark: #701e00;
+
+    --hover-bg: #e8e8e8;
+    --hover-bg-dark: #240800;
+
+    --cookie-accept: #3aa73d;
+    --cookie-accept-dark: #1f8b22;
+    --cookie-accept-hover: #248f29;
+    --cookie-accept-hover-dark: #146818;
+    --cookie-decline: #d4332e;
+    --cookie-decline-dark: #d4332d;
+    /* Additional semantic variables for remaining literals */
+    --danger-strong: #ff6868;
+    --danger-strong-dark: #cc4444;
+    --danger-strong-bg: #ffa5a5;
+    --good-border: #c3e6cb;
+    --warning-bg: #fff3cd;
+    --warning-border: #ffeaa7;
+    --warning-text: #856404;
+    --danger-bg: #f8d7da;
+    --danger-border: #f5c6cb;
+    --danger-text: #721c24;
+    --muted-light: #e9ecef;
+    --muted-brown-2: #5a2b00;
+    --brand-1: #b12722;
+    --muted-tan: #d4a389;
+    --brand-1-dark: #b11c17;
+    --success-2: #4a7c59;
+    --progress-bar-dark: #2b0f00;
+    --intro-bg-dark: #2e0d00;
+    /* helpful aliases / normalized names (keep backward compatibility) */
+    --grid-border-hover: #160703;
+    /* --muted-bg removed (unused) */
+    /* Additional small semantics added during final cleanup */
+    --white-70: #ffffffaa;
+    --sesit-bg: #38853b;
+    --sesit-bg-dark: #2a642c;
+    --sesit-border: #2a642c;
+    --sesit-border-light: #75b478;
+    --sesit-bg-light: #81c784;
+    --sesit-hover-light: #67a06a;
+    --color-sesit-hover-light: #67a06a;
+    --test-excellent-bg-dark: #1e3a2a;
+    --test-excellent-border-dark: #2d5a3d;
+    --test-good-bg-dark: #3a3520;
+    --test-good-border-dark: #5a5130;
+    --test-good-text-dark: #f0d060;
+    --test-poor-bg-dark: #3a1e22;
+    --test-poor-border-dark: #5a2d33;
+    --test-poor-text-dark: #ff9999;
+
+    /* Canonical / normalized variable names (concrete literal values) */
+    --color-bg: whitesmoke;
+    --color-bg-dark: #1f0900;
+
+    --color-text: #000;
+    --color-text-dark: #fcede9;
+    --color-text-muted: #666;
+
+    --color-accent: #ffad8f;
+    --color-accent-2: #ff946c;
+    --color-accent-3: #ff7340;
+    --color-accent-4: #ffbca4;
+    --color-accent-strong: #fb8241;
+
+    --color-border-main: #ff946c;
+
+    --color-button-bg: #ff946c;
+    --color-button-hover: #ff7340;
+    --color-button-text: #220b00;
+
+    --color-card-bg: #ffad8f;
+    --color-card-top: #ff946c;
+
+    --color-white: #fff;
+
+    --shadow-sm: rgba(0, 0, 0, 0.1);
+    --shadow-md: rgba(0, 0, 0, 0.2);
+    --shadow-lg: rgba(0, 0, 0, 0.3);
+
+    --color-sesit-bg: #38853b;
+    --color-sesit-bg-dark: #2a642c;
+    --color-sesit-border: #2a642c;
+    --color-sesit-border-light: #75b478;
+
+    --color-grid-border-hover: #160703;
+    /* Dark aliases (concrete values) */
+    --color-card-bg-dark: #942700;
+    --color-card-top-dark: #701e00;
+    --color-accent-2-dark: #701e00;
+    --color-accent-dark: #942700;
+    --color-accent-3-dark: #701e00;
+    --color-accent-4-dark: #852401;
+    --color-accent-strong-dark: #fb8241;
+    /* Additional canonical dark / color variables added for full refactor */
+    --color-button-bg-dark: #942700;
+    --color-button-hover-dark: #701e00;
+    --color-button-text-dark: #fcede9;
+    --color-muted-brown: #6e2300;
+    --color-muted-brown-dark: #be3300;
+    --color-brand-1: #b12722;
+    --color-brand-1-dark: #b11c17;
+    --color-muted-tan: #d4a389;
+    --color-progress-bar-dark: #2b0f00;
+    --color-intro-bg-dark: #2e0d00;
+    --color-muted-light: #e9ecef;
+    --color-muted-brown-2: #5a2b00;
+    /* Nav/menu specific semantics */
+    --color-version: #741f00; /* used in nav version-info */
+    --color-toggle-bg: #ffcab7; /* small toggle background */
+}
