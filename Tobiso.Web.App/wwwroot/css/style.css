@@ -61,8 +61,8 @@ h1 {
 }
 ::selection,
 .underlined::selection {
-    background-color: var(--selection-bg);
-    color: var(--selection-text);
+    background-color: var(--color-accent-strong);
+    color: var(--color-selection-text);
 }
 
 .key-icon {
@@ -333,17 +333,17 @@ button:disabled {
     opacity: 0.5;
 }
 .btn-success {
-    background-color: var(--success);
+    background-color: var(--color-success);
 }
 .btn-success:hover {
-    background-color: var(--success-hover);
+    background-color: var(--color-success-hover);
 }
 .btn-danger {
-    background-color: var(--danger);
+    background-color: var(--color-danger);
     color: var(--color-white);
 }
 .btn-danger:hover {
-    background-color: var(--danger-hover);
+    background-color: var(--color-danger-hover);
 }
 @media only screen and (max-width: 600px) {
     .nav-button,
@@ -945,7 +945,7 @@ body.scroll-lock {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--light-accent), var(--color-accent));
+    background: linear-gradient(90deg, var(--color-light-accent), var(--color-accent));
     transition: width 0.3s ease;
     border-radius: 10px;
 }
@@ -1094,7 +1094,7 @@ body.scroll-lock {
 }
 
 .event-item {
-    background-color: var(--primary);
+    background-color: var(--color-primary);
     color: var(--color-white);
     padding: 2px 4px;
     border-radius: 3px;
@@ -1124,7 +1124,7 @@ body.scroll-lock {
 }
 
 .more-events {
-    color: var(--muted-gray);
+    color: var(--color-text-muted);
     font-size: 0.7em;
     cursor: pointer;
     text-decoration: underline;
@@ -1297,7 +1297,7 @@ body.scroll-lock {
 .detail-row i {
     margin-top: 0.1rem;
     width: 16px;
-    color: var(--muted-gray);
+    color: var(--color-text-muted);
 }
 
 .detail-row.description {
@@ -1416,7 +1416,7 @@ body.scroll-lock {
 /* Dark mode styles */
 
 body.dark-mode {
-    background-color: var(--background-main-dark);
+    background-color: var(--color-bg-dark);
     color: var(--color-text-dark);
 }
 
@@ -1430,12 +1430,12 @@ body.dark-mode .grid-item-pred:hover {
 }
 
 body.dark-mode button {
-    background-color: var(--button-bg-dark);
-    color: var(--button-text-dark);
+    background-color: var(--color-button-bg-dark);
+    color: var(--color-button-text-dark);
 }
 
 body.dark-mode button:hover {
-    background-color: var(--button-hover-dark);
+    background-color: var(--color-button-hover-dark);
 }
 
 body.dark-mode #MyNavBar {
@@ -1451,11 +1451,11 @@ body.dark-mode .mobile-menu {
 }
 
 body.dark-mode .mobile-menu .nav-link:hover {
-    background-color: var(--accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 body.dark-mode .mobile-header {
-    background-color: var(--accent-2-dark);
+    background-color: var(--color-accent-2-dark);
 }
 
 body.dark-mode p,
@@ -1485,37 +1485,37 @@ body.dark-mode hr {
 }
 
 body.dark-mode .version-info {
-    border-top: 3px solid var(--accent-dark);
+    border-top: 3px solid var(--color-accent-dark);
     color: var(--muted-brown-dark);
 }
 
 body.dark-mode #MyNavBar .nav-link:hover {
-    background-color: var(--accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 
 body.dark-mode .footer-content a,
 body.dark-mode main a {
     color: var(--color-text-dark);
-    background-color: var(--accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 body.dark-mode .footer-content a:hover,
 body.dark-mode main a:hover {
-    background-color: var(--accent-2-dark);
+    background-color: var(--color-accent-2-dark);
 }
 
 body.dark-mode .Mcard {
-    background-color: var(--card-bg-dark);
-    border: 1px solid var(--card-top-dark);
+    background-color: var(--color-card-bg-dark);
+    border: 1px solid var(--color-card-top-dark);
 }
 
 body.dark-mode .Minfo {
-    background-color: var(--card-top-dark);
+    background-color: var(--color-card-top-dark);
 }
 
 body.dark-mode .loading-bar {
-    background-color: var(--accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 body.dark-mode .opinion-input,
@@ -1523,8 +1523,8 @@ body.dark-mode .opinion-input,
 body.dark-mode .email-input,
 body.dark-mode #search,
 body.dark-mode textarea {
-    border: 2px solid var(--accent-dark);
-    background-color: var(--accent-dark);
+    border: 2px solid var(--color-accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 body.dark-mode .opinion-input:focus,
@@ -1538,16 +1538,16 @@ body.dark-mode textarea:focus {
 body.dark-mode img:not(.navImg, footer img),
 body.dark-mode img:not(.navImg, footer img),
 body.dark-mode video {
-    border: 5px solid var(--accent-dark);
+    border: 5px solid var(--color-accent-dark);
 }
 
 body.dark-mode .underlined::selection {
-    background-color: var(--selection-bg-dark);
-    color: var(--selection-text-dark);
+    background-color: var(--color-accent-strong-dark);
+    color: var(--color-selection-text-dark);
 }
 
 body.dark-mode .search-container {
-    background: var(--background-main-dark);
+    background: var(--color-bg-dark);
 }
 
 body.dark-mode .search-header {
@@ -1555,8 +1555,8 @@ body.dark-mode .search-header {
 }
 
 body.dark-mode .search-input-wrapper {
-    background: var(--accent-dark);
-    border-color: var(--accent-dark);
+    background: var(--color-accent-dark);
+    border-color: var(--color-accent-dark);
 }
 
 body.dark-mode .search-input-wrapper:focus-within {
@@ -1594,12 +1594,12 @@ body.dark-mode .search-shortcut {
 
 body.dark-mode .search-shortcut .key-icon {
     background: transparent;
-    border-color: var(--white-70);
+    border-color: var(--color-white-70);
     color: var(--color-text-dark);
 }
 
 body.dark-mode .search-results {
-    scrollbar-color: var(--accent-dark) var(--background-main-dark);
+    scrollbar-color: var(--color-accent-dark) var(--color-bg-dark);
 }
 
 body.dark-mode .search-result {
@@ -1638,7 +1638,7 @@ body.dark-mode .search-result.selected .search-snippet {
 }
 
 body.dark-mode .search-snippet strong {
-    background: var(--accent-3-dark);
+    background: var(--color-accent-3-dark);
     color: var(--color-white);
 }
 
@@ -1646,7 +1646,7 @@ body.dark-mode .search-empty,
 body.dark-mode .search-empty,
 body.dark-mode .search-no-results {
     color: var(--color-text-dark);
-    background: var(--background-main-dark);
+    background: var(--color-bg-dark);
 }
 
 body.dark-mode .search-empty h3,
@@ -1657,13 +1657,13 @@ body.dark-mode .search-no-results h3 {
 body.dark-mode .search-empty i,
 body.dark-mode .search-empty i,
 body.dark-mode .search-no-results i {
-    color: var(--accent-dark);
+    color: var(--color-accent-dark);
 }
 
 body.dark-mode .search-empty p,
 body.dark-mode .search-empty p,
 body.dark-mode .search-no-results p {
-    color: var(--text-muted-dark);
+    color: var(--color-text-muted-dark);
 }
 
 body.dark-mode .search-more-results {
@@ -1682,20 +1682,20 @@ body.dark-mode .blog-image a:hover {
 }
 
 body.dark-mode .blog-image p a {
-    background-color: var(--accent-dark);
+    background-color: var(--color-accent-dark);
 }
 
 body.dark-mode .blog-image p a:hover {
-    background-color: var(--accent-2-dark);
+    background-color: var(--color-accent-2-dark);
 }
 
 body.dark-mode .blog-image p {
-    border: 5px solid var(--card-top-dark);
-    background-color: var(--accent-4-dark);
+    border: 5px solid var(--color-card-top-dark);
+    background-color: var(--color-accent-4-dark);
 }
 
 body.dark-mode .opinion-card {
-    background-color: var(--card-top-dark);
+    background-color: var(--color-card-top-dark);
 }
 
 body.dark-mode .opinion-meta {
@@ -1720,8 +1720,8 @@ body.dark-mode #cookie-consent .decline:hover {
 }
 
 body.dark-mode #cookie-consent {
-    background: var(--card-bg-dark);
-    border: 5px solid var(--card-top-dark);
+    background: var(--color-card-bg-dark);
+    border: 5px solid var(--color-card-top-dark);
 }
 /* loading-bar already handled above */
 
@@ -1748,20 +1748,20 @@ body.dark-mode .verybig {
 }
 
 body.dark-mode .grid-item-sesit {
-    border-color: var(--sesit-border);
-    background-color: var(--sesit-bg);
+    border-color: var(--color-sesit-border);
+    background-color: var(--color-sesit-bg);
 }
 
 body.dark-mode .grid-item-sesit:hover {
-    border-color: var(--sesit-border);
+    border-color: var(--color-sesit-border);
 }
 
 body.dark-mode .grid-item-sesit a {
-    background-color: var(--sesit-bg);
+    background-color: var(--color-sesit-bg);
 }
 
 body.dark-mode .grid-item-sesit a:hover {
-    background-color: var(--sesit-bg-dark);
+    background-color: var(--color-sesit-bg-dark);
 }
 
 body.dark-mode .intro {
@@ -1770,12 +1770,12 @@ body.dark-mode .intro {
 }
 
 body.dark-mode a:has(.navImg) {
-    border-bottom: 3px solid var(--accent-dark);
+    border-bottom: 3px solid var(--color-accent-dark);
 }
 
 body.dark-mode .answer-option {
-    background-color: var(--accent-dark);
-    border: 2px solid var(--accent-dark);
+    background-color: var(--color-accent-dark);
+    border: 2px solid var(--color-accent-dark);
 }
 
 body.dark-mode .answer-option:hover {
@@ -1827,27 +1827,27 @@ body.dark-mode .progress-bar {
 
 body.dark-mode .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-2-dark), var(--accent-dark));
+    background: linear-gradient(90deg, var(--color-accent-2-dark), var(--color-accent-dark));
     transition: width 0.3s ease;
     border-radius: 10px;
 }
 
 body.dark-mode .btn-success {
-    background-color: var(--success-dark);
+    background-color: var(--color-success-dark);
 }
 body.dark-mode .btn-success:hover {
-    background-color: var(--success-hover-dark);
+    background-color: var(--color-success-hover-dark);
 }
 body.dark-mode .btn-danger {
-    background-color: var(--danger);
+    background-color: var(--color-danger);
 }
 body.dark-mode .btn-danger:hover {
-    background-color: var(--danger-hover);
+    background-color: var(--color-danger-hover);
 }
 
 body.dark-mode .text-answer-input {
-    border: 2px solid var(--accent-dark);
-    background-color: var(--accent-dark);
+    border: 2px solid var(--color-accent-dark);
+    background-color: var(--color-accent-dark);
     color: var(--color-text-dark);
 }
 
@@ -1880,12 +1880,12 @@ body.dark-mode .correct-text-answer {
 }
 
 body.dark-mode .calendar-grid {
-    background-color: var(--accent-dark);
-    border: 1px solid var(--accent-dark);
+    background-color: var(--color-accent-dark);
+    border: 1px solid var(--color-accent-dark);
 }
 
 body.dark-mode .day-header {
-    background-color: var(--accent-2-dark);
+    background-color: var(--color-accent-2-dark);
 }
 
 body.dark-mode .day-cell {
@@ -1898,20 +1898,20 @@ body.dark-mode .day-cell.today {
 }
 
 body.dark-mode .event-item {
-    background-color: var(--primary-dark);
+    background-color: var(--color-primary-dark);
     color: var(--color-white);
 }
 
 body.dark-mode .more-events {
-    color: var(--muted-gray);
+    color: var(--color-text-muted);
 }
 
 body.dark-mode .detail-row i {
-    color: var(--muted-gray);
+    color: var(--color-text-muted);
 }
 
 body.dark-mode .event-modal-content {
-    background-color: var(--accent-2-dark);
+    background-color: var(--color-accent-2-dark);
 }
 body.dark-mode .related-posts-div:hover {
     background-color: var(--intro-bg-dark);

@@ -26,8 +26,4 @@
     <ProjectReference Include="..\Tobiso.Web.Shared\Tobiso.Web.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\lib\" />
-  </ItemGroup>
-
 </Project>

@@ -3,141 +3,70 @@
     --font-family-sans: "Poppins", sans-serif;
     --font-family-serif: "Zilla Slab", serif;
 
-    /* Core */
-    --background-main: whitesmoke;
-    --background-main-dark: #1f0900;
+     /* Legacy duplicate variables removed — canonical --color-* names are used
+         across the codebase now. Remaining unique semantic variables (status,
+         modals, cookies etc.) are kept below as needed. */
 
-    --text-main: #000;
-    --text-main-dark: #fcede9;
-    --text-muted: #666;
-    --text-muted-dark: #b8956f;
+     --shadow-medium: rgba(0, 0, 0, 0.2);
+     --shadow-strong: rgba(0, 0, 0, 0.3);
+     --shadow-none: rgba(0, 0, 0, 0);
+     --backdrop: rgba(0, 0, 0, 0.6);
+     --overlay-bg: rgba(0, 0, 0, 0.5);
 
-    /* Accents */
-    --accent: #ffad8f; /* main warm accent */
-    --accent-dark: #942700;
-    --accent-2: #ff946c; /* secondary */
-    --accent-2-dark: #701e00;
-    --accent-3: #ff7340; /* highlight */
-    --accent-3-dark: #701e00;
-    --accent-4: #ffbca4;
-    --accent-4-dark: #852401;
-    --accent-strong: #fb8241;
-    --accent-strong-dark: #fb8241;
+     --good: #90c695;
+     --good-bg: #d4edda;
+     --good-text: #155724;
 
-    --border-main: #ff946c;
-    --border-main-dark: #701e00;
+     --danger-weak: #ffb9b9;
+     --danger-weak-dark: #cc4444;
 
-    --button-bg: #ff946c;
-    --button-bg-dark: #942700;
-    --button-hover: #ff7340;
-    --button-hover-dark: #701e00;
-    --button-text: #220b00;
-    --button-text-dark: #fcede9;
+     --muted-brown: #6e2300;
+     --muted-brown-dark: #be3300;
 
-    /* Cards */
-    --card-bg: #ffad8f;
-    --card-bg-dark: #942700;
-    --card-top: #ff946c;
-    --card-top-dark: #701e00;
+     --modal-bg: #f5f5f5;
+     --modal-bg-dark: #701e00;
 
-    /* Selection */
-    --selection-bg: #fb8241;
-    --selection-text: #382a27;
-    --selection-bg-dark: #fb8241;
-    --selection-text-dark: #382a27;
+     --calendar-day: #fdbaa1;
+     --calendar-day-dark: #a12b01;
 
-    /* Status colors */
-    --success: #28a745;
-    --success-dark: #1e5f32;
-    --success-hover: #218838;
-    --success-hover-dark: #155426;
-    --danger: #dc3545;
-    --danger-dark: #dc3545;
-    --danger-hover: #c82333;
-    --danger-hover-dark: #c82333;
+     --hover-bg: #e8e8e8;
+     --hover-bg-dark: #240800;
 
-    --primary: #007bff;
-    --primary-dark: #007bff;
+     --cookie-accept: #3aa73d;
+     --cookie-accept-dark: #1f8b22;
+     --cookie-accept-hover: #248f29;
+     --cookie-accept-hover-dark: #146818;
+     --cookie-decline: #d4332e;
+     --cookie-decline-dark: #d4332d;
 
-    /* Misc */
-    --white: #fff;
-    --shadow-color: rgba(0, 0, 0, 0.1);
-    --shadow-medium: rgba(0, 0, 0, 0.2);
-    --shadow-strong: rgba(0, 0, 0, 0.3);
-    --shadow-none: rgba(0, 0, 0, 0);
-    --backdrop: rgba(0, 0, 0, 0.6);
-    --overlay-bg: rgba(0, 0, 0, 0.5);
-    --muted-gray: #6c757d;
-    --muted-gray-dark: #6c757d;
+     --danger-strong: #ff6868;
+     --danger-strong-dark: #cc4444;
+     --danger-strong-bg: #ffa5a5;
+     --good-border: #c3e6cb;
+     --warning-bg: #fff3cd;
+     --warning-border: #ffeaa7;
+     --warning-text: #856404;
+     --danger-bg: #f8d7da;
+     --danger-border: #f5c6cb;
+     --danger-text: #721c24;
+     --muted-light: #e9ecef;
+     --muted-brown-2: #5a2b00;
+     --brand-1: #b12722;
+     --muted-tan: #d4a389;
+     --brand-1-dark: #b11c17;
+     --success-2: #4a7c59;
+     --progress-bar-dark: #2b0f00;
+     --intro-bg-dark: #2e0d00;
 
-    --good: #90c695;
-    --good-bg: #d4edda;
-    --good-text: #155724;
-    --good-dark: #90c695;
-
-    --danger-weak: #ffb9b9;
-    --danger-weak-dark: #cc4444;
-
-    --muted-brown: #6e2300;
-    --muted-brown-dark: #be3300;
-
-    --modal-bg: #f5f5f5;
-    --modal-bg-dark: #701e00;
-
-    --calendar-day: #fdbaa1;
-    --calendar-day-dark: #a12b01;
-
-    --light-accent: #ff9c66;
-    --light-accent-dark: #701e00;
-
-    --hover-bg: #e8e8e8;
-    --hover-bg-dark: #240800;
-
-    --cookie-accept: #3aa73d;
-    --cookie-accept-dark: #1f8b22;
-    --cookie-accept-hover: #248f29;
-    --cookie-accept-hover-dark: #146818;
-    --cookie-decline: #d4332e;
-    --cookie-decline-dark: #d4332d;
-    /* Additional semantic variables for remaining literals */
-    --danger-strong: #ff6868;
-    --danger-strong-dark: #cc4444;
-    --danger-strong-bg: #ffa5a5;
-    --good-border: #c3e6cb;
-    --warning-bg: #fff3cd;
-    --warning-border: #ffeaa7;
-    --warning-text: #856404;
-    --danger-bg: #f8d7da;
-    --danger-border: #f5c6cb;
-    --danger-text: #721c24;
-    --muted-light: #e9ecef;
-    --muted-brown-2: #5a2b00;
-    --brand-1: #b12722;
-    --muted-tan: #d4a389;
-    --brand-1-dark: #b11c17;
-    --success-2: #4a7c59;
-    --progress-bar-dark: #2b0f00;
-    --intro-bg-dark: #2e0d00;
-    /* helpful aliases / normalized names (keep backward compatibility) */
-    --grid-border-hover: #160703;
-    /* --muted-bg removed (unused) */
-    /* Additional small semantics added during final cleanup */
-    --white-70: #ffffffaa;
-    --sesit-bg: #38853b;
-    --sesit-bg-dark: #2a642c;
-    --sesit-border: #2a642c;
-    --sesit-border-light: #75b478;
-    --sesit-bg-light: #81c784;
-    --sesit-hover-light: #67a06a;
-    --color-sesit-hover-light: #67a06a;
-    --test-excellent-bg-dark: #1e3a2a;
-    --test-excellent-border-dark: #2d5a3d;
-    --test-good-bg-dark: #3a3520;
-    --test-good-border-dark: #5a5130;
-    --test-good-text-dark: #f0d060;
-    --test-poor-bg-dark: #3a1e22;
-    --test-poor-border-dark: #5a2d33;
-    --test-poor-text-dark: #ff9999;
+     --color-sesit-hover-light: #67a06a;
+     --test-excellent-bg-dark: #1e3a2a;
+     --test-excellent-border-dark: #2d5a3d;
+     --test-good-bg-dark: #3a3520;
+     --test-good-border-dark: #5a5130;
+     --test-good-text-dark: #f0d060;
+     --test-poor-bg-dark: #3a1e22;
+     --test-poor-border-dark: #5a2d33;
+     --test-poor-text-dark: #ff9999;
 
     /* Canonical / normalized variable names (concrete literal values) */
     --color-bg: whitesmoke;
@@ -146,6 +75,13 @@
     --color-text: #000;
     --color-text-dark: #fcede9;
     --color-text-muted: #666;
+
+    /* Added canonical variables for previously-unique names */
+    --color-selection-text: #382a27;
+    --color-selection-text-dark: #382a27;
+    --color-light-accent: #ff9c66;
+    --color-light-accent-dark: #701e00;
+    --color-white-70: #ffffffaa;
 
     --color-accent: #ffad8f;
     --color-accent-2: #ff946c;
@@ -198,4 +134,19 @@
     /* Nav/menu specific semantics */
     --color-version: #741f00; /* used in nav version-info */
     --color-toggle-bg: #ffcab7; /* small toggle background */
+    /* Added canonical success/danger/primary variables used by style.css */
+    --color-success: #28a745;
+    --color-success-hover: #218838;
+    --color-success-dark: #1e5f32;
+    --color-success-hover-dark: #155426;
+
+    --color-danger: #dc3545;
+    --color-danger-hover: #c82333;
+    --color-danger-dark: #cc4444;
+    --color-danger-hover-dark: #c82333;
+
+    --color-primary: #007bff;
+    --color-primary-dark: #007bff;
+
+    --color-text-muted-dark: #b8956f;
 }
