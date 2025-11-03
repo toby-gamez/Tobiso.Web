@@ -860,7 +860,7 @@ body.scroll-lock {
 }
 
 .intro {
-    background-color: var(--hover-bg);
+    background-color: var(--intro-bg);
     padding: 20px;
     border-radius: 10px;
     margin-bottom: 5px;

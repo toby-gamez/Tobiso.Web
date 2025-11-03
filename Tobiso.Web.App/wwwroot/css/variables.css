@@ -1,4 +1,20 @@
 /* Theme variables: light + dark variants (same name + -dark) */
+
+/*
+text-color: #1a0f15
+background: #fff0f7
+primary: #c36f9a
+secondary: #d89dbd
+accent: #d175a6
+
+text-dark: #f0e5eb
+background-dark: #0f0007
+primary-dark: #903c67
+secondary-dark: #622748
+accent-dark: #8a2e5f
+
+*/
+
 :root {
     --font-family-sans: "Poppins", sans-serif;
     --font-family-serif: "Zilla Slab", serif;
@@ -56,7 +72,8 @@
      --brand-1-dark: #b11c17;
      --success-2: #4a7c59;
      --progress-bar-dark: #2b0f00;
-     --intro-bg-dark: #2e0d00;
+     --intro-bg: #FFE3EC;
+     --intro-bg-dark: #3D1429;
 
      --color-sesit-hover-light: #67a06a;
      --test-excellent-bg-dark: #1e3a2a;
@@ -69,34 +86,34 @@
      --test-poor-text-dark: #ff9999;
 
     /* Canonical / normalized variable names (concrete literal values) */
-    --color-bg: whitesmoke;
-    --color-bg-dark: #1f0900;
+    --color-bg: #fff0f7; /* background (light) from comment */
+    --color-bg-dark: #0f0007; /* background-dark from comment */
 
-    --color-text: #000;
-    --color-text-dark: #fcede9;
+    --color-text: #1a0f15; /* text-color from comment */
+    --color-text-dark: #f0e5eb; /* text-dark from comment */
     --color-text-muted: #666;
 
     /* Added canonical variables for previously-unique names */
-    --color-selection-text: #382a27;
-    --color-selection-text-dark: #382a27;
-    --color-light-accent: #ff9c66;
-    --color-light-accent-dark: #701e00;
+    --color-selection-text: #1a0f15; /* align with text-color */
+    --color-selection-text-dark: #f0e5eb; /* align with text-dark */
+    --color-light-accent: #f3d6e5; /* light tint of --color-accent */
+    --color-light-accent-dark: #5a2940; /* muted dark tint for dark mode */
     --color-white-70: #ffffffaa;
 
-    --color-accent: #ffad8f;
-    --color-accent-2: #ff946c;
-    --color-accent-3: #ff7340;
-    --color-accent-4: #ffbca4;
-    --color-accent-strong: #fb8241;
+    --color-accent: #d175a6; /* accent from comment */
+    --color-accent-2: #d89dbd; /* secondary from comment used as accent-2 */
+    --color-accent-3: #b35b8a;
+    --color-accent-4: #d89dbd;
+    --color-accent-strong: #c36f9a; /* use primary as strong accent */
 
-    --color-border-main: #ff946c;
+    --color-border-main: #c36f9a; /* use primary as border accent */
 
-    --color-button-bg: #ff946c;
-    --color-button-hover: #ff7340;
-    --color-button-text: #220b00;
+    --color-button-bg: #c36f9a; /* primary from comment */
+    --color-button-hover: #903c67; /* primary-dark from comment */
+    --color-button-text: #1a0f15; /* text-color from comment */
 
-    --color-card-bg: #ffad8f;
-    --color-card-top: #ff946c;
+    --color-card-bg: #d89dbd; /* secondary from comment */
+    --color-card-top: #c36f9a; /* primary from comment */
 
     --color-white: #fff;
 
@@ -109,44 +126,47 @@
     --color-sesit-border: #2a642c;
     --color-sesit-border-light: #75b478;
 
-    --color-grid-border-hover: #160703;
+    --color-grid-border-hover: #8a2e5f; /* accent-dark for subtle hover */
     /* Dark aliases (concrete values) */
-    --color-card-bg-dark: #942700;
-    --color-card-top-dark: #701e00;
-    --color-accent-2-dark: #701e00;
-    --color-accent-dark: #942700;
-    --color-accent-3-dark: #701e00;
-    --color-accent-4-dark: #852401;
-    --color-accent-strong-dark: #fb8241;
+    --color-card-bg-dark: #622748; /* secondary-dark from comment */
+    --color-card-top-dark: #903c67; /* primary-dark from comment */
+    --color-accent-2-dark: #622748; /* secondary-dark */
+    --color-accent-dark: #8a2e5f; /* accent-dark from comment */
+    --color-accent-3-dark: #8a2e5f;
+    --color-accent-4-dark: #622748;
+    --color-accent-strong-dark: #903c67; /* primary-dark */
     /* Additional canonical dark / color variables added for full refactor */
-    --color-button-bg-dark: #942700;
-    --color-button-hover-dark: #701e00;
-    --color-button-text-dark: #fcede9;
+    --color-button-bg-dark: #903c67; /* primary-dark */
+    --color-button-hover-dark: #622748; /* secondary-dark */
+    --color-button-text-dark: #f0e5eb; /* text-dark */
     --color-muted-brown: #6e2300;
     --color-muted-brown-dark: #be3300;
-    --color-brand-1: #b12722;
-    --color-brand-1-dark: #b11c17;
+    --color-brand-1: #c36f9a; /* align brand with primary */
+    --color-brand-1-dark: #903c67; /* primary-dark */
     --color-muted-tan: #d4a389;
     --color-progress-bar-dark: #2b0f00;
     --color-intro-bg-dark: #2e0d00;
     --color-muted-light: #e9ecef;
     --color-muted-brown-2: #5a2b00;
     /* Nav/menu specific semantics */
-    --color-version: #741f00; /* used in nav version-info */
-    --color-toggle-bg: #ffcab7; /* small toggle background */
+    --color-version: #903c67; /* primary-dark for version info */
+    --color-toggle-bg: #d89dbd; /* secondary for small toggle */
     /* Added canonical success/danger/primary variables used by style.css */
-    --color-success: #28a745;
-    --color-success-hover: #218838;
-    --color-success-dark: #1e5f32;
-    --color-success-hover-dark: #155426;
+    --color-success: #90c695; /* keep a pleasant green but tuned to palette */
+    --color-success-hover: #6aa86e;
+    --color-success-dark: #3e6a46;
+    --color-success-hover-dark: #315436;
 
-    --color-danger: #dc3545;
-    --color-danger-hover: #c82333;
+    --color-danger: #ff6868;
+    --color-danger-hover: #cc4444;
     --color-danger-dark: #cc4444;
     --color-danger-hover-dark: #c82333;
 
-    --color-primary: #007bff;
-    --color-primary-dark: #007bff;
+    --color-primary: #c36f9a; /* primary from comment */
+    --color-primary-dark: #903c67; /* primary-dark from comment */
 
     --color-text-muted-dark: #b8956f;
+    /* New explicit secondary variables from the comment */
+    --color-secondary: #d89dbd; /* secondary from comment */
+    --color-secondary-dark: #622748; /* secondary-dark from comment */
 }
