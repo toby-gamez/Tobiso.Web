@@ -70,7 +70,7 @@ a:has(.navImg) {
     margin-left: 15px;
     margin-right: 15px;
     text-align: center;
-    border-bottom: 3px solid var(--color-light-accent);
+    border-bottom: 3px solid var(--color-accent-3);
 }
 .navImg {
     transition: all 0.3s ease;
@@ -84,7 +84,7 @@ a:has(.navImg) {
     text-decoration: none;
 }
 #MyNavBar .nav-link:hover {
-    background-color: var(--color-light-accent);
+    background-color: var(--color-accent-3);
 }
 
 .navImg:active,
@@ -109,7 +109,7 @@ a:has(.navImg) {
     text-align: right;
     font-size: 0.8rem;
     color: var(--color-version);
-    border-top: 3px solid var(--color-light-accent);
+    border-top: 3px solid var(--color-accent-3);
     margin-left: 15px;
     margin-right: 15px;
     font-weight: 500;

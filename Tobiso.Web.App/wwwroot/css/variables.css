@@ -45,8 +45,8 @@ accent-dark: #8a2e5f
      --calendar-day: #fdbaa1;
      --calendar-day-dark: #a12b01;
 
-     --hover-bg: #e8e8e8;
-     --hover-bg-dark: #240800;
+     --hover-bg: #f0d2dc;
+     --hover-bg-dark: #2e0f19;
 
      --cookie-accept: #3aa73d;
      --cookie-accept-dark: #1f8b22;
@@ -87,7 +87,7 @@ accent-dark: #8a2e5f
 
     /* Canonical / normalized variable names (concrete literal values) */
     --color-bg: #fff0f7; /* background (light) from comment */
-    --color-bg-dark: #0f0007; /* background-dark from comment */
+    --color-bg-dark: #150b10; /* background-dark from comment */
 
     --color-text: #1a0f15; /* text-color from comment */
     --color-text-dark: #f0e5eb; /* text-dark from comment */

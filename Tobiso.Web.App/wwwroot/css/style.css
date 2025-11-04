@@ -1719,7 +1719,7 @@ body.dark-mode hr {
 
 body.dark-mode .version-info {
     border-top: 3px solid var(--color-accent-dark);
-    color: var(--muted-brown-dark);
+    color: var(--color-text-dark);
 }
 
 body.dark-mode #MyNavBar .nav-link:hover {
@@ -1959,14 +1959,16 @@ body.dark-mode #cookie-consent {
 /* loading-bar already handled above */
 
 body.dark-mode .grid {
-    border: 1px solid var(--color-accent-2-dark);
+    border: 2px solid var(--color-accent-2-dark);
 }
 
 body.dark-mode .grid-item {
     border-bottom: 2px solid var(--color-accent-2-dark);
     background: var(--color-accent-2-dark);
 }
-
+body.dark-mode .grid-item:last-child {
+    border-bottom: none;
+}
 body.dark-mode .grid-item a:hover {
     background-color: var(--color-accent-2-dark);
     border-radius: 0;
@@ -2258,4 +2260,7 @@ body.dark-mode .post-item .question-count {
 }
 body.dark-mode .post-item.selected .question-count {
     color: var(--color-white);
+}
+body.dark-mode .related-posts-div:hover {
+    background-color: var(--hover-bg-dark);
 }
