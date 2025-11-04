@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
 
@@ -16,10 +17,12 @@ public interface IPostService
 public class PostService : IPostService
 {
     private readonly TobisoDbContext _context;
+    private readonly ILogger<PostService> _logger;
 
-    public PostService(TobisoDbContext context)
+    public PostService(TobisoDbContext context, ILogger<PostService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<List<PostResponse>> GetAll()
@@ -39,8 +42,7 @@ public class PostService : IPostService
         }
         catch (Exception ex)
         {
-            // Logování chyby - prozatím do konzole, případně použít logger
-            Console.WriteLine($"Chyba při načítání příspěvků: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání příspěvků");
             throw;
         }
 
@@ -90,15 +92,34 @@ public class PostService : IPostService
 
     public async Task<bool> Delete(int id)
     {
-        var entity = await _context.Posts
-            .Include(p => p.Questions)
-            .ThenInclude(q => q.Answers)
-            .FirstOrDefaultAsync(p => p.Id == id);
-        if (entity == null) return false;
+        try
+        {
+            // Remove any RelatedPost entries that reference this post as RelatedPostId
+            var relatedRefs = await _context.RelatedPosts
+                .Where(r => r.RelatedPostId == id)
+                .ToListAsync();
 
-        _context.Posts.Remove(entity);
-        await _context.SaveChangesAsync();
-        return true;
+            if (relatedRefs.Any())
+            {
+                _context.RelatedPosts.RemoveRange(relatedRefs);
+            }
+
+            var entity = await _context.Posts
+                .Include(p => p.Questions)
+                .ThenInclude(q => q.Answers)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            if (entity == null)
+                return false;
+
+            _context.Posts.Remove(entity);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při mazání příspěvku s Id={PostId}", id);
+            throw;
+        }
     }
 
     public async Task<PostResponse?> Create(PostResponse post)
