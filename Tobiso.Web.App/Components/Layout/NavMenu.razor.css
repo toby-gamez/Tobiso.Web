@@ -22,7 +22,7 @@
     /* Adjust height to enable scrolling */
     scrollbar-width: auto;
     /* For Firefox */
-    scrollbar-color: var(--color-light-accent) var(--color-accent);
+    scrollbar-color: var(--color-accent-3) var(--color-accent);
     /* For Firefox */
 }
 
@@ -142,7 +142,7 @@ a:has(.navImg) {
     z-index: 1040;
     margin-top: 9px;
     /* For Firefox */
-    scrollbar-color: var(--color-light-accent) var(--color-accent);
+    scrollbar-color: var(--color-accent-3) var(--color-accent);
     /* For Firefox */
 }
 
