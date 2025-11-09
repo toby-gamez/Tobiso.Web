@@ -8,6 +8,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<ImageUpload> Logger
 @inject IConfiguration Configuration
+@inject HttpClient HttpClient
 
 <PageTitle>Správa obrázků</PageTitle>
 
@@ -86,7 +87,23 @@
 
             <!-- Galerie obrázků -->
             <div class="image-gallery mt-4">
-                <h3>Nahrané obrázky</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0">Nahrané obrázky</h3>
+                    <button type="button" class="btn btn-outline-primary" 
+                            @onclick="SyncImagesFromMainWeb" 
+                            disabled="@(isUploading || isSyncing)">
+                        @if (isSyncing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Synchronizuji...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cloud-download me-2"></i>
+                            <span>Sync images from Main Web</span>
+                        }
+                    </button>
+                </div>
                 
                 @if (isLoadingImages)
                 {
@@ -192,6 +209,7 @@
     private InputFile? fileInput;
     private bool isUploading = false;
     private bool isDragOver = false;
+    private bool isSyncing = false;
     private string? errorMessage;
     private string? successMessage;
     private string? currentImageUrl;
@@ -428,5 +446,172 @@
         // Pokud je relativní, přidej baseUrl z konfigurace
         var baseUrl = Configuration["Api:BaseAddress"]?.TrimEnd('/') ?? "https://localhost:7270";
         return $"{baseUrl}{imageUrl}";
+    }
+    
+    private async Task SyncImagesFromMainWeb()
+    {
+        try
+        {
+            isSyncing = true;
+            ClearMessages();
+            StateHasChanged();
+            
+            Logger.LogInformation("Starting image sync from main web");
+            
+            // Získej seznam současných obrázků
+            var currentImages = images?.Select(i => i.FileName).ToHashSet() ?? new HashSet<string>();
+            
+            // Získej seznam obrázků z produkční verze
+            var mainWebImages = await GetMainWebImageList();
+            
+            if (!mainWebImages.Any())
+            {
+                errorMessage = "API endpoint na produkční verzi není dostupný. Synchronizace vyžaduje funkční API přístup.";
+                return;
+            }
+            
+            Logger.LogInformation("Local images count: {LocalCount}, Main web images count: {MainCount}", 
+                currentImages.Count, mainWebImages.Count);
+            Logger.LogDebug("Local images: {LocalImages}", string.Join(", ", currentImages.Take(10)));
+            Logger.LogDebug("Main web images: {MainImages}", string.Join(", ", mainWebImages.Take(10)));
+            
+            var downloadedCount = 0;
+            var skippedCount = 0;
+            
+            var processedCount = 0;
+            foreach (var imageFileName in mainWebImages)
+            {
+                try
+                {
+                    processedCount++;
+                    
+                    // Detailní debugging pro první několik obrázků
+                    if (processedCount <= 5)
+                    {
+                        Logger.LogInformation("Processing image {Count}/{Total}: '{FileName}', Exists locally: {Exists}", 
+                            processedCount, mainWebImages.Count, imageFileName, currentImages.Contains(imageFileName));
+                    }
+                    
+                    // Pokud obrázek už existuje, přeskoč ho
+                    if (currentImages.Contains(imageFileName))
+                    {
+                        skippedCount++;
+                        if (processedCount <= 5)
+                        {
+                            Logger.LogDebug("Skipping existing image: {FileName}", imageFileName);
+                        }
+                        continue;
+                    }
+                    
+                    // Stáhni a nahraj obrázek
+                    await DownloadAndUploadImage(imageFileName);
+                    downloadedCount++;
+                    
+                    Logger.LogInformation("Successfully synced image: {FileName}", imageFileName);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to sync image: {FileName}", imageFileName);
+                    // Pokračuj s dalšími obrázky i při chybě
+                }
+            }
+            
+            successMessage = $"Synchronizace dokončena! Staženo: {downloadedCount}, Přeskočeno: {skippedCount}";
+            
+            // Znovu načti seznam obrázků
+            await LoadImages();
+            
+            Logger.LogInformation("Image sync completed. Downloaded: {Downloaded}, Skipped: {Skipped}", 
+                downloadedCount, skippedCount);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při synchronizaci obrázků: {ex.Message}";
+            Logger.LogError(ex, "Error during image sync");
+        }
+        finally
+        {
+            isSyncing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task<List<string>> GetMainWebImageList()
+    {
+        var imageList = new List<string>();
+        
+        try
+        {
+            // Zkus získat seznam přes hlavní API (pokud má endpoint pro listing obrázků)
+            var mainWebClient = new HttpClient();
+            // Přidej timeout pro rychlejší fallback
+            mainWebClient.Timeout = TimeSpan.FromSeconds(30);
+            var mainWebApiUrl = "https://www.tobiso.com/api/files";
+            
+            Logger.LogInformation("Attempting to get image list from API: {Url}", mainWebApiUrl);
+            
+            // Zkus zavolat API endpoint
+            var response = await mainWebClient.GetAsync(mainWebApiUrl);
+            
+            Logger.LogInformation("Main web API response: Status={StatusCode}, ReasonPhrase={ReasonPhrase}", 
+                response.StatusCode, response.ReasonPhrase);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                Logger.LogDebug("API response content length: {Length}", content.Length);
+                
+                var apiImages = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content, 
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                
+                if (apiImages != null)
+                {
+                    imageList.AddRange(apiImages.Select(i => i.FileName));
+                    Logger.LogInformation("Retrieved {Count} images from main web API", imageList.Count);
+                    if (apiImages.Count > 0)
+                    {
+                        Logger.LogDebug("First few images from API: {Images}", 
+                            string.Join(", ", apiImages.Take(5).Select(i => i.FileName)));
+                    }
+                    return imageList;
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Logger.LogWarning("API endpoint requires authentication, using fallback method");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to get image list from API: {Message}, will try fallback method", ex.Message);
+        }
+        
+        // Fallback: API není dostupné
+        Logger.LogWarning("API endpoint for image list is not available. Sync function requires API access to work properly.");
+        
+        // Pro ukázku vraťme prázdný seznam, aby synchronizace nedělala nic
+        return new List<string>();
+
+    }
+    
+    private async Task DownloadAndUploadImage(string fileName)
+    {
+        var imageUrl = $"https://www.tobiso.com/images/{fileName}";
+        
+        // Stáhni obrázek
+        var response = await HttpClient.GetAsync(imageUrl);
+        response.EnsureSuccessStatusCode();
+        
+        var imageBytes = await response.Content.ReadAsByteArrayAsync();
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+        
+        // Vytvoř stream pro upload
+        using var ms = new MemoryStream(imageBytes);
+        var streamPart = new StreamPart(ms, fileName, contentType);
+        
+        // Nahraj přes API
+        await Api.UploadImageAsync(streamPart);
+        
+        Logger.LogDebug("Downloaded and uploaded image: {FileName}, Size: {Size} bytes", fileName, imageBytes.Length);
     }
 }

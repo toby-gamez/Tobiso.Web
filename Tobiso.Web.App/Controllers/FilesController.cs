@@ -99,9 +99,10 @@ public class FilesController : ControllerBase
     }
 
     /// <summary>
-    /// Získá seznam všech souborů - GET endpoint
+    /// Získá seznam všech souborů - GET endpoint (anonymní pro synchronizaci)
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     public ActionResult<IEnumerable<FileUploadResponse>> GetAllFiles([FromQuery] string? subDirectory = null)
     {
         try
