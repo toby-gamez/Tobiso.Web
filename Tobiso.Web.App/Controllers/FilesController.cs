@@ -14,10 +14,10 @@ namespace Tobiso.Web.App.Controllers;
 public class FilesController : ControllerBase
 {
     private readonly ILogger<FilesController> _logger;
-    private readonly IHostEnvironment _environment;
+    private readonly IWebHostEnvironment _environment;
     private readonly IConfiguration _configuration;
 
-    public FilesController(ILogger<FilesController> logger, IHostEnvironment environment, IConfiguration configuration)
+    public FilesController(ILogger<FilesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
     {
         _logger = logger;
         _environment = environment;
@@ -58,9 +58,8 @@ public class FilesController : ControllerBase
             // Vytvoř unikátní název souboru
             var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
             
-            // Cesta do App/wwwroot/images složky (jako v SentrySMP)
-            var appProject = Path.Combine(_environment.ContentRootPath, "..", "Tobiso.Web.App");
-            var uploadsPath = Path.Combine(appProject, "wwwroot", "images");
+            // Cesta do wwwroot/images složky - funguje jak ve vývoji tak na produkci
+            var uploadsPath = Path.Combine(_environment.WebRootPath, "images");
             
             if (!Directory.Exists(uploadsPath))
             {
@@ -109,9 +108,8 @@ public class FilesController : ControllerBase
         {
             // Ignorum subDirectory parametr pro jednodušší implementaci podle SentrySMP
             
-            // Cesta do App/wwwroot/images složky
-            var appProject = Path.Combine(_environment.ContentRootPath, "..", "Tobiso.Web.App");
-            var imagesPath = Path.Combine(appProject, "wwwroot", "images");
+            // Cesta do wwwroot/images složky - funguje jak ve vývoji tak na produkci
+            var imagesPath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images");
 
             if (!Directory.Exists(imagesPath))
             {
@@ -173,9 +171,8 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Název souboru je vyžadován" });
             }
 
-            // Cesta do App/wwwroot/images složky
-            var appProject = Path.Combine(_environment.ContentRootPath, "..", "Tobiso.Web.App");
-            var filePath = Path.Combine(appProject, "wwwroot", "images", fileName);
+            // Cesta do wwwroot/images složky - funguje jak ve vývoji tak na produkci
+            var filePath = Path.Combine(_environment.WebRootPath, "images", fileName);
 
             if (!System.IO.File.Exists(filePath))
             {
