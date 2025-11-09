@@ -89,6 +89,7 @@ services
             throw new InvalidOperationException("API base address is not configured.");
         }
         c.BaseAddress = new Uri(baseAddress);
+        c.Timeout = TimeSpan.FromMinutes(5); // 5 minut pro upload
     })
     .ConfigurePrimaryHttpMessageHandler(() =>
     {

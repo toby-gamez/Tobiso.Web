@@ -82,4 +82,15 @@ public interface ITobisoWebApi
 
     [Delete("/api/RelatedPosts/{id}")]
     Task DeleteRelatedPost(int id);
+
+    // File upload endpoints - STEJNĚ jako SentrySMP
+    [Get("/api/files")]
+    Task<IList<FileUploadResponse>> GetAllFilesAsync([Query] string? subDirectory = null);
+    
+    [Multipart]
+    [Post("/api/files/upload")]
+    Task<FileUploadResponse> UploadImageAsync([AliasAs("file")] StreamPart stream);
+    
+    [Delete("/api/files/{fileName}")]
+    Task DeleteImageAsync(string fileName);
 }

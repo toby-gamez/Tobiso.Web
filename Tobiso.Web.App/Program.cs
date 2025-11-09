@@ -53,7 +53,20 @@ services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
+
 services.AddControllers()
+    .ConfigureApplicationPartManager(manager =>
+    {
+        // Odstraň controllery z Tobiso.Web.Api assembly, aby nevznikaly konflikty v Swagger
+        var apiAssembly = typeof(Tobiso.Web.Api.Services.ICategoryService).Assembly;
+        var partsToRemove = manager.ApplicationParts
+            .Where(part => part.Name == apiAssembly.GetName().Name)
+            .ToList();
+        foreach (var part in partsToRemove)
+        {
+            manager.ApplicationParts.Remove(part);
+        }
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -72,6 +85,29 @@ services.AddRefitClient<ITobisoAnonymApi>()
             throw new InvalidOperationException("API base address is not configured.");
         }
         c.BaseAddress = new Uri(baseAddress);
+    })
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Ignore SSL certificate errors in development
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        }
+        return handler;
+    })
+    .AddHttpMessageHandler<HttpLoggingHandler>();
+
+services.AddRefitClient<ITobisoWebApi>()
+    .ConfigureHttpClient(c =>
+    {
+        var baseAddress = builder.Configuration["Api:BaseAddress"];
+        if (string.IsNullOrEmpty(baseAddress))
+        {
+            throw new InvalidOperationException("API base address is not configured.");
+        }
+        c.BaseAddress = new Uri(baseAddress);
+        c.Timeout = TimeSpan.FromMinutes(5); // 5 minut pro upload
     })
     .ConfigurePrimaryHttpMessageHandler(() =>
     {
