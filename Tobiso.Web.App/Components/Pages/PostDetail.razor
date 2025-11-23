@@ -9,10 +9,14 @@
 <style>
     section img {
         max-width: 16rem;
+        max-height: 20rem;
         background-color: white;
     }
     .content {
         text-align: left;
+    }
+    .ribbon-6 {
+        display: none;
     }
 </style>
 @if (_post == null)
@@ -79,7 +83,6 @@ else
     }
     <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
 }
-
 @code {
     [Parameter]
     public int Id { get; set; }
