@@ -1647,12 +1647,152 @@ body.scroll-lock {
 .related-posts-div:hover {
     background-color: var(--hover-bg);
 }
+/* Decorative ribbons for CategoryList */
+.decorative-ribbons {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+}
+
+.ribbon {
+    position: absolute;
+    opacity: 0.15;
+    transition: all 0.3s ease;
+}
+
+.ribbon path {
+    stroke-linecap: round;
+}
+
+.ribbon-1 {
+    width: 350px;
+    height: 1600px;
+    top: -200px;
+    left: 180px;
+}
+
+.ribbon-2 {
+    width: 400px;
+    height: 1400px;
+    bottom: -150px;
+    left: 230px;
+}
+
+.ribbon-3 {
+    width: 380px;
+    height: 1500px;
+    top: -250px;
+    right: 30px;
+}
+
+.ribbon-4 {
+    width: 360px;
+    height: 1450px;
+    bottom: -200px;
+    right: 80px;
+}
+
+.ribbon-5 {
+    width: 340px;
+    height: 100vh;
+    bottom: 0;
+    left: 230px;
+}
+
+.ribbon-6 {
+    width: 100%;
+    max-width: 2000px;
+    height: 35vh;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.ribbon-7 {
+    width: 120px;
+    height: 1200px;
+    top: 0;
+    left: 285px;
+    transform: rotate(-6deg);
+}
+.ribbon-8 {
+    width: 120px;
+    height: 1200px;
+    top: 0;
+    right: 0;
+    transform: rotate(8deg);
+}
+.ribbon-9 {
+    width: 100px;
+    height: 1200px;
+    top: 0;
+    left: 285px;
+    transform: rotate(12deg);
+}
+
+@media only screen and (max-width: 600px) {
+    .ribbon {
+        opacity: 0.1;
+    }
+    
+    .ribbon-1 {
+        width: 130px;
+        height: 1000px;
+        top: -150px;
+        left: -30px;
+    }
+    
+    .ribbon-2 {
+        width: 120px;
+        height: 900px;
+        bottom: -100px;
+        left: -20px;
+    }
+    
+    .ribbon-3 {
+        width: 140px;
+        height: 1050px;
+        top: -180px;
+        right: -30px;
+    }
+    
+    .ribbon-4 {
+        width: 125px;
+        height: 950px;
+        bottom: -120px;
+        right: -20px;
+    }
+    
+    .ribbon-5 {
+        width: 110px;
+        height: 750px;
+        left: -20px;
+    }
+    
+    .ribbon-6 {
+        width: 100%;
+        height: 120px;
+        bottom: -30px;
+    }
+}
 @media (max-width: 600px) {
     .ribbon {
         display: none;
     }
 }
 /* Dark mode styles */
+body.dark-mode .ribbon {
+    opacity: 0.08;
+}
+
+body.dark-mode .ribbon path {
+    opacity: 0.8;
+}
 
 body.dark-mode {
     background-color: var(--color-bg-dark);
@@ -2271,144 +2411,3 @@ body.dark-mode .related-posts-div:hover {
     background-color: var(--hover-bg-dark);
 }
 
-/* Decorative ribbons for CategoryList */
-.decorative-ribbons {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -1;
-    overflow: hidden;
-}
-
-.ribbon {
-    position: absolute;
-    opacity: 0.15;
-    transition: all 0.3s ease;
-}
-
-.ribbon path {
-    stroke-linecap: round;
-}
-
-.ribbon-1 {
-    width: 350px;
-    height: 1600px;
-    top: -200px;
-    left: 180px;
-}
-
-.ribbon-2 {
-    width: 400px;
-    height: 1400px;
-    bottom: -150px;
-    left: 230px;
-}
-
-.ribbon-3 {
-    width: 380px;
-    height: 1500px;
-    top: -250px;
-    right: 30px;
-}
-
-.ribbon-4 {
-    width: 360px;
-    height: 1450px;
-    bottom: -200px;
-    right: 80px;
-}
-
-.ribbon-5 {
-    width: 340px;
-    height: 100vh;
-    bottom: 0;
-    left: 230px;
-}
-
-.ribbon-6 {
-    width: 100%;
-    max-width: 2000px;
-    height: 35vh;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.ribbon-7 {
-    width: 120px;
-    height: 1200px;
-    top: 0;
-    left: 285px;
-    transform: rotate(-6deg);
-}
-.ribbon-8 {
-    width: 120px;
-    height: 1200px;
-    top: 0;
-    right: 0;
-    transform: rotate(8deg);
-}
-.ribbon-9 {
-    width: 100px;
-    height: 1200px;
-    top: 0;
-    left: 285px;
-    transform: rotate(12deg);
-}
-
-@media only screen and (max-width: 600px) {
-    .ribbon {
-        opacity: 0.1;
-    }
-    
-    .ribbon-1 {
-        width: 130px;
-        height: 1000px;
-        top: -150px;
-        left: -30px;
-    }
-    
-    .ribbon-2 {
-        width: 120px;
-        height: 900px;
-        bottom: -100px;
-        left: -20px;
-    }
-    
-    .ribbon-3 {
-        width: 140px;
-        height: 1050px;
-        top: -180px;
-        right: -30px;
-    }
-    
-    .ribbon-4 {
-        width: 125px;
-        height: 950px;
-        bottom: -120px;
-        right: -20px;
-    }
-    
-    .ribbon-5 {
-        width: 110px;
-        height: 750px;
-        left: -20px;
-    }
-    
-    .ribbon-6 {
-        width: 100%;
-        height: 120px;
-        bottom: -30px;
-    }
-}
-
-body.dark-mode .ribbon {
-    opacity: 0.08;
-}
-
-body.dark-mode .ribbon path {
-    opacity: 0.8;
-}
