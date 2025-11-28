@@ -45,12 +45,68 @@
 <Footer />
 @* Search Modal *@
 <SearchModal />
+@* App install banner (global) *@
+<AppInstallBanner />
+
 @* Cookie Consent Banner *@
 <div id="cookie-consent" style="display: none;">
     <p>Tento web používá cookies. Pokud nesouhlasíte, budou se posílat jen nezbytné cookies.</p>
     <button @onclick="AcceptCookies">Souhlasím</button>
     <button class="decline" @onclick="DeclineCookies">Nesouhlasím</button>
 </div>
+
+<!-- Deep-link / open native app support (tries to open app; no install/download prompt) -->
+<script>
+    (function(){
+        var appPackage = 'com.tobiso.tobisoapp';
+        var customScheme = 'tobiso://'; // change if your app uses another scheme
+
+        function attemptOpen(){
+            var ua = navigator.userAgent || navigator.vendor || window.opera;
+            var isAndroid = /Android/i.test(ua);
+            var isiOS = /iPhone|iPad|iPod/i.test(ua);
+            var start = Date.now();
+            var opened = false;
+
+            function onVisibilityChange(){
+                if (document.hidden) {
+                    opened = true;
+                }
+            }
+
+            document.addEventListener('visibilitychange', onVisibilityChange);
+
+            try{
+                if (isAndroid){
+                    var intentUrl = 'intent://#Intent;scheme=tobiso;package=' + appPackage + ';end';
+                    window.location = intentUrl;
+                } else if (isiOS) {
+                    var iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = customScheme;
+                    document.body.appendChild(iframe);
+                    setTimeout(function(){ try{ document.body.removeChild(iframe);}catch(e){} },2000);
+                } else {
+                    window.location = customScheme;
+                }
+            }catch(e){ /* ignore */ }
+
+            // After short delay we stop listening; do not show any install/download UI.
+            setTimeout(function(){
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            }, 1500);
+        }
+
+        if (!sessionStorage.getItem('tobiso_app_attempted')){
+            sessionStorage.setItem('tobiso_app_attempted','1');
+            if (document.readyState === 'complete' || document.readyState === 'interactive'){
+                attemptOpen();
+            } else {
+                document.addEventListener('DOMContentLoaded', attemptOpen);
+            }
+        }
+    })();
+</script>
 
 @code {
     private IJSObjectReference? jsModule;

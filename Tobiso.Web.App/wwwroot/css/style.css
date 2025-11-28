@@ -96,6 +96,21 @@ h4 {
     color: var(--color-text);
 }
 
+/* Decorative dashed underline for emphasized large headings */
+.verybig {
+    position: relative;
+    text-decoration-line: underline;
+    text-decoration-style: dashed;
+    text-decoration-color: var(--color-accent-3);
+    text-decoration-thickness: 4px;
+    text-underline-offset: 10px;
+    transition: text-decoration-color 0.2s ease;
+}
+
+/* Dark mode variant: use the dark accent color */
+body.dark-mode .verybig {
+    text-decoration-color: var(--color-accent-3-dark);
+}
 body {
     font-family: var(--font-family-sans);
     background-color: var(--color-bg);
@@ -210,16 +225,64 @@ section:has(ul.grid-predmety) {
 }
 .footer-content a,
 main a {
-    color: var(--color-text);
-    padding: 3px;
-    background-color: var(--color-accent);
-    text-decoration: none;
-    border-radius: 10px;
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    position: relative;
+    display: inline-block;
+    text-decoration: underline;
+    text-decoration-color: var(--color-accent-strong);
+    text-decoration-style: inherit;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
     transition: all 0.3s ease;
 }
 .footer-content a:hover,
 main a:hover {
-    background-color: var(--color-accent-3);
+    color: var(--color-accent-3);
+}
+.footer-content a::after,
+main a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    bottom: -2px;
+    pointer-events: none;
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+    background-size: auto 10px;
+    transform: translateY(2px);
+}
+
+/* Pokud je odkaz uvnitř .intro, nepoužívej globální dekorace */
+.intro a {
+    color: var(--color-text);
+    font-weight: inherit;
+    text-decoration: none !important;
+    position: static;
+    display: inline;
+}
+.intro a::after {
+    display: none !important;
+    content: none !important;
+}
+.intro a:hover {
+    color: var(--color-text);
+    text-decoration: none !important;
+}
+
+/* Dark mode varianty pro .intro */
+body.dark-mode .intro a {
+    color: var(--color-text-dark);
+}
+body.dark-mode .intro a::after {
+    display: none !important;
+    content: none !important;
+}
+body.dark-mode .intro a:hover {
+    color: var(--color-text-dark);
+    text-decoration: none !important;
 }
 
 .loading-bar-container {
@@ -856,6 +919,85 @@ body.scroll-lock {
         bottom: 50px;
         flex-direction: column;
         gap: 5px;
+    }
+}
+
+/* App install banner - uses same visual style as cookie banner */
+#app-install-banner {
+    /* Hidden by default (desktop); shown only on small screens below */
+    display: none;
+    position: fixed;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent);
+    border: 5px solid var(--color-card-top);
+    padding: 14px 16px;
+    border-radius: 10px;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 8px var(--shadow-lg);
+    z-index: 1042;
+    min-width: 360px;
+    max-width: 800px;
+}
+
+#app-install-banner p {
+    margin: 0;
+    font-weight: 600;
+}
+
+#app-install-banner .buttons {
+    margin-left: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+#app-install-banner button.download {
+    background: var(--cookie-accept);
+    color: var(--color-white);
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1rem;
+}
+
+#app-install-banner button.download:hover {
+    background: var(--cookie-accept-hover);
+}
+
+#app-install-banner button.hide {
+    background: var(--cookie-decline);
+    color: var(--color-white);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+@media screen and (max-width: 600px) {
+    #app-install-banner {
+        display: flex;
+        width: 320px;
+        bottom: 110px;
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    #app-install-banner .buttons {
+        justify-content: space-between;
+    }
+
+    #app-install-banner button.hide {
+        width: 40px;
+        height: 40px;
+        align-self: flex-end;
     }
 }
 
@@ -1635,6 +1777,11 @@ body.scroll-lock {
     padding: 0;
     margin: 0;
     margin-top: 20px;
+    display: block;
+    text-decoration: none;
+}
+.related-posts:hover {
+    color: var(--color-accent-3);
 }
 .related-posts-div {
     padding: 10px;
@@ -1785,6 +1932,44 @@ body.scroll-lock {
         display: none;
     }
 }
+
+/* Global strong styling: accent color + sharp zigzag underline */
+strong {
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    position: relative;
+    /* Ensure the pseudo-element can position relative to text baseline */
+    display: inline-block;
+}
+
+/* Fallback for browsers supporting wavy underline */
+strong {
+    text-decoration: underline;
+    text-decoration-color: var(--color-accent-strong);
+    text-decoration-style: wavy;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
+}
+
+/* Primary effect: sharp zigzag implemented with an SVG background in ::after
+   Uses stroke='currentColor' so the SVG inherits the `color` of the element
+   (which is set above to --color-accent-3). The SVG repeats horizontally to
+   produce a VVV.. zigzag underline. */
+strong::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    bottom: -2px;
+    pointer-events: none;
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+    background-size: auto 10px;
+    transform: translateY(2px);
+}
+
+
 /* Dark mode styles */
 body.dark-mode .ribbon {
     opacity: 0.08;
@@ -1875,13 +2060,13 @@ body.dark-mode #MyNavBar .nav-link:hover {
 
 body.dark-mode .footer-content a,
 body.dark-mode main a {
-    color: var(--color-text-dark);
-    background-color: var(--color-accent-dark);
+    color: var(--color-accent-strong-dark);
+    text-decoration-color: var(--color-accent-strong-dark);
 }
 
 body.dark-mode .footer-content a:hover,
 body.dark-mode main a:hover {
-    background-color: var(--color-accent-2-dark);
+    color: var(--color-accent-3-dark);
 }
 
 body.dark-mode .Mcard {
@@ -2197,6 +2382,14 @@ body.dark-mode .test-summary.poor {
     border: 2px solid var(--test-poor-border-dark);
     color: var(--test-poor-text-dark);
 }
+/* Slightly reduce underline size on very small screens */
+@media (max-width: 480px) {
+    strong::after {
+        height: 8px;
+        background-size: auto 8px;
+        bottom: -1px;
+    }
+}
 
 body.dark-mode .progress-bar {
     height: 20px;
@@ -2411,3 +2604,7 @@ body.dark-mode .related-posts-div:hover {
     background-color: var(--hover-bg-dark);
 }
 
+body.dark-mode strong {
+    color: var(--color-accent-strong-dark);
+    text-decoration-color: var(--color-accent-strong-dark);
+}
