@@ -75,6 +75,8 @@ services.AddEndpointsApiExplorer();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<HttpLoggingHandler>();
+// Register PDF JS interop service for minimal Blazor-JS PDF calls
+services.AddScoped<PdfJsInterop>();
 
 services.AddRefitClient<ITobisoAnonymApi>()
     .ConfigureHttpClient(c =>

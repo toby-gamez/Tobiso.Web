@@ -1,0 +1,12 @@
+@inject Tobiso.Web.App.Services.PdfJsInterop PdfJsInterop
+
+<button class="btn btn-primary" @onclick="OnDownload">Stáhnout PDF</button>
+
+@code {
+    private async Task OnDownload()
+    {
+        // example: generate text PDF from element with id "content"
+        var safe = await PdfJsInterop.SanitizeFileNameAsync("document");
+        await PdfJsInterop.GenerateTextPdfAsync("#content", safe + ".pdf");
+    }
+}

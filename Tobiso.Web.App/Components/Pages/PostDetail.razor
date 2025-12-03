@@ -56,21 +56,24 @@ else
 {
     <h1 class="verybig">@_post.Title</h1>
     <div class="mb-4">
-        @if (_fileSuffix == ".md")
-        {
-            <div class="content-info">
-                @((MarkupString)GetWordCountInfo(_post.Content))
-            </div>
-            @((MarkupString)TransformMarkdownContent(_post.Content))
-        }
-        else if (_fileSuffix == ".html")
-        {
-            @((MarkupString)(_post.Content))
-        }
-        else
-        {
-            @((MarkupString)(_post.Content))
-        }
+        @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
+        <div id="content" class="content">
+            @if (_fileSuffix == ".md")
+            {
+                <div class="content-info">
+                    @((MarkupString)GetWordCountInfo(_post.Content))
+                </div>
+                @((MarkupString)TransformMarkdownContent(_post.Content))
+            }
+            else if (_fileSuffix == ".html")
+            {
+                @((MarkupString)(_post.Content))
+            }
+            else
+            {
+                @((MarkupString)(_post.Content))
+            }
+        </div>
     </div>
     @if (_relatedPosts != null && _relatedPosts.Any())
     {
