@@ -46,7 +46,16 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 		  }
 
 		  var start = DateTime.Now;
-		  var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+		  HttpResponseMessage response;
+		  try
+		  {
+			  response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+		  }
+		  catch (Exception ex)
+		  {
+			  _logger.LogError(ex, $"{msg} HTTP request failed for {request.RequestUri}: {ex.Message}");
+			  throw;
+		  }
 		  var end = DateTime.Now;
 
 		  _logger.LogDebug($"{msg} Duration: {end - start}");

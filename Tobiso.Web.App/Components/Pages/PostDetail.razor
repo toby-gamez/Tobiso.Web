@@ -110,7 +110,10 @@ else
     {
         <button class="btn btn-secondary mb-3" style="float: right" @onclick="ToQuestions">Prověrka</button>
     }
+    <button class="btn btn-primary mb-3" @onclick="GeneratePdf">Exportovat PDF</button>
     <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
+
+    <script src="/js/pdf-utils.js"></script>
 }
 @code {
     [Parameter]
@@ -446,6 +449,24 @@ else
     private void ToQuestions()
     {
         Navigation.NavigateTo($"/questions/{Id}", forceLoad: true);
+    }
+
+    private async Task GeneratePdf()
+    {
+        if (_post == null) return;
+        var title = _post.Title ?? "post";
+        var safe = Regex.Replace(title.ToLowerInvariant(), "[^a-z0-9-_ ]", "");
+        safe = Regex.Replace(safe, "\\s+", "_");
+        var filename = $"{safe}_{DateTime.Now:yyyyMMdd}.pdf";
+        try
+        {
+            // Use text-based PDF generator (not screenshot) to create selectable, unstyled document
+            await Js.InvokeVoidAsync("pdfUtils.generateTextPdf", ".content", filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PDF generation failed: {ex.Message}");
+        }
     }
 
     private string GetWordCountInfo(string? content)

@@ -12,7 +12,11 @@
         text-align: center;
     }
 </style>
-@if (categories == null)
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-warning">@errorMessage</div>
+}
+else if (categories == null)
 {
     <p>Načítám...</p>
 }
@@ -51,26 +55,62 @@ else
     public int? parentId { get; set; }
     private List<CategoryResponse>? categories;
     private IList<PostResponse>? posts;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        categories = await Api.GetAllCategories();
-        await LoadPosts();
+        try
+        {
+            categories = await Api.GetAllCategories();
+            await LoadPosts();
+        }
+        catch (System.Net.Http.HttpRequestException ex)
+        {
+            errorMessage = "Nemohu se připojit k backendu. Zkontroluj, že `Tobiso.Web.Api` běží (localhost:7270).";
+            Console.WriteLine($"CategoryList: HTTP error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Došlo k chybě při načítání kategorií.";
+            Console.WriteLine($"CategoryList: error: {ex.Message}");
+        }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (categories == null)
-            categories = await Api.GetAllCategories();
-        await LoadPosts();
+        try
+        {
+            if (categories == null)
+                categories = await Api.GetAllCategories();
+            await LoadPosts();
+        }
+        catch (System.Net.Http.HttpRequestException ex)
+        {
+            errorMessage = "Nemohu se připojit k backendu. Zkontroluj, že `Tobiso.Web.Api` běží (localhost:7270).";
+            Console.WriteLine($"CategoryList: HTTP error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Došlo k chybě při načítání kategorií.";
+            Console.WriteLine($"CategoryList: error: {ex.Message}");
+        }
     }
 
     private async Task LoadPosts()
     {
         if (parentId != null)
         {
-            var allPosts = await Api.GetAllPosts();
-            posts = allPosts.Where(p => p.CategoryId == parentId).ToList();
+            try
+            {
+                var allPosts = await Api.GetAllPosts();
+                posts = allPosts.Where(p => p.CategoryId == parentId).ToList();
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+            {
+                errorMessage = "Nemohu načíst příspěvky — backend nedostupný.";
+                Console.WriteLine($"LoadPosts: HTTP error: {ex.Message}");
+                posts = null;
+            }
         }
         else
         {
