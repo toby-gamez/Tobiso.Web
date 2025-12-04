@@ -27,4 +27,17 @@
             return name.replace(/[^a-z0-9\-\_\u00C0-\u017F ]+/ig, '').replace(/\s+/g,'_').trim();
         }
     };
+    // helper to save base64 PDF (called from Blazor)
+    window.pdfBlazorInterop.saveBase64 = function(base64, filename) {
+        try {
+            const link = document.createElement('a');
+            link.href = 'data:application/pdf;base64,' + base64;
+            link.download = filename || 'document.pdf';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (e) {
+            console.error('pdfBlazorInterop.saveBase64 error', e);
+        }
+    };
 })();

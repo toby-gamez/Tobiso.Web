@@ -1,0 +1,302 @@
+using Microsoft.AspNetCore.Mvc;
+using System.Text.RegularExpressions;
+using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.DTOs;
+
+namespace Tobiso.Web.App.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PdfController : ControllerBase
+{
+    private readonly IPdfService _pdfService;
+    private readonly IPostService _postService;
+
+    public PdfController(IPdfService pdfService, IPostService postService)
+    {
+        _pdfService = pdfService;
+        _postService = postService;
+    }
+
+    [HttpPost("generate")]
+    public IActionResult Generate([FromBody] PdfRequestDto req)
+    {
+        if (req == null || string.IsNullOrEmpty(req.Html))
+            return BadRequest("Missing HTML content");
+
+        var fileName = string.IsNullOrEmpty(req.FileName) ? "document.pdf" : req.FileName;
+        var bytes = _pdfService.GeneratePdf(req);
+        if (bytes == null || bytes.Length == 0) return BadRequest("Failed to generate PDF");
+
+        return new FileContentResult(bytes, "application/pdf") { FileDownloadName = fileName };
+    }
+
+    // Generate PDF for a post and return as a downloadable file (no JS required)
+    [HttpGet("generate/post/{id}")]
+    public async Task<IActionResult> GenerateFromPost(int id, [FromQuery] string? fileName)
+    {
+        var post = await _postService.GetById(id);
+        if (post == null) return NotFound();
+
+        var safeTitle = string.IsNullOrWhiteSpace(post.Title) ? "post" : string.Join('_', post.Title.Split(Path.GetInvalidFileNameChars()).Select(s => s.Trim()).Where(s => s.Length > 0));
+        var outputName = string.IsNullOrEmpty(fileName) ? $"{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.pdf" : fileName;
+
+        // Transform content using the same logic as PostDetail.razor
+        string contentHtml;
+        if (!string.IsNullOrEmpty(post.FilePath) && post.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+        {
+            contentHtml = await TransformMarkdownContent(post.Content ?? string.Empty);
+        }
+        else
+        {
+            contentHtml = post.Content ?? string.Empty;
+        }
+
+        // Preserve the original characters in the title (do not HtmlEncode to entities).
+        var titleHtml = string.IsNullOrWhiteSpace(post.Title)
+            ? string.Empty
+            : Markdig.Markdown.ToHtml(post.Title ?? string.Empty);
+
+        // Markdig wraps plain text in <p>..</p>; if so, extract inner text to use inside <h1>.
+        if (titleHtml.StartsWith("<p>", StringComparison.OrdinalIgnoreCase) && titleHtml.EndsWith("</p>", StringComparison.OrdinalIgnoreCase))
+        {
+            titleHtml = titleHtml.Substring(3, titleHtml.Length - 7);
+        }
+
+        var wrapper = $"<div><h1>{titleHtml}</h1>{contentHtml}</div>";
+        var req = new PdfRequestDto { Html = wrapper, FileName = outputName };
+        var bytes = _pdfService.GeneratePdf(req);
+        if (bytes == null || bytes.Length == 0) return BadRequest("Failed to generate PDF");
+
+        return new FileContentResult(bytes, "application/pdf") { FileDownloadName = outputName };
+    }
+
+    private async Task<string> TransformMarkdownContent(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
+
+        // Replace markdown mailto links before processing
+        content = ReplaceMarkdownMailtoInText(content);
+        var html = Markdig.Markdown.ToHtml(content);
+
+        // Get all posts for link transformation
+        var allPosts = await _postService.GetAll();
+
+        // Fix images: add prefix to src in <img>
+        var imgRegex = new Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+        html = imgRegex.Replace(html, match =>
+        {
+            var origSrc = match.Groups[1].Value;
+            if (origSrc.Contains("http")) return match.Value;
+            if (origSrc.Contains("images"))
+            {
+                var fullSrc = origSrc.StartsWith("/") ? $"https://tobiso.com{origSrc}" : $"https://tobiso.com/{origSrc}";
+                return match.Value.Replace(origSrc, fullSrc);
+            }
+            return match.Value;
+        });
+
+        // Process links
+        var regex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
+        html = regex.Replace(html, match =>
+        {
+            var origHref = match.Groups[1].Value;
+            var attrs = match.Groups[2].Value;
+            var linkText = match.Groups[3].Value;
+
+            if (origHref.Contains("http"))
+            {
+                return $"<a href=\"{origHref}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
+            }
+            if (origHref.Contains("files"))
+            {
+                var fullUrl = origHref.StartsWith("/") ? $"https://tobiso.com{origHref}" : $"https://tobiso.com/{origHref}";
+                return $"<a href=\"{fullUrl}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
+            }
+            if (origHref.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var mailto = origHref.Substring("mailto:".Length);
+                    var parts = mailto.Split('?', 2);
+                    var address = parts[0] ?? "";
+                    var encodedQuery = "";
+                    if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        encodedQuery = string.Join("&",
+                            parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(p =>
+                                {
+                                    var kv = p.Split('=', 2);
+                                    var k = kv[0];
+                                    var v = kv.Length > 1 ? kv[1] : "";
+                                    return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                                })
+                        );
+                    }
+                    var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                    return $"<a href=\"{href}\"{attrs}>{linkText}</a>";
+                }
+                catch
+                {
+                    return $"<a href=\"{origHref}\"{attrs}>{linkText}</a>";
+                }
+            }
+
+            var file = Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-|geo-)", "");
+            file = file.Replace(".html", ".md");
+            if (!file.StartsWith("/")) file = "/" + file;
+            var postMatch = allPosts.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
+            if (postMatch != null)
+            {
+                // In PDF, convert internal links to absolute URLs
+                return $"<a href=\"https://tobiso.com/post/{postMatch.Id}\"{attrs}>{linkText}</a>";
+            }
+            return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
+        });
+
+        // Wrap text in dots into div with class intro
+        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
+        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
+        var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
+        html = singleDotsRegex.Replace(html, "");
+        html = html.Replace("...", "");
+        html = ConvertMarkdownTablesToHtml(html);
+        return html;
+    }
+
+    private string ReplaceMarkdownMailtoInText(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.Contains("mailto:", StringComparison.OrdinalIgnoreCase))
+            return input ?? string.Empty;
+
+        var mdMailtoRegex = new Regex(@"\[([^\]]+)\]\((mailto:([^\)\s]+)(\?[^\)]*)?)\)", RegexOptions.IgnoreCase);
+        return mdMailtoRegex.Replace(input, match =>
+        {
+            try
+            {
+                var linkText = match.Groups[1].Value;
+                var full = match.Groups[2].Value;
+                var mailto = full.Substring("mailto:".Length);
+                var parts = mailto.Split('?', 2);
+                var address = parts[0] ?? "";
+                var encodedQuery = "";
+                if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                {
+                    encodedQuery = string.Join("&",
+                        parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(p =>
+                            {
+                                var kv = p.Split('=', 2);
+                                var k = kv[0];
+                                var v = kv.Length > 1 ? kv[1] : "";
+                                return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                            })
+                    );
+                }
+                var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                return $"<a href=\"{href}\">{linkText}</a>";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+    }
+
+    private string ConvertMarkdownTablesToHtml(string html)
+    {
+        var tableRegex = new Regex(@"<p>(\s*\|.*(?:<br\s*/?>\s*\|.*)+)</p>", RegexOptions.Singleline);
+
+        html = tableRegex.Replace(html, match =>
+        {
+            var tableContent = match.Groups[1].Value.Trim();
+            var lines = Regex.Split(tableContent, @"<br\s*/?>")
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                .ToList();
+
+            if (lines.Count < 2) return match.Value;
+
+            int separatorIndex = lines.FindIndex(line => Regex.IsMatch(line, @"^\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?$"));
+            if (separatorIndex < 1) return match.Value;
+
+            var headerLine = lines[separatorIndex - 1];
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+            var headerCells = ParseConcatenatedRow(headerLine);
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<table class=\"md-table\">");
+            sb.Append("<thead><tr>");
+            foreach (var cellContent in headerCells)
+            {
+                sb.Append($"<th>{cellContent}</th>");
+            }
+            sb.Append("</tr></thead>");
+
+            sb.Append("<tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseConcatenatedRow(bodyLine);
+                sb.Append("<tr>");
+                for (int i = 0; i < headerCells.Count; i++)
+                {
+                    var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
+                    sb.Append($"<td>{cellContent}</td>");
+                }
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+
+            return sb.ToString();
+        });
+
+        var universalTableRegex = new Regex(@"<p>((?:\|[^\n]+\n)+\|[^\n]+)</p>", RegexOptions.Singleline);
+        html = universalTableRegex.Replace(html, match =>
+        {
+            var tableContent = match.Groups[1].Value.Trim();
+            var lines = Regex.Split(tableContent, @"\r?\n|<br\s*/?>")
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                .ToList();
+            if (lines.Count < 2) return match.Value;
+            int separatorIndex = lines.FindIndex(line => Regex.IsMatch(line, @"^\|?([\-: ]+\|)+[\-: ]*\|?$"));
+            if (separatorIndex < 1) return match.Value;
+            var headerLine = lines[separatorIndex - 1];
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+            var headerCells = ParseConcatenatedRow(headerLine);
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<table class=\"md-table\">");
+            sb.Append("<thead><tr>");
+            foreach (var cellContent in headerCells)
+                sb.Append($"<th>{cellContent}</th>");
+            sb.Append("</tr></thead>");
+            sb.Append("<tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseConcatenatedRow(bodyLine);
+                sb.Append("<tr>");
+                for (int i = 0; i < headerCells.Count; i++)
+                {
+                    var cellContent = i < bodyCells.Count ? bodyCells[i] : "";
+                    sb.Append($"<td>{cellContent}</td>");
+                }
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+            return sb.ToString();
+        });
+        return html;
+    }
+
+    private List<string> ParseConcatenatedRow(string rowText)
+    {
+        var cleanRowText = rowText;
+        if (cleanRowText.StartsWith("|")) cleanRowText = cleanRowText.Substring(1);
+        if (cleanRowText.EndsWith("|")) cleanRowText = cleanRowText.Substring(0, cleanRowText.Length - 1);
+
+        return cleanRowText.Split('|', StringSplitOptions.None)
+            .Select(s => s.Trim())
+            .ToList();
+    }
+}

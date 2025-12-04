@@ -224,18 +224,31 @@ window.pdfUtils = (function () {
             // Normalize text: collapse multiple spaces and fix runs of single-letter spacing
             function normalizeText(s) {
                 if (!s) return '';
+                // Remove zero-width / BOM characters that sometimes appear between letters
+                s = s.replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
+                // Normalize to NFC so composed characters (č,ě,ř,ů...) are single codepoints
+                try { if (s.normalize) s = s.normalize('NFC'); } catch (e) { /* ignore */ }
                 // collapse multiple whitespace to single space
                 s = s.replace(/\s+/g, ' ').trim();
+
+                // Helper: is token a single displayed letter (works with composed diacritics)
+                function isSingleLetterToken(tok) {
+                    if (!tok) return false;
+                    // Count user-perceived characters by iterating codepoints
+                    const chars = Array.from(tok);
+                    if (chars.length !== 1) return false;
+                    return /^\p{L}$/u.test(chars[0]);
+                }
 
                 // collapse runs of single-letter tokens (e.g. "P r a v i d l a") into words
                 const tokens = s.split(' ');
                 const out = [];
                 for (let i = 0; i < tokens.length;) {
-                    if (/^\p{L}$/u.test(tokens[i])) {
+                    if (isSingleLetterToken(tokens[i])) {
                         // start of possible run
                         let run = [tokens[i]];
                         let j = i + 1;
-                        while (j < tokens.length && /^\p{L}$/u.test(tokens[j])) { run.push(tokens[j]); j++; }
+                        while (j < tokens.length && isSingleLetterToken(tokens[j])) { run.push(tokens[j]); j++; }
                         if (run.length >= 3) {
                             out.push(run.join(''));
                         } else {

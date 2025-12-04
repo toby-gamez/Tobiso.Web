@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using QuestPDF;
+using QuestPDF.Infrastructure;
 using Refit;
 using Serilog;
 using Tobiso.Api.Authentication;
@@ -24,12 +26,12 @@ Log.Logger = new LoggerConfiguration()
 builder.Services.AddControllers();
 builder.Host.UseSerilog();
 
+QuestPDF.Settings.License = LicenseType.Community;
 
 var services = builder.Services;
 
 // Add services
 services.Configure<BasicAuthOptions>(builder.Configuration.GetSection("Auth:Basic"));
-services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? "https://localhost:7270") });
 builder.Services.AddScoped<IPreferenceService, PreferenceService>();
 services.AddHttpContextAccessor();
 
@@ -53,6 +55,8 @@ services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
+// Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
+services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.PdfService>();
 
 services.AddControllers()
     .ConfigureApplicationPartManager(manager =>
@@ -122,6 +126,8 @@ services.AddRefitClient<ITobisoWebApi>()
         return handler;
     })
     .AddHttpMessageHandler<HttpLoggingHandler>();
+
+// PDF API is called via raw HTTP or existing clients — no additional Refit interface registered.
 
 services.AddSwaggerGen(options =>
 {

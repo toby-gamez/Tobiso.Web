@@ -31,10 +31,15 @@
 		<PackageReference Include="Refit" Version="8.0.0" />
 		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
 	</ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Tobiso.Web.Domain\Tobiso.Web.Domain.csproj" />
-    <ProjectReference Include="..\Tobiso.Web.Shared\Tobiso.Web.Shared.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Tobiso.Web.Domain\Tobiso.Web.Domain.csproj" />
+		<ProjectReference Include="..\Tobiso.Web.Shared\Tobiso.Web.Shared.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="PuppeteerSharp" Version="6.0.0" />
+		<PackageReference Include="HtmlAgilityPack" Version="1.11.54" />
+		<PackageReference Include="QuestPDF" Version="2025.7.4" />
+	</ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Extensions.Hosting">
       <HintPath>..\..\..\..\.nuget\packages\microsoft.aspnetcore.app.ref\9.0.8\ref\net9.0\Microsoft.Extensions.Hosting.dll</HintPath>

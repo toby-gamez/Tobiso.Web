@@ -5,6 +5,7 @@
 @inject ITobisoAnonymApi Api
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
+@inject System.Net.Http.HttpClient Http
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
 <style>
     section img {
@@ -457,14 +458,18 @@ else
     private async Task GeneratePdf()
     {
         if (_post == null) return;
+
+        // Prefer a simple GET that returns the PDF file so browser handles download (no JS interop needed)
         var title = _post.Title ?? "post";
         var safe = Regex.Replace(title.ToLowerInvariant(), "[^a-z0-9-_ ]", "");
         safe = Regex.Replace(safe, "\\s+", "_");
         var filename = $"{safe}_{DateTime.Now:yyyyMMdd}.pdf";
+
         try
         {
-            // Use text-based PDF generator (not screenshot) to create selectable, unstyled document
-            await Js.InvokeVoidAsync("pdfUtils.generateTextPdf", ".content", filename);
+            // Navigate to the PDF generation endpoint which returns a File result
+            var url = $"/api/pdf/generate/post/{_post.Id}?fileName={Uri.EscapeDataString(filename)}";
+            Navigation.NavigateTo(url, forceLoad: true);
         }
         catch (Exception ex)
         {
