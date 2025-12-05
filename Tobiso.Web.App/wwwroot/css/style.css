@@ -1651,7 +1651,7 @@ body.scroll-lock {
     color: var(--color-button-text);
 }
 .text-muted {
-    color: var(--color-muted-brown-2) !important;
+    color: var(--color-text-muted) !important;
 }
 
 
@@ -1935,7 +1935,7 @@ body.scroll-lock {
 
 /* Global strong styling: accent color + sharp zigzag underline */
 strong {
-    color: var(--color-accent-strong);
+    color: var(--color-accent-strong-text);
     font-weight: 700;
     position: relative;
     /* Ensure the pseudo-element can position relative to text baseline */
@@ -1950,11 +1950,6 @@ strong {
     text-decoration-thickness: 2px;
     text-underline-offset: 5px;
 }
-
-/* Primary effect: sharp zigzag implemented with an SVG background in ::after
-   Uses stroke='currentColor' so the SVG inherits the `color` of the element
-   (which is set above to --color-accent-3). The SVG repeats horizontally to
-   produce a VVV.. zigzag underline. */
 strong::after {
     content: "";
     position: absolute;
@@ -1969,6 +1964,36 @@ strong::after {
     transform: translateY(2px);
 }
 
+.tools {
+    display: flex;
+    justify-content: space-between;
+    border-radius: 10px;
+    height: 15px;
+    padding: 20px;
+    background-color: var(--intro-light-bg);
+}
+.tool {
+    display: flex;
+    border-radius: 10px;
+    padding: 0;
+    justify-items: center;
+    align-items: center;
+}
+.tool button
+{
+    padding: 3px;
+    background-color: transparent;
+    box-shadow: none;
+    transition: all ease 0.1s;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+}
+.tool button:hover{
+    background-color: var(--intro-light-button);
+    transform: none;
+    border: 2px solid var(--color-text);
+}
 
 /* Dark mode styles */
 body.dark-mode .ribbon {
@@ -2605,6 +2630,18 @@ body.dark-mode .related-posts-div:hover {
 }
 
 body.dark-mode strong {
-    color: var(--color-accent-strong-dark);
+    color: var(--color-accent-2);
     text-decoration-color: var(--color-accent-strong-dark);
+}
+
+body.dark-mode .tools
+{
+    background-color: var(--intro-light-bg-dark);
+}
+body.dark-mode .tool button {
+    background-color: transparent;
+}
+body.dark-mode .tool button:hover{
+    background-color: var(--intro-light-button-dark);
+    border: 2px solid var(--color-text-dark);
 }

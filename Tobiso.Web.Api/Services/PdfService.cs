@@ -435,6 +435,11 @@ namespace Tobiso.Web.Api.Services
                     }
                     else if (childTag == "em" || childTag == "i")
                     {
+                        // Skip entire italic block if it contains "zde"
+                        if (innerText.Contains("zde", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
                         text.Span(innerText).Italic();
                     }
                     else if (childTag == "img")

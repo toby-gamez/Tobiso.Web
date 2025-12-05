@@ -69,7 +69,12 @@ accent-dark: #8a2e5f
      --success-2: #4a7c59;
      --progress-bar-dark: #2b0f00;
      --intro-bg: #FFE3EC;
-     --intro-bg-dark: #3D1429;
+     --intro-bg-dark: #2e0d00;
+     --intro-light-bg: #FFB8CF;
+     --intro-light-bg-dark: #6A304E;
+     --intro-light-button: #F7A9C2;
+     --intro-light-button-dark: #763858;
+
 
      --color-sesit-hover-light: #67a06a;
      --test-excellent-bg-dark: #1e3a2a;
@@ -101,6 +106,7 @@ accent-dark: #8a2e5f
     --color-accent-3: #b35b8a;
     --color-accent-4: #d89dbd;
     --color-accent-strong: #c36f9a; /* use primary as strong accent */
+    --color-accent-strong-text: #5C445C;
 
     --color-border-main: #c36f9a; /* use primary as border accent */
 
@@ -141,7 +147,6 @@ accent-dark: #8a2e5f
     --color-brand-1-dark: #903c67; /* primary-dark */
     --color-muted-tan: #d4a389;
     --color-progress-bar-dark: #2b0f00;
-    --color-intro-bg-dark: #2e0d00;
     --color-muted-light: #e9ecef;
     --color-muted-brown-2: #5a2b00;
     /* Nav/menu specific semantics */
@@ -161,7 +166,7 @@ accent-dark: #8a2e5f
     --color-primary: #c36f9a; /* primary from comment */
     --color-primary-dark: #903c67; /* primary-dark from comment */
 
-    --color-text-muted-dark: #b8956f;
+    --color-text-muted-dark: #B39DA7;
     /* New explicit secondary variables from the comment */
     --color-secondary: #d89dbd; /* secondary from comment */
     --color-secondary-dark: #622748; /* secondary-dark from comment */
