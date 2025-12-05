@@ -77,6 +77,7 @@ public class PdfController : ControllerBase
 
         // Replace markdown mailto links before processing
         content = ReplaceMarkdownMailtoInText(content);
+        
         var html = Markdig.Markdown.ToHtml(content);
 
         // Get all posts for link transformation
@@ -90,11 +91,44 @@ public class PdfController : ControllerBase
             if (origSrc.Contains("http")) return match.Value;
             if (origSrc.Contains("images"))
             {
-                var fullSrc = origSrc.StartsWith("/") ? $"https://tobiso.com{origSrc}" : $"https://tobiso.com/{origSrc}";
+                var fullSrc = origSrc.StartsWith("/") ? $"https://www.tobiso.com{origSrc}" : $"https://www.tobiso.com/{origSrc}";
                 return match.Value.Replace(origSrc, fullSrc);
             }
             return match.Value;
         });
+        
+        // Clean up alt attributes: remove newlines and extra whitespace
+        html = Regex.Replace(html, @"<img\s+([^>]*)\s+alt=\""([^\""]*)\""", match =>
+        {
+            var beforeAlt = match.Groups[1].Value;
+            var altText = match.Groups[2].Value;
+            // Remove newlines and normalize whitespace in alt text
+            altText = Regex.Replace(altText, @"\s+", " ").Trim();
+            return $"<img {beforeAlt} alt=\"{altText}\"";
+        }, RegexOptions.Singleline);
+        
+        // Convert broken markdown image syntax that Markdig didn't convert: ](images/...) -> <img>
+        html = Regex.Replace(html, @"<p>\s*\]\(([^)]+)\)\s*</p>", match =>
+        {
+            var src = match.Groups[1].Value;
+            // Apply same image path transformation
+            if (src.Contains("images") && !src.Contains("http"))
+            {
+                src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+            }
+            return $"<p><img src=\"{src}\" alt=\"\" /></p>";
+        }, RegexOptions.IgnoreCase);
+        
+        html = Regex.Replace(html, @"\]\(([^)]+)\)", match =>
+        {
+            var src = match.Groups[1].Value;
+            if (src.Contains("images") && !src.Contains("http"))
+            {
+                src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+                return $"<img src=\"{src}\" alt=\"\" />";
+            }
+            return match.Value;
+        }, RegexOptions.IgnoreCase);
 
         // Process links
         var regex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
