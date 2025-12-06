@@ -938,8 +938,12 @@ body.scroll-lock {
     gap: 10px;
     box-shadow: 0 4px 8px var(--shadow-lg);
     z-index: 1042;
-    min-width: 360px;
-    max-width: 800px;
+    width: 300px;
+    bottom: 50px;
+}
+
+#app-install-banner.hidden {
+    display: none !important;
 }
 
 #app-install-banner p {
@@ -972,7 +976,7 @@ body.scroll-lock {
     color: var(--color-white);
     width: 36px;
     height: 36px;
-    border-radius: 50%;
+    border-radius: 10px;
     border: none;
     display: inline-flex;
     align-items: center;
@@ -983,8 +987,6 @@ body.scroll-lock {
 @media screen and (max-width: 600px) {
     #app-install-banner {
         display: flex;
-        width: 320px;
-        bottom: 110px;
         flex-direction: column;
         gap: 8px;
         align-items: stretch;
@@ -1773,6 +1775,9 @@ body.scroll-lock {
     overflow-y: auto;
     max-height: calc(90vh - 140px);
 }
+.related-posts {
+    margin-top: 10px;
+}
 .related-posts a {
     padding: 0;
     margin: 0;
@@ -2341,18 +2346,18 @@ body.dark-mode #cookie-consent {
 /* loading-bar already handled above */
 
 body.dark-mode .grid {
-    border: 2px solid var(--color-accent-2-dark);
+    border: 2px solid var(--color-accent-3-dark);
 }
 
 body.dark-mode .grid-item {
-    border-bottom: 2px solid var(--color-accent-2-dark);
+    border-bottom: 2px solid var(--color-accent-3-dark);
     background: var(--color-accent-2-dark);
 }
 body.dark-mode .grid-item:last-child {
     border-bottom: none;
 }
 body.dark-mode .grid-item a:hover {
-    background-color: var(--color-accent-2-dark);
+    background-color: var(--color-accent-3-dark);
     border-radius: 0;
 }
 
@@ -2669,4 +2674,8 @@ body.dark-mode .tool button {
 }
 body.dark-mode .tool button:hover{
     background-color: var(--intro-light-button-dark);
+}
+body.dark-mode #app-install-banner {
+    background: var(--color-card-bg-dark);
+    border-color: var(--color-card-top-dark);
 }

@@ -28,7 +28,7 @@
 
 <div class="page" xmlns="http://www.w3.org/1999/html">
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu IsDarkMode="@isDarkMode" />
     </div>
     <div class="loading-bar-container">
         <div class="loading-bar"></div>
@@ -162,7 +162,7 @@
     public async Task OnDarkModeToggled(bool isDark)
     {
         isDarkMode = isDark;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]

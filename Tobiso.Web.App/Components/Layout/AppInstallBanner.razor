@@ -2,16 +2,13 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 
-@if (visible)
-{
-    <div id="app-install-banner" role="region" aria-label="Tobiso mobilní aplikace">
-        <p>Proč nemáš ještě mobilní aplikaci Tobiso?</p>
-        <div class="buttons">
-            <button class="download" @onclick="DownloadApp">Stáhnout</button>
-            <button class="hide" @onclick="HideBanner" title="Schovat">✕</button>
-        </div>
+<div id="app-install-banner" class="@(visible ? "" : "hidden")" role="region" aria-label="Tobiso mobilní aplikace">
+    <p>Proč nemáš ještě mobilní aplikaci Tobiso?</p>
+    <div class="buttons">
+        <button class="download" @onclick="DownloadApp">Stáhnout</button>
+        <button class="hide" @onclick="HideBanner" title="Schovat">✕</button>
     </div>
-}
+</div>
 
 @code {
     private bool visible = false;
@@ -42,12 +39,12 @@
 
     private async Task HideBanner()
     {
-        visible = false;
         try
         {
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "appInstallHidden", "true");
         }
         catch { }
+        visible = false;
         StateHasChanged();
     }
 }
