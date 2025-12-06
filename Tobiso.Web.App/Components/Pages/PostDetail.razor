@@ -64,10 +64,18 @@ else
             }
         </div>
         <div class="tool">
-            <button><i class="bi bi-filetype-pdf"></i></button>
+            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+            @if (_hasQuestions)
+            {
+                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+            }
+            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+            </button>
+            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
         </div>
         <div class="tool">
-            @((MarkupString)GetWordCountInfo(_post.Content))
+            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
         </div>
     </div>
     <div class="mb-4">
@@ -85,6 +93,28 @@ else
             {
                 @((MarkupString)(_post.Content))
             }
+        </div>
+    </div>
+    <div class="tools">
+        <div class="tool">
+            @if (_post.UpdatedAt.HasValue)
+            {
+                <span>@_post.UpdatedAt.Value.ToString("d. M. yyyy")</span>
+            }
+        </div>
+        <div class="tool">
+            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+            @if (_hasQuestions)
+            {
+                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+            }
+            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+            </button>
+            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+        </div>
+        <div class="tool">
+            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
         </div>
     </div>
     @if (_relatedPosts != null && _relatedPosts.Any())
@@ -120,15 +150,6 @@ else
             </div>
         </div>
     }
-    
-    @if (_hasQuestions)
-    {
-        <button class="btn btn-secondary mb-3" style="float: right" @onclick="ToQuestions">Prověrka</button>
-    }
-    <button class="btn btn-primary mb-3" @onclick="GeneratePdf">Exportovat PDF</button>
-    <button class="btn btn-secondary mb-3" @onclick="BackHistory">Zpět</button>
-
-    <script src="/js/pdf-utils.js"></script>
 }
 @code {
     [Parameter]
@@ -139,6 +160,7 @@ else
     private string? _returnUrl;
     private string? _fileSuffix;
     private bool _hasQuestions = false;
+    private bool _isShared = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -464,6 +486,20 @@ else
     private void ToQuestions()
     {
         Navigation.NavigateTo($"/questions/{Id}", forceLoad: true);
+    }
+
+    private async Task SharePost()
+    {
+        if (_post == null) return;
+        
+        var url = $"https://www.tobiso.com/post/{_post.Id}";
+        await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        _isShared = true;
+        StateHasChanged();
+        
+        await Task.Delay(1000);
+        _isShared = false;
+        StateHasChanged();
     }
 
     private async Task GeneratePdf()

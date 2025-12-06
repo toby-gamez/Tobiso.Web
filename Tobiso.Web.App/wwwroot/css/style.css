@@ -1984,15 +1984,15 @@ strong::after {
     padding: 3px;
     background-color: transparent;
     box-shadow: none;
-    transition: all ease 0.1s;
+    transition: all ease 0.2s;
     font-size: 20px;
     width: 40px;
     height: 40px;
+    margin: 3px;
 }
 .tool button:hover{
     background-color: var(--intro-light-button);
     transform: none;
-    border: 2px solid var(--color-text);
 }
 
 /* Dark mode styles */
@@ -2288,7 +2288,7 @@ body.dark-mode .opinion-card {
 }
 
 body.dark-mode .opinion-meta {
-    color: var(--muted-brown-dark);
+    color: var(--color-text-muted-dark);
 }
 
 body.dark-mode #cookie-consent button {
@@ -2643,5 +2643,4 @@ body.dark-mode .tool button {
 }
 body.dark-mode .tool button:hover{
     background-color: var(--intro-light-button-dark);
-    border: 2px solid var(--color-text-dark);
 }
