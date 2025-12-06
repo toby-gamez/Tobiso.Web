@@ -9,6 +9,17 @@
 
 <PageTitle>Prověrka - Tobiso</PageTitle>
 
+<style>
+    .container {
+        width: 800px;
+    }
+    @@media (max-width: 600px) {
+        .container {
+            width: auto;
+        }
+    }
+</style>
+
 @if (_questions == null)
 {
     <div class="text-center">
