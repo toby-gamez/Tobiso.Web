@@ -5,7 +5,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IPreferenceService PreferenceService
-
+ 
 <HeadContent>
     <meta name="description" content="Tobiso je vzdělávací platforma zaměřená na školní výuku pro žáky základních škol. Nabízí materiály, které pokrývají různé předměty, jako je mluvnice, literatura, sloh, matematika, chemie a hudební výchova.">
     <meta property="og:title" content="Tobiso">
@@ -36,7 +36,9 @@
     <main>
         <section>
             <article class="content px-4">
-                @Body
+                <CascadingValue Value="isDarkMode" Name="IsDarkMode">
+                    @Body
+                </CascadingValue>
             </article>
         </section>
         <Ribbons/>
@@ -112,7 +114,7 @@
     private IJSObjectReference? jsModule;
     private DotNetObjectReference<MainLayout>? dotNetHelper;
 
-    private bool isDarkMode = false;
+    public bool isDarkMode = false;
     private string? cookieConsent = null;
 
     protected override async Task OnInitializedAsync()

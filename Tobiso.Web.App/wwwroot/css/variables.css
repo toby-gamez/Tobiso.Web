@@ -108,6 +108,11 @@ accent-dark: #8a2e5f
     --color-accent-strong: #c36f9a; /* use primary as strong accent */
     --color-accent-strong-text: #5C445C;
 
+    --color-accent-secondary: #d59fb8; /* secondary from comment */
+    --color-accent-secondary-hover: #c8729a; /* secondary from comment */
+    --color-accent-secondary-dark: #351d29; /* secondary from comment */
+    --color-accent-secondary-hover-dark: #593346; /* secondary from comment */
+
     --color-border-main: #c36f9a; /* use primary as border accent */
 
     --color-button-bg: #c36f9a; /* primary from comment */

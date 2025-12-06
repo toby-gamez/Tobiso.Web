@@ -1,3 +1,213 @@
 @page "/"
+@inject NavigationManager NavigationManager
 <PageTitle>Hlavní stránka - Tobiso</PageTitle>
-<link rel="stylesheet" href="css/index-style.css"/>
+<link rel="stylesheet" href="css/index-style.css" />
+<style>
+    .sidebar {
+        display: none; 
+    }
+
+    .content {
+        padding: 0;
+    }
+
+    main {
+        margin: 0;
+    }
+
+    footer p {
+        margin-left: 0;
+    }
+
+    .footer-content {
+        margin-left: 0;
+    }
+    .ribbon-1, .ribbon-2, .ribbon-3, .ribbon-4, .ribbon-5 {
+        display: none;
+    }
+    .loading-bar-container {
+        display: none;
+    }
+</style>
+
+<div class="decorative-ribbons">
+    <svg class="ribbon ribbon-7" viewBox="0 0 500 1600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 250,0 C 180,80 420,160 150,320 C -120,480 380,580 200,780 C 20,980 450,1100 280,1320 C 110,1540 320,1580 250,1600" 
+              stroke="url(#gradient7)" stroke-width="55" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient7" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--color-accent);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent-2);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <svg class="ribbon ribbon-8" viewBox="0 0 600 1400" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 300,0 C 300,120 150,140 250,300 C 350,460 500,400 400,600 C 350,650 350,750 400,800 C 450,850 450,950 400,1000 C 300,1100 100,1050 200,1280 C 300,1510 450,1380 350,1400" 
+              stroke="url(#gradient8)" stroke-width="50" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient8" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--color-accent-3);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent-strong);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <svg class="ribbon ribbon-9" viewBox="0 0 550 1500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 280,0 C 480,200 80,250 350,480 C 500,580 500,720 350,820 C 200,920 200,1060 350,1160 C 620,1360 -20,1420 280,1500" 
+              stroke="url(#gradient9)" stroke-width="60" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient9" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--color-accent-2);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <svg class="ribbon ribbon-10" viewBox="0 0 520 1450" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 260,0 C 160,110 380,280 120,450 C -140,620 420,760 240,1000 C 60,1240 500,1340 260,1450" 
+              stroke="url(#gradient10)" stroke-width="53" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient10" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--color-accent-strong);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent-3);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <svg class="ribbon ribbon-11" viewBox="0 0 2000 700" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 0,350 C 120,580 180,120 380,420 C 580,720 640,180 850,480 C 1060,780 1100,50 1350,400 C 1600,750 1680,200 1820,520 C 1960,840 1980,280 2000,350" 
+              stroke="url(#gradient11)" stroke-width="52" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient11" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:var(--color-accent-2);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent-strong);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <svg class="ribbon ribbon-12" viewBox="0 0 480 1800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <path d="M 240,0 C 340,180 -50,280 280,560 C 450,680 450,820 280,940 C 110,1060 110,1200 280,1320 C 560,1540 180,1580 280,1720 C 380,1860 120,1780 240,1800" 
+              stroke="url(#gradient12)" stroke-width="55" fill="none" stroke-linecap="round"/>
+        <defs>
+            <linearGradient id="gradient12" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--color-accent);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:var(--color-accent-2);stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+</div>
+
+<div class="hero">
+    <div class="hero-container">
+        <div class="hero-item">
+            <h1 class="headline">Zápisy rychle, <span class="underlined-headline">přesně</span></h1>
+            <p>Tobiso je platforma, kde máte přístup v zápiskům sešitů kompletně zdarma.</p>
+            <div class="hero-buttons">
+                <button @onclick="Learn"><i class="bi bi-book"></i> Chci se učit!</button>
+                <button class="secondary" id="openSearch"><i class="bi bi-search"></i> Hledat</button>
+            </div>
+        </div>
+        <div class="hero-item">
+        @if (isDarkMode)
+        {
+            <img src="images/privlastek-image-dark.png" alt="Ilustrace Tobiso" class="hero-image" />
+        }
+        else
+        {
+            <img src="images/privlastek-image.png" alt="Ilustrace Tobiso" class="hero-image" />
+        }
+        </div>
+    </div>
+</div>
+<div class="home-grid">
+    <div @onclick="Mluvnice" class="home-grid-item">
+        <div>
+            <i class="bi bi-journal-text"></i>
+        </div>
+        <div>
+            <span>Mluvnice</span>
+        </div>
+    </div>
+    <div @onclick="Literatura" class="home-grid-item">
+        <div>
+            <i class="bi bi-book"></i>
+        </div>
+        <div>
+            <span>Literatura</span>
+        </div>
+    </div>
+    <div @onclick="Sloh" class="home-grid-item">
+        <div>
+            <i class="bi bi-pen"></i>
+        </div>
+        <div>
+            <span>Sloh</span>
+        </div>
+    </div>
+    <div @onclick="Matematika" class="home-grid-item">
+        <div>
+            <i class="bi bi-calculator"></i>
+        </div>
+        <div>
+            <span>Matematika</span>
+        </div>
+    </div>
+    <div @onclick="HudebniVychova" class="home-grid-item">
+        <div>
+            <i class="bi bi-music-note"></i>
+        </div>
+        <div>
+            <span>Hudební výchova</span>
+        </div>
+    </div>
+    <div @onclick="Prirodopis" class="home-grid-item">
+        <div>
+            <i class="bi bi-flower2"></i>
+        </div>
+        <div>
+            <span>Přírodopis</span>
+        </div>
+    </div>
+    <div @onclick="Fyzika" class="home-grid-item">
+        <div>
+            <i class="bi bi-gear"></i>
+        </div>
+        <div>
+            <span>Fyzika</span>
+        </div>
+    </div>
+    <div @onclick="Chemie" class="home-grid-item">
+        <div>
+            <i class="bi bi-balloon"></i>
+        </div>
+        <div>
+            <span>Chemie</span>
+        </div>
+    </div>
+    <div @onclick="Zemepis" class="home-grid-item">
+        <div>
+            <i class="bi bi-globe-americas"></i>
+        </div>
+        <div>
+            <span>Zeměpis</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter(Name = "IsDarkMode")]
+    public bool isDarkMode { get; set; }
+    
+    private void Learn() => NavigationManager.NavigateTo("categories");
+
+    private void Mluvnice() => NavigationManager.NavigateTo("categories/2");
+    private void Literatura() => NavigationManager.NavigateTo("categories/5");
+    private void Sloh() => NavigationManager.NavigateTo("categories/3");
+    private void Matematika() => NavigationManager.NavigateTo("categories/6");
+    private void HudebniVychova() => NavigationManager.NavigateTo("categories/4");
+    private void Prirodopis() => NavigationManager.NavigateTo("categories/9");
+    private void Fyzika() => NavigationManager.NavigateTo("categories/8");
+    private void Chemie() => NavigationManager.NavigateTo("categories/7");
+    private void Zemepis() => NavigationManager.NavigateTo("categories/10");
+}
