@@ -1994,6 +1994,32 @@ strong::after {
     background-color: var(--intro-light-button);
     transform: none;
 }
+.tool span {
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+@media only screen and (max-width: 600px) {
+    .tools {
+        height: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 10px;
+        justify-content: center;
+    }
+    .tool {
+        flex-shrink: 0;
+        justify-content: center;
+    }
+    .tool:nth-child(2) {
+        flex-basis: 100%;
+        order: 2;
+    }
+    .tool span {
+        font-size: 12px;
+    }
+}
 
 /* Dark mode styles */
 body.dark-mode .ribbon {
