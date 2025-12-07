@@ -56,6 +56,19 @@ body.dark-mode h6 {
 else
 {
     <h1 class="verybig">@_post.Title</h1>
+    
+    @if (_breadcrumbCategories != null && _breadcrumbCategories.Any())
+    {
+        <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+            @foreach (var category in _breadcrumbCategories)
+            {
+                <a href="/categories/@category.Id">@category.Name</a>
+                <span class="separator">></span>
+            }
+            <span class="current">@_post.Title</span>
+        </nav>
+    }
+    
     <div class="tools">
         <div class="tool">
             @if (_post.UpdatedAt.HasValue)
@@ -156,6 +169,8 @@ else
     private PostResponse? _post;
     private List<PostResponse>? _allPosts;
     private List<RelatedPostResponse>? _relatedPosts;
+    private List<CategoryResponse>? _allCategories;
+    private List<CategoryResponse>? _breadcrumbCategories;
     private string? _returnUrl;
     private string? _fileSuffix;
     private bool _hasQuestions = false;
@@ -165,6 +180,8 @@ else
     {
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
+        _allCategories = await Api.GetAllCategories();
+        BuildBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
@@ -177,6 +194,8 @@ else
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetAllPosts()).ToList();
+        _allCategories = await Api.GetAllCategories();
+        BuildBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
@@ -529,5 +548,27 @@ else
         var wordCount = Regex.Matches(content, "\\w+").Count;
         var minutes = Math.Max(1, (int)Math.Ceiling(wordCount / 180.0));
         return $"{wordCount} slov | <i class=\"bi bi-eye\"></i> {minutes} min";
+    }
+
+    private void BuildBreadcrumb()
+    {
+        _breadcrumbCategories = new List<CategoryResponse>();
+        
+        if (_post?.CategoryId == null || _allCategories == null) return;
+
+        var currentCategoryId = _post.CategoryId.Value;
+        var visited = new HashSet<int>();
+
+        while (currentCategoryId > 0)
+        {
+            if (visited.Contains(currentCategoryId)) break;
+            visited.Add(currentCategoryId);
+
+            var category = _allCategories.FirstOrDefault(c => c.Id == currentCategoryId);
+            if (category == null) break;
+
+            _breadcrumbCategories.Insert(0, category);
+            currentCategoryId = category.ParentId ?? 0;
+        }
     }
 }
