@@ -1,0 +1,298 @@
+@page "/addendums"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ITobisoWebApi Api
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>Správa dodatků - Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Správa dodatků</h3>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <i class="bi bi-plus-circle"></i> Nový dodatek
+        </button>
+    </div>
+
+    @if (addendums == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Načítám...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" @bind="searchTerm" @onkeyup="OnSearchChanged" 
+                       placeholder="Hledat dodatek..." />
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Název</th>
+                        <th>Datum aktualizace</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!filteredAddendums.Any())
+                    {
+                        <tr><td colspan="4" class="text-center">Žádné dodatky k zobrazení.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var addendum in filteredAddendums)
+                        {
+                            <tr>
+                                <td>@addendum.Id</td>
+                                <td>@addendum.Name</td>
+                                <td>@(addendum.UpdatedAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info" @onclick="() => ShowViewModal(addendum)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-primary" @onclick="() => ShowEditModal(addendum)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" @onclick="() => DeleteAddendum(addendum.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* Modal pro vytvoření/editaci dodatku *@
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "Upravit dodatek" : "Nový dodatek")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="addendumModel" OnValidSubmit="SaveAddendum">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="mb-3">
+                            <label class="form-label">Název *</label>
+                            <InputText class="form-control" @bind-Value="addendumModel.Name" />
+                            <ValidationMessage For="@(() => addendumModel.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Obsah *</label>
+                            <InputTextArea class="form-control" rows="10" @bind-Value="addendumModel.Content" />
+                            <ValidationMessage For="@(() => addendumModel.Content)" />
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Zrušit</button>
+                            <button type="submit" class="btn btn-primary">@(isEditing ? "Uložit změny" : "Vytvořit dodatek")</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@* Modal pro zobrazení obsahu *@
+@if (showViewModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@viewAddendum?.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CloseViewModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>ID:</strong> @viewAddendum?.Id
+                    </div>
+                    <div class="mb-3">
+                        <strong>Datum aktualizace:</strong> @(viewAddendum?.UpdatedAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")
+                    </div>
+                    <div class="mb-3">
+                        <strong>Obsah:</strong>
+                        <pre class="border rounded p-3 bg-light" style="white-space: pre-wrap;">@viewAddendum?.Content</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Zavřít</button>
+                    <button type="button" class="btn btn-primary" @onclick="() => { CloseViewModal(); ShowEditModal(viewAddendum!); }">Upravit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<AddendumResponse>? addendums;
+    private List<AddendumResponse> filteredAddendums = new();
+    private string searchTerm = "";
+    
+    private bool showModal = false;
+    private bool showViewModal = false;
+    private bool isEditing = false;
+    private AddendumResponse addendumModel = new();
+    private AddendumResponse? viewAddendum;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is authenticated
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAddendums();
+    }
+
+    private async Task LoadAddendums()
+    {
+        try
+        {
+            addendums = (await Api.GetAllAddendums()).ToList();
+            FilterAddendums();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Chyba při načítání dodatků: {ex.Message}");
+        }
+    }
+
+    private void FilterAddendums()
+    {
+        if (addendums == null) return;
+
+        filteredAddendums = addendums.Where(a =>
+            string.IsNullOrWhiteSpace(searchTerm) || 
+            a.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            a.Content.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+        ).OrderBy(a => a.Name).ToList();
+    }
+
+    private void OnSearchChanged()
+    {
+        FilterAddendums();
+        StateHasChanged();
+    }
+
+    private void ShowCreateModal()
+    {
+        isEditing = false;
+        addendumModel = new AddendumResponse();
+        showModal = true;
+    }
+
+    private void ShowEditModal(AddendumResponse addendum)
+    {
+        isEditing = true;
+        addendumModel = new AddendumResponse
+        {
+            Id = addendum.Id,
+            Name = addendum.Name,
+            Content = addendum.Content,
+            UpdatedAt = addendum.UpdatedAt
+        };
+        showModal = true;
+    }
+
+    private void ShowViewModal(AddendumResponse addendum)
+    {
+        viewAddendum = addendum;
+        showViewModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        addendumModel = new AddendumResponse();
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        viewAddendum = null;
+    }
+
+    private async Task SaveAddendum()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                await Api.UpdateAddendum(addendumModel.Id, addendumModel);
+                await JSRuntime.InvokeVoidAsync("alert", "Dodatek byl úspěšně upraven.");
+            }
+            else
+            {
+                await Api.CreateAddendum(addendumModel);
+                await JSRuntime.InvokeVoidAsync("alert", "Dodatek byl úspěšně vytvořen.");
+            }
+
+            CloseModal();
+            await LoadAddendums();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Chyba při ukládání dodatku: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteAddendum(int addendumId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete smazat tento dodatek?"))
+        {
+            try
+            {
+                await Api.DeleteAddendum(addendumId);
+                await JSRuntime.InvokeVoidAsync("alert", "Dodatek byl úspěšně smazán.");
+                await LoadAddendums();
+            }
+            catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Chyba při mazání dodatku: {ex.Message}");
+            }
+        }
+    }
+}

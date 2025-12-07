@@ -1,0 +1,94 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@rendermode InteractiveServer
+@inject ITobisoWebApi Api
+
+@if (_isVisible)
+{
+    <div class="modal show d-block event-modal-overlay" tabindex="-1">
+        <div class="event-modal-content">
+            <div class="event-title-section">
+                <div class="title-and-color">
+                    <h5 class="modal-event-title">@(_addendum?.Name ?? "Dodatek")</h5>
+                </div>
+                <button type="button" class="event-modal-close" @onclick="Close" aria-label="Zavřít"><!--!-->×</button>
+            </div>
+            <div class="modal-body event-modal-body">
+                @if (_isLoading)
+                {
+                    <p>Načítám...</p>
+                }
+                else if (_addendum != null)
+                {
+                    <div class="event-details">
+                        @((MarkupString)Markdig.Markdown.ToHtml(_addendum.Content ?? ""))
+                    </div>
+                    @if (_addendum.UpdatedAt.HasValue)
+                    {
+                        <small>Aktualizováno: @_addendum.UpdatedAt.Value.ToString("d. M. yyyy")</small>
+                    }
+                }
+                else if (_error != null)
+                {
+                    <div class="alert alert-danger">@_error</div>
+                }
+            </div>
+        </div>
+        </div>
+        <div class="modal-backdrop event-modal-backdrop"></div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsVisibleChanged { get; set; }
+
+    [Parameter]
+    public int? AddendumId { get; set; }
+
+    private bool _isVisible;
+    private bool _isLoading;
+    private AddendumResponse? _addendum;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible != _isVisible)
+        {
+            _isVisible = IsVisible;
+
+            if (_isVisible && AddendumId.HasValue)
+            {
+                await LoadAddendum(AddendumId.Value);
+            }
+        }
+    }
+
+    private async Task LoadAddendum(int id)
+    {
+        _isLoading = true;
+        _error = null;
+        _addendum = null;
+
+        try
+        {
+            _addendum = await Api.GetAddendumById(id);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při načítání dodatku: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        _isVisible = false;
+        await IsVisibleChanged.InvokeAsync(_isVisible);
+    }
+}

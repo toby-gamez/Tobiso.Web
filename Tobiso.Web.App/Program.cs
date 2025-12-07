@@ -55,6 +55,8 @@ services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
+services.AddScoped<IAddendumService, AddendumService>();
+services.AddScoped<AddendumModalService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
 services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.PdfService>();
 

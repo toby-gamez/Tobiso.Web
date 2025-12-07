@@ -49,7 +49,10 @@ accent-dark: #8a2e5f
      --cookie-accept-hover: #248f29;
      --cookie-accept-hover-dark: #146818;
      --cookie-decline: #d4332e;
+     --cookie-decline-hover: #c22f2a;
+
      --cookie-decline-dark: #d4332d;
+     --cookie-decline-hover-dark: #bf2e2c;
 
      --danger-strong: #ff6868;
      --danger-strong-dark: #cc4444;

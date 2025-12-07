@@ -1,0 +1,17 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.App.Services
+@inject ITobisoWebApi Api
+@inject AddendumModalService ModalService
+
+@code {
+    [Parameter]
+    public int AddendumId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // When component initializes, trigger the modal service request
+        // This happens when the HTML button (from TransformMarkdownContent) is clicked
+        // and the event propagates here
+    }
+}

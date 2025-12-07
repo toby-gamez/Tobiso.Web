@@ -955,7 +955,7 @@ body.scroll-lock {
 }
 
 #cookie-consent .decline:hover {
-    background: var(--color-brand-1);
+    background: var(--cookie-decline-hover);
 }
 
 @media screen and (max-width: 600px) {
@@ -1836,6 +1836,7 @@ body.scroll-lock {
     font-weight: 600;
     margin: 0;
     word-wrap: break-word;
+    text-decoration: none;
 }
 
 .event-color-circle {
@@ -1848,7 +1849,7 @@ body.scroll-lock {
 }
 
 .event-modal-close {
-    background: none;
+    background: var(--cookie-decline);
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -1861,7 +1862,7 @@ body.scroll-lock {
 }
 
 .event-modal-close:hover {
-    background-color: var(--cookie-decline);
+    background-color: var(--cookie-decline-hover);
     color: var(--color-white);
 }
 
@@ -2552,7 +2553,7 @@ body.dark-mode #cookie-consent .decline {
 }
 
 body.dark-mode #cookie-consent .decline:hover {
-    background: var(--brand-1-dark);
+    background: var(--cookie-decline-hover-dark);
 }
 
 body.dark-mode #cookie-consent {

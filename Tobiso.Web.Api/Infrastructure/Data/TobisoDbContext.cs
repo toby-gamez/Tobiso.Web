@@ -15,6 +15,7 @@ public class TobisoDbContext : DbContext
     public DbSet<Explanation> Explanations { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<RelatedPost> RelatedPosts { get; set; }
+    public DbSet<Addendum> Addendums { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

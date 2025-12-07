@@ -2,10 +2,16 @@
 @using System.Text.RegularExpressions
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.JSInterop
+@using Tobiso.Web.App.Services
 @inject ITobisoAnonymApi Api
+@inject ITobisoWebApi WebApi
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
 @inject System.Net.Http.HttpClient Http
+@inject AddendumModalService ModalService
+@rendermode InteractiveServer
+@implements IDisposable
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
 <style>
     section img {
@@ -18,6 +24,10 @@
     }
     .ribbon-6 {
         display: none;
+    }
+    .addendum-btn {
+        margin: 0 4px;
+        cursor: pointer;
     }
     /* Dotted underline for semantic headings (matching .verybig decoration style) */
 h1,
@@ -163,6 +173,17 @@ else
         </div>
     }
 }
+
+<AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
+
+@* Hidden area for addendum buttons - rendered but not visible *@
+<div style="display:none;">
+    @foreach (var addendumId in _addendumIds)
+    {
+        <AddendumButton AddendumId="@addendumId" />
+    }
+</div>
+
 @code {
     [Parameter]
     public int Id { get; set; }
@@ -175,6 +196,10 @@ else
     private string? _fileSuffix;
     private bool _hasQuestions = false;
     private bool _isShared = false;
+    private bool _showAddendumModal = false;
+    private int? _selectedAddendumId = null;
+    private DotNetObjectReference<PostDetail>? _dotNetRef;
+    private List<int> _addendumIds = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,6 +224,44 @@ else
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("eval", @"
+                window.requestAddendum = function(addendumId) {
+                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerAddendum', addendumId);
+                };
+            ");
+        }
+    }
+
+    [JSInvokable("TriggerAddendum")]
+    public static void TriggerAddendum(int addendumId)
+    {
+        AddendumModalService.TriggerGlobalRequest(addendumId);
+    }
+    
+    protected override void OnInitialized()
+    {
+        AddendumModalService.OnGlobalAddendumRequested += HandleAddendumRequest;
+        ModalService.OnAddendumRequested += HandleAddendumRequest;
+    }
+    
+    private void HandleAddendumRequest(int addendumId)
+    {
+        OpenAddendumModal(addendumId);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
+        ModalService.OnAddendumRequested -= HandleAddendumRequest;
+        _dotNetRef?.Dispose();
     }
 
     private void SetFileSuffix()
@@ -249,13 +312,42 @@ else
         }
     }
 
+    private void OpenAddendumModal(int addendumId)
+    {
+        _selectedAddendumId = addendumId;
+        _showAddendumModal = true;
+    }
+
+    private void OnAddendumModalClose(bool isVisible)
+    {
+        _showAddendumModal = isVisible;
+        if (!isVisible)
+        {
+            _selectedAddendumId = null;
+        }
+    }
+
     private string TransformMarkdownContent(string? content)
     {
         if (string.IsNullOrEmpty(content)) return string.Empty;
         // Pokud obsahuje Markdown-styl mailto odkazy, převedeme je na <a href="mailto:..."> před zpracováním,
         // protože někteří autoři mohou mít odkazy, které Markdig neparsuje (nebo obsah přijde již upravený).
         content = ReplaceMarkdownMailtoInText(content);
+        
         var html = Markdig.Markdown.ToHtml(content);
+        
+        // Zpracování dodatků (--DOD-x--) PO konverzi na HTML
+        _addendumIds.Clear();
+        var addendumRegex = new Regex(@"\(--DOD-(\d+)--\)", RegexOptions.IgnoreCase);
+        html = addendumRegex.Replace(html, match =>
+        {
+            var addendumId = int.Parse(match.Groups[1].Value);
+            if (!_addendumIds.Contains(addendumId))
+            {
+                _addendumIds.Add(addendumId);
+            }
+            return $"<a class='addendum-btn' onclick='window.requestAddendum({addendumId})'><i class=\"bi bi-patch-question\"></i></a>";
+        });
         
         // Oprav obrázky: přidej prefix k src u <img>
         var imgRegex = new Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);

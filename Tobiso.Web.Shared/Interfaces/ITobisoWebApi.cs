@@ -83,6 +83,22 @@ public interface ITobisoWebApi
     [Delete("/api/RelatedPosts/{id}")]
     Task DeleteRelatedPost(int id);
 
+    // Addendums API
+    [Get("/api/Addendums")]
+    Task<IList<AddendumResponse>> GetAllAddendums();
+
+    [Get("/api/Addendums/{id}")]
+    Task<AddendumResponse> GetAddendumById(int id);
+
+    [Post("/api/Addendums")]
+    Task<AddendumResponse> CreateAddendum([Body] AddendumResponse addendum);
+
+    [Put("/api/Addendums/{id}")]
+    Task UpdateAddendum(int id, [Body] AddendumResponse addendum);
+
+    [Delete("/api/Addendums/{id}")]
+    Task DeleteAddendum(int id);
+
     // File upload endpoints - STEJNĚ jako SentrySMP
     [Get("/api/files")]
     Task<IList<FileUploadResponse>> GetAllFilesAsync([Query] string? subDirectory = null);
