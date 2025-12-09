@@ -495,7 +495,7 @@
                             <td class="text-center"><span class="badge bg-info">@question.Explanations.Count</span></td>
                             <td>
                                 <button @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
-                                    <i class="bi bi-arrow-right"></i> Post
+                                    <i class="bi bi-arrow-right"></i> Článek
                                 </button>
                                 @if (expandedQuestionId == question.Id)
                                 {
@@ -762,7 +762,7 @@
                 }
                 catch
                 {
-                    postTitles[postId] = $"Post {postId}";
+                    postTitles[postId] = $"Článek {postId}";
                 }
             }
         }
@@ -774,7 +774,7 @@
 
     private string GetPostTitle(int postId)
     {
-        return postTitles.ContainsKey(postId) ? postTitles[postId] : $"Post {postId}";
+        return postTitles.ContainsKey(postId) ? postTitles[postId] : $"Článek {postId}";
     }
 
     private void ToggleQuestionDetail(int questionId)
