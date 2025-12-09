@@ -11,6 +11,8 @@
 <PageTitle>Procvičování - Tobiso</PageTitle>
 
 <style>
+    @@import url('/css/variables.css');
+
     strong {
         color: var(--text-color);
         text-decoration: none;
@@ -39,7 +41,7 @@
             width: 100%;
             padding: 0.75rem;
             margin-bottom: 1rem;
-            background-color: #ff946c;
+            background-color: var(--color-accent);
             border: 2px solid #220b00;
             border-radius: 8px;
             color: #220b00;
@@ -51,7 +53,7 @@
         }
         
         .mobile-filter-toggle:hover {
-            background-color: #ffad8f;
+            background-color: var(--color-accent-3);
         }
         
         .mobile-filter-toggle i {
@@ -63,13 +65,13 @@
         }
         
         body.dark-mode .mobile-filter-toggle {
-            background-color: #701e00;
+            background-color: var(--color-accent-dark);
             border-color: #fcede9;
             color: #fcede9;
         }
         
         body.dark-mode .mobile-filter-toggle:hover {
-            background-color: #942700;
+            background-color: var(--color-accent-3-dark);
         }
         
         /* Mobile filter panel */
@@ -91,7 +93,7 @@
         }
         
         .mobile-question-card {
-            background-color: #ffbca4;
+            background-color: var(--color-accent-2);
             border-radius: 10px;
             margin-bottom: 1rem;
             padding: 1rem;
@@ -107,8 +109,8 @@
         }
         
         .mobile-question-card.expanded {
-            border-color: #220b00;
-            background-color: #ffad8f;
+            border-color: var(--text-color);
+            background-color: var(--color-accent-4);
         }
         
         .mobile-question-header {
@@ -122,14 +124,14 @@
         .mobile-question-id {
             font-weight: 600;
             font-size: 18px;
-            color: #220b00;
+            color: var(--text-color);
             margin-right: 1rem;
             min-width: fit-content;
         }
         
         .mobile-question-text {
             flex: 1;
-            color: #220b00;
+            color: var(--text-color);
             line-height: 1.4;
         }
         
@@ -152,13 +154,13 @@
         }
         
         .mobile-meta-badge.answers {
-            background-color: #ff946c;
-            color: #220b00;
+            background-color: var(--color-accent-2);
+            color: var(--text-color);
         }
         
         .mobile-meta-badge.explanations {
-            background-color: #ffad8f;
-            color: #220b00;
+            background-color: var(--color-accent-4);
+            color: var(--text-color);
         }
         
         .mobile-question-actions {
@@ -177,7 +179,7 @@
         .mobile-question-detail {
             margin-top: 1rem;
             padding-top: 1rem;
-            border-top: 2px solid #ff946c;
+            border-top: 2px solid var(--color-accent-2);
         }
         
         /* Touch-friendly improvements */
@@ -193,7 +195,7 @@
         
         /* Mobile info display improvements */
         .mobile-filter-info {
-            background-color: #ffad8f;
+            background-color: var(--color-accent-4);
             padding: 1rem;
             border-radius: 8px;
             margin-bottom: 1rem;
@@ -214,42 +216,42 @@
         
         /* Dark mode mobile styles */
         body.dark-mode .mobile-question-card {
-            background-color: #852401;
+            background-color: var(--color-accent-dark);
         }
         
         body.dark-mode .mobile-question-card:hover {
-            border-color: #fcede9;
+            border-color: var(--color-white);
         }
         
         body.dark-mode .mobile-question-card.expanded {
-            border-color: #fcede9;
-            background-color: #942700;
+            border-color: var(--color-white);
+            background-color: var(--color-accent-3-dark);
         }
         
         body.dark-mode .mobile-question-id,
         body.dark-mode .mobile-question-text {
-            color: #fcede9;
+            color: var(--color-white);
         }
         
         body.dark-mode .mobile-question-detail {
-            border-top-color: #701e00;
+            border-top-color: var(--color-accent-2);
         }
         
         body.dark-mode .mobile-filter-info {
-            background-color: #942700;
+            background-color: var(--color-accent-3-dark);
         }
         
 
         
         /* Dark mode mobile badge styles */
         body.dark-mode .mobile-meta-badge.answers {
-            background-color: #701e00;
-            color: #fcede9;
+            background-color: var(--color-accent-2);
+            color: var(--color-white);
         }
         
         body.dark-mode .mobile-meta-badge.explanations {
-            background-color: #942700;
-            color: #fcede9;
+            background-color: var(--color-accent-3-dark);
+            color: var(--color-white);
         }
     }
     
