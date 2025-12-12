@@ -921,13 +921,19 @@ body.scroll-lock {
     height: 100%;
 }
 
+.cookie-consent-div {
+    margin-left: 285px;
+    display: flex;
+    justify-content: center;
+}
+
 #cookie-consent {
     position: fixed;
     bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-accent);
-    border: 5px solid var(--color-card-top);
+    text-align: center;
+    background-color: rgba(209, 117, 166, 0.3);
+    backdrop-filter: blur(10px);
+    transition: 0.3s all ease;
     padding: 15px;
     border-radius: 10px;
     display: flex;
@@ -935,6 +941,7 @@ body.scroll-lock {
     gap: 10px;
     box-shadow: 0 4px 8px var(--shadow-lg);
     z-index: 1041;
+    justify-content: center;
 }
 
 #cookie-consent p {
@@ -966,26 +973,27 @@ body.scroll-lock {
         flex-direction: column;
         gap: 5px;
     }
+    .cookie-consent-div {
+        margin-left: 0;   
+    }
 }
 
 /* App install banner - uses same visual style as cookie banner */
 #app-install-banner {
-    /* Hidden by default (desktop); shown only on small screens below */
-    display: none;
     position: fixed;
-    bottom: 150px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-accent);
-    border: 5px solid var(--color-card-top);
-    padding: 14px 16px;
+    bottom: 90px;
+    text-align: center;
+    background-color: rgba(209, 117, 166, 0.3);
+    backdrop-filter: blur(10px);
+    transition: 0.3s all ease;
+    padding: 15px;
     border-radius: 10px;
     align-items: center;
     gap: 10px;
     box-shadow: 0 4px 8px var(--shadow-lg);
-    z-index: 1042;
-    width: 300px;
-    bottom: 50px;
+    z-index: 1041;
+    justify-content: center;
+    display: none;
 }
 
 #app-install-banner.hidden {

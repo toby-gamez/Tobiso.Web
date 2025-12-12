@@ -11,7 +11,7 @@
     <meta property="og:title" content="Tobiso">
     <meta property="og:description" content="Tobiso je vzdělávací platforma zaměřená na školní výuku pro žáky základních škol. Nabízí materiály, jako je mluvnice, literatura, sloh, matematika a dalších 6.">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://tobiso.com/images/ucivo.png">
+    <meta property="og:image" content="https://tobiso.com/images/privlastek.png">
     <meta property="og:url" content="https://tobiso.com">
     <meta name="twitter:title" content="Tobiso">
     <meta name="twitter:description" content="Tobiso je vzdělávací platforma zaměřená na školní výuku pro žáky základních škol. Nabízí předměty, jako je mluvnice, literatura, sloh, matematika a dalších 6.">
@@ -56,13 +56,16 @@
 @* Search Modal *@
 <SearchModal />
 @* App install banner (global) *@
-<AppInstallBanner />
+
 
 @* Cookie Consent Banner *@
-<div id="cookie-consent" style="display: none;">
-    <p>Tento web používá cookies. Pokud nesouhlasíte, budou se posílat jen nezbytné cookies.</p>
-    <button @onclick="AcceptCookies">Souhlasím</button>
-    <button class="decline" @onclick="DeclineCookies">Nesouhlasím</button>
+<div class="cookie-consent-div">
+    <div id="cookie-consent" style="display: none;">
+        <p>Tento web používá cookies. Používáme je pro statistiky stránky. Po odmítnutí se posílat nic nebude.</p>
+        <button @onclick="AcceptCookies">Souhlasím</button>
+        <button class="decline" @onclick="DeclineCookies">Nesouhlasím</button>
+    </div>
+    <AppInstallBanner />
 </div>
 
 <!-- Deep-link / open native app support (tries to open app; no install/download prompt) -->
