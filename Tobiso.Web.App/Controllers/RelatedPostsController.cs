@@ -18,6 +18,7 @@ public class RelatedPostsController : ControllerBase
         _relatedPostService = relatedPostService;
     }
     
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IList<RelatedPostResponse>>> GetAllRelatedPosts()
     {
