@@ -304,6 +304,27 @@ else
             if (_post?.Id != null)
             {
                 _relatedPosts = (await Api.GetRelatedPostsByPostId(_post.Id)).ToList();
+                
+                // Přidat články ze stejné kategorie
+                if (_post.CategoryId.HasValue && _allPosts != null)
+                {
+                    var categoryPosts = _allPosts
+                        .Where(p => p.CategoryId == _post.CategoryId && p.Id != _post.Id)
+                        .Take(5)
+                        .Select(p => new RelatedPostResponse
+                        {
+                            PostId = _post.Id,
+                            RelatedPostId = p.Id,
+                            Text = "souvisí s tématem"
+                        })
+                        .ToList();
+                    
+                    // Vyfiltrovat články, které už jsou v _relatedPosts
+                    var existingIds = _relatedPosts.Select(rp => rp.RelatedPostId).ToHashSet();
+                    var newCategoryPosts = categoryPosts.Where(cp => !existingIds.Contains(cp.RelatedPostId)).ToList();
+                    
+                    _relatedPosts.AddRange(newCategoryPosts);
+                }
             }
         }
         catch (Exception)

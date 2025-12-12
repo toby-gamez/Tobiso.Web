@@ -55,8 +55,8 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Soubor je příliš velký. Maximální velikost je 10MB" });
             }
 
-            // Vytvoř unikátní název souboru
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            // Použij původní název souboru
+            var fileName = file.FileName;
             
             // Cesta do wwwroot/images složky - funguje jak ve vývoji tak na produkci
             var uploadsPath = Path.Combine(_environment.WebRootPath, "images");

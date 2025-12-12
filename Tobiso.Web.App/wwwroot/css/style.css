@@ -2640,8 +2640,8 @@ body.dark-mode #cookie-consent .decline:hover {
 }
 
 body.dark-mode #cookie-consent {
-    background: var(--color-card-bg-dark);
-    border: 5px solid var(--color-card-top-dark);
+    background-color: rgba(209, 117, 166, 0.3);
+    backdrop-filter: blur(10px);
 }
 
 /* loading-bar already handled above */
@@ -3019,8 +3019,8 @@ body.dark-mode .tool button:hover {
 }
 
 body.dark-mode #app-install-banner {
-    background: var(--color-card-bg-dark);
-    border-color: var(--color-card-top-dark);
+    background-color: rgba(209, 117, 166, 0.3);
+    backdrop-filter: blur(10px);
 }
 
 body.dark-mode .secondary {
