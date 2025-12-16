@@ -57,6 +57,22 @@ body.dark-mode h6 {
 .intro h3 {
     text-decoration: none;
 }
+body.focus-mode .sidebar,
+body.focus-mode .decorative-ribbons,
+body.focus-mode .snowflake,
+body.focus-mode footer  {
+    display: none;
+}
+body.focus-mode main {
+    margin: 0;
+}
+body.focus-mode .loading-bar-container {
+    margin-left: 0;
+    width: 100%;
+}
+body.focus-mode section {
+    max-width: 1000px;
+}
 
 </style>
 @if (_post == null)
@@ -92,6 +108,9 @@ else
             {
                 <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
             }
+            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+            </button>
             <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
                 <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
             </button>
@@ -131,6 +150,9 @@ else
             {
                 <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
             }
+            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+            </button>
             <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
                 <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
             </button>
@@ -200,6 +222,7 @@ else
     private int? _selectedAddendumId = null;
     private DotNetObjectReference<PostDetail>? _dotNetRef;
     private List<int> _addendumIds = new();
+    private bool _isFocusMode = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -235,7 +258,31 @@ else
                 window.requestAddendum = function(addendumId) {
                     DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerAddendum', addendumId);
                 };
+                // Initialize instance bridge and fullscreen listener
+                window.__initPostDetail = function(dotnet){
+                    window.__postDetailRef = dotnet;
+                    document.addEventListener('fullscreenchange', function(){
+                        if (!document.fullscreenElement && window.__postDetailRef) {
+                            // Ensure our custom focus styles are also removed
+                            try{ document.body.classList.remove('focus-mode'); }catch(e){}
+                            window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit');
+                        }
+                    });
+                    // Also react to ESC directly to clear our styles
+                    document.addEventListener('keydown', function(e){
+                        if (e && (e.key === 'Escape' || e.code === 'Escape')) {
+                            if (document.body.classList.contains('focus-mode')) {
+                                try{ document.body.classList.remove('focus-mode'); }catch(_){}
+                                if (window.__postDetailRef) {
+                                    window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit');
+                                }
+                            }
+                        }
+                    });
+                };
             ");
+            // Pass DotNet object reference to JS to enable instance callbacks
+            await Js.InvokeVoidAsync("__initPostDetail", _dotNetRef);
         }
     }
 
@@ -262,6 +309,27 @@ else
         AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
         ModalService.OnAddendumRequested -= HandleAddendumRequest;
         _dotNetRef?.Dispose();
+    }
+
+    private async Task ToggleFocusMode()
+    {
+        _isFocusMode = !_isFocusMode;
+        var script = _isFocusMode
+            ? "document.body.classList.add('focus-mode'); try{ if(!document.fullscreenElement && document.documentElement.requestFullscreen){ document.documentElement.requestFullscreen(); } }catch(e){}"
+            : "document.body.classList.remove('focus-mode'); try{ if(document.fullscreenElement && document.exitFullscreen){ document.exitFullscreen(); } }catch(e){}";
+        await Js.InvokeVoidAsync("eval", script);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnExternalFullscreenExit()
+    {
+        if (_isFocusMode)
+        {
+            _isFocusMode = false;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
     }
 
     private void SetFileSuffix()

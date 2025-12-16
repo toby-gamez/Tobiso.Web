@@ -237,7 +237,6 @@ section:has(ul.grid-predmety) {
 
     section {
         width: 97%;
-        max-width: 340px;
         padding: 1px;
         text-align: center;
         align-items: center;
