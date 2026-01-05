@@ -80,9 +80,9 @@ else
                             }
                         </td>
                         <td>
-                            @if (post.UpdatedAt.HasValue)
+                            @if (GetLatest(post) is DateTime dt)
                             {
-                                <small>@post.UpdatedAt.Value.ToString("MMM dd, yyyy HH:mm")</small>
+                                <small>@dt.ToString("MMM dd, yyyy HH:mm")</small>
                             }
                             else
                             {
@@ -156,6 +156,15 @@ else
         }
 
         return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
+    }
+    private DateTime? GetLatest(PostResponse post)
+    {
+        if (post == null) return null;
+        if (post.LastFix.HasValue && post.LastEdit.HasValue)
+        {
+            return post.LastFix > post.LastEdit ? post.LastFix : post.LastEdit;
+        }
+        return post.LastFix ?? post.LastEdit;
     }
     private async Task LoadPosts()
     {

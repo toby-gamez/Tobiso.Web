@@ -37,7 +37,8 @@ public class MdUploader
                 Title = title,
                 Content = content,
                 FilePath = "/" + Path.GetFileName(file),
-                UpdatedAt = null,
+                LastFix = null,
+                LastEdit = null,
                 CategoryId = null,
             };
             var created = await _postService.Create(post);

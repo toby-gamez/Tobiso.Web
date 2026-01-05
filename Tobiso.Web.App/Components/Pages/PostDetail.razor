@@ -97,9 +97,9 @@ else
     
     <div class="tools">
         <div class="tool">
-            @if (_post.UpdatedAt.HasValue)
+            @if (GetLatestEditDate() != null)
             {
-                <span>@_post.UpdatedAt.Value.ToString("d. M. yyyy")</span>
+                <span>@GetLatestEditDateDisplay()</span>
             }
         </div>
         <div class="tool">
@@ -139,9 +139,9 @@ else
     </div>
     <div class="tools">
         <div class="tool">
-            @if (_post.UpdatedAt.HasValue)
+            @if (GetLatestEditDate() != null)
             {
-                <span>@_post.UpdatedAt.Value.ToString("d. M. yyyy")</span>
+                <span>@GetLatestEditDateDisplay()</span>
             }
         </div>
         <div class="tool">
@@ -729,6 +729,21 @@ else
         var wordCount = Regex.Matches(content, "\\w+").Count;
         var minutes = Math.Max(1, (int)Math.Ceiling(wordCount / 180.0));
         return $"{wordCount} slov | <i class=\"bi bi-eye\"></i> {minutes} min";
+    }
+
+    private DateTime? GetLatestEditDate()
+    {
+        if (_post == null) return null;
+        var e = _post.LastEdit;
+        var f = _post.LastFix;
+        if (e.HasValue && f.HasValue) return e > f ? e : f;
+        return e ?? f;
+    }
+
+    private string GetLatestEditDateDisplay()
+    {
+        var d = GetLatestEditDate();
+        return d?.ToString("d. M. yyyy") ?? string.Empty;
     }
 
     private void BuildBreadcrumb()

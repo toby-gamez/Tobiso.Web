@@ -36,7 +36,8 @@ public class PostService : IPostService
                 Title = p.Title,
                 Content = p.Content,
                 FilePath = p.FilePath,
-                UpdatedAt = p.UpdatedAt,
+                LastFix = p.LastFix,
+                LastEdit = p.LastEdit,
                 CategoryId = p.CategoryId
             }).ToList();
         }
@@ -70,7 +71,8 @@ public class PostService : IPostService
             Title = post.Title,
             Content = post.Content,
             FilePath = post.FilePath,
-            UpdatedAt = post.UpdatedAt,
+            LastFix = post.LastFix,
+            LastEdit = post.LastEdit,
             CategoryId = post.CategoryId
         };
     }
@@ -83,7 +85,11 @@ public class PostService : IPostService
         entity.Title = post.Title;
         entity.Content = post.Content;
         entity.FilePath = post.FilePath;
-        entity.UpdatedAt = DateTime.UtcNow;
+        // Update LastFix / LastEdit only if provided in DTO. This allows caller (admin) to decide which timestamp to bump.
+        if (post.LastFix.HasValue)
+            entity.LastFix = post.LastFix;
+        if (post.LastEdit.HasValue)
+            entity.LastEdit = post.LastEdit;
         entity.CategoryId = post.CategoryId;
 
         await _context.SaveChangesAsync();
@@ -129,7 +135,8 @@ public class PostService : IPostService
             Title = post.Title,
             Content = post.Content,
             FilePath = post.FilePath,
-            UpdatedAt = post.UpdatedAt ?? DateTime.UtcNow,
+            LastFix = post.LastFix ?? post.LastEdit ?? DateTime.UtcNow,
+            LastEdit = post.LastEdit,
             CategoryId = post.CategoryId
         };
         _context.Posts.Add(entity);
@@ -143,7 +150,8 @@ public class PostService : IPostService
             Title = created.Title,
             Content = created.Content,
             FilePath = created.FilePath,
-            UpdatedAt = created.UpdatedAt,
+            LastFix = created.LastFix,
+            LastEdit = created.LastEdit,
             CategoryId = created.CategoryId
         };
     }

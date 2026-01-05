@@ -24,7 +24,8 @@ CREATE TABLE [Posts] (
     [Content] nvarchar(max) NOT NULL,
     [FilePath] nvarchar(max) NOT NULL,
     [CreatedAt] datetime2 NOT NULL,
-    [UpdatedAt] datetime2 NULL,
+    [LastFix] datetime2 NULL,
+    [LastEdit] datetime2 NULL,
     [CategoryId] int NULL,
     CONSTRAINT [PK_Posts] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_Posts_Categories_CategoryId] FOREIGN KEY ([CategoryId]) REFERENCES [Categories] ([Id])

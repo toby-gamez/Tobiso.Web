@@ -19,7 +19,14 @@
 else
 {
     <button class="btn btn-secondary mb-3" @onclick="BackToList">Zpět na seznam</button>
+    <button class="btn btn-primary mb-3 ms-2" @onclick="SaveChanges">Uložit</button>
     <h2><i class="bi bi-file-earmark-text"></i> @post.Title</h2>
+    <div class="mb-2">
+        <label>
+            <input type="checkbox" @bind="_isFixSelected" /> Fix
+        </label>
+        <span style="margin-left:12px; color:var(--bs-secondary);">@GetLatestEditDateDisplay()</span>
+    </div>
     <div class="mb-4">
         @((MarkupString)Markdig.Markdown.ToHtml(post.Content))
     </div>
@@ -29,6 +36,8 @@ else
     [Parameter]
     public int id { get; set; }
     private PostResponse? post;
+    private bool _isFixSelected = false;
+    private string? _saveStatus;
 
     protected override async Task OnInitializedAsync()
     {
@@ -43,6 +52,22 @@ else
         try
         {
             post = await Api.GetPostById(id);
+            // Default checkbox selection: choose Fix if LastFix is newer or only one exists
+            if (post != null)
+            {
+                if (post.LastFix.HasValue && post.LastEdit.HasValue)
+                {
+                    _isFixSelected = post.LastFix >= post.LastEdit;
+                }
+                else if (post.LastFix.HasValue)
+                {
+                    _isFixSelected = true;
+                }
+                else
+                {
+                    _isFixSelected = false;
+                }
+            }
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -53,6 +78,48 @@ else
     private void BackToList()
     {
         Navigation.NavigateTo("/posts-incognito");
+    }
+
+    private async Task SaveChanges()
+    {
+        if (post == null) return;
+        // Set timestamps according to checkbox: if Fix selected, update LastFix; otherwise update LastEdit
+        if (_isFixSelected)
+        {
+            post.LastFix = DateTime.UtcNow;
+            post.LastEdit = null;
+        }
+        else
+        {
+            post.LastEdit = DateTime.UtcNow;
+            post.LastFix = null;
+        }
+
+        try
+        {
+            await Api.UpdatePost(post.Id, post);
+            _saveStatus = "Uloženo";
+        }
+        catch (Refit.ApiException ex)
+        {
+            _saveStatus = $"Chyba: {ex.StatusCode}";
+        }
+        StateHasChanged();
+    }
+
+    private DateTime? GetLatestEditDate()
+    {
+        if (post == null) return null;
+        var e = post.LastEdit;
+        var f = post.LastFix;
+        if (e.HasValue && f.HasValue) return e > f ? e : f;
+        return e ?? f;
+    }
+
+    private string GetLatestEditDateDisplay()
+    {
+        var d = GetLatestEditDate();
+        return d?.ToString("d. M. yyyy") ?? string.Empty;
     }
 }
 

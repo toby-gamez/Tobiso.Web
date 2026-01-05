@@ -8,6 +8,8 @@ public class PostResponse
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
-    public DateTime? UpdatedAt { get; set; }
+    // Replaced UpdatedAt with LastFix and added LastEdit
+    public DateTime? LastFix { get; set; }
+    public DateTime? LastEdit { get; set; }
     public int? CategoryId { get; set; }
 }

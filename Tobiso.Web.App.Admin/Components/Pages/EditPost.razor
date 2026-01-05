@@ -6,6 +6,7 @@
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@using System
 
 <h3>Editace postu</h3>
 
@@ -45,6 +46,10 @@ else
             <label for="content" class="form-label">Obsah</label>
             <MarkdownEditor @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
         </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="isFix" @bind="_isFixSelected" />
+            <label class="form-check-label" for="isFix">Oprava (Fix)</label>
+        </div>
         <button type="submit" class="btn btn-primary">Uložit změny</button>
         <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
         <button type="button" class="btn btn-danger ms-2" @onclick="OnDeletePost">Smazat</button>
@@ -61,6 +66,7 @@ else
     private PostResponse? post;
     private List<CategoryResponse> categories = new();
     private string? errorMessage;
+    private bool _isFixSelected = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -76,6 +82,11 @@ else
         {
             post = await Api.GetPostById(Id);
             categories = (await Api.GetAllCategories()).ToList();
+            if (post != null)
+            {
+                // default checkbox state: true if LastFix is newer than LastEdit
+                _isFixSelected = post.LastFix.HasValue && (post.LastEdit == null || post.LastFix > post.LastEdit);
+            }
         }
         catch (Exception ex)
         {
@@ -87,7 +98,18 @@ else
     {
         try
         {
-            await Api.UpdatePost(post!.Id, post!);
+            if (post == null) return;
+            if (_isFixSelected)
+            {
+                post.LastFix = DateTime.UtcNow;
+                post.LastEdit = null;
+            }
+            else
+            {
+                post.LastEdit = DateTime.UtcNow;
+                post.LastFix = null;
+            }
+            await Api.UpdatePost(post.Id, post);
             Navigation.NavigateTo("/");
         }
         catch (Exception ex)
