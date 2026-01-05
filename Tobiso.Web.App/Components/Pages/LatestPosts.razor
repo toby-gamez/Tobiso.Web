@@ -1,0 +1,84 @@
+@page "/latest"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+@inject ILogger<LatestPosts> Logger
+
+<h1 class="verybig">Nejnovější články</h1>
+
+@if (errorMessage != null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (posts == null)
+{
+    <p>Načítání...</p>
+}
+else if (!posts.Any())
+{
+    <p>Žádné příspěvky.</p>
+}
+else
+{
+    <div class="latest-list">
+        @foreach (var p in posts)
+        {
+            <div class="latest-item">
+                <a href="post/@p.Id">
+                    <h5 style="margin: 0">@p.Title</h5>
+                    <div class="latest-muted">
+                                            @if (GetCategoryNameById(p.CategoryId) is string cat && !string.IsNullOrEmpty(cat))
+                    {
+                        <small class="text-muted">@cat</small>
+                    }
+                        <small>@DisplayDate(p)</small>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<PostResponse>? posts;
+    private IList<CategoryResponse> categories = new List<CategoryResponse>();
+    private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var allPosts = (await Api.GetAllPosts()) ?? new List<PostResponse>();
+
+            // Posts with LastEdit first (ordered by LastEdit desc), then posts with LastFix only (ordered by LastFix desc), then the rest
+        var withEdit = allPosts.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
+            var withFixOnly = allPosts.Where(p => !p.LastEdit.HasValue && p.LastFix.HasValue).OrderByDescending(p => p.LastFix);
+            var others = allPosts.Where(p => !p.LastEdit.HasValue && !p.LastFix.HasValue);
+
+            posts = withEdit.Concat(withFixOnly).Concat(others).ToList();
+
+            categories = (await Api.GetAllCategories()) ?? new List<CategoryResponse>();
+            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            Logger.LogError(ex, "Error loading latest posts");
+        }
+    }
+
+    private string? GetCategoryNameById(int? categoryId)
+    {
+        if (!categoryId.HasValue) return null;
+        return categoryNames.TryGetValue(categoryId.Value, out var n) ? n : null;
+    }
+
+    private string DisplayDate(PostResponse p)
+    {
+        if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
+        if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");
+        return "-";
+    }
+}

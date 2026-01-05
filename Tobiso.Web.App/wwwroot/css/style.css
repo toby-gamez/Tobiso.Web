@@ -972,8 +972,9 @@ body.scroll-lock {
         flex-direction: column;
         gap: 5px;
     }
+
     .cookie-consent-div {
-        margin-left: 0;   
+        margin-left: 0;
     }
 }
 
@@ -2241,7 +2242,7 @@ strong::after {
 
 .breadcrumb-nav .separator {
     margin: 0 0.5rem;
-    color:  #999;
+    color: #999;
 }
 
 .breadcrumb-nav .current {
@@ -2271,56 +2272,247 @@ strong::after {
 }
 
 @media only screen and (max-width: 600px) {
-    .snowflake:nth-child(2n), .snowflake:nth-child(4n), .snowflake:nth-child(6n), .snowflake:nth-child(8n), .snowflake:nth-child(10n), .snowflake:nth-child(12n), .snowflake:nth-child(14n), .snowflake:nth-child(16n), .snowflake:nth-child(18n), .snowflake:nth-child(20n) {
+
+    .snowflake:nth-child(2n),
+    .snowflake:nth-child(4n),
+    .snowflake:nth-child(6n),
+    .snowflake:nth-child(8n),
+    .snowflake:nth-child(10n),
+    .snowflake:nth-child(12n),
+    .snowflake:nth-child(14n),
+    .snowflake:nth-child(16n),
+    .snowflake:nth-child(18n),
+    .snowflake:nth-child(20n) {
         display: none;
     }
 }
 
-.snowflake:nth-child(1n) { left: 1%; top: -20%; animation-duration: 8s; animation-delay: 0s; font-size: 2.2em; }
-.snowflake:nth-child(2n) { left: 10%; top: -35%; animation-duration: 12s; animation-delay: 1s; font-size: 2.8em; }
-.snowflake:nth-child(3n) { left: 20%; top: -15%; animation-duration: 10s; animation-delay: 3s; font-size: 2em; }
-.snowflake:nth-child(4n) { left: 30%; top: -45%; animation-duration: 14s; animation-delay: 2s; font-size: 2.5em; }
-.snowflake:nth-child(5n) { left: 40%; top: -25%; animation-duration: 9s; animation-delay: 4s; font-size: 2.3em; }
-.snowflake:nth-child(6n) { left: 50%; top: -30%; animation-duration: 11s; animation-delay: 1.5s; font-size: 2.7em; }
-.snowflake:nth-child(7n) { left: 60%; top: -40%; animation-duration: 13s; animation-delay: 0.5s; font-size: 2.4em; }
-.snowflake:nth-child(8n) { left: 70%; top: -18%; animation-duration: 15s; animation-delay: 3.5s; font-size: 2.1em; }
-.snowflake:nth-child(9n) { left: 80%; top: -28%; animation-duration: 10s; animation-delay: 2.5s; font-size: 2.6em; }
-.snowflake:nth-child(10n) { left: 90%; top: -50%; animation-duration: 12s; animation-delay: 4.5s; font-size: 2.2em; }
-.snowflake:nth-child(11n) { left: 5%; top: -22%; animation-duration: 9s; animation-delay: 1s; font-size: 2.3em; }
-.snowflake:nth-child(12n) { left: 15%; top: -38%; animation-duration: 11s; animation-delay: 2s; font-size: 2.5em; }
-.snowflake:nth-child(13n) { left: 25%; top: -16%; animation-duration: 13s; animation-delay: 0s; font-size: 2.1em; }
-.snowflake:nth-child(14n) { left: 35%; top: -42%; animation-duration: 14s; animation-delay: 3s; font-size: 2.4em; }
-.snowflake:nth-child(15n) { left: 45%; top: -32%; animation-duration: 10s; animation-delay: 1.5s; font-size: 2.6em; }
-.snowflake:nth-child(16n) { left: 55%; top: -26%; animation-duration: 12s; animation-delay: 4s; font-size: 2.2em; }
-.snowflake:nth-child(17n) { left: 65%; top: -48%; animation-duration: 8s; animation-delay: 0.5s; font-size: 2.7em; }
-.snowflake:nth-child(18n) { left: 75%; top: -36%; animation-duration: 15s; animation-delay: 2.5s; font-size: 2.3em; }
-.snowflake:nth-child(19n) { left: 85%; top: -44%; animation-duration: 9s; animation-delay: 3.5s; font-size: 2.8em; }
-.snowflake:nth-child(20n) { left: 95%; top: -24%; animation-duration: 11s; animation-delay: 1s; font-size: 2em; }
+.snowflake:nth-child(1n) {
+    left: 1%;
+    top: -20%;
+    animation-duration: 8s;
+    animation-delay: 0s;
+    font-size: 2.2em;
+}
+
+.snowflake:nth-child(2n) {
+    left: 10%;
+    top: -35%;
+    animation-duration: 12s;
+    animation-delay: 1s;
+    font-size: 2.8em;
+}
+
+.snowflake:nth-child(3n) {
+    left: 20%;
+    top: -15%;
+    animation-duration: 10s;
+    animation-delay: 3s;
+    font-size: 2em;
+}
+
+.snowflake:nth-child(4n) {
+    left: 30%;
+    top: -45%;
+    animation-duration: 14s;
+    animation-delay: 2s;
+    font-size: 2.5em;
+}
+
+.snowflake:nth-child(5n) {
+    left: 40%;
+    top: -25%;
+    animation-duration: 9s;
+    animation-delay: 4s;
+    font-size: 2.3em;
+}
+
+.snowflake:nth-child(6n) {
+    left: 50%;
+    top: -30%;
+    animation-duration: 11s;
+    animation-delay: 1.5s;
+    font-size: 2.7em;
+}
+
+.snowflake:nth-child(7n) {
+    left: 60%;
+    top: -40%;
+    animation-duration: 13s;
+    animation-delay: 0.5s;
+    font-size: 2.4em;
+}
+
+.snowflake:nth-child(8n) {
+    left: 70%;
+    top: -18%;
+    animation-duration: 15s;
+    animation-delay: 3.5s;
+    font-size: 2.1em;
+}
+
+.snowflake:nth-child(9n) {
+    left: 80%;
+    top: -28%;
+    animation-duration: 10s;
+    animation-delay: 2.5s;
+    font-size: 2.6em;
+}
+
+.snowflake:nth-child(10n) {
+    left: 90%;
+    top: -50%;
+    animation-duration: 12s;
+    animation-delay: 4.5s;
+    font-size: 2.2em;
+}
+
+.snowflake:nth-child(11n) {
+    left: 5%;
+    top: -22%;
+    animation-duration: 9s;
+    animation-delay: 1s;
+    font-size: 2.3em;
+}
+
+.snowflake:nth-child(12n) {
+    left: 15%;
+    top: -38%;
+    animation-duration: 11s;
+    animation-delay: 2s;
+    font-size: 2.5em;
+}
+
+.snowflake:nth-child(13n) {
+    left: 25%;
+    top: -16%;
+    animation-duration: 13s;
+    animation-delay: 0s;
+    font-size: 2.1em;
+}
+
+.snowflake:nth-child(14n) {
+    left: 35%;
+    top: -42%;
+    animation-duration: 14s;
+    animation-delay: 3s;
+    font-size: 2.4em;
+}
+
+.snowflake:nth-child(15n) {
+    left: 45%;
+    top: -32%;
+    animation-duration: 10s;
+    animation-delay: 1.5s;
+    font-size: 2.6em;
+}
+
+.snowflake:nth-child(16n) {
+    left: 55%;
+    top: -26%;
+    animation-duration: 12s;
+    animation-delay: 4s;
+    font-size: 2.2em;
+}
+
+.snowflake:nth-child(17n) {
+    left: 65%;
+    top: -48%;
+    animation-duration: 8s;
+    animation-delay: 0.5s;
+    font-size: 2.7em;
+}
+
+.snowflake:nth-child(18n) {
+    left: 75%;
+    top: -36%;
+    animation-duration: 15s;
+    animation-delay: 2.5s;
+    font-size: 2.3em;
+}
+
+.snowflake:nth-child(19n) {
+    left: 85%;
+    top: -44%;
+    animation-duration: 9s;
+    animation-delay: 3.5s;
+    font-size: 2.8em;
+}
+
+.snowflake:nth-child(20n) {
+    left: 95%;
+    top: -24%;
+    animation-duration: 11s;
+    animation-delay: 1s;
+    font-size: 2em;
+}
 
 @keyframes fall {
     0% {
         transform: translateX(0) translateY(0) rotate(0deg);
         opacity: 0;
     }
+
     10% {
         opacity: 0.8;
     }
+
     25% {
         transform: translateX(10px) translateY(25vh) rotate(90deg);
     }
+
     50% {
         transform: translateX(-10px) translateY(50vh) rotate(180deg);
     }
+
     75% {
         transform: translateX(10px) translateY(75vh) rotate(270deg);
     }
+
     90% {
         opacity: 0.8;
     }
+
     100% {
         transform: translateX(0) translateY(110vh) rotate(360deg);
         opacity: 0;
     }
+}
+
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+.latest-item {
+    padding: 10px;
+    border-radius: 10px;
+    transition: all ease 0.3s;
+    background-color: var(--intro-bg);
+    margin-bottom: 5px;
+}
+
+.latest-item a {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.latest-muted {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: right;
+    justify-content: center;
+    gap: 5px
+}
+
+.latest-item:hover {
+  background-color: var(--hover-bg);
 }
 
 /* Dark mode styles */
@@ -3038,13 +3230,17 @@ body.dark-mode .breadcrumb-nav a {
 body.dark-mode .breadcrumb-nav a:hover {
     color: var(--color-accent-3-dark);
 }
+
 body.dark-mode .breadcrumb-nav .current {
     color: var(--color-text-dark);
     font-weight: 500;
 }
-body.dark-mode .mobile-menu-header, body.dark-mode .mobile-menu {
+
+body.dark-mode .mobile-menu-header,
+body.dark-mode .mobile-menu {
     background-color: var(--color-accent-2-dark);
 }
+
 body.dark-mode .menu-grid-item {
     background-color: var(--color-accent-3-dark);
 }
@@ -3052,6 +3248,20 @@ body.dark-mode .menu-grid-item {
 body.dark-mode .menu-grid-item:hover {
     background-color: var(--color-accent-2-dark);
 }
-body.dark-mode .mobile-menu-header h5, body.dark-mode .section-title {
+
+body.dark-mode .mobile-menu-header h5,
+body.dark-mode .section-title {
     color: var(--color-text-dark);
+}
+
+body.dark-mode .text-muted {
+    color: var(--color-text-muted-dark);
+}
+
+body.dark-mode .latest-item {
+    background-color: var(--intro-bg-dark);
+}
+
+body.dark-mode .latest-item:hover {
+  background-color: var(--hover-bg-dark);
 }
