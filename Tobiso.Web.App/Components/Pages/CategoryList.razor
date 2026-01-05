@@ -23,7 +23,7 @@ else if (categories == null)
 else
 {
     <ul class="grid">
-        @foreach (var category in GetFilteredCategories().Where(c => c.ParentId == parentId))
+        @foreach (var category in GetFilteredCategories().Where(c => c.ParentId == parentId && (parentId != null || HasChildren(c.Id))))
         {
             <li class="grid-item">
                 <a href="@($"/categories/{category.Id}")">
@@ -103,7 +103,34 @@ else
             try
             {
                 var allPosts = await Api.GetAllPosts();
-                posts = allPosts.Where(p => p.CategoryId == parentId).ToList();
+
+                // gather all descendant category ids (recursive)
+                var targetIds = new HashSet<int>();
+                if (categories != null)
+                {
+                    var stack = new Stack<int>();
+                    stack.Push(parentId.Value);
+                    targetIds.Add(parentId.Value);
+                    while (stack.Count > 0)
+                    {
+                        var id = stack.Pop();
+                        var children = categories.Where(c => c.ParentId == id).Select(c => c.Id);
+                        foreach (var ch in children)
+                        {
+                            if (targetIds.Add(ch))
+                                stack.Push(ch);
+                        }
+                    }
+                }
+
+                var filtered = allPosts.Where(p => p.CategoryId.HasValue && targetIds.Contains(p.CategoryId.Value)).ToList();
+
+                // same ordering as LatestPosts: LastEdit desc, then LastFix desc, then the rest
+                var withEdit = filtered.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
+                var withFixOnly = filtered.Where(p => !p.LastEdit.HasValue && p.LastFix.HasValue).OrderByDescending(p => p.LastFix);
+                var others = filtered.Where(p => !p.LastEdit.HasValue && !p.LastFix.HasValue);
+
+                posts = withEdit.Concat(withFixOnly).Concat(others).ToList();
             }
             catch (System.Net.Http.HttpRequestException ex)
             {
@@ -116,6 +143,12 @@ else
         {
             posts = null;
         }
+    }
+
+    private bool HasChildren(int id)
+    {
+        if (categories == null) return false;
+        return categories.Any(c => c.ParentId == id);
     }
 
     private string GetCategoryTitle()

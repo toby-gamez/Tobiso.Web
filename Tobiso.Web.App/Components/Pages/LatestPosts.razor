@@ -3,13 +3,31 @@
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoWebApi Api
 @inject ILogger<LatestPosts> Logger
+<PageTitle>Nejnovější učivo - Tobiso</PageTitle>
 
-<h1 class="verybig">Nejnovější články</h1>
+<h1 class="verybig">Nejnovější učivo</h1>
 
 @if (errorMessage != null)
 {
     <div class="alert alert-danger">@errorMessage</div>
 }
+
+<div style="margin-bottom: 10px;">
+    @if (categories == null)
+    {
+        <p>Načítání předmětů...</p>
+    }
+    else
+    {
+        <div>
+            @foreach (var c in GetMainCategories())
+            {
+                <button @onclick="() => SelectCategory(c.Id)">@c.Name</button>
+            }
+            <button class="secondary" @onclick="ShowAll">Vše</button>
+        </div>
+    }
+</div>
 
 @if (posts == null)
 {
@@ -22,16 +40,23 @@ else if (!posts.Any())
 else
 {
     <div class="latest-list">
+        @if (selectedCategoryId != null)
+        {
+            <div class="mb-2">
+                <strong>Filtrované podle předmětu:</strong> @GetCategoryNameById(selectedCategoryId)
+                <button class="btn btn-link" @onclick="ClearSelection">Zrušit filtr</button>
+            </div>
+        }
         @foreach (var p in posts)
         {
             <div class="latest-item">
                 <a href="post/@p.Id">
                     <h5 style="margin: 0">@p.Title</h5>
                     <div class="latest-muted">
-                                            @if (GetCategoryNameById(p.CategoryId) is string cat && !string.IsNullOrEmpty(cat))
-                    {
-                        <small class="text-muted">@cat</small>
-                    }
+                        @if (GetCategoryNameById(p.CategoryId) is string cat && !string.IsNullOrEmpty(cat))
+                        {
+                            <small class="text-muted">@cat</small>
+                        }
                         <small>@DisplayDate(p)</small>
                     </div>
                 </a>
@@ -42,31 +67,99 @@ else
 
 @code {
     private List<PostResponse>? posts;
+    private IList<PostResponse> allPosts = new List<PostResponse>();
+    private List<PostResponse> orderedPosts = new List<PostResponse>();
     private IList<CategoryResponse> categories = new List<CategoryResponse>();
     private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
     private string? errorMessage;
+    private int? selectedCategoryId;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var allPosts = (await Api.GetAllPosts()) ?? new List<PostResponse>();
+            // Fetch posts and categories concurrently, then filter
+            var postsTask = Api.GetAllPosts();
+            var categoriesTask = Api.GetAllCategories();
+            await Task.WhenAll(postsTask, categoriesTask);
+
+            allPosts = (postsTask.Result) ?? new List<PostResponse>();
+            categories = (categoriesTask.Result) ?? new List<CategoryResponse>();
+            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
 
             // Posts with LastEdit first (ordered by LastEdit desc), then posts with LastFix only (ordered by LastFix desc), then the rest
-        var withEdit = allPosts.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
+            var withEdit = allPosts.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
             var withFixOnly = allPosts.Where(p => !p.LastEdit.HasValue && p.LastFix.HasValue).OrderByDescending(p => p.LastFix);
             var others = allPosts.Where(p => !p.LastEdit.HasValue && !p.LastFix.HasValue);
 
-            posts = withEdit.Concat(withFixOnly).Concat(others).ToList();
+            orderedPosts = withEdit.Concat(withFixOnly).Concat(others).ToList();
 
-            categories = (await Api.GetAllCategories()) ?? new List<CategoryResponse>();
-            categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
+            // Exclude posts without a category and posts whose category name is "More"
+            orderedPosts = orderedPosts.Where(p => p.CategoryId.HasValue
+                                                   && categoryNames.TryGetValue(p.CategoryId.Value, out var cname)
+                                                   && !string.Equals(cname, "More", StringComparison.OrdinalIgnoreCase))
+                                         .ToList();
+
+            posts = orderedPosts.ToList();
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
             Logger.LogError(ex, "Error loading latest posts");
         }
+    }
+
+    private IEnumerable<CategoryResponse> GetMainCategories()
+    {
+        if (categories == null) return Enumerable.Empty<CategoryResponse>();
+        return categories.Where(c => c.ParentId == null && categories.Any(ch => ch.ParentId == c.Id)).OrderBy(c => c.Name);
+    }
+
+    private void SelectCategory(int id)
+    {
+        selectedCategoryId = id;
+        FilterPostsBySelected();
+    }
+
+    private void ClearSelection()
+    {
+        selectedCategoryId = null;
+        posts = orderedPosts.ToList();
+    }
+
+    private void ShowAll()
+    {
+        ClearSelection();
+    }
+
+    private void FilterPostsBySelected()
+    {
+        if (selectedCategoryId == null)
+        {
+            posts = orderedPosts.ToList();
+            return;
+        }
+
+        var ids = GetDescendantCategoryIds(selectedCategoryId.Value);
+        posts = orderedPosts.Where(p => p.CategoryId.HasValue && ids.Contains(p.CategoryId.Value)).ToList();
+    }
+
+    private HashSet<int> GetDescendantCategoryIds(int rootId)
+    {
+        var result = new HashSet<int>();
+        if (categories == null) return result;
+        var stack = new Stack<int>();
+        stack.Push(rootId);
+        while (stack.Count > 0)
+        {
+            var cur = stack.Pop();
+            if (!result.Add(cur)) continue;
+            foreach (var ch in categories.Where(c => c.ParentId == cur))
+            {
+                stack.Push(ch.Id);
+            }
+        }
+        return result;
     }
 
     private string? GetCategoryNameById(int? categoryId)
