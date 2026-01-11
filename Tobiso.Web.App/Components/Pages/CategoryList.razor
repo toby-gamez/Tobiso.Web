@@ -104,26 +104,8 @@ else
             {
                 var allPosts = await Api.GetAllPosts();
 
-                // gather all descendant category ids (recursive)
-                var targetIds = new HashSet<int>();
-                if (categories != null)
-                {
-                    var stack = new Stack<int>();
-                    stack.Push(parentId.Value);
-                    targetIds.Add(parentId.Value);
-                    while (stack.Count > 0)
-                    {
-                        var id = stack.Pop();
-                        var children = categories.Where(c => c.ParentId == id).Select(c => c.Id);
-                        foreach (var ch in children)
-                        {
-                            if (targetIds.Add(ch))
-                                stack.Push(ch);
-                        }
-                    }
-                }
-
-                var filtered = allPosts.Where(p => p.CategoryId.HasValue && targetIds.Contains(p.CategoryId.Value)).ToList();
+                // only show posts from the direct category (not recursive)
+                var filtered = allPosts.Where(p => p.CategoryId == parentId.Value).ToList();
 
                 // same ordering as LatestPosts: LastEdit desc, then LastFix desc, then the rest
                 var withEdit = filtered.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
