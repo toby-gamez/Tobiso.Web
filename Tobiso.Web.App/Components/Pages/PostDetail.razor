@@ -89,7 +89,7 @@ else
             @foreach (var category in _breadcrumbCategories)
             {
                 <a href="/categories/@category.Id">@category.Name</a>
-                <span class="separator">></span>
+                <span class="separator"><i class="bi bi-arrow-right-short"></i></span>
             }
             <span class="current">@_post.Title</span>
         </nav>
@@ -422,6 +422,10 @@ else
         // Pokud obsahuje Markdown-styl mailto odkazy, převedeme je na <a href="mailto:..."> před zpracováním,
         // protože někteří autoři mohou mít odkazy, které Markdig neparsuje (nebo obsah přijde již upravený).
         content = ReplaceMarkdownMailtoInText(content);
+        
+        // Náhrada -> za ikonu šipky PŘED konverzí do HTML
+        content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
+        content = content.Replace("->", "<i class=\"bi bi-arrow-right-short\"></i>");
         
         var html = Markdig.Markdown.ToHtml(content);
         
