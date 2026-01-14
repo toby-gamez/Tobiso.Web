@@ -84,6 +84,9 @@ namespace Tobiso.Web.Api.Services
 
             // Normalize whitespace: replace multiple spaces with single space
             var html = System.Text.RegularExpressions.Regex.Replace(request.Html, @"\s{2,}", " ");
+            
+            // Remove (--DOD-x--) patterns where x is any integer
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"\(--DOD-\d+--\)", "");
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -251,17 +254,7 @@ namespace Tobiso.Web.Api.Services
                 }
                 else if (tagName == "table")
                 {
-                    var rows = node.SelectNodes(".//tr");
-                    if (rows != null)
-                    {
-                        foreach (var row in rows)
-                        {
-                            var cells = row.Elements("th").Any()
-                                ? row.Elements("th").Select(c => HtmlEntity.DeEntitize(c.InnerText.Trim())).ToList()
-                                : row.Elements("td").Select(c => HtmlEntity.DeEntitize(c.InnerText.Trim())).ToList();
-                            column.Item().Text(string.Join(" | ", cells));
-                        }
-                    }
+                    RenderTable(column, node);
                 }
             }
         }
@@ -454,6 +447,61 @@ namespace Tobiso.Web.Api.Services
                     }
                 }
             }
+        }
+
+        private void RenderTable(QuestPDF.Fluent.ColumnDescriptor column, HtmlNode tableNode)
+        {
+            var rows = tableNode.SelectNodes(".//tr");
+            if (rows == null || !rows.Any()) return;
+
+            // Zjistit počet sloupců (maximální počet buněk v jakémkoliv řádku)
+            var columnCount = rows.Max(row => 
+                row.Elements("th").Count() + row.Elements("td").Count());
+
+            column.Item().Table(table =>
+            {
+                // Definovat sloupce s rovnoměrnou šířkou
+                table.ColumnsDefinition(columns =>
+                {
+                    for (int i = 0; i < columnCount; i++)
+                    {
+                        columns.RelativeColumn();
+                    }
+                });
+
+                var isFirstRow = true;
+                
+                foreach (var row in rows)
+                {
+                    var cells = row.Elements("th").Any()
+                        ? row.Elements("th").ToList()
+                        : row.Elements("td").ToList();
+                    
+                    var isHeader = row.Elements("th").Any() || 
+                                   (isFirstRow && row.ParentNode?.Name.ToLowerInvariant() == "thead");
+
+                    for (int i = 0; i < cells.Count; i++)
+                    {
+                        var cell = cells[i];
+                        var cellText = HtmlEntity.DeEntitize(cell.InnerText.Trim());
+
+                        table.Cell().Border(0.5f).BorderColor(Colors.Grey.Lighten2)
+                            .Padding(5).Element(container =>
+                            {
+                                if (isHeader)
+                                {
+                                    container.Text(cellText).Bold().FontSize(10);
+                                }
+                                else
+                                {
+                                    container.Text(cellText).FontSize(10);
+                                }
+                            });
+                    }
+
+                    isFirstRow = false;
+                }
+            });
         }
 
         private byte[]? DownloadImage(string url)
