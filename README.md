@@ -1,6 +1,10 @@
 # Tobiso.Web
 This is Tobiso web.
 
+## License
+This project is licensed under the MIT License.
+© 2026 Tobias Heneman
+
 ## Tasks
 
 - [x] make a categories controller with service for categories - list categories
