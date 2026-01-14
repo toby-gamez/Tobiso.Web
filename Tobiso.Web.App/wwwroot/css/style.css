@@ -23,8 +23,12 @@ textarea,
 }
 
 .content li,
-.content p {
+.content p, {
     line-height: 1.7;
+}
+
+p code {
+    font-size: 18px;
 }
 
 ul p {
