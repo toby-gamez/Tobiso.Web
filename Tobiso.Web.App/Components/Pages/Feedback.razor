@@ -1,0 +1,139 @@
+@page "/zpetna-vazba"
+@using Tobiso.Web.Shared.DTOs
+@inject Tobiso.Web.Api.Services.IFeedbackService FeedbackService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Zpětná vazba - Tobiso</PageTitle>
+
+<style>
+
+    .success-message {
+        color: #27ae60;
+        font-weight: bold;
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #d4edda;
+        border-radius: 4px;
+    }
+
+    .error-message {
+        color: #e74c3c;
+        font-weight: bold;
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #f8d7da;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="feedback-container">
+    <h1 class="verybig">Zpětná vazba</h1>
+    <p>
+        Pokud najdete jakoukoli chybu v textu, můžete mi to tady napsat, pokud byste měli otázku, také mi to sem napište. Velmi mě zajímá Vaše zpětná vazba.
+    </p>
+
+    @if (!isSubmitted)
+    {
+        <div class="feedback-form">
+            <input
+                type="text"
+                class="opinion-input"
+                placeholder="Vaše jméno"
+                @bind="feedback.Name"
+                required
+            />
+            <input
+                type="email"
+                class="email-input"
+                placeholder="Váš e-mail"
+                @bind="feedback.Email"
+                required
+            />
+            <textarea
+                placeholder="Zde napište svou zpětnou vazbu"
+                @bind="feedback.Message"
+                required
+            ></textarea>
+            <button type="button" @onclick="SubmitFeedback" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span>Odesílání...</span>
+                }
+                else
+                {
+                    <span>Odeslat zpětnou vazbu</span>
+                }
+            </button>
+        </div>
+    }
+
+    @if (showSuccess)
+    {
+        <div class="success-message">
+            Děkujeme! Vaše zpětná vazba byla úspěšně odeslána.
+        </div>
+    }
+
+    @if (showError)
+    {
+        <div class="error-message">
+            Při odesílání došlo k chybě. Prosím zkuste to znovu.
+        </div>
+    }
+</div>
+
+@code {
+    private CreateFeedbackDto feedback = new CreateFeedbackDto();
+    private bool isSubmitting = false;
+    private bool isSubmitted = false;
+    private bool showSuccess = false;
+    private bool showError = false;
+
+    private async Task SubmitFeedback()
+    {
+        if (string.IsNullOrWhiteSpace(feedback.Name) ||
+            string.IsNullOrWhiteSpace(feedback.Email) ||
+            string.IsNullOrWhiteSpace(feedback.Message))
+        {
+            showError = true;
+            StateHasChanged();
+            await Task.Delay(3000);
+            showError = false;
+            StateHasChanged();
+            return;
+        }
+
+        isSubmitting = true;
+        showError = false;
+        StateHasChanged();
+
+        try
+        {
+            var result = await FeedbackService.Create(feedback);
+
+            if (result != null)
+            {
+                isSubmitted = true;
+                showSuccess = true;
+                feedback = new CreateFeedbackDto();
+            }
+            else
+            {
+                showError = true;
+                await Task.Delay(3000);
+                showError = false;
+            }
+        }
+        catch (Exception)
+        {
+            showError = true;
+            await Task.Delay(3000);
+            showError = false;
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

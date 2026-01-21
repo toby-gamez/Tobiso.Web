@@ -1,0 +1,286 @@
+@page "/feedbacks"
+@using Tobiso.Web.Shared.DTOs
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Authorization
+@inject Tobiso.Web.Api.Services.IFeedbackService FeedbackService
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+
+<PageTitle>Zpětná vazba - Admin</PageTitle>
+
+<style>
+    .feedback-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .feedback-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .feedback-header h3 {
+        color: var(--color-primary);
+        margin: 0;
+    }
+
+    .stats {
+        display: flex;
+        gap: 20px;
+        font-size: 14px;
+    }
+
+    .stat-item {
+        padding: 8px 16px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .stat-item strong {
+        color: var(--color-accent);
+    }
+
+    .feedback-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .feedback-item {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s;
+    }
+
+    .feedback-item:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .feedback-item.unread {
+        border-left: 4px solid var(--color-accent);
+        background-color: #fff9e6;
+    }
+
+    .feedback-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 15px;
+    }
+
+    .feedback-info {
+        flex: 1;
+    }
+
+    .feedback-name {
+        font-weight: bold;
+        font-size: 18px;
+        color: var(--color-primary);
+        margin-bottom: 5px;
+    }
+
+    .feedback-email {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .feedback-date {
+        color: #999;
+        font-size: 12px;
+    }
+
+    .feedback-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .feedback-message {
+        line-height: 1.6;
+        margin-bottom: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        white-space: pre-wrap;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-read {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .btn-read:hover {
+        background-color: #218838;
+    }
+
+    .btn-delete {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background-color: #c82333;
+    }
+
+    .btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+
+    .no-feedback {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .status-unread {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-read {
+        background-color: #28a745;
+        color: white;
+    }
+</style>
+
+<div class="feedback-container">
+    <div class="feedback-header">
+        <h3>Zpětná vazba od uživatelů</h3>
+        @if (feedbacks != null)
+        {
+            <div class="stats">
+                <div class="stat-item">
+                    <strong>Celkem:</strong> @feedbacks.Count
+                </div>
+                <div class="stat-item">
+                    <strong>Nepřečtené:</strong> @feedbacks.Count(f => !f.IsRead)
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">
+            <p>Načítání zpětné vazby...</p>
+        </div>
+    }
+    else if (feedbacks == null || !feedbacks.Any())
+    {
+        <div class="no-feedback">
+            <p>Zatím žádná zpětná vazba.</p>
+        </div>
+    }
+    else
+    {
+        <div class="feedback-list">
+            @foreach (var feedback in feedbacks)
+            {
+                <div class="feedback-item @(feedback.IsRead ? "" : "unread")">
+                    <div class="feedback-header-row">
+                        <div class="feedback-info">
+                            <div class="feedback-name">@feedback.Name</div>
+                            <div class="feedback-email">
+                                <a href="mailto:@feedback.Email">@feedback.Email</a>
+                            </div>
+                            <div class="feedback-date">
+                                @feedback.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                <span class="status-badge @(feedback.IsRead ? "status-read" : "status-unread")">
+                                    @(feedback.IsRead ? "Přečteno" : "Nepřečteno")
+                                </span>
+                            </div>
+                        </div>
+                        <div class="feedback-actions">
+                            @if (!feedback.IsRead)
+                            {
+                                <button class="btn btn-read" @onclick="() => MarkAsRead(feedback.Id)">
+                                    Označit jako přečtené
+                                </button>
+                            }
+                            <button class="btn btn-delete" @onclick="() => DeleteFeedback(feedback.Id)">
+                                Smazat
+                            </button>
+                        </div>
+                    </div>
+                    <div class="feedback-message">
+                        @feedback.Message
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<FeedbackResponse>? feedbacks;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFeedbacks();
+    }
+
+    private async Task LoadFeedbacks()
+    {
+        isLoading = true;
+        try
+        {
+            feedbacks = await FeedbackService.GetAll();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsRead(int id)
+    {
+        var success = await FeedbackService.MarkAsRead(id);
+        if (success)
+        {
+            await LoadFeedbacks();
+        }
+    }
+
+    private async Task DeleteFeedback(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete smazat tuto zpětnou vazbu?"))
+        {
+            var success = await FeedbackService.Delete(id);
+            if (success)
+            {
+                await LoadFeedbacks();
+            }
+        }
+    }
+}
