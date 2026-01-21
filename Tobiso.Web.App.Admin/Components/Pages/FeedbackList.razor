@@ -218,6 +218,12 @@
                                 <span class="status-badge @(feedback.IsRead ? "status-read" : "status-unread")">
                                     @(feedback.IsRead ? "Přečteno" : "Nepřečteno")
                                 </span>
+                                @if (!string.IsNullOrEmpty(feedback.Platform))
+                                {
+                                    <span class="status-badge" style="background-color: #6c757d; color: white; margin-left: 8px;">
+                                        @feedback.Platform
+                                    </span>
+                                }
                             </div>
                         </div>
                         <div class="feedback-actions">

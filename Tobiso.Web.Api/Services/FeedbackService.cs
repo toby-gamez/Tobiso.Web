@@ -35,6 +35,7 @@ public class FeedbackService : IFeedbackService
             Name = f.Name,
             Email = f.Email,
             Message = f.Message,
+            Platform = f.Platform,
             CreatedAt = f.CreatedAt,
             IsRead = f.IsRead
         }).ToList();
@@ -64,6 +65,7 @@ public class FeedbackService : IFeedbackService
             Name = dto.Name,
             Email = dto.Email,
             Message = dto.Message,
+            Platform = dto.Platform,
             CreatedAt = DateTime.UtcNow,
             IsRead = false
         };
@@ -77,6 +79,7 @@ public class FeedbackService : IFeedbackService
             Name = feedback.Name,
             Email = feedback.Email,
             Message = feedback.Message,
+            Platform = feedback.Platform,
             CreatedAt = feedback.CreatedAt,
             IsRead = feedback.IsRead
         };

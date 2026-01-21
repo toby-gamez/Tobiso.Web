@@ -83,7 +83,7 @@
 </div>
 
 @code {
-    private CreateFeedbackDto feedback = new CreateFeedbackDto();
+    private CreateFeedbackDto feedback = new CreateFeedbackDto { Platform = "Web" };
     private bool isSubmitting = false;
     private bool isSubmitted = false;
     private bool showSuccess = false;
@@ -115,7 +115,7 @@
             {
                 isSubmitted = true;
                 showSuccess = true;
-                feedback = new CreateFeedbackDto();
+                feedback = new CreateFeedbackDto { Platform = "Web" };
             }
             else
             {
