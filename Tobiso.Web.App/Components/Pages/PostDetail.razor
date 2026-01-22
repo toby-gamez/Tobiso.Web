@@ -6,6 +6,7 @@
 @using Tobiso.Web.App.Services
 @inject ITobisoAnonymApi Api
 @inject ITobisoWebApi WebApi
+@inject IInteractiveExerciseService ExerciseService
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
 @inject System.Net.Http.HttpClient Http
@@ -162,6 +163,62 @@ else
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
         </div>
     </div>
+    
+    @* Interaktivní cvičení *@
+    @if (_exercises != null && _exercises.Any())
+    {
+        <div class="mt-5 mb-4">
+            <h2 class="verybig">
+                <i class="bi bi-puzzle"></i> Interaktivní cvičení
+            </h2>
+            
+            @foreach (var exercise in _exercises)
+            {
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="bi bi-@GetExerciseIcon(exercise.Type)"></i> @exercise.Title
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(exercise.InstructionsMarkdown))
+                        {
+                            <div class="alert alert-info">
+                                @((MarkupString)Markdig.Markdown.ToHtml(exercise.InstructionsMarkdown))
+                            </div>
+                        }
+                        
+                        <div class="exercise-content bg-light p-4 rounded">
+                            @switch (exercise.Type)
+                            {
+                                case "circuit":
+                                    <CircuitSimulator Exercise="exercise" />
+                                    break;
+                                
+                                case "timeline":
+                                    <TimelineExercise Exercise="exercise" />
+                                    break;
+                                
+                                case "dragdrop":
+                                    <DragDropExercise Exercise="exercise" />
+                                    break;
+                                
+                                case "molecule":
+                                case "matching":
+                                default:
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-tools"></i> 
+                                        <strong>Vývoj probíhá:</strong> Interaktivní komponenta pro typ "@exercise.Type" bude brzy dostupná.
+                                    </div>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    
     @if (_relatedPosts != null && _relatedPosts.Any())
     {
         <div class="intro related-posts">
@@ -223,6 +280,7 @@ else
     private DotNetObjectReference<PostDetail>? _dotNetRef;
     private List<int> _addendumIds = new();
     private bool _isFocusMode = false;
+    private List<InteractiveExerciseResponse>? _exercises;
 
     protected override async Task OnInitializedAsync()
     {
@@ -233,6 +291,7 @@ else
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
+        await LoadExercises();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -247,6 +306,7 @@ else
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
+        await LoadExercises();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -770,5 +830,46 @@ else
             _breadcrumbCategories.Insert(0, category);
             currentCategoryId = category.ParentId ?? 0;
         }
+    }
+
+    private async Task LoadExercises()
+    {
+        try
+        {
+            if (_post?.Id != null)
+            {
+                _exercises = await ExerciseService.GetByPostIdAsync(_post.Id, includeInactive: false);
+            }
+        }
+        catch (Exception)
+        {
+            _exercises = new List<InteractiveExerciseResponse>();
+        }
+    }
+
+    private string GetExerciseIcon(string type)
+    {
+        return type switch
+        {
+            "circuit" => "lightning-charge",
+            "timeline" => "arrow-right",
+            "drag-drop" => "box-arrow-in-down",
+            "molecule" => "diagram-3",
+            "matching" => "link-45deg",
+            _ => "puzzle"
+        };
+    }
+
+    private string GetExerciseTypeLabel(string type)
+    {
+        return type switch
+        {
+            "circuit" => "Fyzikální obvod",
+            "timeline" => "Časová osa",
+            "drag-drop" => "Přetahování do kategorií",
+            "molecule" => "Chemická molekula",
+            "matching" => "Párování",
+            _ => type
+        };
     }
 }

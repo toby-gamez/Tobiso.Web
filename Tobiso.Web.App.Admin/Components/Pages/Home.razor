@@ -38,7 +38,7 @@ else
                     <th scope="col">Category</th>
                     <th scope="col">File Path</th>
                     <th scope="col">Updated</th>
-                    <th scope="col" style="width: 120px;">Actions</th>
+                    <th scope="col" style="width: 200px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -90,7 +90,14 @@ else
                             }
                         </td>
                         <td>
-                            <button class="btn btn-danger btn-sm ms-2" @onclick="() => OnDeletePost(post.Id)">Smazat</button>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary" title="Správa cvičení" @onclick="@(() => GoToExercises(post.Id))">
+                                    <i class="bi bi-puzzle"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" title="Smazat" @onclick="() => OnDeletePost(post.Id)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -212,6 +219,11 @@ else
     private void GoToAddPost()
     {
         Navigation.NavigateTo("/posts/add");
+    }
+
+    private void GoToExercises(int postId)
+    {
+        Navigation.NavigateTo($"/admin/exercises/{postId}");
     }
 
     [Inject]

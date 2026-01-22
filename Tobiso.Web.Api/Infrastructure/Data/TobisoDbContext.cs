@@ -17,6 +17,7 @@ public class TobisoDbContext : DbContext
     public DbSet<RelatedPost> RelatedPosts { get; set; }
     public DbSet<Addendum> Addendums { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
+    public DbSet<InteractiveExercise> InteractiveExercises { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -114,6 +115,31 @@ public class TobisoDbContext : DbContext
                 
             // Konfigurace tabulky s check constraint
             entity.ToTable(t => t.HasCheckConstraint("CK_RelatedPost_DifferentPosts", "[PostId] <> [RelatedPostId]"));
+        });
+        
+        // Configure InteractiveExercise entity
+        modelBuilder.Entity<InteractiveExercise>(entity =>
+        {
+            entity.Property(e => e.Title)
+                .IsRequired()
+                .HasMaxLength(200);
+                
+            entity.Property(e => e.Type)
+                .IsRequired()
+                .HasMaxLength(50);
+                
+            entity.Property(e => e.ConfigJson)
+                .IsRequired();
+                
+            entity.Property(e => e.SolutionJson)
+                .IsRequired();
+                
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasIndex(e => new { e.PostId, e.OrderIndex });
         });
     }
 }

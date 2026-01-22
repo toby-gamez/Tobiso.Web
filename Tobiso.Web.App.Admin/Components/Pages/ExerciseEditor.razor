@@ -1,0 +1,596 @@
+@page "/admin/exercises/{PostId:int}/new"
+@page "/admin/exercises/{PostId:int}/edit/{ExerciseId:int}"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.Api.Services
+@using System.Text.Json
+@inject IInteractiveExerciseService ExerciseService
+@inject IPostService PostService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(_isEditMode ? "Úprava cvičení" : "Nové cvičení") - Admin</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>@(_isEditMode ? "Úprava cvičení" : "Nové cvičení")</h2>
+            @if (_post != null)
+            {
+                <p class="text-muted mb-0">Článek: <strong>@_post.Title</strong></p>
+            }
+        </div>
+        <button class="btn btn-secondary" @onclick="BackToList">
+            <i class="bi bi-arrow-left"></i> Zpět na seznam
+        </button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Načítání...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> @_error
+                <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_success))
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> @_success
+                <button type="button" class="btn-close" @onclick="() => _success = null"></button>
+            </div>
+        }
+
+        <EditForm Model="@_model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Základní informace</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Název cvičení *</label>
+                                <InputText @bind-Value="_model.Title" class="form-control" placeholder="Např: Zapoj sériový obvod" />
+                                <ValidationMessage For="@(() => _model.Title)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Typ cvičení *</label>
+                                <InputSelect @bind-Value="_model.Type" class="form-select" @onchange="OnTypeChanged">
+                                    <option value="">-- Vyberte typ --</option>
+                                    <option value="circuit">Fyzikální obvod</option>
+                                    <option value="timeline">Časová osa</option>
+                                    <option value="drag-drop">Přetahování do kategorií</option>
+                                    <option value="molecule">Chemická molekula</option>
+                                    <option value="matching">Párování</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => _model.Type)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Instrukce (Markdown)</label>
+                                <InputTextArea @bind-Value="_model.InstructionsMarkdown" class="form-control" rows="4" 
+                                               placeholder="Volitelné instrukce, které se zobrazí nad cvičením..." />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Pořadí</label>
+                                    <InputNumber @bind-Value="_model.OrderIndex" class="form-control" />
+                                    <small class="text-muted">Čím nižší číslo, tím výše se zobrazí</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Stav</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <InputCheckbox @bind-Value="_model.IsActive" class="form-check-input" id="isActiveSwitch" />
+                                        <label class="form-check-label" for="isActiveSwitch">
+                                            @(_model.IsActive ? "Aktivní (viditelné pro uživatele)" : "Neaktivní (skryté)")
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Konfigurace cvičení *</h5>
+                            <div>
+                                <button type="button" class="btn btn-sm @(_useVisualEditor ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _useVisualEditor = true">
+                                    <i class="bi bi-ui-checks"></i> Vizuální editor
+                                </button>
+                                <button type="button" class="btn btn-sm @(!_useVisualEditor ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _useVisualEditor = false">
+                                    <i class="bi bi-code-slash"></i> JSON editor
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (_useVisualEditor && !string.IsNullOrEmpty(_model.Type))
+                            {
+                                @switch (_model.Type)
+                                {
+                                    case "circuit":
+                                        <CircuitEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged" />
+                                        break;
+                                    case "timeline":
+                                        <TimelineEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                        break;
+                                    case "drag-drop":
+                                        <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                        break;
+                                    default:
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-info-circle"></i> Vizuální editor pro tento typ cvičení zatím není k dispozici. Použijte JSON editor.
+                                        </div>
+                                        break;
+                                }
+                            }
+                            else
+                            {
+                                @if (!string.IsNullOrEmpty(_model.Type))
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" @onclick="LoadExampleConfig">
+                                        <i class="bi bi-file-earmark-code"></i> Načíst příklad
+                                    </button>
+                                }
+                                <InputTextArea @bind-Value="_model.ConfigJson" class="form-control font-monospace" rows="15" 
+                                               placeholder='{"components": [...], "availableComponents": [...]}' />
+                                <ValidationMessage For="@(() => _model.ConfigJson)" />
+                                @if (!string.IsNullOrEmpty(_configError))
+                                {
+                                    <div class="text-danger mt-2">
+                                        <small><i class="bi bi-exclamation-circle"></i> @_configError</small>
+                                    </div>
+                                }
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="ValidateConfigJson">
+                                    <i class="bi bi-check-circle"></i> Validovat JSON
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Správné řešení (JSON) *</h5>
+                            @if (!string.IsNullOrEmpty(_model.Type))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadExampleSolution">
+                                    <i class="bi bi-file-earmark-code"></i> Načíst příklad
+                                </button>
+                            }
+                        </div>
+                        <div class="card-body">
+                            <InputTextArea @bind-Value="_model.SolutionJson" class="form-control font-monospace" rows="12" 
+                                           placeholder='{"correctConnections": [...], "explanation": "..."}' />
+                            <ValidationMessage For="@(() => _model.SolutionJson)" />
+                            @if (!string.IsNullOrEmpty(_solutionError))
+                            {
+                                <div class="text-danger mt-2">
+                                    <small><i class="bi bi-exclamation-circle"></i> @_solutionError</small>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="ValidateSolutionJson">
+                                <i class="bi bi-check-circle"></i> Validovat JSON
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card sticky-top" style="top: 20px;">
+                        <div class="card-header">
+                            <h5 class="mb-0">Nápověda</h5>
+                        </div>
+                        <div class="card-body">
+                            @if (string.IsNullOrEmpty(_model.Type))
+                            {
+                                <p class="text-muted">Vyberte typ cvičení pro zobrazení nápovědy...</p>
+                            }
+                            else
+                            {
+                                @switch (_model.Type)
+                                {
+                                    case "circuit":
+                                        <h6>Fyzikální obvod</h6>
+                                        <p><strong>Příklad ConfigJson:</strong></p>
+                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetCircuitExample()</pre>
+                                        break;
+                                    case "timeline":
+                                        <h6>Časová osa</h6>
+                                        <p><strong>Příklad ConfigJson:</strong></p>
+                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetTimelineExample()</pre>
+                                        break;
+                                    case "drag-drop":
+                                        <h6>Přetahování</h6>
+                                        <p><strong>Příklad ConfigJson:</strong></p>
+                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetDragDropExample()</pre>
+                                        break;
+                                    case "molecule":
+                                        <h6>Molekula</h6>
+                                        <p><strong>Příklad ConfigJson:</strong></p>
+                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetMoleculeExample()</pre>
+                                        break;
+                                    case "matching":
+                                        <h6>Párování</h6>
+                                        <p>Podobné jako drag-drop, ale pro spojování prvků.</p>
+                                        break;
+                                }
+                                <hr />
+                                <a href="/INTERACTIVE_EXERCISES_DOCS.md" target="_blank" class="btn btn-sm btn-outline-info w-100">
+                                    <i class="bi bi-book"></i> Kompletní dokumentace
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4 mb-5">
+                <button type="button" class="btn btn-secondary" @onclick="BackToList">
+                    <i class="bi bi-x-circle"></i> Zrušit
+                </button>
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    }
+                    <i class="bi bi-save"></i> @(_isEditMode ? "Uložit změny" : "Vytvořit cvičení")
+                </button>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PostId { get; set; }
+
+    [Parameter]
+    public int? ExerciseId { get; set; }
+
+    private bool _isEditMode => ExerciseId.HasValue;
+    private PostResponse? _post;
+    private ExerciseEditorModel _model = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _error;
+    private string? _success;
+    private string? _configError;
+    private string? _solutionError;
+    private bool _useVisualEditor = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _post = await PostService.GetById(PostId);
+            if (_post == null)
+            {
+                _error = "Článek nenalezen.";
+                return;
+            }
+
+            if (_isEditMode)
+            {
+                var exercise = await ExerciseService.GetByIdAsync(ExerciseId!.Value);
+                if (exercise == null)
+                {
+                    _error = "Cvičení nenalezeno.";
+                    return;
+                }
+
+                // Načíst i řešení (pouze pro admin)
+                var solution = await ExerciseService.GetSolutionAsync(ExerciseId.Value);
+
+                _model = new ExerciseEditorModel
+                {
+                    Title = exercise.Title,
+                    Type = exercise.Type,
+                    ConfigJson = FormatJson(exercise.ConfigJson),
+                    SolutionJson = FormatJson(solution?.SolutionJson ?? "{}"),
+                    InstructionsMarkdown = exercise.InstructionsMarkdown,
+                    OrderIndex = exercise.OrderIndex,
+                    IsActive = exercise.IsActive
+                };
+            }
+            else
+            {
+                _model = new ExerciseEditorModel
+                {
+                    OrderIndex = 0,
+                    IsActive = true
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při načítání: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _error = null;
+        _success = null;
+        _saving = true;
+
+        try
+        {
+            // Validace JSON
+            if (!ValidateJson(_model.ConfigJson, out var configError))
+            {
+                _error = $"Chybný ConfigJson: {configError}";
+                return;
+            }
+
+            if (!ValidateJson(_model.SolutionJson, out var solutionError))
+            {
+                _error = $"Chybný SolutionJson: {solutionError}";
+                return;
+            }
+
+            if (_isEditMode)
+            {
+                var request = new UpdateInteractiveExerciseRequest
+                {
+                    Id = ExerciseId!.Value,
+                    Title = _model.Title,
+                    Type = _model.Type,
+                    ConfigJson = _model.ConfigJson,
+                    SolutionJson = _model.SolutionJson,
+                    InstructionsMarkdown = _model.InstructionsMarkdown,
+                    OrderIndex = _model.OrderIndex,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await ExerciseService.UpdateAsync(request);
+                if (result != null)
+                {
+                    _success = "Cvičení bylo úspěšně uloženo!";
+                    await Task.Delay(1500);
+                    BackToList();
+                }
+                else
+                {
+                    _error = "Nepodařilo se aktualizovat cvičení.";
+                }
+            }
+            else
+            {
+                var request = new CreateInteractiveExerciseRequest
+                {
+                    PostId = PostId,
+                    Title = _model.Title,
+                    Type = _model.Type,
+                    ConfigJson = _model.ConfigJson,
+                    SolutionJson = _model.SolutionJson,
+                    InstructionsMarkdown = _model.InstructionsMarkdown,
+                    OrderIndex = _model.OrderIndex,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await ExerciseService.CreateAsync(request);
+                _success = "Cvičení bylo úspěšně vytvořeno!";
+                await Task.Delay(1500);
+                BackToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při ukládání: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ValidateConfigJson()
+    {
+        _configError = ValidateJson(_model.ConfigJson, out var error) 
+            ? null 
+            : error;
+    }
+
+    private void ValidateSolutionJson()
+    {
+        _solutionError = ValidateJson(_model.SolutionJson, out var error) 
+            ? null 
+            : error;
+    }
+
+    private bool ValidateJson(string json, out string? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            error = "JSON nesmí být prázdný";
+            return false;
+        }
+
+        try
+        {
+            JsonDocument.Parse(json);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private string FormatJson(string json)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private void OnTypeChanged(ChangeEventArgs e)
+    {
+        _model.Type = e.Value?.ToString() ?? "";
+    }
+
+    private void OnConfigChanged(string json)
+    {
+        _model.ConfigJson = json;
+        StateHasChanged();
+    }
+
+    private void OnSolutionChanged(string json)
+    {
+        _model.SolutionJson = json;
+        StateHasChanged();
+    }
+
+    private void LoadExampleConfig()
+    {
+        _model.ConfigJson = _model.Type switch
+        {
+            "circuit" => GetCircuitConfigExample(),
+            "timeline" => GetTimelineConfigExample(),
+            "drag-drop" => GetDragDropConfigExample(),
+            "molecule" => GetMoleculeConfigExample(),
+            _ => "{}"
+        };
+    }
+
+    private void LoadExampleSolution()
+    {
+        _model.SolutionJson = _model.Type switch
+        {
+            "circuit" => GetCircuitSolutionExample(),
+            "timeline" => GetTimelineSolutionExample(),
+            "drag-drop" => GetDragDropSolutionExample(),
+            "molecule" => GetMoleculeSolutionExample(),
+            _ => "{}"
+        };
+    }
+
+    private void BackToList()
+    {
+        Navigation.NavigateTo($"/admin/exercises/{PostId}");
+    }
+
+    // Helper methods pro příklady
+    private string GetCircuitExample() => "{\n  \"components\": [...],\n  \"availableComponents\": [...]\n}";
+    private string GetTimelineExample() => "{\n  \"events\": [...],\n  \"timeRange\": {...}\n}";
+    private string GetDragDropExample() => "{\n  \"items\": [...],\n  \"categories\": [...]\n}";
+    private string GetMoleculeExample() => "{\n  \"availableAtoms\": [...]\n}";
+
+    private string GetCircuitConfigExample() => @"{
+  ""components"": [
+    { ""id"": ""battery-1"", ""type"": ""battery"", ""voltage"": 12, ""x"": 50, ""y"": 100 },
+    { ""id"": ""bulb-1"", ""type"": ""bulb"", ""resistance"": 6, ""x"": 200, ""y"": 100 }
+  ],
+  ""availableComponents"": [
+    { ""type"": ""bulb"", ""label"": ""Žárovka"" },
+    { ""type"": ""switch"", ""label"": ""Přepínač"" }
+  ]
+}";
+
+    private string GetCircuitSolutionExample() => @"{
+  ""correctConnections"": [
+    { ""from"": ""battery-1"", ""to"": ""bulb-1"" },
+    { ""from"": ""bulb-1"", ""to"": ""battery-1"" }
+  ],
+  ""explanation"": ""Správně zapojený obvod""
+}";
+
+    private string GetTimelineConfigExample() => @"{
+  ""events"": [
+    { ""id"": ""event-1"", ""label"": ""Bitva u Lipan"", ""year"": 1434 },
+    { ""id"": ""event-2"", ""label"": ""Bitva na Bílé hoře"", ""year"": 1620 }
+  ],
+  ""timeRange"": { ""start"": 1300, ""end"": 1700 }
+}";
+
+    private string GetTimelineSolutionExample() => @"{
+  ""correctOrder"": [""event-1"", ""event-2""],
+  ""explanation"": ""Chronologické pořadí""
+}";
+
+    private string GetDragDropConfigExample() => @"{
+  ""items"": [
+    { ""id"": ""word-1"", ""text"": ""pes"" },
+    { ""id"": ""word-2"", ""text"": ""běží"" }
+  ],
+  ""categories"": [
+    { ""id"": ""noun"", ""label"": ""Podstatné jméno"" },
+    { ""id"": ""verb"", ""label"": ""Sloveso"" }
+  ]
+}";
+
+    private string GetDragDropSolutionExample() => @"{
+  ""correctPlacements"": {
+    ""word-1"": ""noun"",
+    ""word-2"": ""verb""
+  },
+  ""explanation"": ""Správné zařazení""
+}";
+
+    private string GetMoleculeConfigExample() => @"{
+  ""availableAtoms"": [
+    { ""symbol"": ""H"", ""count"": 4 },
+    { ""symbol"": ""O"", ""count"": 2 }
+  ]
+}";
+
+    private string GetMoleculeSolutionExample() => @"{
+  ""correctAtoms"": [
+    { ""id"": ""atom-1"", ""symbol"": ""H"", ""bonds"": 1 },
+    { ""id"": ""atom-2"", ""symbol"": ""O"", ""bonds"": 2 }
+  ],
+  ""explanation"": ""H₂O""
+}";
+
+    private class ExerciseEditorModel
+    {
+        public string Title { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string ConfigJson { get; set; } = "{}";
+        public string SolutionJson { get; set; } = "{}";
+        public string? InstructionsMarkdown { get; set; }
+        public int OrderIndex { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

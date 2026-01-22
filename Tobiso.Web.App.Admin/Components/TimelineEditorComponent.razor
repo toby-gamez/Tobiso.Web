@@ -1,0 +1,272 @@
+@using System.Text.Json
+@using Tobiso.Web.Shared.DTOs
+
+<div class="timeline-editor">
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-arrow-right"></i> Editor časové osy</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Začátek časové osy (rok)</label>
+                    <input type="number" class="form-control" @bind="_timeRangeStart" @bind:event="oninput" @onchange="GenerateJson" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Konec časové osy (rok)</label>
+                    <input type="number" class="form-control" @bind="_timeRangeEnd" @bind:event="oninput" @onchange="GenerateJson" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <h6>Události <button class="btn btn-sm btn-success ms-2" @onclick="AddEvent"><i class="bi bi-plus"></i> Přidat událost</button></h6>
+                
+                @if (!_events.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Zatím nebyly přidány žádné události. Klikněte na tlačítko výše pro přidání první události.
+                    </div>
+                }
+                else
+                {
+                    <div class="timeline-preview" style="position: relative; height: 100px; background: linear-gradient(to right, #e9ecef 0%, #dee2e6 100%); border-radius: 8px; margin: 20px 0;">
+                        <div style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: bold;">@_timeRangeStart</div>
+                        <div style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-weight: bold;">@_timeRangeEnd</div>
+                        
+                        @foreach (var evt in _events.OrderBy(e => e.Year))
+                        {
+                            var position = GetTimelinePosition(evt.Year);
+                            <div style="position: absolute; left: @(position)%; top: 50%; transform: translate(-50%, -50%);">
+                                <div class="timeline-event-marker" title="@evt.Label (@evt.Year)">
+                                    <i class="bi bi-circle-fill text-primary"></i>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">Pořadí</th>
+                                    <th>Událost</th>
+                                    <th style="width: 100px;">Rok</th>
+                                    <th style="width: 100px;">Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{int index = 0;}
+                                @foreach (var evt in _events)
+                                {
+                                    var currentIndex = index++;
+                                    <tr>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-secondary" @onclick="() => MoveUp(currentIndex)" disabled="@(currentIndex == 0)">
+                                                    <i class="bi bi-arrow-up"></i>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" @onclick="() => MoveDown(currentIndex)" disabled="@(currentIndex == _events.Count - 1)">
+                                                    <i class="bi bi-arrow-down"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="evt.Label" @bind:after="GenerateJson" placeholder="Název události" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" @bind="evt.Year" @bind:after="GenerateJson" />
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-danger btn-sm" @onclick="() => RemoveEvent(currentIndex)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-success" @onclick="GenerateJson">
+                    <i class="bi bi-code-square"></i> Aktualizovat JSON
+                </button>
+                <button class="btn btn-warning" @onclick="ClearAll">
+                    <i class="bi bi-x-circle"></i> Vymazat vše
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline-event-marker {
+        cursor: pointer;
+        font-size: 1.2rem;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    
+    .timeline-event-marker:hover {
+        transform: scale(1.3);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string ConfigJson { get; set; } = "{}";
+
+    [Parameter]
+    public EventCallback<string> ConfigJsonChanged { get; set; }
+
+    [Parameter]
+    public string SolutionJson { get; set; } = "{}";
+
+    [Parameter]
+    public EventCallback<string> SolutionJsonChanged { get; set; }
+
+    private List<TimelineEvent> _events = new();
+    private int _timeRangeStart = 1300;
+    private int _timeRangeEnd = 1700;
+    private int _eventCounter = 0;
+
+    protected override void OnParametersSet()
+    {
+        LoadFromJson();
+    }
+
+    private void LoadFromJson()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ConfigJson) || ConfigJson == "{}") return;
+
+            var doc = JsonDocument.Parse(ConfigJson);
+            
+            if (doc.RootElement.TryGetProperty("timeRange", out var timeRange))
+            {
+                if (timeRange.TryGetProperty("start", out var start))
+                    _timeRangeStart = start.GetInt32();
+                if (timeRange.TryGetProperty("end", out var end))
+                    _timeRangeEnd = end.GetInt32();
+            }
+
+            if (doc.RootElement.TryGetProperty("events", out var eventsArray))
+            {
+                _events.Clear();
+                foreach (var item in eventsArray.EnumerateArray())
+                {
+                    _events.Add(new TimelineEvent
+                    {
+                        Id = item.GetProperty("id").GetString() ?? "",
+                        Label = item.GetProperty("label").GetString() ?? "",
+                        Year = item.GetProperty("year").GetInt32()
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // Ignorovat chyby parsování
+        }
+    }
+
+    private void AddEvent()
+    {
+        var id = $"event-{++_eventCounter}";
+        _events.Add(new TimelineEvent
+        {
+            Id = id,
+            Label = $"Nová událost {_eventCounter}",
+            Year = _timeRangeStart + ((_timeRangeEnd - _timeRangeStart) / 2)
+        });
+        GenerateJson();
+    }
+
+    private void RemoveEvent(int index)
+    {
+        _events.RemoveAt(index);
+        GenerateJson();
+    }
+
+    private void MoveUp(int index)
+    {
+        if (index > 0)
+        {
+            var temp = _events[index];
+            _events[index] = _events[index - 1];
+            _events[index - 1] = temp;
+            GenerateJson();
+        }
+    }
+
+    private void MoveDown(int index)
+    {
+        if (index < _events.Count - 1)
+        {
+            var temp = _events[index];
+            _events[index] = _events[index + 1];
+            _events[index + 1] = temp;
+            GenerateJson();
+        }
+    }
+
+    private void ClearAll()
+    {
+        _events.Clear();
+        _eventCounter = 0;
+        _timeRangeStart = 1300;
+        _timeRangeEnd = 1700;
+        GenerateJson();
+    }
+
+    private double GetTimelinePosition(int year)
+    {
+        var range = _timeRangeEnd - _timeRangeStart;
+        if (range <= 0) return 50;
+        
+        var position = ((year - _timeRangeStart) / (double)range) * 80 + 10; // 10% margin on each side
+        return Math.Max(10, Math.Min(90, position));
+    }
+
+    private void GenerateJson()
+    {
+        // Config JSON
+        var config = new
+        {
+            type = "timeline",
+            events = _events.Select(e => new
+            {
+                id = e.Id,
+                label = e.Label,
+                year = e.Year
+            }),
+            timeRange = new
+            {
+                start = _timeRangeStart,
+                end = _timeRangeEnd
+            }
+        };
+
+        var configJson = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        ConfigJsonChanged.InvokeAsync(configJson);
+
+        // Solution JSON (správné chronologické pořadí)
+        var solution = new
+        {
+            correctOrder = _events.OrderBy(e => e.Year).Select(e => e.Id).ToArray(),
+            explanation = "Správné chronologické pořadí událostí"
+        };
+
+        var solutionJson = JsonSerializer.Serialize(solution, new JsonSerializerOptions { WriteIndented = true });
+        SolutionJsonChanged.InvokeAsync(solutionJson);
+    }
+
+    private class TimelineEvent
+    {
+        public string Id { get; set; } = "";
+        public string Label { get; set; } = "";
+        public int Year { get; set; }
+    }
+}

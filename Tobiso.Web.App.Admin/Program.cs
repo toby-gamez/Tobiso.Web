@@ -75,6 +75,7 @@ services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
+services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 
 services.AddSingleton<CredentialStore>();
 services.AddTransient<AuthenticationHeaderHandler>();

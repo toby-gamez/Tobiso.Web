@@ -1,0 +1,315 @@
+@using System.Text.Json
+@using Tobiso.Web.Shared.DTOs
+
+<div class="circuit-editor">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Editor obvodu</h5>
+                </div>
+                <div class="card-body">
+                    <div class="canvas-container" style="position: relative; border: 2px solid #dee2e6; min-height: 400px; background: #f8f9fa;">
+                        @foreach (var component in _components)
+                        {
+                            <div class="circuit-component @(component.Id == _selectedComponentId ? "selected" : "")"
+                                 style="position: absolute; left: @(component.X)px; top: @(component.Y)px; cursor: move;"
+                                 @onclick="() => SelectComponent(component.Id)"
+                                 draggable="true">
+                                <div class="component-visual">
+                                    @GetComponentIcon(component.Type)
+                                    <div class="component-label">@component.Type</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Dostupné komponenty</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-warning" @onclick='() => AddComponent("battery")'>
+                            <i class="bi bi-battery-charging"></i> Baterie
+                        </button>
+                        <button class="btn btn-outline-warning" @onclick='() => AddComponent("bulb")'>
+                            <i class="bi bi-lightbulb"></i> Žárovka
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick='() => AddComponent("switch")'>
+                            <i class="bi bi-toggle-on"></i> Přepínač
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick='() => AddComponent("resistor")'>
+                            <i class="bi bi-activity"></i> Odpor
+                        </button>
+                        <button class="btn btn-outline-info" @onclick='() => AddComponent("wire")'>
+                            <i class="bi bi-dash-lg"></i> Vodič
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (_selectedComponentId != null)
+            {
+                var component = _components.FirstOrDefault(c => c.Id == _selectedComponentId);
+                if (component != null)
+                {
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Vlastnosti: @component.Type</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <label class="form-label">ID</label>
+                                <input type="text" class="form-control form-control-sm" @bind="component.Id" disabled />
+                            </div>
+                            
+                            @if (component.Type == "battery")
+                            {
+                                <div class="mb-2">
+                                    <label class="form-label">Napětí (V)</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="component.Voltage" />
+                                </div>
+                            }
+                            else if (component.Type == "bulb" || component.Type == "resistor")
+                            {
+                                <div class="mb-2">
+                                    <label class="form-label">Odpor (Ω)</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="component.Resistance" />
+                                </div>
+                            }
+                            
+                            <div class="mb-2">
+                                <label class="form-label">X pozice</label>
+                                <input type="number" class="form-control form-control-sm" @bind="component.X" />
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Y pozice</label>
+                                <input type="number" class="form-control form-control-sm" @bind="component.Y" />
+                            </div>
+                            
+                            <button class="btn btn-danger btn-sm w-100 mt-2" @onclick="RemoveSelectedComponent">
+                                <i class="bi bi-trash"></i> Odstranit
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Akce</h6>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-success btn-sm w-100 mb-2" @onclick="GenerateJson">
+                        <i class="bi bi-code-square"></i> Generovat JSON
+                    </button>
+                    <button class="btn btn-warning btn-sm w-100" @onclick="ClearAll">
+                        <i class="bi bi-x-circle"></i> Vymazat vše
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .circuit-component {
+        padding: 10px;
+        background: white;
+        border: 2px solid #6c757d;
+        border-radius: 8px;
+        transition: all 0.2s;
+        user-select: none;
+    }
+    
+    .circuit-component:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transform: scale(1.05);
+    }
+    
+    .circuit-component.selected {
+        border-color: #0d6efd;
+        border-width: 3px;
+        box-shadow: 0 0 15px rgba(13, 110, 253, 0.5);
+    }
+    
+    .component-visual {
+        text-align: center;
+    }
+    
+    .component-visual i {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .component-label {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #495057;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string ConfigJson { get; set; } = "{}";
+
+    [Parameter]
+    public EventCallback<string> ConfigJsonChanged { get; set; }
+
+    private List<CircuitComponent> _components = new();
+    private string? _selectedComponentId;
+    private int _componentCounter = 0;
+
+    protected override void OnParametersSet()
+    {
+        LoadFromJson();
+    }
+
+    private void LoadFromJson()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ConfigJson) || ConfigJson == "{}") return;
+
+            var doc = JsonDocument.Parse(ConfigJson);
+            if (doc.RootElement.TryGetProperty("components", out var componentsArray))
+            {
+                _components.Clear();
+                foreach (var item in componentsArray.EnumerateArray())
+                {
+                    var component = new CircuitComponent
+                    {
+                        Id = item.GetProperty("id").GetString() ?? "",
+                        Type = item.GetProperty("type").GetString() ?? "",
+                        X = item.TryGetProperty("x", out var x) ? x.GetInt32() : 50,
+                        Y = item.TryGetProperty("y", out var y) ? y.GetInt32() : 50
+                    };
+
+                    if (item.TryGetProperty("voltage", out var voltage))
+                        component.Voltage = voltage.GetInt32();
+
+                    if (item.TryGetProperty("resistance", out var resistance))
+                        component.Resistance = resistance.GetInt32();
+
+                    _components.Add(component);
+                }
+            }
+        }
+        catch
+        {
+            // Ignorovat chyby parsování
+        }
+    }
+
+    private void AddComponent(string type)
+    {
+        var id = $"{type}-{++_componentCounter}";
+        var component = new CircuitComponent
+        {
+            Id = id,
+            Type = type,
+            X = 50 + (_components.Count * 30),
+            Y = 50 + (_components.Count * 30),
+            Voltage = type == "battery" ? 12 : 0,
+            Resistance = (type == "bulb" || type == "resistor") ? 6 : 0
+        };
+
+        _components.Add(component);
+        _selectedComponentId = id;
+        GenerateJson();
+    }
+
+    private void SelectComponent(string id)
+    {
+        _selectedComponentId = id;
+    }
+
+    private void RemoveSelectedComponent()
+    {
+        if (_selectedComponentId != null)
+        {
+            _components.RemoveAll(c => c.Id == _selectedComponentId);
+            _selectedComponentId = null;
+            GenerateJson();
+        }
+    }
+
+    private void ClearAll()
+    {
+        _components.Clear();
+        _selectedComponentId = null;
+        _componentCounter = 0;
+        GenerateJson();
+    }
+
+    private void GenerateJson()
+    {
+        var config = new
+        {
+            type = "circuit",
+            components = _components.Select(c => new
+            {
+                id = c.Id,
+                type = c.Type,
+                x = c.X,
+                y = c.Y,
+                voltage = c.Voltage > 0 ? c.Voltage : (int?)null,
+                resistance = c.Resistance > 0 ? c.Resistance : (int?)null
+            }),
+            availableComponents = new[]
+            {
+                new { type = "bulb", label = "Žárovka" },
+                new { type = "resistor", label = "Odpor" },
+                new { type = "switch", label = "Přepínač" },
+                new { type = "wire", label = "Vodič" }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        ConfigJsonChanged.InvokeAsync(json);
+    }
+
+    private RenderFragment GetComponentIcon(string type) => builder =>
+    {
+        var icon = type switch
+        {
+            "battery" => "bi-battery-charging",
+            "bulb" => "bi-lightbulb",
+            "switch" => "bi-toggle-on",
+            "resistor" => "bi-activity",
+            "wire" => "bi-dash-lg",
+            _ => "bi-question-circle"
+        };
+        
+        var color = type switch
+        {
+            "battery" => "text-warning",
+            "bulb" => "text-warning",
+            "switch" => "text-primary",
+            "resistor" => "text-secondary",
+            "wire" => "text-info",
+            _ => ""
+        };
+
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {icon} {color}");
+        builder.CloseElement();
+    };
+
+    private class CircuitComponent
+    {
+        public string Id { get; set; } = "";
+        public string Type { get; set; } = "";
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Voltage { get; set; }
+        public int Resistance { get; set; }
+    }
+}

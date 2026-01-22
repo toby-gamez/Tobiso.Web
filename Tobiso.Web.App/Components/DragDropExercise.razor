@@ -1,0 +1,270 @@
+@using System.Text.Json
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject IInteractiveExerciseService ExerciseService
+
+<div class="dragdrop-exercise">
+    <div class="card">
+        <div class="card-body">
+            <div class="row">
+                @foreach (var category in _categories)
+                {
+                    <div class="col-md-4 mb-3">
+                        <div class="category-drop-zone p-3 border rounded @(GetCategoryClass(category.Id))" style="min-height: 200px;">
+                            <h6 class="text-center mb-3 category-title">@category.Label</h6>
+                            <div class="category-items">
+                                @foreach (var itemId in _userPlacements.Where(p => p.Value == category.Id).Select(p => p.Key))
+                                {
+                                    var item = _items.FirstOrDefault(i => i.Id == itemId);
+                                    if (item != null)
+                                    {
+                                        <div class="draggable-item bg-primary text-white p-2 rounded mb-2 shadow-sm" 
+                                             style="cursor: pointer;"
+                                             @onclick="() => RemoveItem(itemId)">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>@item.Text</span>
+                                                <i class="bi bi-x-circle"></i>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-4">
+                <h6>Prvky k zařazení:</h6>
+                <div class="items-source p-3 border rounded bg-light">
+                    <div class="d-flex gap-2 flex-wrap">
+                        @foreach (var item in _items.Where(i => !_userPlacements.ContainsKey(i.Id)))
+                        {
+                            <div class="draggable-item-source bg-secondary text-white p-2 rounded shadow-sm" style="cursor: pointer;">
+                                @item.Text
+                                <div class="mt-2">
+                                    <small>Přiřadit do:</small>
+                                    <select class="form-select form-select-sm mt-1" @onchange="@(e => PlaceItem(item.Id, e.Value?.ToString() ?? ""))">
+                                        <option value="">-- Vyber kategorii --</option>
+                                        @foreach (var cat in _categories)
+                                        {
+                                            <option value="@cat.Id">@cat.Label</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    
+                    @if (!_items.Any(i => !_userPlacements.ContainsKey(i.Id)))
+                    {
+                        <div class="alert alert-info mb-0 mt-2">
+                            <i class="bi bi-check-circle"></i> Všechny prvky jsou přiřazeny! Zkontroluj správnost.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-between align-items-center">
+                <button class="btn btn-warning" @onclick="Reset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Resetovat
+                </button>
+                <button class="btn btn-primary" @onclick="CheckSolution" disabled="@(_checking || _userPlacements.Count != _items.Count)">
+                    @if (_checking)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-check-circle"></i> Zkontrolovat
+                </button>
+            </div>
+
+            @if (_validationResult != null)
+            {
+                <div class="mt-3 alert @(_validationResult.IsCorrect ? "alert-success" : "alert-warning")">
+                    <h6>
+                        @if (_validationResult.IsCorrect)
+                        {
+                            <i class="bi bi-check-circle-fill"></i> @(" Skvělé! Všechny prvky jsou správně zařazeny!")
+                        }
+                        else
+                        {
+                            <i class="bi bi-exclamation-triangle"></i> @(" Některé prvky nejsou ve správné kategorii")
+                        }
+                    </h6>
+                    <p class="mb-0"><strong>Skóre:</strong> @_validationResult.Score%</p>
+                    <p class="mb-0">@_validationResult.Feedback</p>
+                    @if (!string.IsNullOrEmpty(_validationResult.Explanation))
+                    {
+                        <p class="mb-0 mt-2"><em>@_validationResult.Explanation</em></p>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .category-drop-zone {
+        background: #f8f9fa;
+        transition: all 0.2s;
+    }
+    
+    .category-drop-zone:hover {
+        background: #e9ecef;
+        border-color: #0d6efd !important;
+    }
+    
+    .category-title {
+        font-weight: bold;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 8px;
+    }
+    
+    .draggable-item {
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+    }
+    
+    .draggable-item:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+    }
+    
+    .draggable-item-source {
+        min-width: 150px;
+        user-select: none;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired]
+    public InteractiveExerciseResponse Exercise { get; set; } = null!;
+
+    private List<DragDropCategory> _categories = new();
+    private List<DragDropItem> _items = new();
+    private Dictionary<string, string> _userPlacements = new(); // itemId -> categoryId
+    private bool _checking = false;
+    private ExerciseValidationResult? _validationResult;
+
+    protected override void OnParametersSet()
+    {
+        LoadConfig();
+    }
+
+    private void LoadConfig()
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(Exercise.ConfigJson);
+
+            if (doc.RootElement.TryGetProperty("categories", out var categoriesArray))
+            {
+                _categories.Clear();
+                foreach (var item in categoriesArray.EnumerateArray())
+                {
+                    _categories.Add(new DragDropCategory
+                    {
+                        Id = item.GetProperty("id").GetString() ?? "",
+                        Label = item.GetProperty("label").GetString() ?? ""
+                    });
+                }
+            }
+
+            if (doc.RootElement.TryGetProperty("items", out var itemsArray))
+            {
+                _items.Clear();
+                foreach (var item in itemsArray.EnumerateArray())
+                {
+                    _items.Add(new DragDropItem
+                    {
+                        Id = item.GetProperty("id").GetString() ?? "",
+                        Text = item.GetProperty("text").GetString() ?? ""
+                    });
+                }
+                
+                // Zamíchat prvky
+                _items = _items.OrderBy(x => Guid.NewGuid()).ToList();
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+    }
+
+    private void PlaceItem(string itemId, string categoryId)
+    {
+        if (string.IsNullOrEmpty(categoryId)) return;
+        
+        if (_userPlacements.ContainsKey(itemId))
+            _userPlacements[itemId] = categoryId;
+        else
+            _userPlacements.Add(itemId, categoryId);
+    }
+
+    private void RemoveItem(string itemId)
+    {
+        _userPlacements.Remove(itemId);
+    }
+
+    private string GetCategoryClass(string categoryId)
+    {
+        var count = _userPlacements.Count(p => p.Value == categoryId);
+        return count > 0 ? "border-primary" : "";
+    }
+
+    private void Reset()
+    {
+        _userPlacements.Clear();
+        _validationResult = null;
+        LoadConfig(); // Znovu zamíchat
+    }
+
+    private async Task CheckSolution()
+    {
+        _checking = true;
+        _validationResult = null;
+
+        try
+        {
+            var userSolution = new
+            {
+                placements = _userPlacements
+            };
+
+            var request = new ValidateSolutionRequest
+            {
+                UserSolutionJson = JsonSerializer.Serialize(userSolution)
+            };
+
+            _validationResult = await ExerciseService.ValidateSolutionAsync(Exercise.Id, request);
+        }
+        catch (Exception ex)
+        {
+            _validationResult = new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score = 0,
+                Feedback = $"Chyba při validaci: {ex.Message}"
+            };
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private class DragDropCategory
+    {
+        public string Id { get; set; } = "";
+        public string Label { get; set; } = "";
+    }
+
+    private class DragDropItem
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
+}

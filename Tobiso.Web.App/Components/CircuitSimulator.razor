@@ -1,0 +1,360 @@
+@using System.Text.Json
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject IInteractiveExerciseService ExerciseService
+
+<div class="circuit-simulator">
+    <div class="card">
+        <div class="card-body">
+            <div class="canvas-container" style="position: relative; border: 2px solid #dee2e6; min-height: 400px; background: #f8f9fa; border-radius: 8px;">
+                @foreach (var component in _userComponents)
+                {
+                    <div class="circuit-component"
+                         style="position: absolute; left: @(component.X)px; top: @(component.Y)px;">
+                        <div class="component-visual">
+                            @GetComponentIcon(component.Type)
+                            <div class="component-label">@component.Label</div>
+                        </div>
+                    </div>
+                }
+                
+                @* Zobrazení spojení *@
+                @foreach (var connection in _userConnections)
+                {
+                    var from = _userComponents.FirstOrDefault(c => c.Id == connection.From);
+                    var to = _userComponents.FirstOrDefault(c => c.Id == connection.To);
+                    if (from != null && to != null)
+                    {
+                        <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                            <line x1="@(from.X + 40)" y1="@(from.Y + 40)" 
+                                  x2="@(to.X + 40)" y2="@(to.Y + 40)" 
+                                  stroke="#0d6efd" stroke-width="3" />
+                        </svg>
+                    }
+                }
+            </div>
+
+            <div class="mt-3">
+                <h6>Dostupné komponenty:</h6>
+                <div class="d-flex gap-2 flex-wrap">
+                    @foreach (var available in _availableComponents)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => PlaceComponent(available.Type)">
+                            <i class="bi bi-@GetBootstrapIcon(available.Type)"></i> @available.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <h6>Propojení:</h6>
+                <div class="row">
+                    <div class="col-md-5">
+                        <select class="form-select form-select-sm" @bind="_connectionFrom">
+                            <option value="">Od...</option>
+                            @foreach (var comp in _userComponents)
+                            {
+                                <option value="@comp.Id">@comp.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <select class="form-select form-select-sm" @bind="_connectionTo">
+                            <option value="">Do...</option>
+                            @foreach (var comp in _userComponents)
+                            {
+                                <option value="@comp.Id">@comp.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success btn-sm w-100" @onclick="AddConnection" disabled="@(string.IsNullOrEmpty(_connectionFrom) || string.IsNullOrEmpty(_connectionTo))">
+                            <i class="bi bi-arrow-left-right"></i> Připojit
+                        </button>
+                    </div>
+                </div>
+                
+                @if (_userConnections.Any())
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">Spojení:</small>
+                        <div class="d-flex gap-1 flex-wrap">
+                            @foreach (var conn in _userConnections)
+                            {
+                                <span class="badge bg-secondary">
+                                    @GetComponentLabel(conn.From) → @GetComponentLabel(conn.To)
+                                    <button class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @onclick="() => RemoveConnection(conn)"></button>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-4 d-flex justify-content-between align-items-center">
+                <button class="btn btn-warning" @onclick="Reset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Resetovat
+                </button>
+                <button class="btn btn-primary" @onclick="CheckSolution" disabled="@_checking">
+                    @if (_checking)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-check-circle"></i> Zkontrolovat
+                </button>
+            </div>
+
+            @if (_validationResult != null)
+            {
+                <div class="mt-3 alert @(_validationResult.IsCorrect ? "alert-success" : "alert-warning")">
+                    <h6>
+                        @if (_validationResult.IsCorrect)
+                        {
+                            <i class="bi bi-check-circle-fill"></i> @(" Výborně!")
+                        }
+                        else
+                        {
+                            <i class="bi bi-exclamation-triangle"></i> @(" Zkus to znovu")
+                        }
+                    </h6>
+                    <p class="mb-0"><strong>Skóre:</strong> @_validationResult.Score%</p>
+                    <p class="mb-0">@_validationResult.Feedback</p>
+                    @if (!string.IsNullOrEmpty(_validationResult.Explanation))
+                    {
+                        <p class="mb-0 mt-2"><em>@_validationResult.Explanation</em></p>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .circuit-component {
+        padding: 10px;
+        background: white;
+        border: 2px solid #6c757d;
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .circuit-component:hover {
+        border-color: #0d6efd;
+        transform: scale(1.05);
+    }
+    
+    .component-visual {
+        text-align: center;
+    }
+    
+    .component-visual i {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .component-label {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #495057;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired]
+    public InteractiveExerciseResponse Exercise { get; set; } = null!;
+
+    private List<ComponentInstance> _userComponents = new();
+    private List<Connection> _userConnections = new();
+    private List<AvailableComponent> _availableComponents = new();
+    private string? _connectionFrom;
+    private string? _connectionTo;
+    private int _componentCounter = 0;
+    private bool _checking = false;
+    private ExerciseValidationResult? _validationResult;
+
+    protected override void OnParametersSet()
+    {
+        LoadConfig();
+    }
+
+    private void LoadConfig()
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(Exercise.ConfigJson);
+            
+            if (doc.RootElement.TryGetProperty("availableComponents", out var availArray))
+            {
+                _availableComponents.Clear();
+                foreach (var item in availArray.EnumerateArray())
+                {
+                    _availableComponents.Add(new AvailableComponent
+                    {
+                        Type = item.GetProperty("type").GetString() ?? "",
+                        Label = item.GetProperty("label").GetString() ?? ""
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+    }
+
+    private void PlaceComponent(string type)
+    {
+        var id = $"{type}-{++_componentCounter}";
+        _userComponents.Add(new ComponentInstance
+        {
+            Id = id,
+            Type = type,
+            Label = $"{GetComponentTypeLabel(type)} {_componentCounter}",
+            X = 50 + (_userComponents.Count * 40),
+            Y = 50 + (_userComponents.Count * 40)
+        });
+    }
+
+    private void AddConnection()
+    {
+        if (string.IsNullOrEmpty(_connectionFrom) || string.IsNullOrEmpty(_connectionTo)) return;
+        
+        if (!_userConnections.Any(c => c.From == _connectionFrom && c.To == _connectionTo))
+        {
+            _userConnections.Add(new Connection
+            {
+                From = _connectionFrom,
+                To = _connectionTo
+            });
+        }
+        
+        _connectionFrom = null;
+        _connectionTo = null;
+    }
+
+    private void RemoveConnection(Connection connection)
+    {
+        _userConnections.Remove(connection);
+    }
+
+    private void Reset()
+    {
+        _userComponents.Clear();
+        _userConnections.Clear();
+        _connectionFrom = null;
+        _connectionTo = null;
+        _componentCounter = 0;
+        _validationResult = null;
+    }
+
+    private async Task CheckSolution()
+    {
+        _checking = true;
+        _validationResult = null;
+
+        try
+        {
+            var userSolution = new
+            {
+                connections = _userConnections.Select(c => new
+                {
+                    from = c.From,
+                    to = c.To
+                })
+            };
+
+            var request = new ValidateSolutionRequest
+            {
+                UserSolutionJson = JsonSerializer.Serialize(userSolution)
+            };
+
+            _validationResult = await ExerciseService.ValidateSolutionAsync(Exercise.Id, request);
+        }
+        catch (Exception ex)
+        {
+            _validationResult = new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score = 0,
+                Feedback = $"Chyba při validaci: {ex.Message}"
+            };
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private string GetComponentTypeLabel(string type)
+    {
+        return type switch
+        {
+            "battery" => "Baterie",
+            "bulb" => "Žárovka",
+            "switch" => "Přepínač",
+            "resistor" => "Odpor",
+            "wire" => "Vodič",
+            _ => type
+        };
+    }
+
+    private string GetComponentLabel(string? id)
+    {
+        var comp = _userComponents.FirstOrDefault(c => c.Id == id);
+        return comp?.Label ?? id ?? "";
+    }
+
+    private string GetBootstrapIcon(string type)
+    {
+        return type switch
+        {
+            "battery" => "battery-charging",
+            "bulb" => "lightbulb",
+            "switch" => "toggle-on",
+            "resistor" => "activity",
+            "wire" => "dash-lg",
+            _ => "question-circle"
+        };
+    }
+
+    private RenderFragment GetComponentIcon(string type) => builder =>
+    {
+        var icon = GetBootstrapIcon(type);
+        var color = type switch
+        {
+            "battery" => "text-warning",
+            "bulb" => "text-warning",
+            "switch" => "text-primary",
+            "resistor" => "text-secondary",
+            "wire" => "text-info",
+            _ => ""
+        };
+
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi bi-{icon} {color}");
+        builder.CloseElement();
+    };
+
+    private class ComponentInstance
+    {
+        public string Id { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Label { get; set; } = "";
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
+
+    private class Connection
+    {
+        public string From { get; set; } = "";
+        public string To { get; set; } = "";
+    }
+
+    private class AvailableComponent
+    {
+        public string Type { get; set; } = "";
+        public string Label { get; set; } = "";
+    }
+}
