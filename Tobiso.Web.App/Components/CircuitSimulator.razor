@@ -1,163 +1,372 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.JSInterop
 @inject IInteractiveExerciseService ExerciseService
+@inject IJSRuntime JS
 
 <div class="circuit-simulator">
     <div class="card">
         <div class="card-body">
-            <div class="canvas-container" style="position: relative; border: 2px solid #dee2e6; min-height: 400px; background: #f8f9fa; border-radius: 8px;">
-                @foreach (var component in _userComponents)
-                {
-                    <div class="circuit-component"
-                         style="position: absolute; left: @(component.X)px; top: @(component.Y)px;">
-                        <div class="component-visual">
-                            @GetComponentIcon(component.Type)
-                            <div class="component-label">@component.Label</div>
-                        </div>
-                    </div>
-                }
+            <div class="alert alert-info mb-3">
+                <strong>Návod:</strong> Přetáhni komponenty na plochu. Klikni na první komponentu a pak druhou pro spojení. Klikni 2x na komponentu pro nastavení. Pravým tlačítkem smaž.
+            </div>
+
+            <div class="canvas-container" 
+                 @ref="_canvasRef"
+                 style="position: relative; border: 2px solid #dee2e6; min-height: 500px; background: #f8f9fa; border-radius: 8px; overflow: hidden;"
+                 @onmousemove="OnCanvasMouseMove"
+                 @onmouseup="OnCanvasMouseUp"
+                 @oncontextmenu:preventDefault="true">
                 
-                @* Zobrazení spojení *@
-                @foreach (var connection in _userConnections)
-                {
-                    var from = _userComponents.FirstOrDefault(c => c.Id == connection.From);
-                    var to = _userComponents.FirstOrDefault(c => c.Id == connection.To);
-                    if (from != null && to != null)
+                @* SVG pro spojení (pod komponentami) *@
+                <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
+                    @foreach (var connection in _connections)
                     {
-                        <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                        var from = _components.FirstOrDefault(c => c.Id == connection.From);
+                        var to = _components.FirstOrDefault(c => c.Id == connection.To);
+                        if (from != null && to != null)
+                        {
+                            var isLive = _circuitState.LiveConnections.Contains(connection.Id);
                             <line x1="@(from.X + 40)" y1="@(from.Y + 40)" 
                                   x2="@(to.X + 40)" y2="@(to.Y + 40)" 
-                                  stroke="#0d6efd" stroke-width="3" />
-                        </svg>
+                                  stroke="@(isLive ? "#ffc107" : "#6c757d")" 
+                                  stroke-width="@(isLive ? "4" : "3")"
+                                  style="@(isLive ? "filter: drop-shadow(0 0 8px #ffc107);" : "")" />
+                        }
                     }
+                    
+                    @* Kreslení nového spojení *@
+                    @if (_connectingFrom != null)
+                    {
+                        var from = _components.FirstOrDefault(c => c.Id == _connectingFrom);
+                        if (from != null)
+                        {
+                            <line x1="@(from.X + 40)" y1="@(from.Y + 40)" 
+                                  x2="@_mouseX" y2="@_mouseY" 
+                                  stroke="#0d6efd" stroke-width="3" stroke-dasharray="5,5" />
+                        }
+                    }
+                </svg>
+
+                @* Komponenty *@
+                @foreach (var component in _components)
+                {
+                    var brightness = GetBrightness(component);
+                    var isActive = brightness > 0.1; // Aktivní jen když má dostatečný výkon
+                    var isSwitchOn = component.Type == "switch" && _circuitState.SwitchStates.GetValueOrDefault(component.Id, false);
+                    
+                    <div class="circuit-component @(component.Id == _selectedComponent ? "selected" : "")"
+                         style="position: absolute; left: @(component.X)px; top: @(component.Y)px; cursor: @(_draggingComponent == component.Id ? "grabbing" : "grab"); z-index: 10;"
+                         @onmousedown="(e) => OnComponentMouseDown(e, component.Id)"
+                         @onmousedown:stopPropagation="true"
+                         @oncontextmenu="() => OnComponentRightClick(component.Id)"
+                         @oncontextmenu:preventDefault="true">
+                        
+                        <div class="component-icon @(GetBrightnessClass(brightness)) @(component.Type == "switch" ? (isSwitchOn ? "switch-on" : "switch-off") : "")">
+                            @if (component.Type == "battery")
+                            {
+                                <i class="bi bi-battery-charging" style="font-size: 2.5rem; color: #198754;"></i>
+                            }
+                            else if (component.Type == "bulb")
+                            {
+                                <i class="bi bi-lightbulb@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @GetBulbColor(brightness); opacity: @GetBulbOpacity(brightness);"></i>
+                            }
+                            else if (component.Type == "switch")
+                            {
+                                <i class="bi bi-toggle-@(isSwitchOn ? "on" : "off")" style="font-size: 2.5rem; color: @(isSwitchOn ? "#0d6efd" : "#6c757d");"></i>
+                            }
+                            else if (component.Type == "resistor")
+                            {
+                                <i class="bi bi-activity" style="font-size: 2.5rem; color: #dc3545;"></i>
+                            }
+                            else if (component.Type == "capacitor")
+                            {
+                                <i class="bi bi-battery-half" style="font-size: 2.5rem; color: #0dcaf0;"></i>
+                            }
+                            else if (component.Type == "led")
+                            {
+                                <i class="bi bi-lightbulb@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @(isActive ? "#0d6efd" : "#6c757d");"></i>
+                            }
+                            else if (component.Type == "motor")
+                            {
+                                <i class="bi bi-fan" style="font-size: 2.5rem; color: @(isActive ? "#6610f2" : "#6c757d"); @(isActive ? "animation: spin 1s linear infinite;" : "")"></i>
+                            }
+                            else if (component.Type == "buzzer")
+                            {
+                                <i class="bi bi-volume-up@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @(isActive ? "#fd7e14" : "#6c757d");"></i>
+                            }
+                        </div>
+                        <div class="component-label">@component.Label</div>
+                        @if (component.Value > 0)
+                        {
+                            <div class="component-value">@GetValueDisplay(component)</div>
+                        }
+                        @if (isActive && _circuitState.ComponentMetrics.ContainsKey(component.Id))
+                        {
+                            var metrics = _circuitState.ComponentMetrics[component.Id];
+                            <div class="component-metrics">
+                                @if (component.Type == "bulb")
+                                {
+                                    <span>@metrics.Power.ToString("F1")W</span>
+                                }
+                                else if (component.Type == "resistor")
+                                {
+                                    <span>@metrics.Current.ToString("F2")A</span>
+                                }
+                                else
+                                {
+                                    <span>⚡</span>
+                                }
+                            </div>
+                        }
+                    </div>
                 }
             </div>
 
             <div class="mt-3">
                 <h6>Dostupné komponenty:</h6>
                 <div class="d-flex gap-2 flex-wrap">
-                    @foreach (var available in _availableComponents)
+                    @foreach (var type in new[] { "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer" })
                     {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="() => PlaceComponent(available.Type)">
-                            <i class="bi bi-@GetBootstrapIcon(available.Type)"></i> @available.Label
+                        <button class="btn btn-outline-primary btn-sm" @onclick="() => AddComponent(type)">
+                            <i class="bi bi-@GetBootstrapIcon(type)"></i> @GetComponentTypeLabel(type)
                         </button>
                     }
                 </div>
             </div>
 
             <div class="mt-3">
-                <h6>Propojení:</h6>
-                <div class="row">
-                    <div class="col-md-5">
-                        <select class="form-select form-select-sm" @bind="_connectionFrom">
-                            <option value="">Od...</option>
-                            @foreach (var comp in _userComponents)
-                            {
-                                <option value="@comp.Id">@comp.Label</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-md-5">
-                        <select class="form-select form-select-sm" @bind="_connectionTo">
-                            <option value="">Do...</option>
-                            @foreach (var comp in _userComponents)
-                            {
-                                <option value="@comp.Id">@comp.Label</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-success btn-sm w-100" @onclick="AddConnection" disabled="@(string.IsNullOrEmpty(_connectionFrom) || string.IsNullOrEmpty(_connectionTo))">
-                            <i class="bi bi-arrow-left-right"></i> Připojit
-                        </button>
-                    </div>
-                </div>
-                
-                @if (_userConnections.Any())
+                @if (_circuitState.HasPower && _circuitState.CircuitClosed)
                 {
-                    <div class="mt-2">
-                        <small class="text-muted">Spojení:</small>
-                        <div class="d-flex gap-1 flex-wrap">
-                            @foreach (var conn in _userConnections)
-                            {
-                                <span class="badge bg-secondary">
-                                    @GetComponentLabel(conn.From) → @GetComponentLabel(conn.To)
-                                    <button class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @onclick="() => RemoveConnection(conn)"></button>
-                                </span>
-                            }
-                        </div>
+                    <div class="alert alert-success">
+                        <i class="bi bi-lightning-charge-fill"></i> <strong>Obvod je uzavřený a má napájení!</strong>
+                        @if (_circuitState.LitBulbs.Any())
+                        {
+                            <span>💡 Komponenty jsou aktivní!</span>
+                        }
+                    </div>
+                }
+                else if (!_circuitState.HasPower)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Chybí zdroj napájení (baterie)
+                    </div>
+                }
+                else if (!_circuitState.CircuitClosed)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Obvod není uzavřený nebo je vypínač vypnutý
                     </div>
                 }
             </div>
 
-            <div class="mt-4 d-flex justify-content-between align-items-center">
+            @if (_components.Any(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
+            {
+                <div class="mt-3">
+                    <h6>Nastavení komponent:</h6>
+                    <div class="row g-2">
+                        @foreach (var comp in _components.Where(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
+                        {
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body p-2">
+                                        <small class="fw-bold">@comp.Label</small>
+                                        @if (comp.Type == "battery")
+                                        {
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text">Napětí</span>
+                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="24" step="1" />
+                                                <span class="input-group-text">V</span>
+                                            </div>
+                                        }
+                                        else if (comp.Type == "resistor")
+                                        {
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text">Odpor</span>
+                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="10000" step="10" />
+                                                <span class="input-group-text">Ω</span>
+                                            </div>
+                                        }
+                                        else if (comp.Type == "bulb")
+                                        {
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text">Výkon</span>
+                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="100" step="5" />
+                                                <span class="input-group-text">W</span>
+                                            </div>
+                                        }
+                                        else if (comp.Type == "capacitor")
+                                        {
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text">Kapacita</span>
+                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="1000" step="10" />
+                                                <span class="input-group-text">μF</span>
+                                            </div>
+                                        }
+                                        else if (comp.Type == "switch")
+                                        {
+                                            <div class="mt-1">
+                                                <button type="button" class="btn btn-sm w-100 @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "btn-success" : "btn-secondary")"
+                                                        @onclick="() => ToggleSwitch(comp.Id)"
+                                                        @onclick:stopPropagation="true">
+                                                    <i class="bi bi-toggle-@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "on" : "off")"></i>
+                                                    @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "Zapnuto" : "Vypnuto")
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (_circuitState.CircuitClosed && _circuitState.HasPower)
+            {
+                <div class="mt-3 card border-info">
+                    <div class="card-body p-3">
+                        <h6><i class="bi bi-calculator"></i> Výpočty obvodu</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <small class="text-muted">Napětí</small>
+                                <div class="fw-bold text-success">@_circuitState.Voltage.ToString("F1") V</div>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Celkový odpor</small>
+                                <div class="fw-bold text-primary">@_circuitState.TotalResistance.ToString("F1") Ω</div>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Proud</small>
+                                <div class="fw-bold text-warning">@_circuitState.Current.ToString("F2") A</div>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Výkon</small>
+                                <div class="fw-bold text-danger">@_circuitState.Power.ToString("F1") W</div>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_circuitState.Warning))
+                        {
+                            <div class="alert alert-warning mt-2 mb-0 p-2">
+                                <small><i class="bi bi-exclamation-triangle"></i> @_circuitState.Warning</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="mt-3 d-flex justify-content-between">
                 <button class="btn btn-warning" @onclick="Reset">
                     <i class="bi bi-arrow-counterclockwise"></i> Resetovat
                 </button>
-                <button class="btn btn-primary" @onclick="CheckSolution" disabled="@_checking">
-                    @if (_checking)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <i class="bi bi-check-circle"></i> Zkontrolovat
-                </button>
             </div>
-
-            @if (_validationResult != null)
-            {
-                <div class="mt-3 alert @(_validationResult.IsCorrect ? "alert-success" : "alert-warning")">
-                    <h6>
-                        @if (_validationResult.IsCorrect)
-                        {
-                            <i class="bi bi-check-circle-fill"></i> @(" Výborně!")
-                        }
-                        else
-                        {
-                            <i class="bi bi-exclamation-triangle"></i> @(" Zkus to znovu")
-                        }
-                    </h6>
-                    <p class="mb-0"><strong>Skóre:</strong> @_validationResult.Score%</p>
-                    <p class="mb-0">@_validationResult.Feedback</p>
-                    @if (!string.IsNullOrEmpty(_validationResult.Explanation))
-                    {
-                        <p class="mb-0 mt-2"><em>@_validationResult.Explanation</em></p>
-                    }
-                </div>
-            }
         </div>
     </div>
 </div>
 
 <style>
     .circuit-component {
-        padding: 10px;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         background: white;
-        border: 2px solid #6c757d;
+        border: 2px solid #dee2e6;
         border-radius: 8px;
-        cursor: pointer;
+        transition: all 0.2s;
         user-select: none;
     }
     
     .circuit-component:hover {
         border-color: #0d6efd;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         transform: scale(1.05);
     }
     
-    .component-visual {
-        text-align: center;
-    }
-    
-    .component-visual i {
-        font-size: 2rem;
-        display: block;
-        margin-bottom: 5px;
+    .circuit-component.selected {
+        border-color: #0d6efd;
+        border-width: 3px;
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
     }
     
     .component-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
+        text-align: center;
+        margin-top: 4px;
         font-weight: bold;
-        color: #495057;
+    }
+    
+    .component-value {
+        font-size: 0.65rem;
+        text-align: center;
+        color: #6c757d;
+        font-weight: normal;
+    }
+    
+    .component-metrics {
+        font-size: 0.6rem;
+        text-align: center;
+        color: #0d6efd;
+        font-weight: bold;
+        background: rgba(13, 110, 253, 0.1);
+        border-radius: 3px;
+        padding: 1px 3px;
+        margin-top: 2px;
+    }
+    
+    .bulb-lit {
+        animation: glow 0.5s ease-in-out infinite alternate;
+    }
+    
+    .bulb-bright {
+        animation: glow-bright 0.5s ease-in-out infinite alternate;
+    }
+    
+    .bulb-dim {
+        animation: glow-dim 1s ease-in-out infinite alternate;
+    }
+    
+    @@keyframes glow {
+        from {
+            filter: drop-shadow(0 0 5px #ffc107);
+        }
+        to {
+            filter: drop-shadow(0 0 15px #ffc107);
+        }
+    }
+    
+    @@keyframes glow-bright {
+        from {
+            filter: drop-shadow(0 0 10px #ffc107) drop-shadow(0 0 20px #ffc107);
+        }
+        to {
+            filter: drop-shadow(0 0 20px #ffc107) drop-shadow(0 0 30px #ffc107);
+        }
+    }
+    
+    @@keyframes glow-dim {
+        from {
+            filter: drop-shadow(0 0 2px #ff8800);
+        }
+        to {
+            filter: drop-shadow(0 0 5px #ff8800);
+        }
+    }
+    
+    @@keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    
+    .canvas-container {
+        user-select: none;
     }
 </style>
 
@@ -165,126 +374,445 @@
     [Parameter, EditorRequired]
     public InteractiveExerciseResponse Exercise { get; set; } = null!;
 
-    private List<ComponentInstance> _userComponents = new();
-    private List<Connection> _userConnections = new();
-    private List<AvailableComponent> _availableComponents = new();
-    private string? _connectionFrom;
-    private string? _connectionTo;
-    private int _componentCounter = 0;
-    private bool _checking = false;
-    private ExerciseValidationResult? _validationResult;
+    private ElementReference _canvasRef;
+    private List<ComponentInstance> _components = new();
+    private List<ConnectionInstance> _connections = new();
+    private int _componentCounter = 1;
+    
+    // Drag & drop state
+    private string? _draggingComponent;
+    private double _dragOffsetX;
+    private double _dragOffsetY;
+    private double _mouseDownX;
+    private double _mouseDownY;
+    private bool _hasDragged;
+    
+    // Connection state
+    private string? _connectingFrom;
+    private string? _selectedComponent;
+    private double _mouseX;
+    private double _mouseY;
+    
+    // Circuit state
+    private CircuitState _circuitState = new();
 
     protected override void OnParametersSet()
     {
-        LoadConfig();
+        Reset();
     }
 
-    private void LoadConfig()
+    private void AddComponent(string type)
     {
-        try
+        var id = $"comp_{_componentCounter++}";
+        var defaultValue = type switch
         {
-            var doc = JsonDocument.Parse(Exercise.ConfigJson);
-            
-            if (doc.RootElement.TryGetProperty("availableComponents", out var availArray))
-            {
-                _availableComponents.Clear();
-                foreach (var item in availArray.EnumerateArray())
-                {
-                    _availableComponents.Add(new AvailableComponent
-                    {
-                        Type = item.GetProperty("type").GetString() ?? "",
-                        Label = item.GetProperty("label").GetString() ?? ""
-                    });
-                }
-            }
-        }
-        catch
-        {
-            // Ignore
-        }
-    }
-
-    private void PlaceComponent(string type)
-    {
-        var id = $"{type}-{++_componentCounter}";
-        _userComponents.Add(new ComponentInstance
+            "battery" => 9.0,
+            "resistor" => 100.0,
+            "bulb" => 10.0,
+            "capacitor" => 100.0,
+            _ => 0.0
+        };
+        
+        _components.Add(new ComponentInstance
         {
             Id = id,
             Type = type,
-            Label = $"{GetComponentTypeLabel(type)} {_componentCounter}",
-            X = 50 + (_userComponents.Count * 40),
-            Y = 50 + (_userComponents.Count * 40)
+            Label = $"{GetComponentTypeLabel(type)} {_componentCounter - 1}",
+            Value = defaultValue,
+            X = 50 + (_components.Count % 5) * 100,
+            Y = 50 + (_components.Count / 5) * 100
         });
+        EvaluateCircuit();
     }
 
-    private void AddConnection()
+    private void OnComponentMouseDown(MouseEventArgs e, string componentId)
     {
-        if (string.IsNullOrEmpty(_connectionFrom) || string.IsNullOrEmpty(_connectionTo)) return;
-        
-        if (!_userConnections.Any(c => c.From == _connectionFrom && c.To == _connectionTo))
+        if (e.Button == 0) // Left click
         {
-            _userConnections.Add(new Connection
+            _draggingComponent = componentId;
+            _hasDragged = false;
+            _mouseDownX = e.ClientX;
+            _mouseDownY = e.ClientY;
+            
+            var comp = _components.FirstOrDefault(c => c.Id == componentId);
+            if (comp != null)
             {
-                From = _connectionFrom,
-                To = _connectionTo
-            });
+                _dragOffsetX = e.ClientX - comp.X;
+                _dragOffsetY = e.ClientY - comp.Y;
+            }
+        }
+    }
+
+    private void OnCanvasMouseMove(MouseEventArgs e)
+    {
+        _mouseX = e.OffsetX;
+        _mouseY = e.OffsetY;
+        
+        if (_draggingComponent != null)
+        {
+            var distance = Math.Sqrt(Math.Pow(e.ClientX - _mouseDownX, 2) + Math.Pow(e.ClientY - _mouseDownY, 2));
+            
+            // Pokud se myš pohnula víc než 5px, považujeme to za drag
+            if (distance > 5)
+            {
+                _hasDragged = true;
+            }
+            
+            if (_hasDragged)
+            {
+                var comp = _components.FirstOrDefault(c => c.Id == _draggingComponent);
+                if (comp != null)
+                {
+                    comp.X = e.ClientX - _dragOffsetX;
+                    comp.Y = e.ClientY - _dragOffsetY;
+                    
+                    // Keep within bounds
+                    comp.X = Math.Max(0, Math.Min(comp.X, 800));
+                    comp.Y = Math.Max(0, Math.Min(comp.Y, 420));
+                }
+            }
+        }
+    }
+
+    private void OnCanvasMouseUp(MouseEventArgs e)
+    {
+        if (_draggingComponent != null && !_hasDragged)
+        {
+            // Bylo to jen kliknutí, ne tažení
+            OnComponentClick(_draggingComponent);
         }
         
-        _connectionFrom = null;
-        _connectionTo = null;
+        _draggingComponent = null;
+        _hasDragged = false;
     }
 
-    private void RemoveConnection(Connection connection)
+    private void OnComponentClick(string componentId)
     {
-        _userConnections.Remove(connection);
+        var comp = _components.FirstOrDefault(c => c.Id == componentId);
+        if (comp == null) return;
+        
+        // Create connection mode - platí pro všechny komponenty
+        if (_connectingFrom == null)
+        {
+            _connectingFrom = componentId;
+            _selectedComponent = componentId;
+        }
+        else if (_connectingFrom != componentId)
+        {
+            // Create connection
+            var connId = $"conn_{_connections.Count + 1}";
+            _connections.Add(new ConnectionInstance
+            {
+                Id = connId,
+                From = _connectingFrom,
+                To = componentId
+            });
+            _connectingFrom = null;
+            _selectedComponent = null;
+            EvaluateCircuit();
+        }
+        else
+        {
+            // Clicked same component - cancel connection
+            _connectingFrom = null;
+            _selectedComponent = null;
+        }
+    }
+
+    private void OnComponentRightClick(string componentId)
+    {
+        // Remove component and all its connections
+        _components.RemoveAll(c => c.Id == componentId);
+        _connections.RemoveAll(c => c.From == componentId || c.To == componentId);
+        
+        if (_selectedComponent == componentId)
+        {
+            _selectedComponent = null;
+            _connectingFrom = null;
+        }
+        
+        EvaluateCircuit();
+    }
+
+    private void ToggleSwitch(string switchId)
+    {
+        var currentState = _circuitState.SwitchStates.GetValueOrDefault(switchId, false);
+        _circuitState.SwitchStates[switchId] = !currentState;
+        EvaluateCircuit();
+        StateHasChanged();
+    }
+
+    private void EvaluateCircuit()
+    {
+        // Preserve switch states when creating new circuit state
+        var previousSwitchStates = new Dictionary<string, bool>(_circuitState.SwitchStates);
+        _circuitState = new CircuitState();
+        _circuitState.SwitchStates = previousSwitchStates;
+        
+        // Check for battery
+        var batteries = _components.Where(c => c.Type == "battery").ToList();
+        if (!batteries.Any())
+        {
+            _circuitState.HasPower = false;
+            return;
+        }
+        
+        _circuitState.HasPower = true;
+        _circuitState.Voltage = batteries.Sum(b => b.Value); // Série - napětí se sčítá
+        
+        // Build graph
+        var graph = new Dictionary<string, List<string>>();
+        foreach (var comp in _components)
+        {
+            graph[comp.Id] = new List<string>();
+        }
+        
+        foreach (var conn in _connections)
+        {
+            if (graph.ContainsKey(conn.From))
+                graph[conn.From].Add(conn.To);
+            if (graph.ContainsKey(conn.To))
+                graph[conn.To].Add(conn.From);
+        }
+        
+        // Pro každou baterii hledáme uzavřenou smyčku
+        foreach (var battery in batteries)
+        {
+            // Hledáme cestu zpět k baterii (uzavřený obvod)
+            var pathFound = FindClosedCircuit(battery.Id, battery.Id, new HashSet<string>(), graph, new List<string>());
+            
+            if (pathFound.found)
+            {
+                _circuitState.CircuitClosed = true;
+                
+                // Označit všechny komponenty a spojení v cestě jako aktivní
+                var visited = new HashSet<string>(pathFound.path);
+                
+                // Vypočítat celkový odpor v cestě
+                double totalResistance = 0;
+                var bulbsInPath = new List<ComponentInstance>();
+                
+                foreach (var compId in visited)
+                {
+                    var comp = _components.FirstOrDefault(c => c.Id == compId);
+                    if (comp != null)
+                    {
+                        if (comp.Type == "resistor")
+                        {
+                            totalResistance += comp.Value;
+                        }
+                        else if (comp.Type == "bulb")
+                        {
+                            // R = U² / P (odpor žárovky při daném výkonu a napětí)
+                            var bulbResistance = (_circuitState.Voltage * _circuitState.Voltage) / comp.Value;
+                            totalResistance += bulbResistance;
+                            bulbsInPath.Add(comp);
+                        }
+                        else if (comp.Type == "motor")
+                        {
+                            totalResistance += 5; // Motor má typicky malý odpor
+                        }
+                        else if (comp.Type == "led")
+                        {
+                            totalResistance += 100; // LED má vyšší odpor
+                        }
+                        else if (comp.Type == "buzzer")
+                        {
+                            totalResistance += 50;
+                        }
+                    }
+                }
+                
+                // Minimální odpor (aby nedošlo k dělení nulou)
+                if (totalResistance < 0.1)
+                    totalResistance = 0.1;
+                
+                _circuitState.TotalResistance = totalResistance;
+                
+                // Ohmův zákon: I = U / R
+                _circuitState.Current = _circuitState.Voltage / totalResistance;
+                
+                // Výkon: P = U * I
+                _circuitState.Power = _circuitState.Voltage * _circuitState.Current;
+                
+                // Kontrola žárovek
+                foreach (var bulb in bulbsInPath)
+                {
+                    var actualPower = _circuitState.Current * _circuitState.Current * ((_circuitState.Voltage * _circuitState.Voltage) / bulb.Value);
+                    
+                    _circuitState.ComponentMetrics[bulb.Id] = new ComponentMetrics
+                    {
+                        Current = _circuitState.Current,
+                        Voltage = _circuitState.Voltage,
+                        Power = actualPower
+                    };
+                    
+                    if (actualPower > bulb.Value * 1.5)
+                    {
+                        _circuitState.Warning = $"⚠️ {bulb.Label} je přetížená! ({actualPower:F1}W > {bulb.Value}W)";
+                    }
+                    else if (actualPower < bulb.Value * 0.5)
+                    {
+                        _circuitState.Warning = $"💡 {bulb.Label} svítí slabě ({actualPower:F1}W < {bulb.Value}W)";
+                    }
+                }
+                
+                // Metriky pro další komponenty
+                foreach (var compId in visited)
+                {
+                    var comp = _components.FirstOrDefault(c => c.Id == compId);
+                    if (comp != null && !_circuitState.ComponentMetrics.ContainsKey(comp.Id))
+                    {
+                        _circuitState.ComponentMetrics[comp.Id] = new ComponentMetrics
+                        {
+                            Current = _circuitState.Current,
+                            Voltage = _circuitState.Voltage,
+                            Power = _circuitState.Current * _circuitState.Current * (comp.Type == "resistor" ? comp.Value : 0)
+                        };
+                    }
+                }
+                
+                // Označit spojení jako živá
+                for (int i = 0; i < pathFound.path.Count - 1; i++)
+                {
+                    var from = pathFound.path[i];
+                    var to = pathFound.path[i + 1];
+                    
+                    var conn = _connections.FirstOrDefault(c => 
+                        (c.From == from && c.To == to) || 
+                        (c.To == from && c.From == to));
+                    
+                    if (conn != null)
+                    {
+                        _circuitState.LiveConnections.Add(conn.Id);
+                    }
+                }
+                
+                // Rozsviť žárovky v cestě
+                foreach (var bulb in _components.Where(c => c.Type == "bulb" || c.Type == "led" || c.Type == "motor" || c.Type == "buzzer"))
+                {
+                    if (visited.Contains(bulb.Id))
+                    {
+                        _circuitState.LitBulbs.Add(bulb.Id);
+                    }
+                }
+            }
+        }
+    }
+
+    private (bool found, List<string> path) FindClosedCircuit(string start, string current, HashSet<string> visited, Dictionary<string, List<string>> graph, List<string> path)
+    {
+        path.Add(current);
+        visited.Add(current);
+        
+        var currentComp = _components.FirstOrDefault(c => c.Id == current);
+        
+        // Pokud je vypínač vypnutý, blokuje cestu
+        if (currentComp?.Type == "switch" && !_circuitState.SwitchStates.GetValueOrDefault(current, false) && path.Count > 1)
+        {
+            path.RemoveAt(path.Count - 1);
+            visited.Remove(current);
+            return (false, path);
+        }
+        
+        // Procházíme sousedy
+        foreach (var neighbor in graph.GetValueOrDefault(current, new List<string>()))
+        {
+            // Pokud jsme se vrátili k začátku a cesta má aspoň 3 uzly (uzavřená smyčka)
+            if (neighbor == start && path.Count >= 3)
+            {
+                path.Add(neighbor); // Uzavřít smyčku
+                return (true, new List<string>(path));
+            }
+            
+            // Pokračovat hledáním, pokud jsme tam ještě nebyli
+            if (!visited.Contains(neighbor))
+            {
+                var result = FindClosedCircuit(start, neighbor, visited, graph, path);
+                if (result.found)
+                {
+                    return result;
+                }
+            }
+        }
+        
+        path.RemoveAt(path.Count - 1);
+        visited.Remove(current);
+        return (false, path);
     }
 
     private void Reset()
     {
-        _userComponents.Clear();
-        _userConnections.Clear();
-        _connectionFrom = null;
-        _connectionTo = null;
-        _componentCounter = 0;
-        _validationResult = null;
+        _components.Clear();
+        _connections.Clear();
+        _componentCounter = 1;
+        _draggingComponent = null;
+        _connectingFrom = null;
+        _selectedComponent = null;
+        _circuitState = new CircuitState();
     }
 
-    private async Task CheckSolution()
+    private string GetValueDisplay(ComponentInstance comp)
     {
-        _checking = true;
-        _validationResult = null;
-
-        try
+        return comp.Type switch
         {
-            var userSolution = new
-            {
-                connections = _userConnections.Select(c => new
-                {
-                    from = c.From,
-                    to = c.To
-                })
-            };
+            "battery" => $"{comp.Value}V",
+            "resistor" => $"{comp.Value}Ω",
+            "bulb" => $"{comp.Value}W",
+            "capacitor" => $"{comp.Value}μF",
+            _ => ""
+        };
+    }
 
-            var request = new ValidateSolutionRequest
-            {
-                UserSolutionJson = JsonSerializer.Serialize(userSolution)
-            };
+    private double GetBrightness(ComponentInstance comp)
+    {
+        // Pro všechny spotřebiče (nejen žárovky)
+        if (!_circuitState.LitBulbs.Contains(comp.Id))
+            return 0;
+        
+        if (!_circuitState.ComponentMetrics.ContainsKey(comp.Id))
+            return 0;
+        
+        var metrics = _circuitState.ComponentMetrics[comp.Id];
+        
+        // Pro žárovky: poměr skutečného výkonu k jmenovitému
+        if (comp.Type == "bulb")
+        {
+            if (metrics.Power < 0.1) return 0; // Nepočítá se
+            return metrics.Power / comp.Value;
+        }
+        
+        // Pro ostatní: jen kontrola, zda teče proud
+        if (metrics.Current < 0.01) return 0; // Minimální proud pro aktivaci
+        
+        return 1.0; // Aktivní
+    }
 
-            _validationResult = await ExerciseService.ValidateSolutionAsync(Exercise.Id, request);
-        }
-        catch (Exception ex)
-        {
-            _validationResult = new ExerciseValidationResult
-            {
-                IsCorrect = false,
-                Score = 0,
-                Feedback = $"Chyba při validaci: {ex.Message}"
-            };
-        }
-        finally
-        {
-            _checking = false;
-        }
+    private string GetBrightnessClass(double brightness)
+    {
+        if (brightness == 0) return "";
+        if (brightness < 0.5) return "bulb-dim";
+        if (brightness > 1.2) return "bulb-bright";
+        return "bulb-lit";
+    }
+
+    private string GetBulbColor(double brightness)
+    {
+        if (brightness == 0) return "#6c757d"; // Vypnuto - šedá
+        if (brightness < 0.3) return "#ff4400"; // Velmi slabé - červeno-oranžová
+        if (brightness < 0.6) return "#ff8800"; // Slabé - oranžová
+        if (brightness < 0.9) return "#ffbb00"; // Mírně slabé - žluto-oranžová
+        if (brightness <= 1.2) return "#ffc107"; // Normální - žlutá
+        return "#ffee00"; // Přetížené - intenzivní žlutá
+    }
+
+    private string GetBulbOpacity(double brightness)
+    {
+        if (brightness == 0) return "1";
+        if (brightness < 0.3) return "0.4";
+        if (brightness < 0.6) return "0.6";
+        if (brightness < 0.9) return "0.8";
+        return "1";
     }
 
     private string GetComponentTypeLabel(string type)
@@ -295,15 +823,12 @@
             "bulb" => "Žárovka",
             "switch" => "Přepínač",
             "resistor" => "Odpor",
-            "wire" => "Vodič",
+            "capacitor" => "Kondenzátor",
+            "led" => "LED",
+            "motor" => "Motor",
+            "buzzer" => "Bzučák",
             _ => type
         };
-    }
-
-    private string GetComponentLabel(string? id)
-    {
-        var comp = _userComponents.FirstOrDefault(c => c.Id == id);
-        return comp?.Label ?? id ?? "";
     }
 
     private string GetBootstrapIcon(string type)
@@ -314,47 +839,50 @@
             "bulb" => "lightbulb",
             "switch" => "toggle-on",
             "resistor" => "activity",
-            "wire" => "dash-lg",
+            "capacitor" => "battery-half",
+            "led" => "lightbulb",
+            "motor" => "fan",
+            "buzzer" => "volume-up",
             _ => "question-circle"
         };
     }
-
-    private RenderFragment GetComponentIcon(string type) => builder =>
-    {
-        var icon = GetBootstrapIcon(type);
-        var color = type switch
-        {
-            "battery" => "text-warning",
-            "bulb" => "text-warning",
-            "switch" => "text-primary",
-            "resistor" => "text-secondary",
-            "wire" => "text-info",
-            _ => ""
-        };
-
-        builder.OpenElement(0, "i");
-        builder.AddAttribute(1, "class", $"bi bi-{icon} {color}");
-        builder.CloseElement();
-    };
 
     private class ComponentInstance
     {
         public string Id { get; set; } = "";
         public string Type { get; set; } = "";
         public string Label { get; set; } = "";
-        public int X { get; set; }
-        public int Y { get; set; }
+        public double Value { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
     }
 
-    private class Connection
+    private class ConnectionInstance
     {
+        public string Id { get; set; } = "";
         public string From { get; set; } = "";
         public string To { get; set; } = "";
     }
 
-    private class AvailableComponent
+    private class CircuitState
     {
-        public string Type { get; set; } = "";
-        public string Label { get; set; } = "";
+        public bool HasPower { get; set; }
+        public bool CircuitClosed { get; set; }
+        public HashSet<string> LitBulbs { get; set; } = new();
+        public HashSet<string> LiveConnections { get; set; } = new();
+        public Dictionary<string, bool> SwitchStates { get; set; } = new();
+        public Dictionary<string, ComponentMetrics> ComponentMetrics { get; set; } = new();
+        public double Voltage { get; set; }
+        public double TotalResistance { get; set; }
+        public double Current { get; set; }
+        public double Power { get; set; }
+        public string Warning { get; set; } = "";
+    }
+
+    private class ComponentMetrics
+    {
+        public double Current { get; set; }
+        public double Voltage { get; set; }
+        public double Power { get; set; }
     }
 }
