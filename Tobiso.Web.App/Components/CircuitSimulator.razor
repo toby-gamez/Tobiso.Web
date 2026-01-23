@@ -6,15 +6,18 @@
 @inject IJSRuntime JS
 
 <div class="circuit-simulator">
-    <div class="card">
+    <div class="card circuit-card">
         <div class="card-body">
-            <div class="alert alert-info mb-3">
-                <strong>Návod:</strong> Přetáhni komponenty na plochu. Klikni na první komponentu a pak druhou pro spojení. Klikni 2x na komponentu pro nastavení. Pravým tlačítkem smaž.
+            <div class="circuit-info-banner">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    <strong>Návod k ovládání:</strong>
+                    <span>Přetáhni komponenty na plochu • Klikni na dvě komponenty pro spojení • Dvojklik pro nastavení • Pravé tlačítko pro smazání</span>
+                </div>
             </div>
 
             <div class="canvas-container" 
                  @ref="_canvasRef"
-                 style="position: relative; border: 2px solid #dee2e6; min-height: 500px; background: #f8f9fa; border-radius: 8px; overflow: hidden;"
                  @onmousemove="OnCanvasMouseMove"
                  @onmouseup="OnCanvasMouseUp"
                  @oncontextmenu:preventDefault="true">
@@ -124,98 +127,128 @@
                 }
             </div>
 
-            <div class="mt-3">
-                <h6>Dostupné komponenty:</h6>
-                <div class="d-flex gap-2 flex-wrap">
-                    @foreach (var type in new[] { "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer" })
-                    {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="() => AddComponent(type)">
-                            <i class="bi bi-@GetBootstrapIcon(type)"></i> @GetComponentTypeLabel(type)
-                        </button>
-                    }
+            <div class="circuit-toolbar">
+                <div class="toolbar-section">
+                    <h6 class="toolbar-title">
+                        <i class="bi bi-plus-circle-fill"></i>
+                        Dostupné komponenty
+                    </h6>
+                    <div class="component-buttons">
+                        @foreach (var type in new[] { "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer" })
+                        {
+                            <button class="component-btn" @onclick="() => AddComponent(type)" title="Přidat @GetComponentTypeLabel(type)">
+                                <i class="bi bi-@GetBootstrapIcon(type)"></i>
+                                <span>@GetComponentTypeLabel(type)</span>
+                            </button>
+                        }
+                    </div>
                 </div>
             </div>
 
-            <div class="mt-3">
-                @if (_circuitState.HasPower && _circuitState.CircuitClosed)
-                {
-                    <div class="alert alert-success">
-                        <i class="bi bi-lightning-charge-fill"></i> <strong>Obvod je uzavřený a má napájení!</strong>
-                        @if (_circuitState.LitBulbs.Any())
-                        {
-                            <span>💡 Komponenty jsou aktivní!</span>
-                        }
-                    </div>
-                }
-                else if (!_circuitState.HasPower)
-                {
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i> Chybí zdroj napájení (baterie)
-                    </div>
-                }
-                else if (!_circuitState.CircuitClosed)
-                {
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i> Obvod není uzavřený nebo je vypínač vypnutý
-                    </div>
-                }
-            </div>
+            @if (_circuitState.HasPower || !_circuitState.CircuitClosed)
+            {
+                <div class="circuit-status">
+                    @if (_circuitState.HasPower && _circuitState.CircuitClosed)
+                    {
+                        <div class="status-message status-success">
+                            <i class="bi bi-lightning-charge-fill"></i>
+                            <div>
+                                <strong>Obvod je uzavřený a má napájení!</strong>
+                                @if (_circuitState.LitBulbs.Any())
+                                {
+                                    <span>💡 Komponenty jsou aktivní!</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else if (!_circuitState.HasPower)
+                    {
+                        <div class="status-message status-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div>
+                                <strong>Chybí zdroj napájení</strong>
+                                <span>Přidej baterii do obvodu</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!_circuitState.CircuitClosed)
+                    {
+                        <div class="status-message status-info">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div>
+                                <strong>Obvod není uzavřený</strong>
+                                <span>Propoj všechny komponenty do smyčky nebo zapni přepínač</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
 
             @if (_components.Any(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
             {
-                <div class="mt-3">
-                    <h6>Nastavení komponent:</h6>
-                    <div class="row g-2">
+                <div class="component-settings">
+                    <h6 class="settings-title">
+                        <i class="bi bi-sliders"></i>
+                        Nastavení komponent
+                    </h6>
+                    <div class="settings-grid">
                         @foreach (var comp in _components.Where(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
                         {
-                            <div class="col-md-6">
-                                <div class="card bg-light">
-                                    <div class="card-body p-2">
-                                        <small class="fw-bold">@comp.Label</small>
-                                        @if (comp.Type == "battery")
-                                        {
-                                            <div class="input-group input-group-sm mt-1">
-                                                <span class="input-group-text">Napětí</span>
-                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="24" step="1" />
-                                                <span class="input-group-text">V</span>
+                            <div class="setting-card">
+                                <div class="setting-header">
+                                    <i class="bi bi-@GetBootstrapIcon(comp.Type)"></i>
+                                    <span class="setting-label">@comp.Label</span>
+                                </div>
+                                <div class="setting-control">
+                                    @if (comp.Type == "battery")
+                                    {
+                                        <div class="control-group">
+                                            <label>Napětí</label>
+                                            <div class="input-with-unit">
+                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="24" step="1" />
+                                                <span class="unit">V</span>
                                             </div>
-                                        }
-                                        else if (comp.Type == "resistor")
-                                        {
-                                            <div class="input-group input-group-sm mt-1">
-                                                <span class="input-group-text">Odpor</span>
-                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="10000" step="10" />
-                                                <span class="input-group-text">Ω</span>
+                                        </div>
+                                    }
+                                    else if (comp.Type == "resistor")
+                                    {
+                                        <div class="control-group">
+                                            <label>Odpor</label>
+                                            <div class="input-with-unit">
+                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="10000" step="10" />
+                                                <span class="unit">Ω</span>
                                             </div>
-                                        }
-                                        else if (comp.Type == "bulb")
-                                        {
-                                            <div class="input-group input-group-sm mt-1">
-                                                <span class="input-group-text">Výkon</span>
-                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="100" step="5" />
-                                                <span class="input-group-text">W</span>
+                                        </div>
+                                    }
+                                    else if (comp.Type == "bulb")
+                                    {
+                                        <div class="control-group">
+                                            <label>Výkon</label>
+                                            <div class="input-with-unit">
+                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="100" step="5" />
+                                                <span class="unit">W</span>
                                             </div>
-                                        }
-                                        else if (comp.Type == "capacitor")
-                                        {
-                                            <div class="input-group input-group-sm mt-1">
-                                                <span class="input-group-text">Kapacita</span>
-                                                <input type="number" class="form-control" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="1000" step="10" />
-                                                <span class="input-group-text">μF</span>
+                                        </div>
+                                    }
+                                    else if (comp.Type == "capacitor")
+                                    {
+                                        <div class="control-group">
+                                            <label>Kapacita</label>
+                                            <div class="input-with-unit">
+                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="1000" step="10" />
+                                                <span class="unit">μF</span>
                                             </div>
-                                        }
-                                        else if (comp.Type == "switch")
-                                        {
-                                            <div class="mt-1">
-                                                <button type="button" class="btn btn-sm w-100 @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "btn-success" : "btn-secondary")"
-                                                        @onclick="() => ToggleSwitch(comp.Id)"
-                                                        @onclick:stopPropagation="true">
-                                                    <i class="bi bi-toggle-@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "on" : "off")"></i>
-                                                    @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "Zapnuto" : "Vypnuto")
-                                                </button>
-                                            </div>
-                                        }
-                                    </div>
+                                        </div>
+                                    }
+                                    else if (comp.Type == "switch")
+                                    {
+                                        <button type="button" class="switch-toggle @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "switch-on" : "switch-off")"
+                                                @onclick="() => ToggleSwitch(comp.Id)"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-toggle-@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "on" : "off")"></i>
+                                            <span>@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "Zapnuto" : "Vypnuto")</span>
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         }
@@ -225,40 +258,55 @@
 
             @if (_circuitState.CircuitClosed && _circuitState.HasPower)
             {
-                <div class="mt-3 card border-info">
-                    <div class="card-body p-3">
-                        <h6><i class="bi bi-calculator"></i> Výpočty obvodu</h6>
-                        <div class="row g-2">
-                            <div class="col-md-3">
-                                <small class="text-muted">Napětí</small>
-                                <div class="fw-bold text-success">@_circuitState.Voltage.ToString("F1") V</div>
-                            </div>
-                            <div class="col-md-3">
-                                <small class="text-muted">Celkový odpor</small>
-                                <div class="fw-bold text-primary">@_circuitState.TotalResistance.ToString("F1") Ω</div>
-                            </div>
-                            <div class="col-md-3">
-                                <small class="text-muted">Proud</small>
-                                <div class="fw-bold text-warning">@_circuitState.Current.ToString("F2") A</div>
-                            </div>
-                            <div class="col-md-3">
-                                <small class="text-muted">Výkon</small>
-                                <div class="fw-bold text-danger">@_circuitState.Power.ToString("F1") W</div>
+                <div class="circuit-calculations">
+                    <h6 class="calculations-title">
+                        <i class="bi bi-calculator-fill"></i>
+                        Výpočty obvodu
+                    </h6>
+                    <div class="calculations-grid">
+                        <div class="calc-item calc-voltage">
+                            <i class="bi bi-lightning-fill"></i>
+                            <div class="calc-content">
+                                <span class="calc-label">Napětí</span>
+                                <span class="calc-value">@_circuitState.Voltage.ToString("F1") V</span>
                             </div>
                         </div>
-                        @if (!string.IsNullOrEmpty(_circuitState.Warning))
-                        {
-                            <div class="alert alert-warning mt-2 mb-0 p-2">
-                                <small><i class="bi bi-exclamation-triangle"></i> @_circuitState.Warning</small>
+                        <div class="calc-item calc-resistance">
+                            <i class="bi bi-activity"></i>
+                            <div class="calc-content">
+                                <span class="calc-label">Celkový odpor</span>
+                                <span class="calc-value">@_circuitState.TotalResistance.ToString("F1") Ω</span>
                             </div>
-                        }
+                        </div>
+                        <div class="calc-item calc-current">
+                            <i class="bi bi-arrow-repeat"></i>
+                            <div class="calc-content">
+                                <span class="calc-label">Proud</span>
+                                <span class="calc-value">@_circuitState.Current.ToString("F2") A</span>
+                            </div>
+                        </div>
+                        <div class="calc-item calc-power">
+                            <i class="bi bi-fire"></i>
+                            <div class="calc-content">
+                                <span class="calc-label">Výkon</span>
+                                <span class="calc-value">@_circuitState.Power.ToString("F1") W</span>
+                            </div>
+                        </div>
                     </div>
+                    @if (!string.IsNullOrEmpty(_circuitState.Warning))
+                    {
+                        <div class="circuit-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>@_circuitState.Warning</span>
+                        </div>
+                    }
                 </div>
             }
 
-            <div class="mt-3 d-flex justify-content-between">
-                <button class="btn btn-warning" @onclick="Reset">
-                    <i class="bi bi-arrow-counterclockwise"></i> Resetovat
+            <div class="circuit-actions">
+                <button class="action-btn btn-reset" @onclick="Reset">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Resetovat obvod</span>
                 </button>
             </div>
         </div>
@@ -266,6 +314,68 @@
 </div>
 
 <style>
+    .circuit-simulator {
+        width: 100%;
+    }
+    
+    .circuit-card {
+        background: var(--intro-bg);
+        border: none;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+    
+    .circuit-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Info banner */
+    .circuit-info-banner {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        align-items: flex-start;
+    }
+    
+    .circuit-info-banner i {
+        font-size: 1.5rem;
+        color: var(--color-accent-strong);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    
+    .circuit-info-banner div {
+        flex: 1;
+    }
+    
+    .circuit-info-banner strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-text);
+    }
+    
+    .circuit-info-banner span {
+        font-size: 0.9rem;
+        color: var(--color-text);
+        opacity: 0.85;
+    }
+    
+    /* Canvas container */
+    .canvas-container {
+        position: relative;
+        border: 3px solid var(--color-accent);
+        min-height: 500px;
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        overflow: hidden;
+        user-select: none;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Circuit component */
     .circuit-component {
         width: 80px;
         height: 80px;
@@ -273,23 +383,23 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: white;
-        border: 2px solid #dee2e6;
+        background: var(--color-accent-2);
+        border: 2px solid var(--color-accent);
         border-radius: 8px;
         transition: all 0.2s;
         user-select: none;
     }
     
     .circuit-component:hover {
-        border-color: #0d6efd;
+        border-color: var(--color-accent-strong);
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         transform: scale(1.05);
     }
     
     .circuit-component.selected {
-        border-color: #0d6efd;
+        border-color: var(--color-accent-strong);
         border-width: 3px;
-        box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+        box-shadow: 0 0 0 3px rgba(209, 117, 166, 0.25);
     }
     
     .component-label {
@@ -330,44 +440,590 @@
     }
     
     @@keyframes glow {
-        from {
-            filter: drop-shadow(0 0 5px #ffc107);
-        }
-        to {
-            filter: drop-shadow(0 0 15px #ffc107);
-        }
+        from { filter: drop-shadow(0 0 5px #ffc107); }
+        to { filter: drop-shadow(0 0 15px #ffc107); }
     }
     
     @@keyframes glow-bright {
-        from {
-            filter: drop-shadow(0 0 10px #ffc107) drop-shadow(0 0 20px #ffc107);
-        }
-        to {
-            filter: drop-shadow(0 0 20px #ffc107) drop-shadow(0 0 30px #ffc107);
-        }
+        from { filter: drop-shadow(0 0 10px #ffc107) drop-shadow(0 0 20px #ffc107); }
+        to { filter: drop-shadow(0 0 20px #ffc107) drop-shadow(0 0 30px #ffc107); }
     }
     
     @@keyframes glow-dim {
-        from {
-            filter: drop-shadow(0 0 2px #ff8800);
-        }
-        to {
-            filter: drop-shadow(0 0 5px #ff8800);
-        }
+        from { filter: drop-shadow(0 0 2px #ff8800); }
+        to { filter: drop-shadow(0 0 5px #ff8800); }
     }
     
     @@keyframes spin {
-        from {
-            transform: rotate(0deg);
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Toolbar */
+    .circuit-toolbar {
+        margin-bottom: 1.5rem;
+    }
+    
+    .toolbar-section {
+        background: var(--intro-light-bg);
+        padding: 1.25rem;
+        border-radius: 10px;
+    }
+    
+    .toolbar-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        color: var(--color-text);
+        font-size: 1rem;
+    }
+    
+    .toolbar-title i {
+        color: var(--color-accent-strong);
+    }
+    
+    .component-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .component-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .component-btn i {
+        font-size: 1.25rem;
+    }
+    
+    .component-btn span {
+        font-size: 0.9rem;
+    }
+    
+    /* Status messages */
+    .circuit-status {
+        margin-bottom: 1.5rem;
+    }
+    
+    .status-message {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        align-items: flex-start;
+    }
+    
+    .status-message i {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    
+    .status-message div {
+        flex: 1;
+    }
+    
+    .status-message strong {
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+    
+    .status-message span {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .status-success {
+        background: var(--good-bg);
+        border: 2px solid var(--good-border);
+        color: var(--good-text);
+    }
+    
+    .status-success i {
+        color: var(--good);
+    }
+    
+    .status-warning {
+        background: var(--warning-bg);
+        border: 2px solid var(--warning-border);
+        color: var(--warning-text);
+    }
+    
+    .status-warning i {
+        color: var(--warning-text);
+    }
+    
+    .status-info {
+        background: rgba(13, 110, 253, 0.1);
+        border: 2px solid rgba(13, 110, 253, 0.3);
+        color: #0d6efd;
+    }
+    
+    .status-info i {
+        color: #0d6efd;
+    }
+    
+    /* Component settings */
+    .component-settings {
+        background: var(--intro-light-bg);
+        padding: 1.25rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .settings-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        color: var(--color-text);
+        font-size: 1rem;
+    }
+    
+    .settings-title i {
+        color: var(--color-accent-strong);
+    }
+    
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    
+    .setting-card {
+        background: var(--color-accent);
+        border: 2px solid var(--color-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.2s;
+    }
+    
+    .setting-card:hover {
+        border-color: var(--color-accent-2);
+    }
+    
+    .setting-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .setting-header i {
+        font-size: 1.25rem;
+        color: #000;
+    }
+    
+    .setting-label {
+        font-weight: 600;
+        color: var(--color-button-text);
+        font-size: 0.95rem;
+    }
+    
+    .setting-control {
+        width: 100%;
+    }
+    
+    .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .control-group label {
+        font-size: 0.85rem;
+        color: var(--color-button-text);
+        font-weight: 500;
+        opacity: 0.9;
+    }
+    
+    .input-with-unit {
+        display: flex;
+        align-items: stretch;
+        background: var(--intro-light-bg);
+        border: 2px solid var(--intro-light-bg);
+        border-radius: 6px;
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+    
+    .input-with-unit:focus-within {
+        border-color: var(--color-accent-strong);
+    }
+    
+    .input-with-unit input {
+        flex: 1;
+        padding: 0.5rem;
+        border: none;
+        background: transparent;
+        color: var(--color-text);
+        font-size: 0.95rem;
+        font-weight: 500;
+        outline: none;
+    }
+    
+    .input-with-unit .unit {
+        display: flex;
+        align-items: center;
+        padding: 0 0.75rem;
+        background: var(--color-accent-2);
+        color: var(--color-button-text);
+        font-weight: 600;
+        font-size: 0.85rem;
+        border-left: 2px solid var(--intro-light-bg);
+    }
+    
+    .switch-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: background 0.2s, border-color 0.2s;
+        cursor: pointer;
+        box-shadow: none;
+    }
+    
+    .switch-toggle i {
+        font-size: 1.25rem;
+    }
+    
+    .switch-toggle.switch-on {
+        background: var(--good-bg);
+        border-color: var(--good-border);
+        color: var(--good-text);
+    }
+    
+    .switch-toggle.switch-on:hover {
+        background: var(--good-border);
+    }
+    
+    .switch-toggle.switch-off {
+        background: var(--intro-light-bg);
+        border-color: var(--intro-light-bg);
+        color: var(--color-text);
+    }
+    
+    .switch-toggle.switch-off:hover {
+        border-color: var(--color-accent-2);
+    }
+    
+    /* Circuit calculations */
+    .circuit-calculations {
+        background: var(--intro-light-bg);
+        padding: 1.25rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        border: 2px solid var(--color-accent);
+    }
+    
+    .calculations-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1rem 0;
+        color: var(--color-text);
+        font-size: 1rem;
+    }
+    
+    .calculations-title i {
+        color: var(--color-accent-strong);
+    }
+    
+    .calculations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+    
+    .calc-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: var(--color-accent);
+        border: 2px solid var(--color-accent);
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    
+    .calc-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .calc-item i {
+        font-size: 1.75rem;
+        flex-shrink: 0;
+        color: #000 !important;
+    }
+    
+    .calc-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .calc-label {
+        font-size: 0.75rem;
+        color: var(--color-button-text);
+        opacity: 0.8;
+        font-weight: 500;
+    }
+    
+    .calc-value {
+        font-size: 1.1rem;
+        color: var(--color-button-text);
+        font-weight: 700;
+    }
+    
+    /* Icons in calculations are black */
+    
+    .circuit-warning {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: var(--warning-bg);
+        border: 2px solid var(--warning-border);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: var(--warning-text);
+    }
+    
+    .circuit-warning i {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    /* Actions */
+    .circuit-actions {
+        display: flex;
+        justify-content: flex-start;
+        gap: 1rem;
+    }
+    
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .action-btn i {
+        font-size: 1.25rem;
+    }
+    
+    /* Dark mode */
+    body.dark-mode .circuit-card {
+        background: var(--intro-bg-dark);
+    }
+    
+    body.dark-mode .circuit-info-banner {
+        background: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .circuit-info-banner strong,
+    body.dark-mode .circuit-info-banner span {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .circuit-info-banner i {
+        color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .canvas-container {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .toolbar-section,
+    body.dark-mode .component-settings,
+    body.dark-mode .circuit-calculations {
+        background: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .circuit-calculations {
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .toolbar-title,
+    body.dark-mode .settings-title,
+    body.dark-mode .calculations-title {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .toolbar-title i,
+    body.dark-mode .settings-title i,
+    body.dark-mode .calculations-title i {
+        color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .circuit-component {
+        background: var(--color-accent-2-dark);
+    }
+    
+    body.dark-mode .setting-header i {
+        color: #fff;
+    }
+    
+    body.dark-mode .calc-item i {
+        color: #fff !important;
+    }
+    
+    body.dark-mode .setting-card {
+        background: var(--color-accent-dark);
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .setting-card:hover {
+        border-color: var(--color-accent-2-dark);
+    }
+    
+    body.dark-mode .setting-label {
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .control-group label {
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .input-with-unit {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .input-with-unit:focus-within {
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .input-with-unit input {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .input-with-unit .unit {
+        background: var(--color-accent-2-dark);
+        color: var(--color-button-text-dark);
+        border-left-color: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .switch-toggle.switch-on {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+        color: var(--good);
+    }
+    
+    body.dark-mode .switch-toggle.switch-on:hover {
+        background: var(--test-excellent-border-dark);
+    }
+    
+    body.dark-mode .switch-toggle.switch-off {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--intro-light-bg-dark);
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .switch-toggle.switch-off:hover {
+        border-color: var(--color-accent-2-dark);
+    }
+    
+    body.dark-mode .calc-item {
+        background: var(--color-accent-dark);
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .calc-label,
+    body.dark-mode .calc-value {
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .circuit-warning {
+        background: var(--test-good-bg-dark);
+        border-color: var(--test-good-border-dark);
+        color: var(--test-good-text-dark);
+    }
+    
+
+    
+    body.dark-mode .status-success {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+        color: var(--good);
+    }
+    
+    body.dark-mode .status-warning {
+        background: var(--test-good-bg-dark);
+        border-color: var(--test-good-border-dark);
+        color: var(--test-good-text-dark);
+    }
+    
+    /* Mobile responsiveness */
+    @@media (max-width: 768px) {
+        .circuit-card .card-body {
+            padding: 1rem;
         }
-        to {
-            transform: rotate(360deg);
+        
+        .circuit-info-banner {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .circuit-info-banner i {
+            font-size: 1.25rem;
+        }
+        
+        .component-buttons {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.5rem;
+        }
+        
+        .component-btn {
+            padding: 0.6rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        .settings-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .calculations-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        
+        .calc-item {
+            padding: 0.75rem;
+        }
+        
+        .calc-item i {
+            font-size: 1.5rem;
+        }
+        
+        .calc-value {
+            font-size: 1rem;
+        }
+        
+        .canvas-container {
+            min-height: 400px;
         }
     }
     
-    .canvas-container {
-        user-select: none;
+    @@media (max-width: 480px) {
+        .calculations-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .component-buttons {
+            grid-template-columns: 1fr;
+        }
     }
+
 </style>
 
 @code {
