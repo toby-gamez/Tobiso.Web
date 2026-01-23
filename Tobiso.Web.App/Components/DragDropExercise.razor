@@ -2,141 +2,729 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @inject IInteractiveExerciseService ExerciseService
+@rendermode InteractiveServer
 
 <div class="dragdrop-exercise">
-    <div class="card">
+    <div class="card dragdrop-card">
         <div class="card-body">
-            <div class="row">
+            <div class="dragdrop-info-banner">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    <strong>Návod k ovládání:</strong>
+                    <span>Uchop prvek myší a přetáhni ho do správné kategorie • Klikni na prvek v kategorii pro vrácení • Zkontroluj řešení tlačítkem</span>
+                </div>
+            </div>
+
+            <div class="categories-container">
                 @foreach (var category in _categories)
                 {
-                    <div class="col-md-4 mb-3">
-                        <div class="category-drop-zone p-3 border rounded @(GetCategoryClass(category.Id))" style="min-height: 200px;">
-                            <h6 class="text-center mb-3 category-title">@category.Label</h6>
-                            <div class="category-items">
-                                @foreach (var itemId in _userPlacements.Where(p => p.Value == category.Id).Select(p => p.Key))
+                    <div class="category-zone @(GetCategoryClass(category.Id)) @(_dragOverCategory == category.Id ? "drag-over" : "")"
+                         @ondrop="(e) => OnDrop(e, category.Id)"
+                         @ondrop:preventDefault="true"
+                         @ondrop:stopPropagation="true"
+                         @ondragover="OnDragOver"
+                         @ondragover:preventDefault="true"
+                         @ondragover:stopPropagation="true"
+                         @ondragenter="() => OnDragEnter(category.Id)"
+                         @ondragenter:stopPropagation="true"
+                         @ondragleave="OnDragLeave"
+                         @ondragleave:stopPropagation="true">
+                        <div class="category-header">
+                            <i class="bi bi-folder-fill"></i>
+                            <h6 class="category-title">@category.Label</h6>
+                            <span class="category-count">@_userPlacements.Count(p => p.Value == category.Id)</span>
+                        </div>
+                        <div class="category-items">
+                            @foreach (var itemId in _userPlacements.Where(p => p.Value == category.Id).Select(p => p.Key))
+                            {
+                                var item = _items.FirstOrDefault(i => i.Id == itemId);
+                                if (item != null)
                                 {
-                                    var item = _items.FirstOrDefault(i => i.Id == itemId);
-                                    if (item != null)
-                                    {
-                                        <div class="draggable-item bg-primary text-white p-2 rounded mb-2 shadow-sm" 
-                                             style="cursor: pointer;"
-                                             @onclick="() => RemoveItem(itemId)">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span>@item.Text</span>
-                                                <i class="bi bi-x-circle"></i>
-                                            </div>
-                                        </div>
-                                    }
+                                    <div class="draggable-item @(_draggedItem == itemId ? "dragging" : "")" 
+                                         draggable="true"
+                                         @ondragstart="() => OnDragStart(itemId)"
+                                         @ondragend="OnDragEnd"
+                                         @onclick="() => RemoveItem(itemId)"
+                                         title="Klikni pro vrácení nebo přetáhni jinam">
+                                        <i class="bi bi-grip-vertical drag-handle"></i>
+                                        <span class="item-text">@item.Text</span>
+                                        <i class="bi bi-x-circle remove-icon"></i>
+                                    </div>
                                 }
-                            </div>
+                            }
+                            @if (!_userPlacements.Any(p => p.Value == category.Id))
+                            {
+                                <div class="category-empty">
+                                    <i class="bi bi-inbox"></i>
+                                    <span>Prázdná kategorie</span>
+                                </div>
+                            }
                         </div>
                     </div>
                 }
             </div>
 
-            <div class="mt-4">
-                <h6>Prvky k zařazení:</h6>
-                <div class="items-source p-3 border rounded bg-light">
-                    <div class="d-flex gap-2 flex-wrap">
-                        @foreach (var item in _items.Where(i => !_userPlacements.ContainsKey(i.Id)))
-                        {
-                            <div class="draggable-item-source bg-secondary text-white p-2 rounded shadow-sm" style="cursor: pointer;">
-                                @item.Text
-                                <div class="mt-2">
-                                    <small>Přiřadit do:</small>
-                                    <select class="form-select form-select-sm mt-1" @onchange="@(e => PlaceItem(item.Id, e.Value?.ToString() ?? ""))">
-                                        <option value="">-- Vyber kategorii --</option>
-                                        @foreach (var cat in _categories)
-                                        {
-                                            <option value="@cat.Id">@cat.Label</option>
-                                        }
-                                    </select>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                    
-                    @if (!_items.Any(i => !_userPlacements.ContainsKey(i.Id)))
+            <div class="items-source-section">
+                <div class="source-header">
+                    <i class="bi bi-box-seam"></i>
+                    <h6 class="source-title">Prvky k zařazení</h6>
+                    <span class="source-count">@_items.Count(i => !_userPlacements.ContainsKey(i.Id)) / @_items.Count</span>
+                </div>
+                <div class="items-source @(_dragOverSource ? "drag-over" : "")"
+                     @ondrop="OnDropToSource"
+                     @ondrop:preventDefault="true"
+                     @ondrop:stopPropagation="true"
+                     @ondragover="OnDragOver"
+                     @ondragover:preventDefault="true"
+                     @ondragover:stopPropagation="true"
+                     @ondragenter="() => _dragOverSource = true"
+                     @ondragenter:stopPropagation="true"
+                     @ondragleave="() => _dragOverSource = false"
+                     @ondragleave:stopPropagation="true">
+                    @if (_items.Any(i => !_userPlacements.ContainsKey(i.Id)))
                     {
-                        <div class="alert alert-info mb-0 mt-2">
-                            <i class="bi bi-check-circle"></i> Všechny prvky jsou přiřazeny! Zkontroluj správnost.
+                        <div class="source-items">
+                            @foreach (var item in _items.Where(i => !_userPlacements.ContainsKey(i.Id)))
+                            {
+                                <div class="draggable-item source-item @(_draggedItem == item.Id ? "dragging" : "")" 
+                                     draggable="true"
+                                     @ondragstart="() => OnDragStart(item.Id)"
+                                     @ondragend="OnDragEnd"
+                                     title="Přetáhni do správné kategorie">
+                                    <i class="bi bi-grip-vertical drag-handle"></i>
+                                    <span class="item-text">@item.Text</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="source-empty">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Všechny prvky jsou přiřazeny!</span>
+                            <small>Zkontroluj správnost řešení</small>
                         </div>
                     }
                 </div>
             </div>
 
-            <div class="mt-4 d-flex justify-content-between align-items-center">
-                <button class="btn btn-warning" @onclick="Reset">
-                    <i class="bi bi-arrow-counterclockwise"></i> Resetovat
-                </button>
-                <button class="btn btn-primary" @onclick="CheckSolution" disabled="@(_checking || _userPlacements.Count != _items.Count)">
-                    @if (_checking)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <i class="bi bi-check-circle"></i> Zkontrolovat
-                </button>
-            </div>
-
             @if (_validationResult != null)
             {
-                <div class="mt-3 alert @(_validationResult.IsCorrect ? "alert-success" : "alert-warning")">
-                    <h6>
+                <div class="validation-result @(_validationResult.IsCorrect ? "result-success" : "result-warning")">
+                    <div class="result-header">
                         @if (_validationResult.IsCorrect)
                         {
-                            <i class="bi bi-check-circle-fill"></i> @(" Skvělé! Všechny prvky jsou správně zařazeny!")
+                            <i class="bi bi-check-circle-fill"></i>
+                            <h6>Výborně! Všechny prvky jsou správně zařazeny!</h6>
                         }
                         else
                         {
-                            <i class="bi bi-exclamation-triangle"></i> @(" Některé prvky nejsou ve správné kategorii")
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <h6>Některé prvky nejsou ve správné kategorii</h6>
                         }
-                    </h6>
-                    <p class="mb-0"><strong>Skóre:</strong> @_validationResult.Score%</p>
-                    <p class="mb-0">@_validationResult.Feedback</p>
-                    @if (!string.IsNullOrEmpty(_validationResult.Explanation))
-                    {
-                        <p class="mb-0 mt-2"><em>@_validationResult.Explanation</em></p>
-                    }
+                    </div>
+                    <div class="result-details">
+                        <div class="result-score">
+                            <span class="score-label">Skóre:</span>
+                            <span class="score-value">@_validationResult.Score%</span>
+                        </div>
+                        <div class="result-feedback">@_validationResult.Feedback</div>
+                        @if (!string.IsNullOrEmpty(_validationResult.Explanation))
+                        {
+                            <div class="result-explanation">
+                                <i class="bi bi-lightbulb"></i>
+                                <span>@_validationResult.Explanation</span>
+                            </div>
+                        }
+                    </div>
                 </div>
             }
+
+            <div class="dragdrop-actions">
+                <button class="action-btn btn-reset" @onclick="Reset">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Resetovat</span>
+                </button>
+                <button class="action-btn btn-check" @onclick="CheckSolution" disabled="@(_checking || _userPlacements.Count != _items.Count)">
+                    @if (_checking)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    <i class="bi bi-check-circle"></i>
+                    <span>Zkontrolovat</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
-    .category-drop-zone {
-        background: #f8f9fa;
-        transition: all 0.2s;
+    .dragdrop-exercise {
+        width: 100%;
     }
     
-    .category-drop-zone:hover {
-        background: #e9ecef;
-        border-color: #0d6efd !important;
+    .dragdrop-card {
+        background: var(--intro-bg);
+        border: none;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+    
+    .dragdrop-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Info banner */
+    .dragdrop-info-banner {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        align-items: flex-start;
+    }
+    
+    .dragdrop-info-banner i {
+        font-size: 1.5rem;
+        color: var(--color-accent-strong);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    
+    .dragdrop-info-banner div {
+        flex: 1;
+    }
+    
+    .dragdrop-info-banner strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-text);
+    }
+    
+    .dragdrop-info-banner span {
+        font-size: 0.9rem;
+        color: var(--color-text);
+        opacity: 0.85;
+    }
+    
+    /* Categories container */
+    .categories-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .category-zone {
+        background: var(--intro-light-bg);
+        border: 3px solid var(--color-accent);
+        border-radius: 10px;
+        padding: 1rem;
+        min-height: 250px;
+        transition: all 0.3s;
+    }
+    
+    .category-zone:hover {
+        border-color: var(--color-accent-strong);
+    }
+    
+    .category-zone.drag-over {
+        background: var(--color-accent-2);
+        border-color: var(--color-accent-strong);
+        border-style: dashed;
+        transform: scale(1.02);
+    }
+    
+    .category-zone.has-items {
+        border-color: var(--color-accent-strong);
+    }
+    
+    .category-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        border-bottom: 2px solid var(--color-accent);
+    }
+    
+    .category-header i {
+        font-size: 1.25rem;
+        color: var(--color-accent-strong);
     }
     
     .category-title {
-        font-weight: bold;
-        color: #495057;
-        border-bottom: 2px solid #dee2e6;
-        padding-bottom: 8px;
+        flex: 1;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-text);
     }
     
+    .category-count {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        height: 28px;
+        background: var(--color-accent);
+        color: var(--color-button-text);
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    
+    .category-items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-height: 150px;
+    }
+    
+    .category-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2rem 1rem;
+        color: var(--color-text);
+        opacity: 0.5;
+        text-align: center;
+    }
+    
+    .category-empty i {
+        font-size: 2rem;
+    }
+    
+    /* Items source section */
+    .items-source-section {
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .source-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        border-bottom: 2px solid var(--color-accent);
+    }
+    
+    .source-header i {
+        font-size: 1.25rem;
+        color: var(--color-accent-strong);
+    }
+    
+    .source-title {
+        flex: 1;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-text);
+    }
+    
+    .source-count {
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background: var(--color-accent);
+        color: var(--color-button-text);
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .items-source {
+        border: 3px dashed var(--color-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 120px;
+        transition: all 0.3s;
+    }
+    
+    .items-source.drag-over {
+        background: var(--color-accent-2);
+        border-color: var(--color-accent-strong);
+        transform: scale(1.01);
+    }
+    
+    .source-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+    }
+    
+    .source-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2rem 1rem;
+        color: var(--good);
+        text-align: center;
+    }
+    
+    .source-empty i {
+        font-size: 2.5rem;
+    }
+    
+    .source-empty span {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .source-empty small {
+        opacity: 0.8;
+    }
+    
+    /* Draggable items */
     .draggable-item {
-        cursor: pointer;
-        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: var(--color-accent);
+        border: 2px solid var(--color-accent);
+        border-radius: 8px;
+        cursor: grab;
         user-select: none;
+        transition: all 0.2s;
     }
     
     .draggable-item:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: var(--color-accent-strong);
     }
     
-    .draggable-item-source {
-        min-width: 150px;
-        user-select: none;
+    .draggable-item:active {
+        cursor: grabbing;
+    }
+    
+    .draggable-item.dragging {
+        opacity: 0.4;
+        cursor: grabbing;
+    }
+    
+    .draggable-item.source-item {
+        background: var(--color-accent-2);
+        border-color: var(--color-accent-2);
+    }
+    
+    .drag-handle {
+        font-size: 1rem;
+        color: var(--color-button-text);
+        opacity: 0.6;
+    }
+    
+    .item-text {
+        flex: 1;
+        font-weight: 500;
+        color: var(--color-button-text);
+    }
+    
+    .remove-icon {
+        font-size: 1rem;
+        color: var(--color-button-text);
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .draggable-item:hover .remove-icon {
+        opacity: 1;
+    }
+    
+    /* Validation result */
+    .validation-result {
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .result-success {
+        background: var(--good-bg);
+        border: 2px solid var(--good-border);
+    }
+    
+    .result-warning {
+        background: var(--warning-bg);
+        border: 2px solid var(--warning-border);
+    }
+    
+    .result-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .result-header i {
+        font-size: 1.5rem;
+    }
+    
+    .result-success .result-header i {
+        color: var(--good);
+    }
+    
+    .result-warning .result-header i {
+        color: var(--warning-text);
+    }
+    
+    .result-header h6 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+    
+    .result-success .result-header h6 {
+        color: var(--good-text);
+    }
+    
+    .result-warning .result-header h6 {
+        color: var(--warning-text);
+    }
+    
+    .result-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .result-score {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+    
+    .score-label {
+        font-weight: 600;
+    }
+    
+    .result-success .result-score {
+        color: var(--good-text);
+    }
+    
+    .result-warning .result-score {
+        color: var(--warning-text);
+    }
+    
+    .score-value {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+    
+    .result-feedback {
+        font-size: 0.95rem;
+    }
+    
+    .result-success .result-feedback {
+        color: var(--good-text);
+    }
+    
+    .result-warning .result-feedback {
+        color: var(--warning-text);
+    }
+    
+    .result-explanation {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    
+    .result-explanation i {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    
+    /* Actions */
+    .dragdrop-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .action-btn i {
+        font-size: 1.25rem;
+    }
+    
+    /* Dark mode */
+    body.dark-mode .dragdrop-card {
+        background: var(--intro-bg-dark);
+    }
+    
+    body.dark-mode .dragdrop-info-banner {
+        background: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .dragdrop-info-banner strong,
+    body.dark-mode .dragdrop-info-banner span {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .dragdrop-info-banner i {
+        color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .category-zone {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .category-zone:hover {
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .category-zone.drag-over {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .category-zone.has-items {
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .category-header {
+        border-bottom-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .category-header i {
+        color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .category-title {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .category-count {
+        background: var(--color-accent-dark);
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .category-empty {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .items-source-section {
+        background: var(--intro-light-bg-dark);
+    }
+    
+    body.dark-mode .source-header {
+        border-bottom-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .source-header i {
+        color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .source-title {
+        color: var(--color-text-dark);
+    }
+    
+    body.dark-mode .source-count {
+        background: var(--color-accent-dark);
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .items-source {
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .items-source.drag-over {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .draggable-item {
+        background: var(--color-accent-dark);
+        border-color: var(--color-accent-dark);
+    }
+    
+    body.dark-mode .draggable-item:hover {
+        border-color: var(--color-accent-strong-dark);
+    }
+    
+    body.dark-mode .draggable-item.source-item {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-2-dark);
+    }
+    
+    body.dark-mode .drag-handle,
+    body.dark-mode .item-text,
+    body.dark-mode .remove-icon {
+        color: var(--color-button-text-dark);
+    }
+    
+    body.dark-mode .result-success {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+    }
+    
+    body.dark-mode .result-warning {
+        background: var(--test-good-bg-dark);
+        border-color: var(--test-good-border-dark);
+    }
+    
+    body.dark-mode .result-warning .result-header h6,
+    body.dark-mode .result-warning .result-score,
+    body.dark-mode .result-warning .result-feedback {
+        color: var(--test-good-text-dark);
+    }
+    
+    body.dark-mode .result-warning .result-header i {
+        color: var(--test-good-text-dark);
+    }
+    
+    /* Mobile responsiveness */
+    @@media (max-width: 768px) {
+        .dragdrop-card .card-body {
+            padding: 1rem;
+        }
+        
+        .dragdrop-info-banner {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .dragdrop-info-banner i {
+            font-size: 1.25rem;
+        }
+        
+        .categories-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .source-items {
+            grid-template-columns: 1fr;
+        }
+        
+        .dragdrop-actions {
+            flex-direction: column;
+        }
+        
+        .action-btn {
+            width: 100%;
+            justify-content: center;
+        }
     }
 </style>
+
 
 @code {
     [Parameter, EditorRequired]
@@ -147,6 +735,11 @@
     private Dictionary<string, string> _userPlacements = new(); // itemId -> categoryId
     private bool _checking = false;
     private ExerciseValidationResult? _validationResult;
+    
+    // Drag & drop state
+    private string? _draggedItem;
+    private string? _dragOverCategory;
+    private bool _dragOverSource;
 
     protected override void OnParametersSet()
     {
@@ -194,25 +787,86 @@
         }
     }
 
+    private void OnDragStart(string itemId)
+    {
+        _draggedItem = itemId;
+    }
+
+    private void OnDragEnd()
+    {
+        _draggedItem = null;
+        _dragOverCategory = null;
+        _dragOverSource = false;
+    }
+
+    private void OnDragOver(DragEventArgs e)
+    {
+        // Musí být, aby drop fungoval
+    }
+
+    private void OnDragEnter(string categoryId)
+    {
+        _dragOverCategory = categoryId;
+        _dragOverSource = false;
+    }
+
+    private void OnDragLeave()
+    {
+        _dragOverCategory = null;
+    }
+
+    private void OnDrop(DragEventArgs e, string categoryId)
+    {
+        if (_draggedItem != null)
+        {
+            PlaceItem(_draggedItem, categoryId);
+        }
+        _dragOverCategory = null;
+        _dragOverSource = false;
+        _draggedItem = null;
+        StateHasChanged();
+    }
+
+    private void OnDropToSource()
+    {
+        if (_draggedItem != null)
+        {
+            RemoveItem(_draggedItem);
+        }
+        _dragOverSource = false;
+        _draggedItem = null;
+        StateHasChanged();
+    }
+
     private void PlaceItem(string itemId, string categoryId)
     {
         if (string.IsNullOrEmpty(categoryId)) return;
         
+        // Odstranit prvek z jakékoli předchozí kategorie
         if (_userPlacements.ContainsKey(itemId))
+        {
             _userPlacements[itemId] = categoryId;
+        }
         else
+        {
             _userPlacements.Add(itemId, categoryId);
+        }
+        
+        _validationResult = null;
+        StateHasChanged();
     }
 
     private void RemoveItem(string itemId)
     {
         _userPlacements.Remove(itemId);
+        _validationResult = null;
+        StateHasChanged();
     }
 
     private string GetCategoryClass(string categoryId)
     {
         var count = _userPlacements.Count(p => p.Value == categoryId);
-        return count > 0 ? "border-primary" : "";
+        return count > 0 ? "has-items" : "";
     }
 
     private void Reset()

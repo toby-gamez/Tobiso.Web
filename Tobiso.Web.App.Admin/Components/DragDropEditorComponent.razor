@@ -9,7 +9,7 @@
                     <h6 class="mb-0"><i class="bi bi-box"></i> Kategorie</h6>
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-sm btn-success mb-3" @onclick="AddCategory">
+                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddCategory">
                         <i class="bi bi-plus"></i> Přidat kategorii
                     </button>
 
@@ -27,7 +27,7 @@
                                 <div class="list-group-item">
                                     <div class="input-group input-group-sm">
                                         <input type="text" class="form-control" @bind="category.Label" @bind:after="GenerateJson" placeholder="Název kategorie" />
-                                        <button class="btn btn-outline-danger" @onclick="() => RemoveCategory(category.Id)">
+                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveCategory(category.Id)">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
@@ -46,7 +46,7 @@
                     <h6 class="mb-0"><i class="bi bi-card-text"></i> Prvky k zařazení</h6>
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-sm btn-success mb-3" @onclick="AddItem">
+                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddItem">
                         <i class="bi bi-plus"></i> Přidat prvek
                     </button>
 
@@ -67,7 +67,7 @@
                                             <input type="text" class="form-control form-control-sm" @bind="item.Text" @bind:after="GenerateJson" placeholder="Text prvku" />
                                         </div>
                                         <div class="col-4">
-                                            <select class="form-select form-select-sm" @bind="item.CorrectCategory" @bind:after="GenerateJson">
+                                            <select class="form-select form-select-sm" @bind-Value="item.CorrectCategory" @bind-Value:event="onchange" @bind-Value:after="GenerateJson">
                                                 <option value="">-- Kategorie --</option>
                                                 @foreach (var cat in _categories)
                                                 {
@@ -76,7 +76,7 @@
                                             </select>
                                         </div>
                                         <div class="col-1">
-                                            <button class="btn btn-danger btn-sm" @onclick="() => RemoveItem(item.Id)">
+                                            <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveItem(item.Id)">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
@@ -119,10 +119,10 @@
     }
 
     <div class="mt-3 d-flex justify-content-between">
-        <button class="btn btn-success" @onclick="GenerateJson">
+        <button type="button" class="btn btn-success" @onclick="GenerateJson">
             <i class="bi bi-code-square"></i> Aktualizovat JSON
         </button>
-        <button class="btn btn-warning" @onclick="ClearAll">
+        <button type="button" class="btn btn-warning" @onclick="ClearAll">
             <i class="bi bi-x-circle"></i> Vymazat vše
         </button>
     </div>
@@ -145,10 +145,18 @@
     private List<DragDropItem> _items = new();
     private int _categoryCounter = 0;
     private int _itemCounter = 0;
+    private string _lastLoadedConfigJson = "";
+    private string _lastLoadedSolutionJson = "";
 
     protected override void OnParametersSet()
     {
-        LoadFromJson();
+        // Načíst data pouze pokud se JSON skutečně změnil (ne při našem vlastním generování)
+        if (ConfigJson != _lastLoadedConfigJson || SolutionJson != _lastLoadedSolutionJson)
+        {
+            LoadFromJson();
+            _lastLoadedConfigJson = ConfigJson;
+            _lastLoadedSolutionJson = SolutionJson;
+        }
     }
 
     private void LoadFromJson()
@@ -162,19 +170,28 @@
             if (doc.RootElement.TryGetProperty("categories", out var categoriesArray))
             {
                 _categories.Clear();
+                _categoryCounter = 0;
                 foreach (var item in categoriesArray.EnumerateArray())
                 {
+                    var id = item.GetProperty("id").GetString() ?? "";
                     _categories.Add(new DragDropCategory
                     {
-                        Id = item.GetProperty("id").GetString() ?? "",
+                        Id = id,
                         Label = item.GetProperty("label").GetString() ?? ""
                     });
+                    
+                    // Aktualizovat čítač podle načtených ID (např. "cat-5" -> 5)
+                    if (id.StartsWith("cat-") && int.TryParse(id.Substring(4), out var num))
+                    {
+                        _categoryCounter = Math.Max(_categoryCounter, num);
+                    }
                 }
             }
 
             if (doc.RootElement.TryGetProperty("items", out var itemsArray))
             {
                 _items.Clear();
+                _itemCounter = 0;
                 
                 // Načíst solution pro správné kategorie
                 var correctPlacements = new Dictionary<string, string>();
@@ -199,6 +216,12 @@
                         Text = item.GetProperty("text").GetString() ?? "",
                         CorrectCategory = correctPlacements.ContainsKey(id) ? correctPlacements[id] : ""
                     });
+                    
+                    // Aktualizovat čítač podle načtených ID (např. "item-5" -> 5)
+                    if (id.StartsWith("item-") && int.TryParse(id.Substring(5), out var num))
+                    {
+                        _itemCounter = Math.Max(_itemCounter, num);
+                    }
                 }
             }
         }
@@ -216,13 +239,11 @@
             Id = id,
             Label = $"Kategorie {_categoryCounter}"
         });
-        GenerateJson();
     }
 
     private void RemoveCategory(string id)
     {
         _categories.RemoveAll(c => c.Id == id);
-        GenerateJson();
     }
 
     private void AddItem()
@@ -234,13 +255,22 @@
             Text = $"Prvek {_itemCounter}",
             CorrectCategory = _categories.FirstOrDefault()?.Id ?? ""
         });
-        GenerateJson();
     }
 
     private void RemoveItem(string id)
     {
         _items.RemoveAll(i => i.Id == id);
         GenerateJson();
+    }
+
+    private void OnCategoryChanged(string itemId, string? categoryId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId);
+        if (item != null)
+        {
+            item.CorrectCategory = categoryId ?? "";
+            GenerateJson();
+        }
     }
 
     private void ClearAll()
@@ -271,6 +301,7 @@
         };
 
         var configJson = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        _lastLoadedConfigJson = configJson; // Aktualizovat před odesláním, aby se zabránilo reload
         ConfigJsonChanged.InvokeAsync(configJson);
 
         // Solution JSON
@@ -282,7 +313,10 @@
         };
 
         var solutionJson = JsonSerializer.Serialize(solution, new JsonSerializerOptions { WriteIndented = true });
+        _lastLoadedSolutionJson = solutionJson; // Aktualizovat před odesláním, aby se zabránilo reload
         SolutionJsonChanged.InvokeAsync(solutionJson);
+        
+        StateHasChanged();
     }
 
     private class DragDropCategory
