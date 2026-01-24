@@ -392,3 +392,5 @@ MigrationBackup/
 /Tobiso.Web.App/appsettings.json
 /Tobiso.Web.App.Admin/appsettings.Development.json
 /Tobiso.Web.App.Admin/appsettings.json
+.github/copilot-instructions.md
+.github/copilot-instructions.md

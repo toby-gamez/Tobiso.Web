@@ -5,56 +5,119 @@
 @inject IJSRuntime JS
 
 <div class="timeline-exercise">
-    <div class="card">
+    <div class="card dragdrop-card">
         <div class="card-body">
-            <div class="timeline-container" style="position: relative; height: 150px; background: linear-gradient(to right, #e9ecef 0%, #dee2e6 100%); border-radius: 8px; margin: 20px 0; border: 2px solid #dee2e6;">
-                <div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-weight: bold; font-size: 1.2rem;">@_timeRangeStart</div>
-                <div style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-weight: bold; font-size: 1.2rem;">@_timeRangeEnd</div>
-                
-                @* Umístěné události *@
-                @for (int i = 0; i < _userOrder.Count; i++)
-                {
-                    var evt = _events.FirstOrDefault(e => e.Id == _userOrder[i]);
-                    if (evt != null)
-                    {
-                        var position = GetTimelinePosition(i);
-                        <div class="timeline-event-placed" 
-                             style="position: absolute; left: @(position)%; top: 50%; transform: translate(-50%, -50%); cursor: pointer;"
-                             @onclick="() => RemoveFromTimeline(i)">
-                            <div class="event-card bg-primary text-white p-2 rounded shadow-sm" style="min-width: 100px; text-align: center;">
-                                <div style="font-size: 0.85rem; font-weight: bold;">@evt.Label</div>
-                                <div style="font-size: 0.75rem; opacity: 0.9;">@evt.Year</div>
-                                <div style="font-size: 0.7rem; margin-top: 4px;">
-                                    <i class="bi bi-x-circle"></i> Odstranit
-                                </div>
-                            </div>
-                        </div>
-                    }
-                }
-            </div>
-
-            <div class="mt-4">
-                <h6>Události k zařazení:</h6>
-                <div class="d-flex gap-2 flex-wrap">
-                    @foreach (var evt in _events.Where(e => !_userOrder.Contains(e.Id)))
-                    {
-                        <button class="btn btn-outline-secondary event-btn" @onclick="() => AddToTimeline(evt.Id)">
-                            <strong>@evt.Label</strong>
-                            <br/>
-                            <small>(@evt.Year)</small>
-                        </button>
-                    }
+            <div class="dragdrop-info-banner">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    <strong>Návod k ovládání:</strong>
+                    <span>Přetáhni události na osu v pořadí, v jakém se staly. Klikni na událost na ose pro odebrání.</span>
                 </div>
-                
-                @if (!_events.Any(e => !_userOrder.Contains(e.Id)))
-                {
-                    <div class="alert alert-info mt-2">
-                        <i class="bi bi-check-circle"></i> Všechny události jsou umístěny! Zkontroluj správné pořadí.
-                    </div>
-                }
             </div>
 
-            <div class="mt-4 d-flex justify-content-between align-items-center">
+            <div class="mb-4">
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="bi bi-card-text"></i> Časová osa</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="timeline-axis timeline-axis-bg position-relative" style="min-height: 120px; height: 160px;">
+                            @{
+                                var minYear = _timeRangeStart;
+                                var maxYear = _timeRangeEnd;
+                                var range = maxYear - minYear == 0 ? 1 : maxYear - minYear;
+                                var slotCount = _events.Count;
+                            }
+                            @{ 
+                                var sortedEvents = _events.OrderBy(ev => ev.Year).ToList();
+                                for (int i = 0; i < slotCount; i++)
+                                {
+                                    var correctEvent = sortedEvents.Count > i ? sortedEvents[i] : null;
+                                    var correctYear = correctEvent?.Year ?? (minYear + (int)Math.Round((maxYear - minYear) * (i / (double)(slotCount - 1))));
+                                    var left = ((correctYear - minYear) / (double)range) * 100.0;
+                                    int? eventYear = null;
+                                    var evtId = (_userOrder.Count > i) ? _userOrder[i] : null;
+                                    var evt = evtId != null ? _events.FirstOrDefault(ev => ev.Id == evtId) : null;
+                                    if (evt != null) eventYear = evt.Year;
+                            <text>
+                                <div class="timeline-slot-wrapper d-flex align-items-center" style="left:@(left)% ; top:50%; transform:translate(-50%,-50%); gap:8px;">
+                                    <span class="timeline-year-label me-2">@correctYear</span>
+                                    <div class="timeline-slot p-2 border rounded bg-light text-start @(i == _dragOverSlot ? "drag-over" : "")"
+                                         @ondrop="(e) => OnDrop(e, i)"
+                                         @ondrop:preventDefault="true"
+                                         @ondragover="OnDragOver"
+                                         @ondragover:preventDefault="true"
+                                         style="min-width: 140px; min-height: 60px;">
+                                        @if (evt != null)
+                                        {
+                                            <div class="draggable-item timeline-item @(evt.Id == _draggedEventId ? "dragging" : "")"
+                                                 draggable="true"
+                                                 @ondragstart="() => OnDragStart(evt.Id)"
+                                                 @ondragend="OnDragEnd"
+                                                 @onclick="(() => RemoveEventById(evt.Id))"
+                                                 title="Klikni pro odebrání zpět dolů">
+                                                <i class="bi bi-grip-vertical drag-handle"></i>
+                                                <span class="item-text">@evt.Label <span class="event-year">(@evt.Year)</span></span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">(prázdné)</span>
+                                        }
+                                    </div>
+                                </div>
+                            </text>
+                                }
+                            }
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="fw-bold">@_timeRangeStart</span>
+                            <span class="fw-bold">@_timeRangeEnd</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="items-source-section">
+                    <div class="source-header">
+                        <i class="bi bi-box"></i>
+                        <h6 class="source-title">Události k zařazení</h6>
+                        <span class="source-count">@_events.Count(e => !_userOrder.Contains(e.Id)) / @_events.Count</span>
+                    </div>
+                    <div class="items-source @(_dragOverSource ? "drag-over" : "")"
+                         @ondrop="OnDropToSource"
+                         @ondrop:preventDefault="true"
+                         @ondrop:stopPropagation="true"
+                         @ondragover="OnDragOver"
+                         @ondragover:preventDefault="true"
+                         @ondragover:stopPropagation="true"
+                         @ondragenter="() => _dragOverSource = true"
+                         @ondragenter:stopPropagation="true"
+                         @ondragleave="() => _dragOverSource = false"
+                         @ondragleave:stopPropagation="true">
+                        @if (_events.Any(e => !_userOrder.Contains(e.Id)))
+                        {
+                            <div class="source-items events-list">
+                                @foreach (var evt in _events.Where(e => !_userOrder.Contains(e.Id)))
+                                {
+                                    <div class="draggable-item source-item @(evt.Id == _draggedEventId ? "dragging" : "")" draggable="true" @ondragstart="() => OnDragStart(evt.Id)" @ondragend="OnDragEnd" title="Přetáhni na osu">
+                                        <i class="bi bi-grip-vertical drag-handle"></i>
+                                        <span class="item-text">@evt.Label</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="source-empty">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span>Všechny události jsou přiřazeny!</span>
+                                <small>Zkontroluj správnost řešení</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-3">
                 <button class="btn btn-warning" @onclick="Reset">
                     <i class="bi bi-arrow-counterclockwise"></i> Resetovat
                 </button>
@@ -69,23 +132,33 @@
 
             @if (_validationResult != null)
             {
-                <div class="mt-3 alert @(_validationResult.IsCorrect ? "alert-success" : "alert-warning")">
-                    <h6>
+                <div class="validation-result @(_validationResult.IsCorrect ? "result-success" : "result-warning")">
+                    <div class="result-header">
                         @if (_validationResult.IsCorrect)
                         {
-                            <i class="bi bi-check-circle-fill"></i> @(" Perfektní! Správné chronologické pořadí!")
+                            <i class="bi bi-check-circle-fill"></i>
+                            <h6>Perfektní! Správné chronologické pořadí!</h6>
                         }
                         else
                         {
-                            <i class="bi bi-exclamation-triangle"></i> @(" Ještě to není úplně správně")
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <h6>Ještě to není úplně správně</h6>
                         }
-                    </h6>
-                    <p class="mb-0"><strong>Skóre:</strong> @_validationResult.Score%</p>
-                    <p class="mb-0">@_validationResult.Feedback</p>
-                    @if (!string.IsNullOrEmpty(_validationResult.Explanation))
-                    {
-                        <p class="mb-0 mt-2"><em>@_validationResult.Explanation</em></p>
-                    }
+                    </div>
+                    <div class="result-details">
+                        <div class="result-score">
+                            <span class="score-label">Skóre:</span>
+                            <span class="score-value">@_validationResult.Score%</span>
+                        </div>
+                        <div class="result-feedback">@_validationResult.Feedback</div>
+                        @if (!string.IsNullOrEmpty(_validationResult.Explanation))
+                        {
+                            <div class="result-explanation">
+                                <i class="bi bi-lightbulb"></i>
+                                <span>@_validationResult.Explanation</span>
+                            </div>
+                        }
+                    </div>
                 </div>
             }
         </div>
@@ -93,23 +166,328 @@
 </div>
 
 <style>
-    .event-btn {
+    .dragdrop-card {
+        background: var(--intro-bg);
+        border: none;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+    .dragdrop-card .card-body {
+        padding: 1.5rem;
+    }
+    .dragdrop-info-banner {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        align-items: flex-start;
+    }
+    .dragdrop-info-banner i {
+        font-size: 1.5rem;
+        color: var(--color-accent-strong);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .dragdrop-info-banner div {
+        flex: 1;
+    }
+    .dragdrop-info-banner strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-text);
+    }
+    .dragdrop-info-banner span {
+        font-size: 0.9rem;
+        color: var(--color-text);
+        opacity: 0.85;
+    }
+    .draggable-item {
+        cursor: grab;
+        user-select: none;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        transition: box-shadow 0.2s, background 0.2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .draggable-item.dragging {
+        opacity: 0.6;
+        background: #e2e6ea;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .drag-handle {
+        margin-right: 8px;
+        color: #adb5bd;
+        font-size: 1.1rem;
+    }
+    .remove-icon {
+        margin-left: auto;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 1.1rem;
+    }
+    .timeline-axis {
+        min-height: 80px;
+        border-radius: 10px;
+        border: 3px solid var(--color-accent);
+        background: var(--intro-light-bg);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        position: relative;
+        padding: 32px 8px 24px 8px;
+        margin-bottom: 16px;
+    }
+    .timeline-slot-wrapper {
         min-width: 120px;
+        pointer-events: auto;
+        position: absolute;
+    }
+    .timeline-slot-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .year-margin {
+        margin-right: 8px;
+    }
+    .events-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .timeline-year-label {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 2px;
+    }
+    .timeline-slot {
+        min-width: 120px;
+        min-height: 60px;
+        background: #f8f9fa;
+        border: 2px dashed #adb5bd;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, border 0.2s;
+        pointer-events: auto;
+    }
+    .timeline-slot.drag-over {
+        background: #e2e6ea;
+        border-color: #495057;
+    }
+    .timeline-item {
+        width: 100%;
+        border-radius: 10px !important;
+    }
+
+    /* Items source section (styled like DragDropExercise) */
+    .items-source-section {
+        background: var(--intro-light-bg);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .source-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        border-bottom: 2px solid var(--color-accent);
+    }
+
+    .source-header i {
+        font-size: 1.25rem;
+        color: var(--color-accent-strong);
+    }
+
+    .source-title {
+        flex: 1;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-text);
+    }
+
+    .source-count {
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background: var(--color-accent);
+        color: var(--color-button-text);
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .items-source {
+        border: 3px dashed var(--color-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 120px;
+        transition: all 0.3s;
+    }
+
+    .items-source.drag-over {
+        background: var(--color-accent-2);
+        border-color: var(--color-accent-strong);
+        transform: scale(1.01);
+    }
+
+    .source-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .source-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2rem 1rem;
+        color: var(--good);
         text-align: center;
     }
-    
-    .event-card {
-        cursor: pointer;
-        transition: all 0.2s;
+
+    .source-empty i {
+        font-size: 2.5rem;
     }
-    
-    .event-card:hover {
-        transform: scale(1.1);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+
+    /* Validation result (copied from DragDropExercise styles) */
+    .validation-result {
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
     }
-    
-    .timeline-event-placed {
-        z-index: 10;
+
+    .result-success {
+        background: var(--good-bg);
+        border: 2px solid var(--good-border);
+    }
+
+    .result-warning {
+        background: var(--warning-bg);
+        border: 2px solid var(--warning-border);
+    }
+
+    .result-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .result-header i {
+        font-size: 1.5rem;
+    }
+
+    .result-success .result-header i {
+        color: var(--good);
+    }
+
+    .result-warning .result-header i {
+        color: var(--warning-text);
+    }
+
+    .result-header h6 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .result-success .result-header h6 {
+        color: var(--good-text);
+    }
+
+    .result-warning .result-header h6 {
+        color: var(--warning-text);
+    }
+
+    .result-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .result-score {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .score-label {
+        font-weight: 600;
+    }
+
+    .result-success .result-score {
+        color: var(--good-text);
+    }
+
+    .result-warning .result-score {
+        color: var(--warning-text);
+    }
+
+    .score-value {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .result-feedback {
+        font-size: 0.95rem;
+    }
+
+    .result-success .result-feedback {
+        color: var(--good-text);
+    }
+
+    .result-warning .result-feedback {
+        color: var(--warning-text);
+    }
+
+    .result-explanation {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .result-explanation i {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    /* Dark mode variants */
+    body.dark-mode .result-success {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+    }
+
+    body.dark-mode .result-warning {
+        background: var(--test-good-bg-dark);
+        border-color: var(--test-good-border-dark);
+    }
+
+    body.dark-mode .result-warning .result-header h6,
+    body.dark-mode .result-warning .result-score,
+    body.dark-mode .result-warning .result-feedback {
+        color: var(--test-good-text-dark);
+    }
+
+    body.dark-mode .result-warning .result-header i {
+        color: var(--test-good-text-dark);
     }
 </style>
 
@@ -119,6 +497,9 @@
 
     private List<TimelineEvent> _events = new();
     private List<string> _userOrder = new();
+    private string? _draggedEventId = null;
+    private int? _dragOverSlot = null;
+    private bool _dragOverSource = false;
     private int _timeRangeStart = 1300;
     private int _timeRangeEnd = 1700;
     private bool _checking = false;
@@ -134,7 +515,7 @@
         try
         {
             var doc = JsonDocument.Parse(Exercise.ConfigJson);
-            
+
             if (doc.RootElement.TryGetProperty("timeRange", out var timeRange))
             {
                 if (timeRange.TryGetProperty("start", out var start))
@@ -155,7 +536,7 @@
                         Year = item.GetProperty("year").GetInt32()
                     });
                 }
-                
+
                 // Zamíchat události
                 _events = _events.OrderBy(x => Guid.NewGuid()).ToList();
             }
@@ -166,12 +547,56 @@
         }
     }
 
-    private void AddToTimeline(string eventId)
+    private void OnDragStart(string eventId)
     {
-        if (!_userOrder.Contains(eventId))
+        _draggedEventId = eventId;
+    }
+
+    private void OnDragEnd()
+    {
+        _draggedEventId = null;
+        _dragOverSlot = null;
+    }
+
+    private void OnDragOver(DragEventArgs e)
+    {
+        // Required for drop
+    }
+
+    private void OnDrop(DragEventArgs e, int slotIndex)
+    {
+        if (_draggedEventId == null)
+            return;
+
+        // Remove from previous position if already placed
+        _userOrder.Remove(_draggedEventId);
+
+        // Insert at slotIndex (replace if already filled)
+        if (_userOrder.Count > slotIndex)
         {
-            _userOrder.Add(eventId);
+            _userOrder.Insert(slotIndex, _draggedEventId);
+            // If slot was filled, remove the next one
+            if (_userOrder.Count > _events.Count)
+                _userOrder.RemoveAt(_userOrder.Count - 1);
         }
+        else
+        {
+            _userOrder.Add(_draggedEventId);
+        }
+
+        _draggedEventId = null;
+        _dragOverSlot = null;
+    }
+
+    private void OnDropToSource()
+    {
+        if (_draggedEventId == null)
+            return;
+
+        RemoveEventById(_draggedEventId);
+        _dragOverSource = false;
+        _draggedEventId = null;
+        StateHasChanged();
     }
 
     private void RemoveFromTimeline(int index)
@@ -182,14 +607,13 @@
         }
     }
 
-    private double GetTimelinePosition(int index)
+    private void RemoveEventById(string eventId)
     {
-        if (_userOrder.Count == 0) return 50;
-        if (_userOrder.Count == 1) return 50;
-        
-        // Rovnoměrně rozložit události napříč časovou osou
-        var step = 80.0 / (_userOrder.Count - 1); // 80% šířky (10% margin na každé straně)
-        return 10 + (index * step);
+        var idx = _userOrder.IndexOf(eventId);
+        if (idx >= 0)
+        {
+            _userOrder.RemoveAt(idx);
+        }
     }
 
     private void Reset()

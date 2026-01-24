@@ -1,10 +1,12 @@
 # Copilot Instructions for Tobiso.Web
 
+This .NET solution has not Bootstrap or other CSS/JS frameworks integrated. The only exception is Admin project.
+
 ## Project Architecture
 - **Solution Structure:**
   - `Tobiso.Web.Api`: ASP.NET Core Web API for backend logic, authentication, and data access.
   - `Tobiso.Web.App`: Blazor WebAssembly frontend for user-facing web app.
-  - `Tobiso.Web.App.Admin`: Blazor WebAssembly admin interfaceC:\Users\calor\Source\Repos\Tobiso.Web\Tobiso.Web.sln.
+  - `Tobiso.Web.App.Admin`: Blazor WebAssembly admin interface.
   - `Tobiso.Web.Domain`: Domain models and entities.
   - `Tobiso.Web.Shared`: Shared DTOs and interfaces for API/frontend communication.
 

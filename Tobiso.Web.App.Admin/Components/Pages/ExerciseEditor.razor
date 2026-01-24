@@ -283,10 +283,6 @@
         await LoadData();
     }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        await LoadData();
-    }
 
     private async Task LoadData()
     {
@@ -477,7 +473,7 @@
     private void OnConfigChanged(string json)
     {
         _model.ConfigJson = json;
-        StateHasChanged();
+        // Žádné další akce, pouze aktualizace modelu
     }
 
     private void OnSolutionChanged(string json)
