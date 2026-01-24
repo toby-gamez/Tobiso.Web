@@ -241,6 +241,83 @@
         padding: 32px 8px 24px 8px;
         margin-bottom: 16px;
     }
+
+    /* Dark mode for timeline axis (match CircuitSimulator canvas-container) */
+    body.dark-mode .timeline-axis {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--color-accent-dark);
+    }
+
+    /* Dark mode for source boxes and draggable items */
+    body.dark-mode .items-source-section {
+        background: var(--intro-light-bg-dark);
+    }
+
+    body.dark-mode .source-header {
+        border-bottom-color: var(--color-accent-dark);
+    }
+
+    body.dark-mode .source-header i {
+        color: var(--color-accent-strong-dark);
+    }
+
+    body.dark-mode .source-title {
+        color: var(--color-text-dark);
+    }
+
+    body.dark-mode .source-count {
+        background: var(--color-accent-dark);
+        color: var(--color-button-text-dark);
+    }
+
+    body.dark-mode .items-source {
+        border-color: var(--color-accent-dark);
+    }
+
+    body.dark-mode .items-source.drag-over {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-strong-dark);
+    }
+
+    body.dark-mode .source-items {
+        /* ensure grid items have dark backgrounds */
+    }
+
+    body.dark-mode .source-empty {
+        color: var(--test-good-text-dark);
+    }
+
+    body.dark-mode .draggable-item {
+        background: var(--color-accent-dark);
+        border-color: var(--color-accent-dark);
+    }
+
+    body.dark-mode .draggable-item:hover {
+        border-color: var(--color-accent-strong-dark);
+    }
+
+    body.dark-mode .draggable-item.source-item {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-2-dark);
+    }
+
+    body.dark-mode .drag-handle,
+    body.dark-mode .item-text,
+    body.dark-mode .remove-icon {
+        color: var(--color-button-text-dark);
+    }
+
+    /* Dark adjustments for timeline slots */
+    body.dark-mode .timeline-slot {
+        background: var(--intro-light-bg-dark);
+        border-color: var(--color-accent-dark);
+        color: var(--color-text-dark);
+    }
+
+    body.dark-mode .timeline-slot.drag-over {
+        background: var(--color-accent-2-dark);
+        border-color: var(--color-accent-strong-dark);
+    }
     .timeline-slot-wrapper {
         min-width: 120px;
         pointer-events: auto;
