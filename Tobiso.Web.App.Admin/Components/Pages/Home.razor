@@ -182,6 +182,8 @@ else
 
             posts = await Api.GetAllPosts();
 
+            // nothing extra to load here
+
             Console.WriteLine($"Successfully loaded {posts.Count} posts");
             Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
 

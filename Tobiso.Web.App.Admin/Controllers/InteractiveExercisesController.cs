@@ -44,6 +44,24 @@ public class InteractiveExercisesController : ControllerBase
     }
 
     /// <summary>
+    /// Získá všechna cvičení (admin)
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false)
+    {
+        try
+        {
+            var exercises = await _exerciseService.GetAllAsync(includeInactive);
+            return Ok(exercises);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při načítání všech cvičení");
+            return StatusCode(500, "Chyba při načítání cvičení.");
+        }
+    }
+
+    /// <summary>
     /// Získá konkrétní cvičení podle ID
     /// </summary>
     [HttpGet("{id}")]

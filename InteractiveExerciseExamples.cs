@@ -44,7 +44,7 @@ public static class InteractiveExerciseExamples
 
         return new CreateInteractiveExerciseRequest
         {
-            PostId = postId,
+            PostIds = new List<int> { postId },
             Title = "Zapoj sériový obvod",
             Type = "circuit",
             ConfigJson = JsonSerializer.Serialize(config),
@@ -92,7 +92,7 @@ Zapoj jednoduchý obvod s jednou žárovkou, baterií a přepínačem.
 
         return new CreateInteractiveExerciseRequest
         {
-            PostId = postId,
+            PostIds = new List<int> { postId },
             Title = "Seřaď historické události",
             Type = "timeline",
             ConfigJson = JsonSerializer.Serialize(config),
@@ -145,7 +145,7 @@ Zapoj jednoduchý obvod s jednou žárovkou, baterií a přepínačem.
 
         return new CreateInteractiveExerciseRequest
         {
-            PostId = postId,
+            PostIds = new List<int> { postId },
             Title = "Urči slovní druhy",
             Type = "drag-drop",
             ConfigJson = JsonSerializer.Serialize(config),
@@ -191,7 +191,7 @@ Zapoj jednoduchý obvod s jednou žárovkou, baterií a přepínačem.
 
         return new CreateInteractiveExerciseRequest
         {
-            PostId = postId,
+            PostIds = new List<int> { postId },
             Title = "Sestav molekulu vody",
             Type = "molecule",
             ConfigJson = JsonSerializer.Serialize(config),

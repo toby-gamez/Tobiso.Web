@@ -1,0 +1,207 @@
+@page "/exercises"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.Api.Services
+@inject IInteractiveExerciseService ExerciseService
+@inject IPostService PostService
+@inject ICategoryService CategoryService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Všechna cvičení - Admin</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Všechna interaktivní cvičení</h2>
+        <div>
+            <button class="btn btn-primary" @onclick="CreateNewGlobal">Vytvořit nové</button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (!_exercises.Any())
+    {
+        <div class="alert alert-info">Žádná cvičení.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Pořadí</th>
+                        <th>Název</th>
+                        <th>Typ</th>
+                        <th>Články</th>
+                        <th>Kategorie</th>
+                        <th>Aktivní</th>
+                        <th>Vytvořeno</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ex in _exercises.OrderBy(e => e.OrderIndex))
+                    {
+                        <tr class="@(!ex.IsActive ? "table-secondary" : "")">
+                            <td><span class="badge bg-secondary">@ex.OrderIndex</span></td>
+                            <td><strong>@ex.Title</strong></td>
+                            <td><span class="badge bg-info">@GetTypeLabel(ex.Type)</span></td>
+                            <td>
+                                @if (ex.PostIds != null && ex.PostIds.Any())
+                                {
+                                    @string.Join(", ", ex.PostIds.Select(id => _postNames.TryGetValue(id, out var n) ? n : id.ToString()))
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                @if (ex.CategoryIds != null && ex.CategoryIds.Any())
+                                {
+                                    @string.Join(", ", ex.CategoryIds.Select(id => _catNames.TryGetValue(id, out var n) ? n : id.ToString()))
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                @if (ex.IsActive)
+                                {
+                                    <span class="badge bg-success">Ano</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Ne</span>
+                                }
+                            </td>
+                            <td><small>@ex.CreatedAt.ToString("d. M. yyyy")</small></td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditExercise(ex)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => TestExercise(ex.Id)"><i class="bi bi-play-circle"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(ex)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_exerciseToDelete != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Potvrzení smazání</h5><button class="btn-close" @onclick="CancelDelete"></button></div>
+                <div class="modal-body">Opravdu smazat cvičení <strong>@_exerciseToDelete.Title</strong>?</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDelete">Zrušit</button>
+                    <button class="btn btn-danger" @onclick="DeleteExercise">Smazat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<InteractiveExerciseResponse> _exercises = new();
+    private Dictionary<int, string> _postNames = new();
+    private Dictionary<int, string> _catNames = new();
+    private bool _loading = true;
+    private string? _error;
+    private InteractiveExerciseResponse? _exerciseToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _exercises = await ExerciseService.GetAllAsync(includeInactive: true);
+            var posts = await PostService.GetLinks();
+            _postNames = posts.ToDictionary(p => p.Id, p => p.Title);
+            var cats = await CategoryService.GetAll();
+            _catNames = cats.ToDictionary(c => c.Id, c => c.Name);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void EditExercise(InteractiveExerciseResponse ex)
+    {
+        var postId = ex.PostIds != null && ex.PostIds.Any() ? ex.PostIds.First() : 0;
+        Navigation.NavigateTo($"/exercises/{postId}/edit/{ex.Id}");
+    }
+
+    private void CreateNewGlobal()
+    {
+        Navigation.NavigateTo("/exercises/0/new");
+    }
+
+    private void TestExercise(int id)
+    {
+        Navigation.NavigateTo($"/exercises/{0}/test/{id}");
+    }
+
+    private void ConfirmDelete(InteractiveExerciseResponse ex)
+    {
+        _exerciseToDelete = ex;
+    }
+
+    private void CancelDelete() => _exerciseToDelete = null;
+
+    private async Task DeleteExercise()
+    {
+        if (_exerciseToDelete == null) return;
+        try
+        {
+            var ok = await ExerciseService.DeleteAsync(_exerciseToDelete.Id);
+            if (ok)
+            {
+                _exercises.Remove(_exerciseToDelete);
+                _exerciseToDelete = null;
+            }
+            else
+            {
+                _error = "Nepodařilo se smazat cvičení.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private string GetTypeLabel(string type) => type switch
+    {
+        "circuit" => "Obvod",
+        "timeline" => "Časová osa",
+        "drag-drop" => "Přetahování",
+        "molecule" => "Molekula",
+        "matching" => "Párování",
+        _ => type
+    };
+}

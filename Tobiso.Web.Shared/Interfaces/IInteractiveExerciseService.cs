@@ -18,6 +18,11 @@ public interface IInteractiveExerciseService
     Task<InteractiveExerciseResponse?> GetByIdAsync(int id);
     
     /// <summary>
+    /// Získá všechna cvičení (globálně)
+    /// </summary>
+    Task<List<InteractiveExerciseResponse>> GetAllAsync(bool includeInactive = false);
+    
+    /// <summary>
     /// Vytvoří nové cvičení (Admin)
     /// </summary>
     Task<InteractiveExerciseResponse> CreateAsync(CreateInteractiveExerciseRequest request);

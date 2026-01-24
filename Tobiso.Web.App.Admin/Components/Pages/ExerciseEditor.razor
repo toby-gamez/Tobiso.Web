@@ -1,11 +1,12 @@
-@page "/admin/exercises/{PostId:int}/new"
-@page "/admin/exercises/{PostId:int}/edit/{ExerciseId:int}"
+@page "/exercises/{PostId:int}/new"
+@page "/exercises/{PostId:int}/edit/{ExerciseId:int}"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Api.Services
 @using System.Text.Json
 @inject IInteractiveExerciseService ExerciseService
 @inject IPostService PostService
+@inject ICategoryService CategoryService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -61,6 +62,34 @@
                             <h5 class="mb-0">Základní informace</h5>
                         </div>
                         <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Přiřazené články</label>
+                                <div style="max-height:160px; overflow:auto; border:1px solid #e9ecef; padding:8px; border-radius:4px;">
+                                    @foreach (var p in _allPosts)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="postchk-@p.Id" checked="@(_model.PostIds?.Contains(p.Id) == true)" @onchange="(e) => TogglePost(p.Id, e.Value?.ToString())" />
+                                            <label class="form-check-label" for="postchk-@p.Id">@p.Title</label>
+                                        </div>
+                                    }
+                                </div>
+                                <small class="text-muted">Zaškrtněte všechny články, ke kterým má být cvičení přiřazeno.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Přiřazené kategorie</label>
+                                <div style="max-height:160px; overflow:auto; border:1px solid #e9ecef; padding:8px; border-radius:4px;">
+                                    @foreach (var c in _allCategories)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="catchk-@c.Id" checked="@(_model.CategoryIds?.Contains(c.Id) == true)" @onchange="(e) => ToggleCategory(c.Id, e.Value?.ToString())" />
+                                            <label class="form-check-label" for="catchk-@c.Id">@BuildCategoryLabel(c)</label>
+                                        </div>
+                                    }
+                                </div>
+                                <small class="text-muted">Kategorie dědí cvičení na všechny články v nich (rekurzivně).</small>
+                            </div>
+
                             <div class="mb-3">
                                 <label class="form-label">Název cvičení *</label>
                                 <InputText @bind-Value="_model.Title" class="form-control" placeholder="Např: Zapoj sériový obvod" />
@@ -269,6 +298,8 @@
 
     private bool _isEditMode => ExerciseId.HasValue;
     private PostResponse? _post;
+    private List<PostLinkResponse> _allPosts = new();
+    private List<CategoryResponse> _allCategories = new();
     private ExerciseEditorModel _model = new();
     private bool _loading = true;
     private bool _saving = false;
@@ -291,11 +322,15 @@
 
         try
         {
-            _post = await PostService.GetById(PostId);
-            if (_post == null)
+            // Pokud je PostId == 0, jedná se o globální cvičení (není vázané na konkrétní článek)
+            if (PostId != 0)
             {
-                _error = "Článek nenalezen.";
-                return;
+                _post = await PostService.GetById(PostId);
+                if (_post == null)
+                {
+                    _error = "Článek nenalezen.";
+                    return;
+                }
             }
 
             if (_isEditMode)
@@ -319,6 +354,8 @@
                     InstructionsMarkdown = exercise.InstructionsMarkdown,
                     OrderIndex = exercise.OrderIndex,
                     IsActive = exercise.IsActive
+                    ,PostIds = exercise.PostIds ?? new List<int>()
+                    ,CategoryIds = exercise.CategoryIds ?? new List<int>()
                 };
             }
             else
@@ -329,6 +366,10 @@
                     IsActive = true
                 };
             }
+
+            // načíst seznam postů a kategorií pro multi-select
+            _allPosts = await PostService.GetLinks();
+            _allCategories = await CategoryService.GetAll();
         }
         catch (Exception ex)
         {
@@ -391,7 +432,13 @@
             {
                 var request = new CreateInteractiveExerciseRequest
                 {
-                    PostId = PostId,
+                    // Pokud uživatel vybral nějaké konkrétní články, použij je.
+                    // Pokud ne a PostId != 0 (vytvořeno z kontextu článku), přiřaď ten článek.
+                    // Pokud jde o globální cvičení (PostId == 0) a uživatel nic nevybral, nech PostIds null.
+                    PostIds = _model.PostIds != null && _model.PostIds.Any()
+                        ? _model.PostIds
+                        : (PostId != 0 ? new List<int> { PostId } : null),
+                    CategoryIds = _model.CategoryIds,
                     Title = _model.Title,
                     Type = _model.Type,
                     ConfigJson = _model.ConfigJson,
@@ -482,6 +529,39 @@
         StateHasChanged();
     }
 
+    private void TogglePost(int postId, string? value)
+    {
+        if (_model.PostIds == null) _model.PostIds = new List<int>();
+        if (_model.PostIds.Contains(postId))
+            _model.PostIds.Remove(postId);
+        else
+            _model.PostIds.Add(postId);
+    }
+
+    private void ToggleCategory(int categoryId, string? value)
+    {
+        if (_model.CategoryIds == null) _model.CategoryIds = new List<int>();
+        if (_model.CategoryIds.Contains(categoryId))
+            _model.CategoryIds.Remove(categoryId);
+        else
+            _model.CategoryIds.Add(categoryId);
+    }
+
+    private string BuildCategoryLabel(CategoryResponse c)
+    {
+        // Build simple label with parent info
+        var names = new List<string> { c.Name };
+        var current = c.ParentId;
+        while (current.HasValue)
+        {
+            var parent = _allCategories.FirstOrDefault(x => x.Id == current.Value);
+            if (parent == null) break;
+            names.Insert(0, parent.Name);
+            current = parent.ParentId;
+        }
+        return string.Join(" > ", names);
+    }
+
     private void LoadExampleConfig()
     {
         _model.ConfigJson = _model.Type switch
@@ -510,7 +590,7 @@
 
     private void BackToList()
     {
-        Navigation.NavigateTo($"/admin/exercises/{PostId}");
+        Navigation.NavigateTo($"/exercises");
     }
 
     // Helper methods pro příklady
@@ -613,5 +693,7 @@
         public string? InstructionsMarkdown { get; set; }
         public int OrderIndex { get; set; }
         public bool IsActive { get; set; }
+        public List<int>? PostIds { get; set; }
+        public List<int>? CategoryIds { get; set; }
     }
 }

@@ -8,10 +8,6 @@ public class InteractiveExercise
 {
     public int Id { get; set; }
     
-    /// <summary>
-    /// ID článku, ke kterému cvičení patří
-    /// </summary>
-    public int PostId { get; set; }
     
     /// <summary>
     /// Název cvičení (např. "Zapoj sériový obvod", "Seřaď události na časové ose")
@@ -58,6 +54,15 @@ public class InteractiveExercise
     /// </summary>
     public DateTime? UpdatedAt { get; set; }
     
-    // Navigační vlastnost
-    public Post Post { get; set; } = null!;
+    /// <summary>
+    /// Legacy: primární článek (pokud nastavena zpětně kompatibilita)
+    /// </summary>
+    public int? PostId { get; set; }
+
+    // Navigační vlastnost (legacy)
+    public Post? Post { get; set; }
+
+    // Many-to-many via join entities: exercise může být navázáno na více článků a kategorií
+    public ICollection<InteractiveExercisePost> InteractiveExercisePosts { get; set; } = new List<InteractiveExercisePost>();
+    public ICollection<InteractiveExerciseCategory> InteractiveExerciseCategories { get; set; } = new List<InteractiveExerciseCategory>();
 }

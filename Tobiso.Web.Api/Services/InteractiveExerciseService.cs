@@ -26,8 +26,25 @@ public class InteractiveExerciseService : IInteractiveExerciseService
     {
         try
         {
+            // Nejprve sestavíme seznam kategorií článku (včetně rodičů) pro dědičnost cvičení
+            var post = await _context.Posts.Where(p => p.Id == postId).Select(p => new { p.Id, p.CategoryId }).FirstOrDefaultAsync();
+            List<int> categoryIds = new();
+            if (post != null && post.CategoryId.HasValue)
+            {
+                var current = post.CategoryId.Value;
+                while (true)
+                {
+                    categoryIds.Add(current);
+                    var parent = await _context.Categories.Where(c => c.Id == current).Select(c => c.ParentId).FirstOrDefaultAsync();
+                    if (!parent.HasValue) break;
+                    current = parent.Value;
+                }
+            }
+
             var query = _context.InteractiveExercises
-                .Where(e => e.PostId == postId);
+                .Where(e => e.PostId == postId
+                            || e.InteractiveExercisePosts.Any(p => p.PostId == postId)
+                            || (categoryIds.Any() && e.InteractiveExerciseCategories.Any(ec => categoryIds.Contains(ec.CategoryId))));
 
             if (!includeInactive)
             {
@@ -38,7 +55,13 @@ public class InteractiveExerciseService : IInteractiveExerciseService
                 .OrderBy(e => e.OrderIndex)
                 .ToListAsync();
 
-            return exercises.Select(MapToResponse).ToList();
+            var results = new List<InteractiveExerciseResponse>();
+            foreach (var ex in exercises)
+            {
+                results.Add(await MapToResponseAsync(ex));
+            }
+
+            return results;
         }
         catch (Exception ex)
         {
@@ -54,7 +77,7 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             var exercise = await _context.InteractiveExercises
                 .FirstOrDefaultAsync(e => e.Id == id);
 
-            return exercise != null ? MapToResponse(exercise) : null;
+            return exercise != null ? await MapToResponseAsync(exercise) : null;
         }
         catch (Exception ex)
         {
@@ -63,24 +86,58 @@ public class InteractiveExerciseService : IInteractiveExerciseService
         }
     }
 
+    public async Task<List<InteractiveExerciseResponse>> GetAllAsync(bool includeInactive = false)
+    {
+        try
+        {
+            var query = _context.InteractiveExercises.AsQueryable();
+
+            if (!includeInactive)
+            {
+                query = query.Where(e => e.IsActive);
+            }
+
+            var exercises = await query.OrderBy(e => e.OrderIndex).ToListAsync();
+
+            var results = new List<InteractiveExerciseResponse>();
+            foreach (var ex in exercises)
+            {
+                results.Add(await MapToResponseAsync(ex));
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při načítání všech cvičení");
+            throw;
+        }
+    }
+
     public async Task<InteractiveExerciseResponse> CreateAsync(CreateInteractiveExerciseRequest request)
     {
         try
         {
-            // Validace: zkontroluj, že Post existuje
-            var postExists = await _context.Posts.AnyAsync(p => p.Id == request.PostId);
-            if (!postExists)
-            {
-                throw new InvalidOperationException($"Článek s ID {request.PostId} neexistuje.");
-            }
-
             // Validace JSON
             ValidateJson(request.ConfigJson, "ConfigJson");
             ValidateJson(request.SolutionJson, "SolutionJson");
 
+            // Validate posts/categories if provided
+            if (request.PostIds != null && request.PostIds.Any())
+            {
+                var missing = request.PostIds.Except(await _context.Posts.Where(p => request.PostIds.Contains(p.Id)).Select(p => p.Id).ToListAsync()).ToList();
+                if (missing.Any()) throw new InvalidOperationException($"Neexistující články: {string.Join(',', missing)}");
+            }
+            if (request.CategoryIds != null && request.CategoryIds.Any())
+            {
+                var missingC = request.CategoryIds.Except(await _context.Categories.Where(c => request.CategoryIds.Contains(c.Id)).Select(c => c.Id).ToListAsync()).ToList();
+                if (missingC.Any()) throw new InvalidOperationException($"Neexistující kategorie: {string.Join(',', missingC)}");
+            }
+
             var exercise = new InteractiveExercise
             {
-                PostId = request.PostId,
+                // keep legacy PostId null or first if provided for compatibility
+                PostId = request.PostIds != null && request.PostIds.Any() ? request.PostIds.First() : null,
                 Title = request.Title,
                 Type = request.Type,
                 ConfigJson = request.ConfigJson,
@@ -94,9 +151,27 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             _context.InteractiveExercises.Add(exercise);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Vytvořeno cvičení {Title} pro článek {PostId}", exercise.Title, exercise.PostId);
+            // Add join entries
+            if (request.PostIds != null)
+            {
+                foreach (var pid in request.PostIds.Distinct())
+                {
+                    _context.InteractiveExercisePosts.Add(new InteractiveExercisePost { InteractiveExerciseId = exercise.Id, PostId = pid });
+                }
+            }
+            if (request.CategoryIds != null)
+            {
+                foreach (var cid in request.CategoryIds.Distinct())
+                {
+                    _context.InteractiveExerciseCategories.Add(new InteractiveExerciseCategory { InteractiveExerciseId = exercise.Id, CategoryId = cid });
+                }
+            }
 
-            return MapToResponse(exercise);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Vytvořeno cvičení {Title} (ID {Id})", exercise.Title, exercise.Id);
+
+            return await MapToResponseAsync(exercise);
         }
         catch (Exception ex)
         {
@@ -122,6 +197,18 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             ValidateJson(request.ConfigJson, "ConfigJson");
             ValidateJson(request.SolutionJson, "SolutionJson");
 
+            // Validate posts/categories if provided
+            if (request.PostIds != null && request.PostIds.Any())
+            {
+                var missing = request.PostIds.Except(await _context.Posts.Where(p => request.PostIds.Contains(p.Id)).Select(p => p.Id).ToListAsync()).ToList();
+                if (missing.Any()) throw new InvalidOperationException($"Neexistující články: {string.Join(',', missing)}");
+            }
+            if (request.CategoryIds != null && request.CategoryIds.Any())
+            {
+                var missingC = request.CategoryIds.Except(await _context.Categories.Where(c => request.CategoryIds.Contains(c.Id)).Select(c => c.Id).ToListAsync()).ToList();
+                if (missingC.Any()) throw new InvalidOperationException($"Neexistující kategorie: {string.Join(',', missingC)}");
+            }
+
             exercise.Title = request.Title;
             exercise.Type = request.Type;
             exercise.ConfigJson = request.ConfigJson;
@@ -131,11 +218,33 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             exercise.IsActive = request.IsActive;
             exercise.UpdatedAt = DateTime.UtcNow;
 
+            // Update join entries: posts
+            if (request.PostIds != null)
+            {
+                var existing = _context.InteractiveExercisePosts.Where(x => x.InteractiveExerciseId == exercise.Id);
+                _context.InteractiveExercisePosts.RemoveRange(existing);
+                foreach (var pid in request.PostIds.Distinct())
+                {
+                    _context.InteractiveExercisePosts.Add(new InteractiveExercisePost { InteractiveExerciseId = exercise.Id, PostId = pid });
+                }
+            }
+
+            // categories
+            if (request.CategoryIds != null)
+            {
+                var existingC = _context.InteractiveExerciseCategories.Where(x => x.InteractiveExerciseId == exercise.Id);
+                _context.InteractiveExerciseCategories.RemoveRange(existingC);
+                foreach (var cid in request.CategoryIds.Distinct())
+                {
+                    _context.InteractiveExerciseCategories.Add(new InteractiveExerciseCategory { InteractiveExerciseId = exercise.Id, CategoryId = cid });
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Aktualizováno cvičení {Id}", exercise.Id);
 
-            return MapToResponse(exercise);
+            return await MapToResponseAsync(exercise);
         }
         catch (Exception ex)
         {
@@ -243,10 +352,38 @@ public class InteractiveExerciseService : IInteractiveExerciseService
 
     private static InteractiveExerciseResponse MapToResponse(InteractiveExercise exercise)
     {
+        // kept for compatibility but use MapToResponseAsync in service methods when possible
         return new InteractiveExerciseResponse
         {
             Id = exercise.Id,
-            PostId = exercise.PostId,
+            Title = exercise.Title,
+            Type = exercise.Type,
+            ConfigJson = exercise.ConfigJson,
+            InstructionsMarkdown = exercise.InstructionsMarkdown,
+            OrderIndex = exercise.OrderIndex,
+            IsActive = exercise.IsActive,
+            CreatedAt = exercise.CreatedAt,
+            UpdatedAt = exercise.UpdatedAt
+        };
+    }
+
+    private async Task<InteractiveExerciseResponse> MapToResponseAsync(InteractiveExercise exercise)
+    {
+        var postIds = await _context.InteractiveExercisePosts
+            .Where(x => x.InteractiveExerciseId == exercise.Id)
+            .Select(x => x.PostId)
+            .ToListAsync();
+
+        var categoryIds = await _context.InteractiveExerciseCategories
+            .Where(x => x.InteractiveExerciseId == exercise.Id)
+            .Select(x => x.CategoryId)
+            .ToListAsync();
+
+        return new InteractiveExerciseResponse
+        {
+            Id = exercise.Id,
+            PostIds = postIds,
+            CategoryIds = categoryIds,
             Title = exercise.Title,
             Type = exercise.Type,
             ConfigJson = exercise.ConfigJson,

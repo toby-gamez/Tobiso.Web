@@ -14,4 +14,5 @@ public class Post
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
     public ICollection<Question> Questions { get; set; } = new List<Question>();
+    public ICollection<InteractiveExercisePost> InteractiveExercisePosts { get; set; } = new List<InteractiveExercisePost>();
 }

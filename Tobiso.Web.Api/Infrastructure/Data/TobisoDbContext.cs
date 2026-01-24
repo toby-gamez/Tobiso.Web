@@ -18,6 +18,8 @@ public class TobisoDbContext : DbContext
     public DbSet<Addendum> Addendums { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
     public DbSet<InteractiveExercise> InteractiveExercises { get; set; }
+    public DbSet<InteractiveExercisePost> InteractiveExercisePosts { get; set; }
+    public DbSet<InteractiveExerciseCategory> InteractiveExerciseCategories { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -134,12 +136,45 @@ public class TobisoDbContext : DbContext
             entity.Property(e => e.SolutionJson)
                 .IsRequired();
                 
+            // Legacy single-post FK left optional; main association uses join tables
             entity.HasOne(e => e.Post)
                 .WithMany()
                 .HasForeignKey(e => e.PostId)
-                .OnDelete(DeleteBehavior.Cascade);
-                
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasIndex(e => new { e.PostId, e.OrderIndex });
+        });
+
+        // Configure join table InteractiveExercisePost
+        modelBuilder.Entity<InteractiveExercisePost>(entity =>
+        {
+            entity.HasKey(e => new { e.InteractiveExerciseId, e.PostId });
+
+            entity.HasOne(e => e.InteractiveExercise)
+                .WithMany(x => x.InteractiveExercisePosts)
+                .HasForeignKey(e => e.InteractiveExerciseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany(p => p.InteractiveExercisePosts)
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure join table InteractiveExerciseCategory
+        modelBuilder.Entity<InteractiveExerciseCategory>(entity =>
+        {
+            entity.HasKey(e => new { e.InteractiveExerciseId, e.CategoryId });
+
+            entity.HasOne(e => e.InteractiveExercise)
+                .WithMany(x => x.InteractiveExerciseCategories)
+                .HasForeignKey(e => e.InteractiveExerciseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Category)
+                .WithMany(c => c.InteractiveExerciseCategories)
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

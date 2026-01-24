@@ -22,6 +22,9 @@ public class Category
 
     public List<Category> Children { get; set; } = [];
 
+    // vztah M:N: kategorie může obsahovat více interaktivních cvičení
+    public ICollection<InteractiveExerciseCategory> InteractiveExerciseCategories { get; set; } = new List<InteractiveExerciseCategory>();
+
     [NotMapped]
     public string FullPath => Parent == null ? Name : $"{Parent.FullPath} > {Name}";
 }

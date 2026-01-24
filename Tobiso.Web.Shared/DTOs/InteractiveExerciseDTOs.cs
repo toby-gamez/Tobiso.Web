@@ -6,7 +6,9 @@ namespace Tobiso.Web.Shared.DTOs;
 public class InteractiveExerciseResponse
 {
     public int Id { get; set; }
-    public int PostId { get; set; }
+    // Posts and Categories linked to this exercise
+    public List<int> PostIds { get; set; } = new List<int>();
+    public List<int> CategoryIds { get; set; } = new List<int>();
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string ConfigJson { get; set; } = string.Empty;
@@ -22,7 +24,8 @@ public class InteractiveExerciseResponse
 /// </summary>
 public class CreateInteractiveExerciseRequest
 {
-    public int PostId { get; set; }
+    public List<int>? PostIds { get; set; }
+    public List<int>? CategoryIds { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string ConfigJson { get; set; } = string.Empty;
@@ -38,6 +41,8 @@ public class CreateInteractiveExerciseRequest
 public class UpdateInteractiveExerciseRequest
 {
     public int Id { get; set; }
+    public List<int>? PostIds { get; set; }
+    public List<int>? CategoryIds { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string ConfigJson { get; set; } = string.Empty;
