@@ -103,20 +103,26 @@ else
                 <span>@GetLatestEditDateDisplay()</span>
             }
         </div>
-        <div class="tool">
-            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
-            @if (_hasQuestions)
-            {
-                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
-            }
-            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
-                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
-            </button>
-            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
-                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
-            </button>
-            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
-        </div>
+            <div class="tool">
+                <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+                @if (_hasQuestions)
+                {
+                    <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                }
+                <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+                </button>
+                @if (_exercises != null && _exercises.Any())
+                {
+                    <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                        <i class="bi bi-puzzle"></i>
+                    </button>
+                }
+                <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+                </button>
+                <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+            </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
         </div>
@@ -154,6 +160,12 @@ else
             <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
                 <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
             </button>
+            @if (_exercises != null && _exercises.Any())
+            {
+                <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                    <i class="bi bi-puzzle"></i>
+                </button>
+            }
             <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
                 <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
             </button>
@@ -167,8 +179,9 @@ else
     @* Interaktivní cvičení *@
     @if (_exercises != null && _exercises.Any())
     {
-        <div class="mt-5 mb-4">
-            <h2 class="verybig">
+        <section id="interaktivni-cviceni">
+            <div class="mt-5 mb-4">
+            <h2>
                 <i class="bi bi-puzzle"></i> Interaktivní cvičení
             </h2>
             
@@ -216,6 +229,7 @@ else
                 </div>
             }
         </div>
+        </section>
     }
     
     @if (_relatedPosts != null && _relatedPosts.Any())
@@ -783,6 +797,18 @@ else
         catch (Exception ex)
         {
             Console.WriteLine($"PDF generation failed: {ex.Message}");
+        }
+    }
+
+    private async Task ScrollToExercises()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("eval", "document.getElementById('interaktivni-cviceni')?.scrollIntoView({behavior:'smooth', block:'start'})");
+        }
+        catch
+        {
+            // ignore
         }
     }
 
