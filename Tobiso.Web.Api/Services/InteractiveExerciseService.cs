@@ -443,7 +443,60 @@ public class InteractiveExerciseService : IInteractiveExerciseService
 
     private ExerciseValidationResult ValidateMatching(JsonDocument userSolution, JsonDocument correctSolution)
     {
-        // Podobně jako drag-drop - párování prvků
-        return ValidateDragDrop(userSolution, correctSolution);
+        try
+        {
+            var userPairs = userSolution.RootElement.GetProperty("pairs");
+            var correctPairs = correctSolution.RootElement.GetProperty("correctPairs");
+
+            // Sestav slovníky leftId -> rightId
+            var userDict = new Dictionary<string, string>();
+            foreach (var pair in userPairs.EnumerateArray())
+            {
+                if (pair.TryGetProperty("leftId", out var left) && pair.TryGetProperty("rightId", out var right))
+                {
+                    userDict[left.GetString() ?? ""] = right.GetString() ?? "";
+                }
+            }
+            var correctDict = new Dictionary<string, string>();
+            foreach (var pair in correctPairs.EnumerateArray())
+            {
+                if (pair.TryGetProperty("leftId", out var left) && pair.TryGetProperty("rightId", out var right))
+                {
+                    correctDict[left.GetString() ?? ""] = right.GetString() ?? "";
+                }
+            }
+
+            int correctCount = 0;
+            int totalCount = correctDict.Count;
+            foreach (var kv in correctDict)
+            {
+                if (userDict.TryGetValue(kv.Key, out var userRight))
+                {
+                    if (userRight == kv.Value)
+                        correctCount++;
+                }
+            }
+
+            var score = totalCount > 0 ? (int)((double)correctCount / totalCount * 100) : 0;
+            var isCorrect = score == 100;
+
+            return new ExerciseValidationResult
+            {
+                IsCorrect = isCorrect,
+                Score = score,
+                Feedback = isCorrect ? "Výborně! Všechny páry jsou správně!" : $"Správně {correctCount} z {totalCount} párů.",
+                Explanation = isCorrect ? null : "Některé páry nejsou správně. Zkontroluj spojení."
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při validaci matching");
+            return new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score = 0,
+                Feedback = "Chyba při vyhodnocení."
+            };
+        }
     }
 }

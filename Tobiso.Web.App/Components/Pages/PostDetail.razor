@@ -194,17 +194,16 @@ else
                                 case "circuit":
                                     <CircuitSimulator Exercise="exercise" />
                                     break;
-                                
                                 case "timeline":
                                     <TimelineExercise Exercise="exercise" />
                                     break;
-                                
                                 case "drag-drop":
                                     <DragDropExercise Exercise="exercise" />
                                     break;
-                                
-                                case "molecule":
                                 case "matching":
+                                    <MatchingExercise Exercise="exercise" />
+                                    break;
+                                case "molecule":
                                 default:
                                     <div class="alert alert-warning">
                                         <i class="bi bi-tools"></i> 

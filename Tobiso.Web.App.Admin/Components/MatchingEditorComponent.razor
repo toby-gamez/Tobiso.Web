@@ -1,0 +1,300 @@
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components
+
+<div class="matching-editor">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-list-ol"></i> Levý sloupec (otázky)</h6>
+                </div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddLeft">
+                        <i class="bi bi-plus"></i> Přidat položku
+                    </button>
+                    @if (!_left.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Přidejte položky do levého sloupce (např. otázky, pojmy)
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group">
+                            @foreach (var l in _left)
+                            {
+                                <div class="list-group-item">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" @bind="l.Text" @bind:after="GenerateJson" placeholder="Text položky" />
+                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveLeft(l.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">ID: @l.Id</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> Pravý sloupec (odpovědi)</h6>
+                </div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddRight">
+                        <i class="bi bi-plus"></i> Přidat položku
+                    </button>
+                    @if (!_right.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Přidejte položky do pravého sloupce (např. odpovědi, definice)
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group">
+                            @foreach (var r in _right)
+                            {
+                                <div class="list-group-item">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" @bind="r.Text" @bind:after="GenerateJson" placeholder="Text položky" />
+                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveRight(r.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">ID: @r.Id</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Páry (řešení)</h6>
+        </div>
+        <div class="card-body">
+            <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddPair">
+                <i class="bi bi-plus"></i> Přidat pár
+            </button>
+            @if (!_pairs.Any())
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Přidejte páry (propojení mezi levou a pravou položkou)
+                </div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var pair in _pairs)
+                    {
+                        <div class="list-group-item">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-5">
+                                    <select class="form-select form-select-sm" @bind="pair.LeftId" @bind:after="GenerateJson">
+                                        <option value="">-- Levá položka --</option>
+                                        @foreach (var l in _left)
+                                        {
+                                            <option value="@l.Id">@l.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <select class="form-select form-select-sm" @bind="pair.RightId" @bind:after="GenerateJson">
+                                        <option value="">-- Pravá položka --</option>
+                                        @foreach (var r in _right)
+                                        {
+                                            <option value="@r.Id">@r.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-2">
+                                    <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemovePair(pair.Id)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted">ID: @pair.Id</small>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+    <div class="mt-3 d-flex justify-content-between">
+        <button type="button" class="btn btn-success" @onclick="GenerateJson">
+            <i class="bi bi-code-square"></i> Aktualizovat JSON
+        </button>
+        <button type="button" class="btn btn-warning" @onclick="ClearAll">
+            <i class="bi bi-x-circle"></i> Vymazat vše
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string ConfigJson { get; set; } = "{}";
+
+    [Parameter]
+    public EventCallback<string> ConfigJsonChanged { get; set; }
+
+    [Parameter]
+    public string SolutionJson { get; set; } = "{}";
+
+    [Parameter]
+    public EventCallback<string> SolutionJsonChanged { get; set; }
+
+    private List<MatchingItem> _left = new();
+    private List<MatchingItem> _right = new();
+    private List<Pair> _pairs = new();
+    private int _leftCounter = 0;
+    private int _rightCounter = 0;
+    private int _pairCounter = 0;
+    private string _lastLoadedConfigJson = "";
+    private string _lastLoadedSolutionJson = "";
+
+    protected override void OnParametersSet()
+    {
+        if (ConfigJson != _lastLoadedConfigJson || SolutionJson != _lastLoadedSolutionJson)
+        {
+            LoadFromJson();
+            _lastLoadedConfigJson = ConfigJson;
+            _lastLoadedSolutionJson = SolutionJson;
+        }
+    }
+
+    private void LoadFromJson()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ConfigJson) || ConfigJson == "{}") return;
+            var doc = JsonDocument.Parse(ConfigJson);
+            if (doc.RootElement.TryGetProperty("left", out var leftArray))
+            {
+                _left.Clear();
+                _leftCounter = 0;
+                foreach (var item in leftArray.EnumerateArray())
+                {
+                    var id = item.GetProperty("id").GetString() ?? "";
+                    _left.Add(new MatchingItem { Id = id, Text = item.GetProperty("text").GetString() ?? "" });
+                    if (id.StartsWith("l-") && int.TryParse(id.Substring(2), out var num))
+                        _leftCounter = Math.Max(_leftCounter, num);
+                }
+            }
+            if (doc.RootElement.TryGetProperty("right", out var rightArray))
+            {
+                _right.Clear();
+                _rightCounter = 0;
+                foreach (var item in rightArray.EnumerateArray())
+                {
+                    var id = item.GetProperty("id").GetString() ?? "";
+                    _right.Add(new MatchingItem { Id = id, Text = item.GetProperty("text").GetString() ?? "" });
+                    if (id.StartsWith("r-") && int.TryParse(id.Substring(2), out var num))
+                        _rightCounter = Math.Max(_rightCounter, num);
+                }
+            }
+            if (SolutionJson != "{}" && !string.IsNullOrWhiteSpace(SolutionJson))
+            {
+                var solDoc = JsonDocument.Parse(SolutionJson);
+                if (solDoc.RootElement.TryGetProperty("pairs", out var pairsArray))
+                {
+                    _pairs.Clear();
+                    _pairCounter = 0;
+                    foreach (var item in pairsArray.EnumerateArray())
+                    {
+                        var id = item.GetProperty("id").GetString() ?? "";
+                        _pairs.Add(new Pair
+                        {
+                            Id = id,
+                            LeftId = item.GetProperty("leftId").GetString() ?? "",
+                            RightId = item.GetProperty("rightId").GetString() ?? ""
+                        });
+                        if (id.StartsWith("pair-") && int.TryParse(id.Substring(5), out var num))
+                            _pairCounter = Math.Max(_pairCounter, num);
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void AddLeft()
+    {
+        var id = $"l-{++_leftCounter}";
+        _left.Add(new MatchingItem { Id = id, Text = $"Levá { _leftCounter }" });
+    }
+    private void RemoveLeft(string id)
+    {
+        _left.RemoveAll(l => l.Id == id);
+        _pairs.RemoveAll(p => p.LeftId == id);
+        GenerateJson();
+    }
+    private void AddRight()
+    {
+        var id = $"r-{++_rightCounter}";
+        _right.Add(new MatchingItem { Id = id, Text = $"Pravá { _rightCounter }" });
+    }
+    private void RemoveRight(string id)
+    {
+        _right.RemoveAll(r => r.Id == id);
+        _pairs.RemoveAll(p => p.RightId == id);
+        GenerateJson();
+    }
+    private void AddPair()
+    {
+        var id = $"pair-{++_pairCounter}";
+        _pairs.Add(new Pair { Id = id, LeftId = _left.FirstOrDefault()?.Id ?? "", RightId = _right.FirstOrDefault()?.Id ?? "" });
+    }
+    private void RemovePair(string id)
+    {
+        _pairs.RemoveAll(p => p.Id == id);
+        GenerateJson();
+    }
+    private void ClearAll()
+    {
+        _left.Clear();
+        _right.Clear();
+        _pairs.Clear();
+        _leftCounter = 0;
+        _rightCounter = 0;
+        _pairCounter = 0;
+        GenerateJson();
+    }
+    private void GenerateJson()
+    {
+        var config = new
+        {
+            type = "matching",
+            left = _left.Select(l => new { id = l.Id, text = l.Text }),
+            right = _right.Select(r => new { id = r.Id, text = r.Text })
+        };
+        var configJson = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        _lastLoadedConfigJson = configJson;
+        ConfigJsonChanged.InvokeAsync(configJson);
+        var solution = new
+        {
+            correctPairs = _pairs.Select(p => new { id = p.Id, leftId = p.LeftId, rightId = p.RightId }),
+            explanation = "Správné páry levá-pravá"
+        };
+        var solutionJson = JsonSerializer.Serialize(solution, new JsonSerializerOptions { WriteIndented = true });
+        _lastLoadedSolutionJson = solutionJson;
+        SolutionJsonChanged.InvokeAsync(solutionJson);
+        StateHasChanged();
+    }
+    private class MatchingItem
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
+    private class Pair
+    {
+        public string Id { get; set; } = "";
+        public string LeftId { get; set; } = "";
+        public string RightId { get; set; } = "";
+    }
+}

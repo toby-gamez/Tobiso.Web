@@ -133,6 +133,10 @@
                                         <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                                 SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
                                         break;
+                                    case "matching":
+                                        <MatchingEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                        break;
                                     default:
                                         <div class="alert alert-warning">
                                             <i class="bi bi-info-circle"></i> Vizuální editor pro tento typ cvičení zatím není k dispozici. Použijte JSON editor.
@@ -231,7 +235,7 @@
                                         break;
                                 }
                                 <hr />
-                                <a href="/INTERACTIVE_EXERCISES_DOCS.md" target="_blank" class="btn btn-sm btn-outline-info w-100">
+                                <a href="/docs/INTERACTIVE_EXERCISES_DOCS.md" target="_blank" class="btn btn-sm btn-outline-info w-100">
                                     <i class="bi bi-book"></i> Kompletní dokumentace
                                 </a>
                             }
@@ -490,6 +494,7 @@
             "timeline" => GetTimelineConfigExample(),
             "drag-drop" => GetDragDropConfigExample(),
             "molecule" => GetMoleculeConfigExample(),
+            "matching" => GetMatchingConfigExample(),
             _ => "{}"
         };
     }
@@ -502,6 +507,7 @@
             "timeline" => GetTimelineSolutionExample(),
             "drag-drop" => GetDragDropSolutionExample(),
             "molecule" => GetMoleculeSolutionExample(),
+            "matching" => GetMatchingSolutionExample(),
             _ => "{}"
         };
     }
@@ -515,7 +521,26 @@
     private string GetCircuitExample() => "{\n  \"components\": [...],\n  \"availableComponents\": [...]\n}";
     private string GetTimelineExample() => "{\n  \"events\": [...],\n  \"timeRange\": {...}\n}";
     private string GetDragDropExample() => "{\n  \"items\": [...],\n  \"categories\": [...]\n}";
+    private string GetMatchingExample() => "{\n  \"left\": [...],\n  \"right\": [...]\n}";
     private string GetMoleculeExample() => "{\n  \"availableAtoms\": [...]\n}";
+        private string GetMatchingConfigExample() => @"{
+    ""left"": [
+        { ""id"": ""l-1"", ""text"": ""Jablko"" },
+        { ""id"": ""l-2"", ""text"": ""Pes"" }
+    ],
+    ""right"": [
+        { ""id"": ""r-1"", ""text"": ""Ovoce"" },
+        { ""id"": ""r-2"", ""text"": ""Zvíře"" }
+    ]
+}";
+
+        private string GetMatchingSolutionExample() => @"{
+    ""pairs"": [
+        { ""id"": ""pair-1"", ""leftId"": ""l-1"", ""rightId"": ""r-1"" },
+        { ""id"": ""pair-2"", ""leftId"": ""l-2"", ""rightId"": ""r-2"" }
+    ],
+    ""explanation"": ""Správné páry levá-pravá""
+}";
 
     private string GetCircuitConfigExample() => @"{
   ""components"": [
