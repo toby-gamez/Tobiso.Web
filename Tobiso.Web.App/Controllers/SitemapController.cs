@@ -61,6 +61,16 @@ namespace Tobiso.Web.App.Controllers
                 xml.AppendLine("    <loc>https://www.tobiso.com/practice</loc>");
                 xml.AppendLine("    <priority>0.80</priority>");
                 xml.AppendLine("  </url>");
+
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/latest</loc>");
+                xml.AppendLine("    <priority>0.90</priority>");
+                xml.AppendLine("  </url>");
+
+                xml.AppendLine("  <url>");
+                xml.AppendLine("    <loc>https://www.tobiso.com/feedback</loc>");
+                xml.AppendLine("    <priority>0.90</priority>");
+                xml.AppendLine("  </url>");
                 
                 // Přidání jednotlivých postů
                 foreach (var post in posts)
