@@ -6,6 +6,7 @@ namespace Tobiso.Web.Files.Controllers;
 
 [ApiController]
 [Route("api/files")]
+[Microsoft.AspNetCore.Authorization.Authorize]
 public class FilesController : ControllerBase
 {
     private readonly string _imagesPath;
@@ -17,6 +18,7 @@ public class FilesController : ControllerBase
     }
 
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public ActionResult<IList<FileUploadResponse>> GetAllFiles([FromQuery] string? subDirectory = null)
     {
         var dir = _imagesPath;
