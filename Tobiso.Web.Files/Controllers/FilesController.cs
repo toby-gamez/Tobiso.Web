@@ -1,95 +1,170 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Tobiso.Web.Shared.DTOs;
-using Microsoft.AspNetCore.StaticFiles;
 
 namespace Tobiso.Web.Files.Controllers;
 
 [ApiController]
-[Route("api/files")]
-[Microsoft.AspNetCore.Authorization.Authorize]
+[Route("api/[controller]")]
+[Authorize]
 public class FilesController : ControllerBase
 {
-    private readonly string _imagesPath;
+    private readonly ILogger<FilesController> _logger;
+    private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
 
-    public FilesController(IWebHostEnvironment env)
+    public FilesController(ILogger<FilesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
     {
-        _imagesPath = Path.Combine(env.ContentRootPath, "wwwroot", "images");
-        Directory.CreateDirectory(_imagesPath);
-    }
-
-    [HttpGet]
-    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-    public ActionResult<IList<FileUploadResponse>> GetAllFiles([FromQuery] string? subDirectory = null)
-    {
-        var dir = _imagesPath;
-        if (!string.IsNullOrEmpty(subDirectory))
-        {
-            dir = Path.Combine(dir, subDirectory);
-        }
-
-        if (!Directory.Exists(dir))
-            return Ok(new List<FileUploadResponse>());
-
-        var provider = new FileExtensionContentTypeProvider();
-
-        var files = Directory.EnumerateFiles(dir)
-            .Select(f => new FileInfo(f))
-            .Select(fi => new FileUploadResponse
-            {
-                FileName = fi.Name,
-                OriginalFileName = fi.Name,
-                Url = $"/images/{fi.Name}",
-                Size = fi.Length,
-                ContentType = provider.TryGetContentType(fi.Name, out var ct) ? ct : "application/octet-stream"
-            })
-            .ToList();
-
-        return Ok(files);
+        _logger = logger;
+        _environment = environment;
+        _configuration = configuration;
     }
 
     [HttpPost("upload")]
-    public async Task<ActionResult<FileUploadResponse>> UploadImage([FromForm(Name = "file")] IFormFile? file)
+    public async Task<ActionResult<FileUploadResponse>> UploadImage(
+        IFormFile file,
+        [FromForm] string? subDirectory = null)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("No file uploaded");
-
-        // sanitize filename
-        var originalFileName = Path.GetFileName(file.FileName);
-        var safeName = originalFileName;
-
-        // ensure unique name
-        var uniqueName = $"{DateTime.UtcNow.Ticks}_{safeName}";
-        var savePath = Path.Combine(_imagesPath, uniqueName);
-
-        await using (var fs = System.IO.File.Create(savePath))
+        try
         {
-            await file.CopyToAsync(fs);
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "Žádný soubor nebyl nahrán" });
+            }
+
+            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            {
+                return BadRequest(new { error = "Nepodporovaný typ souboru. Povolené jsou pouze: JPEG, PNG, GIF, WebP" });
+            }
+
+            const int maxFileSize = 10 * 1024 * 1024;
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest(new { error = "Soubor je příliš velký. Maximální velikost je 10MB" });
+            }
+
+            var fileName = file.FileName;
+
+            var uploadsPath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images");
+
+            if (!Directory.Exists(uploadsPath))
+            {
+                Directory.CreateDirectory(uploadsPath);
+            }
+
+            var filePath = Path.Combine(uploadsPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var baseUrl = _configuration["Api:BaseAddress"] ?? Request.Scheme + "://" + Request.Host;
+            var fileUrl = $"{baseUrl}/images/{fileName}";
+
+            var response = new FileUploadResponse
+            {
+                FileName = fileName,
+                OriginalFileName = file.FileName,
+                Url = fileUrl,
+                Size = file.Length,
+                ContentType = file.ContentType
+            };
+
+            _logger.LogInformation("Successfully uploaded file: {FileName} -> {FilePath}", file.FileName, fileName);
+            return Ok(response);
         }
-
-        var result = new FileUploadResponse
+        catch (Exception ex)
         {
-            FileName = uniqueName,
-            OriginalFileName = originalFileName,
-            Url = $"/images/{uniqueName}",
-            Size = file.Length,
-            ContentType = file.ContentType
-        };
+            _logger.LogError(ex, "Error uploading file");
+            return StatusCode(500, new { error = "Chyba při nahrávání souboru" });
+        }
+    }
 
-        return Ok(result);
+    [HttpGet]
+    [AllowAnonymous]
+    public ActionResult<IEnumerable<FileUploadResponse>> GetAllFiles([FromQuery] string? subDirectory = null)
+    {
+        try
+        {
+            var imagesPath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images");
+
+            if (!Directory.Exists(imagesPath))
+            {
+                return Ok(new List<FileUploadResponse>());
+            }
+
+            var baseUrl = _configuration["Api:BaseAddress"] ?? Request.Scheme + "://" + Request.Host;
+
+            var files = Directory.GetFiles(imagesPath)
+                .Select(filePath =>
+                {
+                    var fileInfo = new FileInfo(filePath);
+                    var fileName = fileInfo.Name;
+
+                    return new FileUploadResponse
+                    {
+                        FileName = fileName,
+                        OriginalFileName = fileName,
+                        Url = $"{baseUrl}/images/{fileName}",
+                        Size = fileInfo.Length,
+                        ContentType = GetContentType(fileName)
+                    };
+                })
+                .ToList();
+
+            return Ok(files);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting file list");
+            return StatusCode(500, new { error = "Chyba při získávání seznamu souborů" });
+        }
     }
 
     [HttpDelete("{fileName}")]
     public ActionResult DeleteImage(string fileName)
     {
-        if (string.IsNullOrEmpty(fileName))
-            return BadRequest();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return BadRequest(new { error = "Název souboru je vyžadován" });
+            }
 
-        var filePath = Path.Combine(_imagesPath, fileName);
-        if (!System.IO.File.Exists(filePath))
-            return NotFound();
+            var filePath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images", fileName);
 
-        System.IO.File.Delete(filePath);
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound(new { error = "Soubor nebyl nalezen" });
+            }
 
-        return NoContent();
+            System.IO.File.Delete(filePath);
+
+            _logger.LogInformation("Successfully deleted file: {FileName}", fileName);
+            return Ok(new { message = "Soubor byl úspěšně smazán" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting file: {FileName}", fileName);
+            return StatusCode(500, new { error = "Chyba při mazání souboru" });
+        }
+    }
+
+    private string GetContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
     }
 }

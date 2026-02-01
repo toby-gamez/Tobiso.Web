@@ -443,9 +443,15 @@
         if (imageUrl.StartsWith("http://") || imageUrl.StartsWith("https://"))
             return imageUrl;
             
-        // Pokud je relativní, přidej baseUrl z konfigurace
-        var baseUrl = Configuration["Api:BaseAddress"]?.TrimEnd('/') ?? "https://localhost:7270";
-        return $"{baseUrl}{imageUrl}";
+        // Pokud je relativní, přidej baseUrl pro soubory z konfigurace (pokud existuje), jinak obecné Api:BaseAddress
+        var filesBase = Configuration["Api:FilesBaseAddress"]?.TrimEnd('/');
+        var apiBase = Configuration["Api:BaseAddress"]?.TrimEnd('/');
+
+        var baseUrl = !string.IsNullOrEmpty(filesBase) ? filesBase : (apiBase ?? "https://localhost:7270");
+
+        // Ensure leading slash on imageUrl
+        var relative = imageUrl.StartsWith('/') ? imageUrl : "/" + imageUrl;
+        return $"{baseUrl}{relative}";
     }
     
     private async Task SyncImagesFromMainWeb()
