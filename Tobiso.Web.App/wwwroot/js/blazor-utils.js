@@ -60,10 +60,62 @@ function initDarkMode() {
   }
 
   // Kontrola uložené preference
-  if (getDarkModePreference()) {
-    enableDarkMode();
-    if (toggleButton) toggleButton.checked = true;
-    if (toggleButtonMobile) toggleButtonMobile.checked = true;
+  const hasDarkModePreference = () => document.body.dataset.darkModePreferenceExists === 'true';
+
+  if (hasDarkModePreference()) {
+    // Existuje uložená preference (může být true nebo false)
+    if (getDarkModePreference()) {
+      enableDarkMode();
+      if (toggleButton) toggleButton.checked = true;
+      if (toggleButtonMobile) toggleButtonMobile.checked = true;
+    } else {
+      // Explicitně false: ujisti se, že třída není aplikovaná a switche jsou off
+      body.classList.remove('dark-mode');
+      if (toggleButton) toggleButton.checked = false;
+      if (toggleButtonMobile) toggleButtonMobile.checked = false;
+      safeInvokeDotNet('OnDarkModeToggled', false);
+    }
+  } else if (!hasDarkModePreference()) {
+    // Žádná uložená preference -> použij systémové téma a poslouchej změny
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function applySystemTheme(isDark) {
+        if (isDark) {
+          // Aplikuj pouze třídu, neukládej do preferencí
+          document.body.classList.add('dark-mode');
+          logoElements.forEach((logo) => {
+            logo.src = "https://files.tobiso.com/images/white-logo.png";
+            logo.alt = "bílé logo";
+          });
+          if (toggleButton) toggleButton.checked = true;
+          if (toggleButtonMobile) toggleButtonMobile.checked = true;
+          safeInvokeDotNet('OnDarkModeToggled', true);
+        } else {
+          document.body.classList.remove('dark-mode');
+          logoElements.forEach((logo) => {
+            logo.src = "https://files.tobiso.com/images/normal-logo.png";
+          });
+          if (toggleButton) toggleButton.checked = false;
+          if (toggleButtonMobile) toggleButtonMobile.checked = false;
+          safeInvokeDotNet('OnDarkModeToggled', false);
+        }
+    }
+
+    // Initialní nastavení podle systému
+    applySystemTheme(mediaQuery.matches);
+
+    // Poslouchej změny systémového tématu, ale jen když uživatel nemá preference
+    const mqListener = (e) => {
+      if (!hasDarkModePreference()) {
+        applySystemTheme(e.matches);
+      }
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', mqListener);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(mqListener);
+    }
   }
 
   // Event listenery
@@ -125,6 +177,7 @@ function initMobileMenu() {
   menuLinks.forEach((link) => {
     link.addEventListener("click", toggleMenu);
   });
+  
 }
 
 // Search funkcionalita
