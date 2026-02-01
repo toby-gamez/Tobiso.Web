@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.App.Admin", "Tobiso.Web.App.Admin\Tobiso.Web.App.Admin.csproj", "{24432969-F974-0913-DEA2-01E0B4589303}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tobiso.Web.Files", "Tobiso.Web.Files\Tobiso.Web.Files.csproj", "{A4B9C8D7-1E2F-3456-789A-BCDEF0123456}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,10 @@ Global
 		{24432969-F974-0913-DEA2-01E0B4589303}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{24432969-F974-0913-DEA2-01E0B4589303}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{24432969-F974-0913-DEA2-01E0B4589303}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4B9C8D7-1E2F-3456-789A-BCDEF0123456}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4B9C8D7-1E2F-3456-789A-BCDEF0123456}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4B9C8D7-1E2F-3456-789A-BCDEF0123456}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4B9C8D7-1E2F-3456-789A-BCDEF0123456}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
