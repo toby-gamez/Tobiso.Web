@@ -356,7 +356,56 @@ else
             ");
             // Pass DotNet object reference to JS to enable instance callbacks
             await Js.InvokeVoidAsync("__initPostDetail", _dotNetRef);
+            // Dynamically load KaTeX (CSS + JS) and auto-render so inline $...$ is converted to math
+            await Js.InvokeVoidAsync("eval", @"
+                (function(){
+                    if (window.__katexLoaded) {
+                        // already loaded, just render
+                        try{ renderMathInElement(document.getElementById('content'), {delimiters: [{left:'$$', right:'$$', display:true},{left:'$', right:'$', display:false}]}); }catch(e){}
+                        return;
+                    }
+                    window.__katexLoaded = true;
+                    try{
+                        var link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
+                        document.head.appendChild(link);
+
+                        var s1 = document.createElement('script');
+                        s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
+                        s1.defer = true;
+                        document.head.appendChild(s1);
+
+                        var s2 = document.createElement('script');
+                        s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
+                        s2.defer = true;
+                        s2.onload = function(){
+                            try{
+                                renderMathInElement(document.getElementById('content'), {delimiters: [{left:'$$', right:'$$', display:true},{left:'$', right:'$', display:false}]});
+                            }catch(e){}
+                            // Additionally render any placeholders with data-math using katex.render
+                            try{
+                                document.querySelectorAll('[data-math]').forEach(function(el){
+                                    try{
+                                        var math = el.getAttribute('data-math');
+                                        if(math && window.katex && typeof window.katex.render === 'function'){
+                                            katex.render(math, el, {throwOnError:false, displayMode:false});
+                                        }
+                                    }catch(_){ }
+                                });
+                            }catch(_){ }
+                        };
+                        document.head.appendChild(s2);
+                    }catch(e){}
+                })();
+            ");
         }
+            else
+            {
+                // On subsequent renders, attempt to render math if KaTeX is available
+                await Js.InvokeVoidAsync("eval", @"try{ if(window.renderMathInElement){ renderMathInElement(document.getElementById('content'), {delimiters: [{left:'$$', right:'$$', display:true},{left:'$', right:'$', display:false}]}); } 
+                    try{ document.querySelectorAll('[data-math]').forEach(function(el){ try{ var math = el.getAttribute('data-math'); if(math && window.katex && typeof window.katex.render === 'function'){ katex.render(math, el, {throwOnError:false, displayMode:false}); } }catch(_){} }); }catch(_){} }catch(e){}");
+            }
     }
 
     [JSInvokable("TriggerAddendum")]
@@ -495,6 +544,10 @@ else
         // Pokud obsahuje Markdown-styl mailto odkazy, převedeme je na <a href="mailto:..."> před zpracováním,
         // protože někteří autoři mohou mít odkazy, které Markdig neparsuje (nebo obsah přijde již upravený).
         content = ReplaceMarkdownMailtoInText(content);
+
+        // Převeď jednoduché zápisy zlomků (1/2, 1/x, 5,5/y, x/y, -x/r, -4/7) na inline LaTeX math
+        // Např. 1/2 -> $\frac{1}{2}$; vynecháme případy jako "ano/ne"
+        content = ReplaceFractionsInText(content);
         
         // Náhrada -> za ikonu šipky PŘED konverzí do HTML
         content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
@@ -595,6 +648,46 @@ else
         html = html.Replace("...", "");
         html = ConvertMarkdownTablesToHtml(html);
         return html;
+    }
+
+    private string ReplaceFractionsInText(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+
+        // Numerator/denominator: either a number (with optional comma decimals) or a single letter (to represent variables).
+        // This avoids converting multi-letter words like "ano/ne" or "zvětší/změnší" into fractions.
+        var fracRegex = new Regex(@"(?<![\w/\-])(-?(?:\d+(?:,\d+)?|\p{L}))(?:\s*)/(?:\s*)(-?(?:\d+(?:,\d+)?|\p{L}))(?![\w/])",
+            RegexOptions.CultureInvariant);
+
+        return fracRegex.Replace(input, match =>
+        {
+            try
+            {
+                var num = match.Groups[1].Value;
+                var den = match.Groups[2].Value;
+
+                // Explicitně vynecháme "ano"/"ne" a podobné slovní páry
+                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
+                {
+                    return match.Value;
+                }
+
+                // Normalizace desetinné čárky na tečku pro LaTeX
+                var numNorm = num.Replace(',', '.');
+                var denNorm = den.Replace(',', '.');
+
+                // Vyrenderujeme jako inline math s \frac{num}{den}
+                    var math = $"\\frac{{{numNorm}}}{{{denNorm}}}";
+                    return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
     }
 
     private string ReplaceMarkdownMailtoInText(string input)
