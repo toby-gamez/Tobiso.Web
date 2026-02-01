@@ -9,6 +9,7 @@
 @inject ILogger<ImageUpload> Logger
 @inject IConfiguration Configuration
 @inject HttpClient HttpClient
+@inject Tobiso.Web.App.Authentication.CredentialStore CredentialStore
 
 <PageTitle>Správa obrázků</PageTitle>
 
@@ -20,6 +21,9 @@
             <div class="image-uploader">
                 <div class="mb-3">
                     <label class="form-label">Nahrát nový obrázek</label>
+                    <div class="mb-1">
+                        <small class="text-muted">Aktuální files base: <strong>@GetBaseAddress()</strong></small>
+                    </div>
                     
                     @if (!string.IsNullOrEmpty(currentImageUrl))
                     {
@@ -89,6 +93,7 @@
             <div class="image-gallery mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0">Nahrané obrázky</h3>
+                    <!-- 
                     <button type="button" class="btn btn-outline-primary" 
                             @onclick="SyncImagesFromMainWeb" 
                             disabled="@(isUploading || isSyncing)">
@@ -103,6 +108,7 @@
                             <span>Sync images from Main Web</span>
                         }
                     </button>
+                    -->
                 </div>
                 
                 @if (isLoadingImages)
@@ -231,7 +237,17 @@
             isLoadingImages = true;
             StateHasChanged();
             
-            images = (await Api.GetAllFilesAsync()).ToList();
+            // Use files base address (full URL) so UI and API calls are consistent
+            var filesBase = GetBaseAddress().TrimEnd('/');
+            var listUrl = filesBase + "/api/files";
+            var req = new HttpRequestMessage(HttpMethod.Get, listUrl);
+            var auth = await GetAuthorizationHeaderAsync();
+            if (auth != null) req.Headers.Authorization = auth;
+            var resp = await HttpClient.SendAsync(req);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync();
+            images = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.ToList() ?? new List<Tobiso.Web.Shared.DTOs.FileUploadResponse>();
         }
         catch (Exception ex)
         {
@@ -307,8 +323,24 @@
             ms.Position = 0;
             
             // Upload via API - STEJNĚ jako v SentrySMP
-            var streamPart = new StreamPart(ms, file.Name, file.ContentType);
-            var response = await Api.UploadImageAsync(streamPart);
+            // Upload to files API using the configured files base address
+            var filesBase = GetBaseAddress().TrimEnd('/');
+            var uploadUrl = filesBase + "/api/files/upload";
+
+            using var multipart = new MultipartFormDataContent();
+            ms.Position = 0;
+            var streamContent = new StreamContent(ms);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            multipart.Add(streamContent, "file", file.Name);
+
+            var req = new HttpRequestMessage(HttpMethod.Post, uploadUrl) { Content = multipart };
+            var authHeader = await GetAuthorizationHeaderAsync();
+            if (authHeader != null) req.Headers.Authorization = authHeader;
+            var uploadResp = await HttpClient.SendAsync(req);
+            uploadResp.EnsureSuccessStatusCode();
+            var uploadJson = await uploadResp.Content.ReadAsStringAsync();
+            var response = System.Text.Json.JsonSerializer.Deserialize<Tobiso.Web.Shared.DTOs.FileUploadResponse>(uploadJson,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             
             // Update current image URL
             currentImageUrl = response.Url;
@@ -353,7 +385,16 @@
                 
             if (!string.IsNullOrEmpty(fileName))
             {
-                await Api.DeleteImageAsync(fileName);
+                var filesBase = GetBaseAddress().TrimEnd('/');
+                var deleteUrl = filesBase + $"/api/files/{Uri.EscapeDataString(fileName)}";
+                var req = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+                var authH = await GetAuthorizationHeaderAsync();
+                if (authH != null) req.Headers.Authorization = authH;
+                var delResp = await HttpClient.SendAsync(req);
+                if (!delResp.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Delete failed: {delResp.StatusCode}");
+                }
             }
             
             currentImageUrl = null;
@@ -401,7 +442,16 @@
         {
             ClearMessages();
             
-            await Api.DeleteImageAsync(fileName);
+            var filesBaseForDelete = GetBaseAddress().TrimEnd('/');
+            var deleteUrl2 = filesBaseForDelete + $"/api/files/{Uri.EscapeDataString(fileName)}";
+            var req2 = new HttpRequestMessage(HttpMethod.Delete, deleteUrl2);
+            var authH2 = await GetAuthorizationHeaderAsync();
+            if (authH2 != null) req2.Headers.Authorization = authH2;
+            var delResp2 = await HttpClient.SendAsync(req2);
+            if (!delResp2.IsSuccessStatusCode)
+            {
+                throw new Exception($"Delete failed: {delResp2.StatusCode}");
+            }
             
             // Remove from current image if it's the same
             if (currentImageUrl?.Contains(fileName) == true)
@@ -452,6 +502,33 @@
         // Ensure leading slash on imageUrl
         var relative = imageUrl.StartsWith('/') ? imageUrl : "/" + imageUrl;
         return $"{baseUrl}{relative}";
+    }
+
+    private string GetBaseAddress()
+    {
+        var filesBase = Configuration["Api:FilesBaseAddress"]?.TrimEnd('/');
+        var apiBase = Configuration["Api:BaseAddress"]?.TrimEnd('/');
+        return !string.IsNullOrEmpty(filesBase) ? filesBase : (apiBase ?? "https://localhost:7270");
+    }
+
+    private async Task<System.Net.Http.Headers.AuthenticationHeaderValue?> GetAuthorizationHeaderAsync()
+    {
+        try
+        {
+            var creds = CredentialStore.Get();
+            if (creds is (var username, var password))
+            {
+                var bytes = Encoding.ASCII.GetBytes($"{username}:{password}");
+                var value = Convert.ToBase64String(bytes);
+                return new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", value);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to build auth header");
+        }
+
+        return null;
     }
     
     private async Task SyncImagesFromMainWeb()
@@ -613,10 +690,20 @@
         
         // Vytvoř stream pro upload
         using var ms = new MemoryStream(imageBytes);
-        var streamPart = new StreamPart(ms, fileName, contentType);
-        
-        // Nahraj přes API
-        await Api.UploadImageAsync(streamPart);
+        var filesBase = GetBaseAddress().TrimEnd('/');
+        var uploadUrl = filesBase + "/api/files/upload";
+
+        using var multipart = new MultipartFormDataContent();
+        ms.Position = 0;
+        var sc = new StreamContent(ms);
+        sc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        multipart.Add(sc, "file", fileName);
+
+        var req = new HttpRequestMessage(HttpMethod.Post, uploadUrl) { Content = multipart };
+        var auth = await GetAuthorizationHeaderAsync();
+        if (auth != null) req.Headers.Authorization = auth;
+        var uploadResp = await HttpClient.SendAsync(req);
+        uploadResp.EnsureSuccessStatusCode();
         
         Logger.LogDebug("Downloaded and uploaded image: {FileName}, Size: {Size} bytes", fileName, imageBytes.Length);
     }

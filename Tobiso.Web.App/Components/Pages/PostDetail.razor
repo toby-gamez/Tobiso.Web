@@ -575,7 +575,7 @@ else
             if (origSrc.Contains("http")) return match.Value;
             if (origSrc.Contains("images"))
             {
-                var fullSrc = origSrc.StartsWith("/") ? $"https://tobiso.com{origSrc}" : $"https://tobiso.com/{origSrc}";
+                var fullSrc = origSrc.StartsWith("/") ? $"https://files.tobiso.com{origSrc}" : $"https://files.tobiso.com/{origSrc}";
                 return match.Value.Replace(origSrc, fullSrc);
             }
             return match.Value;
@@ -593,7 +593,7 @@ else
             }
             if (origHref.Contains("files"))
             {
-                var fullUrl = origHref.StartsWith("/") ? $"https://tobiso.com{origHref}" : $"https://tobiso.com/{origHref}";
+                var fullUrl = origHref.StartsWith("/") ? $"https://files.tobiso.com{origHref}" : $"https://files.tobiso.com/{origHref}";
                 return $"<a href=\"{fullUrl}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
             }
             if (origHref.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
