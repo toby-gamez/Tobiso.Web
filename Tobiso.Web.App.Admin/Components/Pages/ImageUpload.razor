@@ -677,7 +677,7 @@
     
     private async Task DownloadAndUploadImage(string fileName)
     {
-        var imageUrl = $"https://www.tobiso.com/images/{fileName}";
+        var imageUrl = $"https://files.tobiso.com/images/{fileName}";
         
         // Stáhni obrázek
         var response = await HttpClient.GetAsync(imageUrl);

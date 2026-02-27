@@ -9,7 +9,7 @@ namespace Tobiso.Web.Files.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[AllowAnonymous]
 public class FilesController : ControllerBase
 {
     private readonly ILogger<FilesController> _logger;
