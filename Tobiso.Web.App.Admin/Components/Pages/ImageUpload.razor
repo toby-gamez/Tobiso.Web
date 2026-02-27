@@ -93,7 +93,6 @@
             <div class="image-gallery mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0">Nahrané obrázky</h3>
-                    <!-- 
                     <button type="button" class="btn btn-outline-primary" 
                             @onclick="SyncImagesFromMainWeb" 
                             disabled="@(isUploading || isSyncing)">
@@ -105,10 +104,9 @@
                         else
                         {
                             <i class="bi bi-cloud-download me-2"></i>
-                            <span>Sync images from Main Web</span>
+                            <span>Synchronizovat z files.tobiso.com</span>
                         }
                     </button>
-                    -->
                 </div>
                 
                 @if (isLoadingImages)
@@ -629,9 +627,9 @@
             var mainWebClient = new HttpClient();
             // Přidej timeout pro rychlejší fallback
             mainWebClient.Timeout = TimeSpan.FromSeconds(30);
-            var mainWebApiUrl = "https://www.tobiso.com/api/files";
-            
-            Logger.LogInformation("Attempting to get image list from API: {Url}", mainWebApiUrl);
+            var mainWebApiUrl = "https://files.tobiso.com/api/files";
+
+            Logger.LogInformation("Attempting to get image list from files API: {Url}", mainWebApiUrl);
             
             // Zkus zavolat API endpoint
             var response = await mainWebClient.GetAsync(mainWebApiUrl);

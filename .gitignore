@@ -394,3 +394,7 @@ MigrationBackup/
 /Tobiso.Web.App.Admin/appsettings.json
 .github/copilot-instructions.md
 .github/copilot-instructions.md
+build/build-ftp.json
+build/build-ftp-admin.json
+build/C:/work/*
+build/tools/*

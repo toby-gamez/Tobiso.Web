@@ -40,7 +40,7 @@ function initDarkMode() {
     // V Blazoru nepoužíváme localStorage přímo
     setDarkModePreference(true);
     logoElements.forEach((logo) => {
-      logo.src = "https://tobiso.com/images/white-logo.png";
+      logo.src = "https://files.tobiso.com/images/white-logo.png";
       logo.alt = "bílé logo";
     });
 
@@ -52,7 +52,7 @@ function initDarkMode() {
     body.classList.remove("dark-mode");
     setDarkModePreference(false);
     logoElements.forEach((logo) => {
-      logo.src = "https://tobiso.com/images/normal-logo.png";
+      logo.src = "https://files.tobiso.com/images/normal-logo.png";
     });
 
     // Notifikace Blazor komponenty
