@@ -1,0 +1,198 @@
+@page "/chat"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.App.Components.Shared
+@inject ITobisoAnonymApi Api
+@inject ILogger<Chat> Logger
+@rendermode InteractiveServer
+<PageTitle>Chat s AI - Tobiso</PageTitle>
+
+<style>
+    section {
+        width: 100%;
+        align-self: stretch;
+    }
+
+    /* ── Chat view ── */
+    .chat-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        color: var(--color-accent);
+        background: none;
+        border: none;
+        padding: 0;
+    }
+
+    .chat-back-btn:hover {
+        text-decoration: underline;
+    }
+
+    .chat-post-header {
+        margin-bottom: 22px;
+    }
+
+    .chat-post-header h2 {
+        font-size: 1.15rem;
+        margin: 0 0 4px;
+        text-decoration-line: underline;
+        text-decoration-style: dotted;
+        text-decoration-color: var(--color-accent-3);
+        text-decoration-thickness: 3px;
+        text-underline-offset: 9px;
+    }
+
+    .chat-post-header small {
+        color: var(--color-text-muted);
+        font-size: 0.80rem;
+    }
+
+    /* ── Post list search input ── */
+    .chat-search-wrap {
+        margin-bottom: 10px;
+    }
+
+    .chat-search-wrap input[type=search] {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        border: 1.5px solid var(--color-accent-2);
+        border-radius: 12px;
+        background: var(--color-bg);
+        color: var(--color-text);
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .chat-search-wrap input[type=search]:focus {
+        border-color: var(--color-accent);
+    }
+
+    .latest-item {
+        cursor: pointer;
+    }
+</style>
+
+<h1 class="verybig">Chat s AI</h1>
+
+@if (_selectedPost == null)
+{
+    <div class="chat-search-wrap">
+        <input type="search" placeholder="Hledat článek…"
+               @bind="_search" @bind:event="oninput" />
+    </div>
+
+    @if (_loading)
+    {
+        <p>Načítání…</p>
+    }
+    else if (_error != null)
+    {
+        <p>@_error</p>
+    }
+    else
+    {
+        var visible = FilteredPosts();
+        @if (!visible.Any())
+        {
+            <p>Žádné články neodpovídají hledání.</p>
+        }
+        else
+        {
+            <div class="latest-list">
+                @foreach (var post in visible)
+                {
+                    <div class="latest-item" @onclick="() => SelectPost(post)">
+                        <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
+                            <h5 style="margin: 0">@post.Title</h5>
+                            <div class="latest-muted">
+                                @if (CategoryName(post.CategoryId) is string cat && !string.IsNullOrEmpty(cat))
+                                {
+                                    <small class="text-muted">@cat</small>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+}
+else
+{
+    <button class="chat-back-btn" @onclick="GoBack">
+        <i class="bi bi-arrow-left"></i> Zpět na výběr článku
+    </button>
+
+    <div class="chat-post-header">
+        <h2>@_selectedPost.Title</h2>
+        <small>@CategoryName(_selectedPost.CategoryId)</small>
+    </div>
+
+    <AiChatBox PostId="@_selectedPost.Id" />
+}
+
+@code {
+    private List<PostResponse> _posts = new();
+    private Dictionary<int, string> _categoryNames = new();
+
+    private PostResponse? _selectedPost;
+    private string _search = string.Empty;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var postsTask = Api.GetAllPosts();
+            var catsTask = Api.GetAllCategories();
+            await Task.WhenAll(postsTask, catsTask);
+
+            var allCats = catsTask.Result ?? new List<CategoryResponse>();
+            _categoryNames = allCats.ToDictionary(c => c.Id, c => c.Name);
+
+            _posts = (postsTask.Result ?? new List<PostResponse>())
+                .Where(p => p.CategoryId == null
+                            || !string.Equals(CategoryName(p.CategoryId), "More", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(p => p.Title)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Logger.LogError(ex, "Error loading posts for chat");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private List<PostResponse> FilteredPosts()
+    {
+        var q = _search.Trim();
+        if (string.IsNullOrEmpty(q)) return _posts;
+        return _posts.Where(p => p.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void SelectPost(PostResponse post)
+    {
+        _selectedPost = post;
+        _search = string.Empty;
+    }
+
+    private void GoBack()
+    {
+        _selectedPost = null;
+    }
+
+    private string CategoryName(int? id)
+    {
+        if (!id.HasValue) return string.Empty;
+        return _categoryNames.TryGetValue(id.Value, out var n) ? n : string.Empty;
+    }
+}
