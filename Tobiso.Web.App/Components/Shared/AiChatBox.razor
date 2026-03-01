@@ -1,0 +1,106 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<div class="ai-chatbox">
+    <h4>Zeptejte se AI</h4>
+    <div class="chat-window">
+        @foreach (var msg in _history)
+        {
+            <div class="msg @msg.Role">@msg.Content</div>
+        }
+    </div>
+    <div class="input-row">
+        <textarea @bind="_question" maxlength="300" rows="3"></textarea>
+        <div class="meta">Zbývá znaků: @_remainingChars</div>
+        <button @onclick="Send" disabled="@(_loading || _remaining==0)">Odeslat</button>
+    </div>
+    <div class="remaining">Zbývá dotazů dnes: @_remaining</div>
+</div>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+
+    private List<AiMessage> _history = new();
+    private string _question = string.Empty;
+    private bool _loading = false;
+    private int _remaining = 10;
+
+    private int _remainingChars => Math.Max(0, 300 - (_question?.Length ?? 0));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRemainingAsync();
+    }
+
+    private async Task LoadRemainingAsync()
+    {
+        // Try lightweight probe by sending empty request to get remaining via server-side rate limit query endpoint (not implemented), fallback to 10
+        _remaining = 10;
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_question)) return;
+        _loading = true;
+        var userMsg = new AiMessage { Role = "user", Content = _question };
+        _history.Add(userMsg);
+
+        var req = new AiChatRequest
+        {
+            PostId = PostId,
+            Question = _question,
+            ConversationHistory = _history.Select(h => h).ToList()
+        };
+
+        try
+        {
+            var absolute = new Uri(Navigation.BaseUri + "api/ai/ask");
+            var res = await Http.PostAsJsonAsync(absolute, req);
+            if (res.IsSuccessStatusCode)
+            {
+                var aiResp = await res.Content.ReadFromJsonAsync<AiChatResponse>();
+                if (aiResp != null)
+                {
+                    _history.Add(new AiMessage { Role = "assistant", Content = aiResp.Answer });
+                    _remaining = aiResp.RemainingQuestions;
+                }
+                else
+                {
+                    _history.Add(new AiMessage { Role = "assistant", Content = "AI vrátila prázdnou odpověď." });
+                }
+            }
+            else
+            {
+                var body = string.Empty;
+                try
+                {
+                    body = await res.Content.ReadAsStringAsync();
+                }
+                catch { }
+
+                if ((int)res.StatusCode == 429)
+                {
+                    _history.Add(new AiMessage { Role = "assistant", Content = "Dnešní limit dotazů byl vyčerpán." });
+                    _remaining = 0;
+                }
+                else
+                {
+                    var snippet = string.IsNullOrEmpty(body) ? "(bez těla odpovědi)" : (body.Length > 300 ? body.Substring(0, 300) + "..." : body);
+                    _history.Add(new AiMessage { Role = "assistant", Content = $"Chyba při dotazu na AI: {(int)res.StatusCode} {res.ReasonPhrase}. {snippet}" });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _history.Add(new AiMessage { Role = "assistant", Content = $"Chyba sítě: {ex.Message}" });
+        }
+        finally
+        {
+            _question = string.Empty;
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

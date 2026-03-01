@@ -62,6 +62,29 @@ services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
 services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.PdfService>();
 
+// AI chat services
+services.AddSingleton<Tobiso.Web.App.Services.IAiRateLimitService, Tobiso.Web.App.Services.AiRateLimitService>();
+services.AddScoped<Tobiso.Web.App.Services.IAiService, Tobiso.Web.App.Services.AiService>();
+services.AddHttpClient("OpenAI")
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        var ignoreInvalid = false;
+        try
+        {
+            var cfgVal = builder.Configuration["OpenAI:IgnoreInvalidCertificates"]; 
+            ignoreInvalid = string.Equals(cfgVal, "true", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { }
+
+        if (builder.Environment.IsDevelopment() || ignoreInvalid)
+        {
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+            Serilog.Log.Warning("OpenAI HttpClient SSL validation is disabled. Environment={Environment}, OpenAI:IgnoreInvalidCertificates={Ignore}", builder.Environment.EnvironmentName, ignoreInvalid);
+        }
+        return handler;
+    });
+
 services.AddControllers()
     .ConfigureApplicationPartManager(manager =>
     {
