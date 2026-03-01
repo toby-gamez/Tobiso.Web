@@ -232,6 +232,10 @@ else
         </section>
     }
     
+    <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
+
+    <AiChatBox PostId="@Id" />
+
     @if (_relatedPosts != null && _relatedPosts.Any())
     {
         <div class="intro related-posts">
@@ -275,8 +279,6 @@ else
         <AddendumButton AddendumId="@addendumId" />
     }
 </div>
-
-<AiChatBox PostId="@Id" />
 
 @using Tobiso.Web.App.Components.Shared
 @code {
