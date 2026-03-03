@@ -74,6 +74,66 @@
     .latest-item {
         cursor: pointer;
     }
+
+    /* ── Full-height chat layout — no fixed pixels, scales to any screen ── */
+
+    /* Propagate flex chain down to the chat only when .chat-page-wrap exists in DOM */
+    body:has(.chat-page-wrap) > .page {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        overflow: hidden;
+    }
+    body:has(.chat-page-wrap) main {
+        justify-content: flex-start;
+        min-height: 0;
+        overflow: hidden;
+    }
+    body:has(.chat-page-wrap) section {
+        min-height: 0;
+        overflow: hidden;
+    }
+    body:has(.chat-page-wrap) article {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .chat-page-wrap {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-page-wrap .chat-post-header {
+        flex-shrink: 0;
+    }
+
+    .chat-page-wrap .ai-chatbox {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-page-wrap .chat-messages {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding-bottom: 12px;
+    }
+
+    .chat-page-wrap .chat-composer {
+        flex-shrink: 0;
+        margin-top: 8px;
+    }
+
+    .chat-page-wrap .remaining-info {
+        flex-shrink: 0;
+    }
 </style>
 
 <h1 class="verybig">Chat s AI</h1>
@@ -123,16 +183,13 @@
 }
 else
 {
-    <button class="chat-back-btn" @onclick="GoBack">
-        <i class="bi bi-arrow-left"></i> Zpět na výběr článku
-    </button>
+    <div class="chat-page-wrap">
+        <button @onclick="GoBack">
+            <i class="bi bi-arrow-left"></i> Zpět na výběr článku
+        </button>
 
-    <div class="chat-post-header">
-        <h2>@_selectedPost.Title</h2>
-        <small>@CategoryName(_selectedPost.CategoryId)</small>
+        <AiChatBox PostId="@_selectedPost.Id" PostTitle="@_selectedPost.Title" />
     </div>
-
-    <AiChatBox PostId="@_selectedPost.Id" />
 }
 
 @code {

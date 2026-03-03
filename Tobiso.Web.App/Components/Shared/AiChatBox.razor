@@ -42,22 +42,31 @@
         <div class="remaining-info">Zbývá dotazů dnes: @_remaining</div>
     }
 
-    <div class="chat-input-bar">
-        <span class="input-ai-icon"><i class="bi bi-stars"></i></span>
-        <textarea id="ai-input" value="@_question" maxlength="300" rows="1" placeholder="Napište dotaz…"
-            @oninput="HandleInput" @onkeydown="HandleKeyDown"></textarea>
-        <div class="input-bar-actions">
-            <span class="char-count">@_remainingChars</span>
-            <button class="send-btn" @onclick="Send" disabled="@(_loading || _remaining == 0 || string.IsNullOrWhiteSpace(_question))" title="Odeslat">
-                <i class="bi bi-arrow-up"></i>
-            </button>
+    <div class="chat-composer">
+        @if (!string.IsNullOrEmpty(PostTitle))
+        {
+            <div class="attached-chip">
+                <i class="bi bi-file-text"></i>
+                <span>@PostTitle</span>
+            </div>
+        }
+
+        <div class="chat-input-bar">
+            <span class="input-ai-icon"><i class="bi bi-stars"></i></span>
+            <textarea id="ai-input" value="@_question" maxlength="300" rows="1" placeholder="Napište dotaz…"
+                @oninput="HandleInput" @onkeydown="HandleKeyDown"></textarea>
+            <div class="input-bar-actions">
+                <span class="char-count">@_remainingChars</span>
+                <button class="send-btn" @onclick="Send" disabled="@(_loading || _remaining == 0 || string.IsNullOrWhiteSpace(_question))" title="Odeslat">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
 .ai-chatbox {
-    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -158,6 +167,52 @@
     50% { opacity: 0; }
 }
 
+/* Composer wrapper — shared border for chip + input */
+.chat-composer {
+    border: 1.5px solid var(--color-accent-2);
+    border-radius: 20px;
+    background: var(--color-bg);
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.chat-composer:focus-within {
+    border-color: var(--color-accent);
+}
+
+/* Attached article chip */
+.attached-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--color-accent-2);
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+    overflow: hidden;
+}
+
+.attached-chip span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.attached-chip i {
+    flex-shrink: 0;
+    color: var(--color-accent);
+}
+
+body.dark-mode .chat-composer {
+    border-color: var(--color-accent-2-dark);
+    background: var(--color-bg-dark);
+}
+
+body.dark-mode .attached-chip {
+    border-bottom-color: var(--color-accent-2-dark);
+    color: var(--color-text-muted-dark);
+}
+
 /* Remaining quota notice */
 .remaining-info {
     font-size: 0.8rem;
@@ -166,21 +221,14 @@
     padding: 2px 0 6px;
 }
 
-/* Input bar */
+/* Input bar — borderless inside the composer */
 .chat-input-bar {
-    border: 1.5px solid var(--color-accent-2);
-    border-radius: 20px;
     padding: 8px 10px 8px 14px;
-    background: var(--color-bg);
+    background: transparent;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
-    transition: border-color 0.2s;
-}
-
-.chat-input-bar:focus-within {
-    border-color: var(--color-accent);
 }
 
 .input-ai-icon {
@@ -262,10 +310,6 @@ body.dark-mode .bubble-user {
 body.dark-mode .assistant-text {
     color: var(--color-text-muted-dark);
 }
-body.dark-mode .chat-input-bar {
-    background: var(--color-bg-dark);
-    border-color: var(--color-accent-2-dark);
-}
 body.dark-mode .chat-input-bar textarea {
     color: var(--color-text-dark);
 }
@@ -282,6 +326,7 @@ body.dark-mode .send-btn {
 
 @code {
     [Parameter] public int PostId { get; set; }
+    [Parameter] public string PostTitle { get; set; } = string.Empty;
 
     private List<AiMessage> _history = new();
     private string _question = string.Empty;
