@@ -59,7 +59,7 @@
         width: 100%;
         padding: 8px 12px;
         font-size: 0.95rem;
-        border: 1.5px solid var(--color-accent-2);
+        border: 2px solid var(--color-accent-2);
         border-radius: 12px;
         background: var(--color-bg);
         color: var(--color-text);
@@ -68,6 +68,16 @@
     }
 
     .chat-search-wrap input[type=search]:focus {
+        border-color: var(--color-accent);
+    }
+
+    body.dark-mode .chat-search-wrap input[type=search] {
+        border-color: var(--color-accent-2-dark);
+        background: var(--color-bg-dark);
+        color: var(--color-text-dark);
+    }
+
+    body.dark-mode .chat-search-wrap input[type=search]:focus {
         border-color: var(--color-accent);
     }
 
@@ -184,7 +194,7 @@
 else
 {
     <div class="chat-page-wrap">
-        <button @onclick="GoBack">
+        <button @onclick="GoBack" style="width: auto; align-self: flex-start;">
             <i class="bi bi-arrow-left"></i> Zpět na výběr článku
         </button>
 

@@ -5,6 +5,10 @@
 
 <div class="ai-chatbox">
     <div class="chat-messages" id="ai-chat-window">
+        @if (!_history.Any() && !_loading && !_isTyping)
+        {
+            <div class="chat-empty-prompt">Ptejte se</div>
+        }
         @foreach (var msg in _history)
         {
             var isUser = msg.Role?.ToLowerInvariant() == "user";
@@ -88,6 +92,20 @@
     padding: 8px 0;
 }
 
+.chat-empty-prompt {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    opacity: 0.35;
+    pointer-events: none;
+    text-align: center;
+    padding: 40px 0;
+}
+
 /* User message — right-aligned pill bubble */
 .msg-user {
     display: flex;
@@ -169,7 +187,7 @@
 
 /* Composer wrapper — shared border for chip + input */
 .chat-composer {
-    border: 1.5px solid var(--color-accent-2);
+    border: 2px solid var(--color-accent-2);
     border-radius: 20px;
     background: var(--color-bg);
     overflow: hidden;
@@ -302,6 +320,9 @@ body.dark-mode .attached-chip {
 }
 
 /* Dark mode */
+body.dark-mode .chat-empty-prompt {
+    color: var(--color-text-muted-dark);
+}
 body.dark-mode .bubble-user {
     background: var(--color-accent-strong-dark);
     color: var(--color-text-dark);
@@ -312,6 +333,12 @@ body.dark-mode .assistant-text {
 }
 body.dark-mode .chat-input-bar textarea {
     color: var(--color-text-dark);
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+body.dark-mode .chat-input-bar textarea::placeholder {
+    color: var(--color-text-muted-dark);
 }
 body.dark-mode .send-btn {
     background: var(--color-accent-strong-dark);
