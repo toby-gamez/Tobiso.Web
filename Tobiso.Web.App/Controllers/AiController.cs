@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.App.Services;
 using Microsoft.AspNetCore.Authorization;
 
-namespace Tobiso.Web.Api.Controllers
+namespace Tobiso.Web.App.Controllers
 {
     [ApiController]
     [Route("api/ai")]
@@ -56,24 +57,50 @@ namespace Tobiso.Web.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Ask([FromBody] AiChatRequest request)
         {
+            // identify caller: prefer X-Client-Id header (for trusted apps), fallback to IP
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var limit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+            string clientId = null;
+            if (Request.Headers.TryGetValue("X-Client-Id", out var vals))
+            {
+                clientId = vals.FirstOrDefault();
+            }
 
-            var remainingBefore = _rateLimitService.GetRemaining(ip, limit);
+            var rateKey = string.IsNullOrEmpty(clientId) ? ip : $"client:{clientId}";
+
+            // determine limit: per-client override in config -> OpenAI:ClientLimits:{clientId}
+            int limit;
+            if (!string.IsNullOrEmpty(clientId))
+            {
+                var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
+                if (!string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var clientLimit))
+                {
+                    limit = clientLimit;
+                }
+                else
+                {
+                    limit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+                }
+            }
+            else
+            {
+                limit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+            }
+
+            var remainingBefore = _rateLimitService.GetRemaining(rateKey, limit);
             if (remainingBefore <= 0)
             {
                 return StatusCode(429, new { message = "Daily limit reached" });
             }
 
             // consume
-            var allowed = _rateLimitService.TryConsume(ip, limit);
+            var allowed = _rateLimitService.TryConsume(rateKey, limit);
             if (!allowed)
             {
                 return StatusCode(429, new { message = "Daily limit reached" });
             }
 
-            var resp = await _aiService.AskAsync(request, ip);
-            resp.RemainingQuestions = _rateLimitService.GetRemaining(ip, limit);
+            var resp = await _aiService.AskAsync(request, rateKey);
+            resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, limit);
             return Ok(resp);
         }
     }
