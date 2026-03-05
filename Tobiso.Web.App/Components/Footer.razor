@@ -3,12 +3,12 @@
 <footer>
     <p>© @DateTime.Now.Year, Všechna práva vyhrazena</p>
     <div class="footer-content">
-        <button @onclick="NavigateToPrivacy">Zásady ochrany osobních údajů</button>
+        <button @onclick="NavigateToPrivacy">Právní dokumenty</button>
         <button @onclick="NavigateToAbout">O mně</button>
     </div>
 </footer>
 
 @code {
-    private void NavigateToPrivacy() => NavigationManager.NavigateTo("post/70");
+    private void NavigateToPrivacy() => NavigationManager.NavigateTo("post/320");
     private void NavigateToAbout() => NavigationManager.NavigateTo("post/16");
 }
