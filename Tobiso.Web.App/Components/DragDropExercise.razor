@@ -40,7 +40,7 @@
                                 var item = _items.FirstOrDefault(i => i.Id == itemId);
                                 if (item != null)
                                 {
-                                    <div class="draggable-item @(_draggedItem == itemId ? "dragging" : "")" 
+                                        <div class="draggable-item @(_draggedItem == itemId ? "dragging" : "") @(GetItemClass(item.Id))" 
                                          draggable="true"
                                          @ondragstart="() => OnDragStart(itemId)"
                                          @ondragend="OnDragEnd"
@@ -65,10 +65,10 @@
             </div>
 
             <div class="items-source-section">
-                <div class="source-header">
+                    <div class="source-header">
                     <i class="bi bi-box-seam"></i>
                     <h6 class="source-title">Prvky k zařazení</h6>
-                    <span class="source-count">@_items.Count(i => !_userPlacements.ContainsKey(i.Id)) / @_items.Count</span>
+                        <span class="source-count">@($"{_items.Count(i => !_userPlacements.ContainsKey(i.Id))} / {_items.Count}")</span>
                 </div>
                 <div class="items-source @(_dragOverSource ? "drag-over" : "")"
                      @ondrop="OnDropToSource"
@@ -86,7 +86,7 @@
                         <div class="source-items">
                             @foreach (var item in _items.Where(i => !_userPlacements.ContainsKey(i.Id)))
                             {
-                                <div class="draggable-item source-item @(_draggedItem == item.Id ? "dragging" : "")" 
+                                <div class="draggable-item source-item @(_draggedItem == item.Id ? "dragging" : "") @(GetItemClass(item.Id))" 
                                      draggable="true"
                                      @ondragstart="() => OnDragStart(item.Id)"
                                      @ondragend="OnDragEnd"
@@ -416,6 +416,17 @@
         background: var(--color-accent-2);
         border-color: var(--color-accent-2);
     }
+
+    .draggable-item.correct {
+        background: var(--good-bg);
+        border-color: var(--good-border);
+        color: var(--good-text);
+    }
+    .draggable-item.incorrect {
+        background: var(--warning-bg);
+        border-color: var(--warning-border);
+        color: var(--warning-text);
+    }
     
     .drag-handle {
         font-size: 1rem;
@@ -664,6 +675,17 @@
         background: var(--color-accent-2-dark);
         border-color: var(--color-accent-2-dark);
     }
+
+    body.dark-mode .draggable-item.correct {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+        color: var(--color-text-dark);
+    }
+    body.dark-mode .draggable-item.incorrect {
+        background: var(--test-poor-bg-dark);
+        border-color: var(--test-poor-border-dark);
+        color: var(--test-poor-text-dark);
+    }
     
     body.dark-mode .drag-handle,
     body.dark-mode .item-text,
@@ -735,6 +757,7 @@
     private Dictionary<string, string> _userPlacements = new(); // itemId -> categoryId
     private bool _checking = false;
     private ExerciseValidationResult? _validationResult;
+    private Dictionary<string, bool> _placementResults = new(); // itemId -> correctness
     
     // Drag & drop state
     private string? _draggedItem;
@@ -873,6 +896,7 @@
     {
         _userPlacements.Clear();
         _validationResult = null;
+        _placementResults.Clear();
         LoadConfig(); // Znovu zamíchat
     }
 
@@ -894,6 +918,15 @@
             };
 
             _validationResult = await ExerciseService.ValidateSolutionAsync(Exercise.Id, request);
+            // populate per-item results if available
+            _placementResults.Clear();
+            if (_validationResult?.DetailedResults != null)
+            {
+                foreach (var kv in _validationResult.DetailedResults)
+                {
+                    _placementResults[kv.Key] = kv.Value;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -908,6 +941,13 @@
         {
             _checking = false;
         }
+    }
+
+    private string GetItemClass(string itemId)
+    {
+        if (_placementResults.TryGetValue(itemId, out var ok))
+            return ok ? "correct" : "incorrect";
+        return string.Empty;
     }
 
     private class DragDropCategory

@@ -507,6 +507,7 @@ public class InteractiveExerciseService : IInteractiveExerciseService
 
             var correctCount = 0;
             var totalCount = 0;
+            var detailed = new Dictionary<string, bool>();
 
             foreach (var correct in correctPlacements.EnumerateObject())
             {
@@ -516,7 +517,16 @@ public class InteractiveExerciseService : IInteractiveExerciseService
                     if (userValue.GetString() == correct.Value.GetString())
                     {
                         correctCount++;
+                        detailed[correct.Name] = true;
                     }
+                    else
+                    {
+                        detailed[correct.Name] = false;
+                    }
+                }
+                else
+                {
+                    detailed[correct.Name] = false;
                 }
             }
 
@@ -528,7 +538,8 @@ public class InteractiveExerciseService : IInteractiveExerciseService
                 IsCorrect = isCorrect,
                 Score = score,
                 Feedback = isCorrect ? "Skvělé! Všechna slova jsou správně zařazena." : $"Správně {correctCount} z {totalCount} slov.",
-                Explanation = isCorrect ? null : "Některá slova nejsou ve správné kategorii."
+                Explanation = isCorrect ? null : "Některá slova nejsou ve správné kategorii.",
+                DetailedResults = detailed
             };
         }
         catch (Exception ex)
@@ -605,12 +616,18 @@ public class InteractiveExerciseService : IInteractiveExerciseService
 
             int correctCount = 0;
             int totalCount = correctDict.Count;
+            var detailed = new Dictionary<string, bool>();
             foreach (var kv in correctDict)
             {
                 if (userDict.TryGetValue(kv.Key, out var userRight))
                 {
                     if (userRight == kv.Value)
                         correctCount++;
+                    detailed[kv.Key] = userRight == kv.Value;
+                }
+                else
+                {
+                    detailed[kv.Key] = false;
                 }
             }
 
@@ -622,7 +639,8 @@ public class InteractiveExerciseService : IInteractiveExerciseService
                 IsCorrect = isCorrect,
                 Score = score,
                 Feedback = isCorrect ? "Výborně! Všechny páry jsou správně!" : $"Správně {correctCount} z {totalCount} párů.",
-                Explanation = isCorrect ? null : "Některé páry nejsou správně. Zkontroluj spojení."
+                Explanation = isCorrect ? null : "Některé páry nejsou správně. Zkontroluj spojení.",
+                DetailedResults = detailed
             };
         }
         catch (Exception ex)

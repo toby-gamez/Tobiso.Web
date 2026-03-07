@@ -2,12 +2,14 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @inject IInteractiveExerciseService ExerciseService
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 
-<div class="matching-exercise">
+<div class="matching-exercise" id="@_containerId">
     <div class="card matching-card">
         <div class="card-body">
+            <svg class="matching-svg" id="@($"{_containerId}-svg")" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="matching-info-banner">
                 <i class="bi bi-info-circle-fill"></i>
                 <div>
@@ -25,7 +27,7 @@
                     <div class="matching-list">
                         @foreach (var l in _left)
                         {
-                            <div class="matching-item @(SelectedLeft == l.Id ? "active" : "")" @onclick="() => SelectLeft(l.Id)">
+                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" @onclick="() => SelectLeft(l.Id)">
                                 @l.Text
                             </div>
                         }
@@ -40,7 +42,7 @@
                     <div class="matching-list">
                         @foreach (var r in _right)
                         {
-                            <div class="matching-item @(SelectedRight == r.Id ? "active" : "")" @onclick="() => SelectRight(r.Id)">
+                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" @onclick="() => SelectRight(r.Id)">
                                 @r.Text
                             </div>
                         }
@@ -61,7 +63,7 @@
                             var r = _right.FirstOrDefault(x => x.Id == pair.RightId);
                             if (l != null && r != null)
                             {
-                                <div class="preview-pair">
+                                <div class="preview-pair @(GetLeftClass(pair.LeftId))">
                                     <span class="pair-text"><strong>@l.Text</strong> <i class="bi bi-link-45deg mx-2"></i> @r.Text</span>
                                     <button class="remove-pair-btn" @onclick="() => RemovePair(pair.LeftId, pair.RightId)" title="Odebrat pár"><i class="bi bi-trash"></i></button>
                                 </div>
@@ -129,6 +131,7 @@
 <style>
     .matching-exercise {
         width: 100%;
+        position: relative;
     }
     .matching-card {
         background: var(--intro-bg);
@@ -244,6 +247,15 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border-color: var(--color-accent-strong);
     }
+    .matching-svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+    }
     .matching-preview-section {
         background: var(--intro-light-bg);
         border-radius: 10px;
@@ -286,6 +298,26 @@
         color: var(--color-button-text);
         font-weight: 500;
         gap: 1rem;
+    }
+    .matching-item.correct {
+        background: var(--good-bg);
+        border-color: var(--good-border);
+        color: var(--good-text);
+    }
+    .matching-item.incorrect {
+        background: var(--warning-bg);
+        border-color: var(--warning-border);
+        color: var(--warning-text);
+    }
+    .preview-pair.correct {
+        background: var(--good-bg);
+        border-color: var(--good-border);
+        color: var(--good-text);
+    }
+    .preview-pair.incorrect {
+        background: var(--warning-bg);
+        border-color: var(--warning-border);
+        color: var(--warning-text);
     }
     .preview-pair .pair-text {
         flex: 1;
@@ -507,6 +539,26 @@
     body.dark-mode .result-warning .result-header i {
         color: var(--test-good-text-dark);
     }
+    body.dark-mode .matching-item.correct {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+        color: var(--color-text-dark);
+    }
+    body.dark-mode .matching-item.incorrect {
+        background: var(--test-poor-bg-dark);
+        border-color: var(--test-poor-border-dark);
+        color: var(--test-poor-text-dark);
+    }
+    body.dark-mode .preview-pair.correct {
+        background: var(--test-excellent-bg-dark);
+        border-color: var(--test-excellent-border-dark);
+        color: var(--color-text-dark);
+    }
+    body.dark-mode .preview-pair.incorrect {
+        background: var(--test-poor-bg-dark);
+        border-color: var(--test-poor-border-dark);
+        color: var(--test-poor-text-dark);
+    }
     /* Mobile responsiveness */
     @@media (max-width: 768px) {
         .matching-card .card-body {
@@ -533,6 +585,50 @@
 </style>
 
 
+<script>
+    window.drawMatchingLines = (containerId, pairs) => {
+        try {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const svg = document.getElementById(containerId + '-svg');
+            if (!svg) return;
+            // size svg to container
+            svg.setAttribute('width', container.clientWidth);
+            svg.setAttribute('height', container.clientHeight);
+            // clear previous
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+            const containerRect = container.getBoundingClientRect();
+            pairs.forEach(p => {
+                const leftEl = document.getElementById(containerId + '-left-' + p.leftId);
+                const rightEl = document.getElementById(containerId + '-right-' + p.rightId);
+                if (!leftEl || !rightEl) return;
+                const lRect = leftEl.getBoundingClientRect();
+                const rRect = rightEl.getBoundingClientRect();
+                const x1 = lRect.right - containerRect.left;
+                const y1 = (lRect.top + lRect.bottom) / 2 - containerRect.top;
+                const x2 = rRect.left - containerRect.left;
+                const y2 = (rRect.top + rRect.bottom) / 2 - containerRect.top;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                const isCorrect = p.isCorrect;
+                const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-strong') || '#0d6efd';
+                const good = getComputedStyle(document.documentElement).getPropertyValue('--good') || '#198754';
+                const bad = getComputedStyle(document.documentElement).getPropertyValue('--warning-text') || '#dc3545';
+                line.setAttribute('stroke', isCorrect === true ? good : (isCorrect === false ? bad : accent));
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(line);
+            });
+        }
+        catch (e) { console.error(e); }
+    }
+</script>
+
+
 @code {
     [Parameter]
     public InteractiveExerciseResponse? Exercise { get; set; }
@@ -540,10 +636,26 @@
     private List<MatchingItem> _left = new();
     private List<MatchingItem> _right = new();
     private List<Pair> _userPairs = new();
+    private string _containerId = "matching-" + Guid.NewGuid().ToString("N");
     private string? SelectedLeft;
     private string? SelectedRight;
     private bool _checking = false;
     private ValidationResult? _validationResult;
+    private Dictionary<string, bool> _pairResults = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await DrawLinesAsync();
+    }
+
+    private async Task DrawLinesAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("drawMatchingLines", _containerId, _userPairs.Select(p => new { leftId = p.LeftId, rightId = p.RightId, isCorrect = _pairResults.ContainsKey(p.LeftId) ? _pairResults[p.LeftId] : (bool?)null }).ToArray());
+        }
+        catch { }
+    }
 
     protected override void OnParametersSet()
     {
@@ -574,6 +686,9 @@
                         _right.Add(new MatchingItem { Id = item.GetProperty("id").GetString() ?? "", Text = item.GetProperty("text").GetString() ?? "" });
                     }
                 }
+                // randomize order of items in both columns
+                _left = _left.OrderBy(x => Guid.NewGuid()).ToList();
+                _right = _right.OrderBy(x => Guid.NewGuid()).ToList();
             }
             catch { }
         }
@@ -605,12 +720,26 @@
     {
         _userPairs.RemoveAll(p => p.LeftId == leftId && p.RightId == rightId);
     }
+    private string GetLeftClass(string leftId)
+    {
+        if (_pairResults.TryGetValue(leftId, out var ok))
+            return ok ? "correct" : "incorrect";
+        return string.Empty;
+    }
+    private string GetRightClass(string rightId)
+    {
+        var pair = _userPairs.FirstOrDefault(p => p.RightId == rightId);
+        if (pair != null && _pairResults.TryGetValue(pair.LeftId, out var ok))
+            return ok ? "correct" : "incorrect";
+        return string.Empty;
+    }
     private void Reset()
     {
         _userPairs.Clear();
         SelectedLeft = null;
         SelectedRight = null;
         _validationResult = null;
+        _pairResults.Clear();
     }
     private async Task CheckSolution()
     {
@@ -634,6 +763,15 @@
                 Feedback = result.Feedback,
                 Explanation = result.Explanation ?? ""
             };
+            // populate per-left pair results if provided by server
+            _pairResults.Clear();
+            if (result.DetailedResults != null)
+            {
+                foreach (var kv in result.DetailedResults)
+                {
+                    _pairResults[kv.Key] = kv.Value;
+                }
+            }
         }
         catch { }
         _checking = false;
