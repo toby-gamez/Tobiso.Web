@@ -220,7 +220,7 @@
     private bool isLoadingImages = false;
     private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? images;
     
-    private static readonly string[] AllowedTypes = { "image/jpeg", "image/jpg", "image/png", "image/webp" };
+    // Allow any image/* content type except WEBP (image/webp)
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
 
     protected override async Task OnInitializedAsync()
@@ -298,10 +298,11 @@
         {
             ClearMessages();
             
-            // Validate file
-            if (!AllowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            // Validate file: allow all image/* types except WEBP
+            var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
+            if (!contentType.StartsWith("image/") || contentType == "image/webp")
             {
-                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Použijte JPG, PNG nebo WEBP.";
+                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny všechny obrazové typy kromě WEBP.";
                 return;
             }
             
