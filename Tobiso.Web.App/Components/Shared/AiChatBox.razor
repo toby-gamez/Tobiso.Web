@@ -68,6 +68,7 @@
             </div>
         </div>
     </div>
+    <div class="ai-notice">Zprávy jsou anonymní. Pokračováním souhlasíte s podmínkami použití. Více <a href="/post/320" target="_blank">zde</a>.</div>
 </div>
 
 <style>
@@ -240,6 +241,14 @@ body.dark-mode .attached-chip {
     padding: 2px 0 6px;
 }
 
+/* Anonymous / consent notice below the chat box */
+.ai-notice {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: 6px 8px 12px;
+}
+
 /* Input bar — borderless inside the composer */
 .chat-input-bar {
     padding: 8px 10px 8px 14px;
@@ -344,6 +353,15 @@ body.dark-mode .chat-input-bar textarea::placeholder {
 body.dark-mode .send-btn {
     background: var(--color-accent-strong-dark);
     color: var(--color-text-dark);
+}
+
+/* Dark-mode for anonymous / consent notice */
+body.dark-mode .ai-notice {
+    color: var(--color-text-muted-dark);
+}
+body.dark-mode .ai-notice a {
+    color: var(--color-accent);
+    text-decoration: underline;
 }
 
 @@media (max-width: 520px) {
