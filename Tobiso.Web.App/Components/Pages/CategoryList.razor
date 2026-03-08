@@ -106,13 +106,10 @@ else
 
                 // only show posts from the direct category (not recursive)
                 var filtered = allPosts.Where(p => p.CategoryId == parentId.Value).ToList();
-
-                // same ordering as LatestPosts: LastEdit desc, then LastFix desc, then the rest
-                var withEdit = filtered.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
-                var withFixOnly = filtered.Where(p => !p.LastEdit.HasValue && p.LastFix.HasValue).OrderByDescending(p => p.LastFix);
-                var others = filtered.Where(p => !p.LastEdit.HasValue && !p.LastFix.HasValue);
-
-                posts = withEdit.Concat(withFixOnly).Concat(others).ToList();
+                // Order by most-recent edit first. Fallback to LastFix, then minimal date.
+                posts = filtered
+                    .OrderByDescending(p => p.LastEdit ?? p.LastFix ?? DateTime.MinValue)
+                    .ToList();
             }
             catch (System.Net.Http.HttpRequestException ex)
             {

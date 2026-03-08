@@ -1033,7 +1033,7 @@ else
         if (string.IsNullOrWhiteSpace(content)) return "";
         var wordCount = Regex.Matches(content, "\\w+").Count;
         var minutes = Math.Max(1, (int)Math.Ceiling(wordCount / 180.0));
-        return $"{wordCount} slov | <i class=\"bi bi-eye\"></i> {minutes} min";
+        return $"{wordCount} slov | <i class=\"bi bi-book\"></i> {minutes} min";
     }
 
     private DateTime? GetLatestEditDate()
