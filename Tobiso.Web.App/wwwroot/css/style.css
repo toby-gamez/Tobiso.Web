@@ -3253,3 +3253,103 @@ body.dark-mode .latest-item {
 body.dark-mode .latest-item:hover {
   background-color: var(--hover-bg-dark);
 }
+
+/* ── Lightbox ── */
+.img-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    animation: lightbox-fadein 0.18s ease;
+}
+
+@keyframes lightbox-fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.img-lightbox-wrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+    animation: lightbox-scalein 0.18s ease;
+}
+
+.img-lightbox-wrapper img {
+    max-width: 92vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.7);
+    background: #fff;
+    cursor: zoom-out;
+    display: block;
+}
+
+.img-lightbox-meta {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.img-lightbox-caption {
+    color: #ccc;
+    text-align: left;
+    flex: 1;
+}
+
+.img-lightbox-source {
+    color: #888;
+    font-style: italic;
+    font-size: 12px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+@keyframes lightbox-scalein {
+    from { transform: scale(0.88); }
+    to   { transform: scale(1); }
+}
+
+.img-lightbox-close {
+    position: fixed;
+    top: 18px;
+    right: 24px;
+    color: #fff;
+    font-size: 32px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.8;
+    user-select: none;
+    z-index: 10000;
+    padding: 4px 10px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.3);
+    transition: opacity 0.15s;
+}
+
+.img-lightbox-close:hover {
+    opacity: 1;
+}
+
+/* Make images in content look clickable */
+#content img,
+.blog-image img {
+    cursor: zoom-in;
+    transition: opacity 0.15s;
+}
+
+#content img:hover,
+.blog-image img:hover {
+    opacity: 0.88;
+}

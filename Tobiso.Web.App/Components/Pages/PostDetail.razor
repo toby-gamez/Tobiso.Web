@@ -306,6 +306,7 @@ else
     private List<int> _addendumIds = new();
     private bool _isFocusMode = false;
     private List<InteractiveExerciseResponse>? _exercises;
+    private IJSObjectReference? _jsModule;
 
     protected override async Task OnInitializedAsync()
     {
@@ -418,6 +419,14 @@ else
                 await Js.InvokeVoidAsync("eval", @"try{ if(window.renderMathInElement){ renderMathInElement(document.getElementById('content'), {delimiters: [{left:'$$', right:'$$', display:true},{left:'$', right:'$', display:false}]}); } 
                     try{ document.querySelectorAll('[data-math]').forEach(function(el){ try{ var math = el.getAttribute('data-math'); if(math && window.katex && typeof window.katex.render === 'function'){ katex.render(math, el, {throwOnError:false, displayMode:false}); } }catch(_){} }); }catch(_){} }catch(e){}");
             }
+
+        // Initialize lightbox for images in content (after every render so newly loaded images get handlers)
+        try
+        {
+            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=8");
+            await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
+        }
+        catch { /* ignore */ }
     }
 
     [JSInvokable("TriggerAddendum")]
@@ -443,6 +452,7 @@ else
         AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
         ModalService.OnAddendumRequested -= HandleAddendumRequest;
         _dotNetRef?.Dispose();
+        if (_jsModule != null) _ = _jsModule.DisposeAsync().AsTask();
     }
 
     private async Task ToggleFocusMode()
@@ -694,8 +704,8 @@ else
             for (int j = i + 1; j < paras.Count && j <= i + 3; j++)
             {
                 if (string.IsNullOrWhiteSpace(paras[j])) continue;
-                if (paras[j].StartsWith("Zdroj:", StringComparison.OrdinalIgnoreCase) ||
-                    paras[j].StartsWith("Autor:", StringComparison.OrdinalIgnoreCase))
+                if (paras[j].StartsWith("Zdroj") ||
+                    paras[j].StartsWith("Autor"))
                 { srcIdx = j; break; }
             }
 
@@ -712,10 +722,26 @@ else
 
             bool isTobiso = paras[srcIdx].Contains("Tobiso", StringComparison.OrdinalIgnoreCase);
 
+            // Collect intermediate caption paragraphs (between image and source)
+            var captionParts = new List<string>();
+            for (int j = i + 1; j < srcIdx; j++)
+            {
+                if (!string.IsNullOrWhiteSpace(paras[j]))
+                    captionParts.Add(paras[j].Trim());
+            }
+            var captionText = string.Join(" ", captionParts);
+            var sourceText = paras[srcIdx].Trim();
+
+            // Encode values for HTML attribute
+            var captionAttr = System.Net.WebUtility.HtmlEncode(captionText);
+            var sourceAttr = System.Net.WebUtility.HtmlEncode(sourceText);
+
             if (isTobiso)
             {
                 // Obrázek zůstane jako Markdown, popisky/zdroj dostanou CSS třídu
-                result.Add(para);
+                // Inject data attrs via raw HTML img instead of markdown syntax
+                var imgHtml = $"<img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />";
+                result.Add(imgHtml);
                 for (int j = i + 1; j <= srcIdx; j++)
                 {
                     if (string.IsNullOrWhiteSpace(paras[j])) continue;
@@ -729,7 +755,7 @@ else
             {
                 // Obrázek + popisky + zdroj zabalíme do <div class="blog-image">
                 var sb = new System.Text.StringBuilder();
-                sb.Append($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" />");
+                sb.Append($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />");
                 for (int j = i + 1; j <= srcIdx; j++)
                 {
                     if (string.IsNullOrWhiteSpace(paras[j])) continue;

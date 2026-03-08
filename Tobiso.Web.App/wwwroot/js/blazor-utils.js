@@ -688,6 +688,120 @@ function getDarkModePreference() {
   return document.body.classList.contains("dark-mode-preferred");
 }
 
+// ── Image Lightbox ──
+export function initImageLightbox(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Avoid double-binding
+  container.querySelectorAll('img[data-lightbox-bound]').forEach(img => {
+    img.removeAttribute('data-lightbox-bound');
+  });
+
+  container.querySelectorAll('img').forEach(img => {
+    if (img.getAttribute('data-lightbox-bound')) return;
+    img.setAttribute('data-lightbox-bound', '1');
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+
+      // Read caption and source from data attributes set by C# PreprocessImageGroups
+      const caption = img.dataset.caption || '';
+      const source  = img.dataset.source  || '';
+
+      openLightbox(img.src, img.alt, caption, source);
+    });
+  });
+}
+
+function openLightbox(src, alt, caption, source) {
+  // Remove any existing overlay
+  closeLightbox();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'img-lightbox-overlay';
+
+  const closeBtn = document.createElement('span');
+  closeBtn.className = 'img-lightbox-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.title = 'Zavřít';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'img-lightbox-wrapper';
+
+  const imgEl = document.createElement('img');
+  imgEl.src = src;
+  imgEl.alt = alt || '';
+
+  wrapper.appendChild(imgEl);
+
+  // Meta row: caption left, source right — plain text only (strip markdown)
+  const captionPlain = stripMarkdown(caption || '');
+  const sourcePlain  = stripMarkdown(source  || '');
+
+  if (captionPlain || sourcePlain) {
+    const meta = document.createElement('div');
+    meta.className = 'img-lightbox-meta';
+
+    if (captionPlain) {
+      const cap = document.createElement('span');
+      cap.className = 'img-lightbox-caption';
+      cap.textContent = captionPlain;
+      meta.appendChild(cap);
+    }
+
+    if (sourcePlain) {
+      const srcEl = document.createElement('span');
+      srcEl.className = 'img-lightbox-source';
+      srcEl.textContent = sourcePlain;
+      meta.appendChild(srcEl);
+    }
+
+    wrapper.appendChild(meta);
+  }
+
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+
+  // Close on overlay or img click (not on meta/caption text)
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay || e.target === closeBtn || e.target === imgEl) closeLightbox();
+  });
+  closeBtn.addEventListener('click', () => closeLightbox());
+
+  // ESC key
+  window.__lightboxEscHandler = e => {
+    if (e.key === 'Escape') closeLightbox();
+  };
+  document.addEventListener('keydown', window.__lightboxEscHandler);
+}
+
+function closeLightbox() {
+  const existing = document.querySelector('.img-lightbox-overlay');
+  if (existing) existing.remove();
+  if (window.__lightboxEscHandler) {
+    document.removeEventListener('keydown', window.__lightboxEscHandler);
+    delete window.__lightboxEscHandler;
+  }
+}
+
+// Strip markdown syntax to plain text for lightbox labels
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    // [label](url) → label
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    // ![alt](url) → alt
+    .replace(/!\[([^\]]*?)\]\([^)]*\)/g, '$1')
+    // **bold** or __bold__
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')
+    // `code`
+    .replace(/`([^`]+)`/g, '$1')
+    // leading markup like Zdroj: Autor:
+    .trim();
+}
+
 function setCookieConsent(consent) {
   safeInvokeDotNet('SetPreference', 'cookieConsent', consent || '');
 }
