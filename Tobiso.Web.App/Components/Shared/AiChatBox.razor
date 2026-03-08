@@ -5,7 +5,7 @@
 
 <div class="ai-chatbox">
     <div class="chat-messages" id="ai-chat-window">
-        @if (!_history.Any() && !_loading && !_isTyping)
+        @if (ShowEmptyPrompt && !_history.Any() && !_loading && !_isTyping)
         {
             <div class="chat-empty-prompt">Ptejte se</div>
         }
@@ -46,13 +46,14 @@
         <div class="remaining-info">Zbývá dotazů dnes: @_remaining</div>
     }
 
+
     <div class="chat-composer">
         @if (!string.IsNullOrEmpty(PostTitle))
         {
-            <div class="attached-chip">
+            <a class="attached-chip" href="@GetPostUrl()" target="_blank" rel="noopener noreferrer">
                 <i class="bi bi-file-text"></i>
                 <span>@PostTitle</span>
-            </div>
+            </a>
         }
 
         <div class="chat-input-bar">
@@ -353,6 +354,7 @@ body.dark-mode .send-btn {
 
 @code {
     [Parameter] public int PostId { get; set; }
+    [Parameter] public bool ShowEmptyPrompt { get; set; } = true;
     [Parameter] public string PostTitle { get; set; } = string.Empty;
 
     private List<AiMessage> _history = new();
@@ -474,5 +476,14 @@ body.dark-mode .send-btn {
             await Js.InvokeVoidAsync("eval",
                 "var t=document.getElementById('ai-input');if(t){t.style.height='auto';}");
         }
+    }
+
+    private string GetPostUrl()
+    {
+        if (PostId > 0)
+        {
+            return Navigation.BaseUri.TrimEnd('/') + $"/post/{PostId}";
+        }
+        return "#";
     }
 }
