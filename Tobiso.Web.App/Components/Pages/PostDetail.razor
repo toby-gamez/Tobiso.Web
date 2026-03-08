@@ -74,7 +74,14 @@ body.focus-mode .loading-bar-container {
 body.focus-mode section {
     max-width: 1000px;
 }
-
+.tobiso-source {
+    font-size: 13px;
+    opacity: 0.5;
+    font-style: italic;
+    font-weight: 300;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
 </style>
 @if (_post == null)
 {
@@ -557,7 +564,10 @@ else
         // Náhrada -> za ikonu šipky PŘED konverzí do HTML
         content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
         content = content.Replace("->", "<i class=\"bi bi-arrow-right-short\"></i>");
-        
+
+        // Seskup obrázky s popisky a zdrojem PŘED konverzí, kdy je struktura odstavců jasná
+        content = PreprocessImageGroups(content);
+
         var html = Markdig.Markdown.ToHtml(content);
         
         // Zpracování dodatků (--DOD-x--) PO konverzi na HTML
@@ -653,6 +663,88 @@ else
         html = html.Replace("...", "");
         html = ConvertMarkdownTablesToHtml(html);
         return html;
+    }
+
+    private string PreprocessImageGroups(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return content;
+
+        // Rozděl na odstavce (oddělené 2+ prázdnými řádky)
+        var paras = Regex.Split(content, @"\r?\n[ \t]*\r?\n")
+                         .Select(p => p.Trim('\r', '\n', ' ', '\t'))
+                         .ToList();
+
+        // Obrázek jako celý odstavec: ![alt](src)
+        var imgRx = new Regex(@"^!\[([^\]]*)\]\(([^)]+)\)\s*$");
+
+        var result = new List<string>();
+        int i = 0;
+
+        while (i < paras.Count)
+        {
+            var para = paras[i];
+            if (string.IsNullOrWhiteSpace(para)) { i++; continue; }
+
+            var imgM = imgRx.Match(para);
+            if (!imgM.Success) { result.Add(para); i++; continue; }
+
+            // ── nalezen obrázek ──
+            // Hledáme Zdroj/Autor v následujících max. 3 odstavcích
+            int srcIdx = -1;
+            for (int j = i + 1; j < paras.Count && j <= i + 3; j++)
+            {
+                if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                if (paras[j].StartsWith("Zdroj:", StringComparison.OrdinalIgnoreCase) ||
+                    paras[j].StartsWith("Autor:", StringComparison.OrdinalIgnoreCase))
+                { srcIdx = j; break; }
+            }
+
+            var imgSrc = imgM.Groups[2].Value;
+            var imgAlt = System.Net.WebUtility.HtmlEncode(imgM.Groups[1].Value);
+
+            if (srcIdx < 0)
+            {
+                // Žádný zdroj – obrázek sám v .blog-image
+                result.Add($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" /></div>");
+                i++;
+                continue;
+            }
+
+            bool isTobiso = paras[srcIdx].Contains("Tobiso", StringComparison.OrdinalIgnoreCase);
+
+            if (isTobiso)
+            {
+                // Obrázek zůstane jako Markdown, popisky/zdroj dostanou CSS třídu
+                result.Add(para);
+                for (int j = i + 1; j <= srcIdx; j++)
+                {
+                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
+                    if (ph.StartsWith("<p>") && ph.EndsWith("</p>"))
+                        ph = "<p class=\"tobiso-source\">" + ph.Substring(3, ph.Length - 7) + "</p>";
+                    result.Add(ph);
+                }
+            }
+            else
+            {
+                // Obrázek + popisky + zdroj zabalíme do <div class="blog-image">
+                var sb = new System.Text.StringBuilder();
+                sb.Append($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" />");
+                for (int j = i + 1; j <= srcIdx; j++)
+                {
+                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                    // Převedeme Markdown odstavec (může obsahovat odkazy) na HTML
+                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
+                    sb.Append(ph);
+                }
+                sb.Append("</div>");
+                result.Add(sb.ToString());
+            }
+
+            i = srcIdx + 1;
+        }
+
+        return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
 
     private string ReplaceFractionsInText(string input)
