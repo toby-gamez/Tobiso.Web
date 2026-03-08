@@ -352,10 +352,12 @@ body.dark-mode .intro a:hover {
 .blog-image {
     display: block;
     float: right;
+    clear: right;
     display: flex;
     margin-left: 20px;
     flex-direction: column;
     align-items: flex-end;
+    margin-bottom: 10px;
 }
 
 .blog-image div {
@@ -2158,6 +2160,7 @@ strong::after {
     height: 15px;
     padding: 20px;
     background-color: var(--intro-light-bg);
+    clear: both;
 }
 
 .tool {
