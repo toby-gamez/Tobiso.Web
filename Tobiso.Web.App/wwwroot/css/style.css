@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Marcellus&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @import url("./variables.css");
 
 html {
@@ -25,6 +26,13 @@ textarea,
 .content li,
 .content p {
     line-height: 1.7;
+}
+
+code {
+    font-family: var(--font-family-monospace);
+    background-color: var(--color-accent-2);
+    padding: 5px;
+    border-radius: 10px;
 }
 
 p code {
@@ -380,6 +388,7 @@ body.dark-mode .intro a:hover {
     text-align: left;
     word-break: break-word;
     box-shadow: 2px 2px 10px var(--shadow-sm);
+    max-width: 300px;
 }
 
 @media only screen and (max-width: 600px) {
@@ -3363,6 +3372,10 @@ body.dark-mode .category:hover {
 
 body.dark-mode .category + .category {
     border-top-color: var(--hover-bg-dark);
+}
+
+body.dark-mode code {
+    background-color: var(--color-accent-2-dark);
 }
 
 /* ── Lightbox ── */

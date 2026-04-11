@@ -18,6 +18,7 @@ accent-dark: #8a2e5f
 :root {
     --font-family-sans: "Poppins", sans-serif;
     --font-family-serif: "Zilla Slab", serif;
+    --font-family-monospace: "JetBrains Mono", monospace;
 
      /* Legacy duplicate variables removed — canonical --color-* names are used
          across the codebase now. Remaining unique semantic variables (status,
