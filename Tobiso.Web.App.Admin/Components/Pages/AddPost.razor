@@ -19,7 +19,7 @@
     <ValidationSummary />
     <div class="mb-3">
         <label for="title" class="form-label">Název</label>
-        <InputText id="title" class="form-control" @bind-Value="post.Title" />
+        <InputText id="title" class="form-control" @bind-Value="post.Title" @bind-Value:after="GenerateFilePath" />
     </div>
     <div class="mb-3">
         <label for="filePath" class="form-label">Soubor</label>
@@ -87,6 +87,36 @@
         {
             errorMessage = ex.Message;
         }
+    }
+
+    private void GenerateFilePath()
+    {
+        if (!string.IsNullOrWhiteSpace(post.Title))
+        {
+            post.FilePath = "/" + ToKebabCase(post.Title) + ".md";
+        }
+    }
+
+    private static string ToKebabCase(string text)
+    {
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+
+        var result = new System.Text.StringBuilder();
+        foreach (var c in sb.ToString().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c))
+                result.Append(c);
+            else if (c == ' ' || c == '-' || c == '_')
+                result.Append('-');
+        }
+
+        return result.ToString().Trim('-');
     }
 
     private void GoBack()

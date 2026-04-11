@@ -302,7 +302,7 @@
             var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
             if (!contentType.StartsWith("image/") || contentType == "image/webp")
             {
-                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny všechny obrazové typy kromě WEBP.";
+                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, SVG.";
                 return;
             }
             

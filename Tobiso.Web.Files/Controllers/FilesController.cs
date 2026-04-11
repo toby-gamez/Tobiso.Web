@@ -35,10 +35,10 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Žádný soubor nebyl nahrán" });
             }
 
-            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml" };
             if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
             {
-                return BadRequest(new { error = "Nepodporovaný typ souboru. Povolené jsou pouze: JPEG, PNG, GIF, WebP" });
+                return BadRequest(new { error = "Nepodporovaný typ souboru. Povolené jsou pouze: JPEG, PNG, GIF, WebP, SVG" });
             }
 
             const int maxFileSize = 10 * 1024 * 1024;
