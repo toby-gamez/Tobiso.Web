@@ -1,6 +1,6 @@
 // blazor-utils.js - JavaScript module pro Blazor
 let dotNetHelper;
-let index, pages;
+let index, pages, categories;
 
 // Pomocná funkce pro bezpečné volání .NET metod
 async function safeInvokeDotNet(methodName, ...args) {
@@ -190,18 +190,52 @@ async function loadSearchIndex() {
   console.log("[blazor-utils] loadSearchIndex started - v3");
   try {
     console.log("[blazor-utils] About to fetch /api/Pages");
-    const response = await fetch("/api/Pages");
+    const [postsResponse, categoriesResponse] = await Promise.all([
+      fetch("/api/Pages"),
+      fetch("/api/Pages/categories")
+    ]);
     console.log("[blazor-utils] Fetch completed, parsing JSON");
-    const data = await response.json();
+    const data = await postsResponse.json();
+    const categoriesData = await categoriesResponse.json();
     console.log("[blazor-utils] JSON parsed, mapping data");
+
+    // Mapa categoryId -> celý objekt kategorie
+    const categoryMap = {};
+    categoriesData.forEach(cat => { categoryMap[cat.id] = cat; });
+
+    // Sestavení plné cesty pro kategorii (např. "Fyzika › Mechanika")
+    function buildCategoryPath(cat, depth = 0) {
+      if (!cat || depth > 10) return "";
+      if (cat.parentId == null) return cat.name;
+      const parent = categoryMap[cat.parentId];
+      const parentPath = buildCategoryPath(parent, depth + 1);
+      return parentPath ? `${parentPath} › ${cat.name}` : cat.name;
+    }
+
+    // Kategorie jako samostatné výsledky
+    categories = categoriesData.map(cat => {
+      const path = buildCategoryPath(cat);
+      // Cesta bez posledního segmentu (tj. nadřazené kategorie)
+      const pathAbove = cat.parentId != null
+        ? buildCategoryPath(categoryMap[cat.parentId])
+        : "";
+      return {
+        url: `/categories/${cat.id}`,
+        title: cat.name,
+        fullPath: path,
+        pathAbove: pathAbove
+      };
+    });
+
     // Transformace dat pro vyhledávání
     pages = data.map(post => ({
       url: `/post/${post.id}`,
       title: post.title,
-      content: post.content
+      content: post.content,
+      categoryName: post.categoryId != null ? (categoryMap[post.categoryId]?.name ?? "") : ""
     }));
 
-    console.log(`[blazor-utils] Loaded ${pages.length} pages for search - v3 SUCCESS`);
+    console.log(`[blazor-utils] Loaded ${pages.length} pages and ${categories.length} categories for search - v3 SUCCESS`);
   } catch (error) {
     console.error("Chyba při načítání indexu (v3):", error);
   }
@@ -370,15 +404,35 @@ function closeSearchModal() {
 async function performSearch(query) {
   if (!pages || query.length < 2) return;
 
-  const results = searchPages(query);
-  displaySearchResults(results);
+  const categoryResults = searchCategories(query);
+  const pageResults = searchPages(query);
+  const allResults = [...categoryResults, ...pageResults];
+  displaySearchResults(categoryResults, pageResults);
   
   if (window.searchModalFunctions) {
-    window.searchModalFunctions.setCurrentResults(results);
+    window.searchModalFunctions.setCurrentResults(allResults);
   }
 
   // Notifikace Blazor komponenty
-  await safeInvokeDotNet('OnSearchPerformed', query, JSON.stringify(results));
+  await safeInvokeDotNet('OnSearchPerformed', query, JSON.stringify(allResults));
+}
+
+function searchCategories(query) {
+  if (!categories) return [];
+  const normalizedQuery = normalizeText(query);
+  return categories
+    .filter(cat => normalizeText(cat.title).includes(normalizedQuery))
+    .map(cat => ({
+      title: cat.title,
+      url: cat.url,
+      score: 20,
+      highlightedTerm: "",
+      foundInTitle: true,
+      foundInContent: false,
+      categoryName: "",
+      isCategory: true,
+      pathAbove: cat.pathAbove
+    }));
 }
 
 function searchPages(query) {
@@ -396,6 +450,10 @@ function searchPages(query) {
       foundInTitle = true;
     }
 
+    if (page.categoryName && normalizeText(page.categoryName).includes(normalizedQuery)) {
+      score += 7;
+    }
+
     if (page.content && normalizeText(page.content).includes(normalizedQuery)) {
       score += 5;
       foundInContent = true;
@@ -409,7 +467,8 @@ function searchPages(query) {
         score: score,
         highlightedTerm: highlightedTerm,
         foundInTitle: foundInTitle,
-        foundInContent: foundInContent
+        foundInContent: foundInContent,
+        categoryName: page.categoryName
       });
     }
   });
@@ -418,33 +477,47 @@ function searchPages(query) {
   return results;
 }
 
-function displaySearchResults(results) {
+function displaySearchResults(categoryResults, pageResults) {
   const resultsContainer = document.getElementById("results");
   if (!resultsContainer || !window.searchModalFunctions) return;
 
-  if (results.length === 0) {
+  if (categoryResults.length === 0 && pageResults.length === 0) {
     window.searchModalFunctions.showNoResultsState();
     return;
   }
 
   window.searchModalFunctions.hideAllStates();
 
-  results.slice(0, 8).forEach((result, index) => {
+  let globalIndex = 0;
+  const maxTotal = 8;
+  const maxCategories = Math.min(categoryResults.length, 3);
+  const maxPages = Math.min(pageResults.length, maxTotal - maxCategories);
+
+  function appendResultItem(result) {
     const resultItem = document.createElement("a");
     resultItem.classList.add("search-result");
     resultItem.href = result.url;
     resultItem.dataset.url = result.url;
-    resultItem.dataset.index = index; // Přidat index pro snadnější navigaci
+    resultItem.dataset.index = globalIndex++;
 
     let snippetText = result.highlightedTerm;
-    if (result.foundInTitle && !result.foundInContent) {
-      snippetText = "Shoda pouze v názvu";
+    if (result.isCategory) {
+      snippetText = result.pathAbove ? escapeHtml(result.pathAbove) : "Kořenová kategorie";
+    } else if (result.foundInTitle && !result.foundInContent) {
+      snippetText = "Shoda v názvu";
     } else if (!snippetText) {
       snippetText = "Bez náhledu obsahu";
     }
 
+    const categoryBadge = result.categoryName
+      ? `<span class="search-category">${escapeHtml(result.categoryName)}</span>`
+      : "";
+    const typeBadge = result.isCategory
+      ? `<span class="search-category search-category--type"><i class="bi bi-folder"></i> Kategorie</span>`
+      : "";
+
     resultItem.innerHTML = `
-      <div class="result-title">${escapeHtml(result.title)}</div>
+      <div class="result-title">${escapeHtml(result.title)}${typeBadge}${categoryBadge}</div>
       <p class="search-snippet">${snippetText}</p>
     `;
 
@@ -453,34 +526,43 @@ function displaySearchResults(results) {
       window.location.href = result.url;
     });
 
-    // Hover efekty pro myš - pouze pokud není keyboard mode
     resultItem.addEventListener("mouseenter", function () {
       const container = document.getElementById("results");
-      if (!container || container.classList.contains("keyboard-navigation")) {
-        return; // Neprovádět hover efekty v keyboard módu
-      }
-      
-      // Odstranit všechny selected třídy pouze při mouse hover
-      document.querySelectorAll(".search-result.selected").forEach(el => {
-        el.classList.remove("selected");
-      });
+      if (!container || container.classList.contains("keyboard-navigation")) return;
+      document.querySelectorAll(".search-result.selected").forEach(el => el.classList.remove("selected"));
       resultItem.classList.add("selected");
     });
 
-    // Reset keyboard módu při pohybu myši
     resultItem.addEventListener("mousemove", function () {
-      if (window.searchModalFunctions) {
-        window.searchModalFunctions.enableMouseEvents();
-      }
+      if (window.searchModalFunctions) window.searchModalFunctions.enableMouseEvents();
     });
 
     resultsContainer.appendChild(resultItem);
-  });
+  }
 
-  if (results.length > 8) {
+  function appendGroupLabel(label) {
+    const el = document.createElement("div");
+    el.classList.add("search-group-label");
+    el.textContent = label;
+    resultsContainer.appendChild(el);
+  }
+
+  if (maxCategories > 0) {
+    appendGroupLabel("Kategorie");
+    categoryResults.slice(0, maxCategories).forEach(appendResultItem);
+  }
+
+  if (maxPages > 0) {
+    appendGroupLabel("Články");
+    pageResults.slice(0, maxPages).forEach(appendResultItem);
+  }
+
+  const totalShown = maxCategories + maxPages;
+  const totalAll = categoryResults.length + pageResults.length;
+  if (totalAll > totalShown) {
     const moreResults = document.createElement("div");
     moreResults.classList.add("search-more-results");
-    moreResults.innerHTML = `<p>A dalších ${results.length - 8} výsledků...</p>`;
+    moreResults.innerHTML = `<p>A dalších ${totalAll - totalShown} výsledků...</p>`;
     resultsContainer.appendChild(moreResults);
   }
 }

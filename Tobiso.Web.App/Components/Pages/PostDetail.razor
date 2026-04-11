@@ -667,7 +667,7 @@ else
         
         // Zabal text v tečkách do divu s class intro
         var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
-        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
+        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>", 1);
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
         html = html.Replace("...", "");
