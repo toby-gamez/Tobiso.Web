@@ -2519,7 +2519,56 @@ strong::after {
     color: var(--color-text-muted);
 }
 
-.latest-item {
+.posts-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 500px;
+}
+
+.categories-list {
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+    width: 100%;
+    min-width: 500px;
+}
+
+
+@media only screen and (max-width: 600px) {
+    .posts-list,
+    .categories-list {
+        min-width: 300px;
+    }
+}
+
+.category {
+    padding: 10px;
+    transition: all ease 0.3s;
+    background-color: var(--intro-bg);
+}
+
+.category a {
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.category:hover {
+    background-color: var(--hover-bg);
+}
+
+.category + .category {
+    border-top: 1px solid var(--hover-bg);
+}
+
+.post {
     padding: 10px;
     border-radius: 10px;
     transition: all ease 0.3s;
@@ -2527,7 +2576,7 @@ strong::after {
     margin-bottom: 5px;
 }
 
-.latest-item a {
+.post a {
     padding: 0;
     margin: 0;
     text-decoration: none;
@@ -2547,7 +2596,7 @@ strong::after {
     gap: 5px
 }
 
-.latest-item:hover {
+.post:hover {
   background-color: var(--hover-bg);
 }
 
@@ -3296,12 +3345,24 @@ body.dark-mode .text-muted {
     color: var(--color-text-muted-dark);
 }
 
-body.dark-mode .latest-item {
+body.dark-mode .post {
     background-color: var(--intro-bg-dark);
 }
 
-body.dark-mode .latest-item:hover {
+body.dark-mode .post:hover {
   background-color: var(--hover-bg-dark);
+}
+
+body.dark-mode .category {
+    background-color: var(--intro-bg-dark);
+}
+
+body.dark-mode .category:hover {
+    background-color: var(--hover-bg-dark);
+}
+
+body.dark-mode .category + .category {
+    border-top-color: var(--hover-bg-dark);
 }
 
 /* ── Lightbox ── */

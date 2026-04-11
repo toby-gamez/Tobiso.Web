@@ -22,31 +22,36 @@ else if (categories == null)
 }
 else
 {
-    <ul class="grid">
+    <div class="categories-list">
         @foreach (var category in GetFilteredCategories().Where(c => c.ParentId == parentId && (parentId != null || HasChildren(c.Id))))
         {
-            <li class="grid-item">
+            <div class="category">
                 <a href="@($"/categories/{category.Id}")">
-                    <h3><i class="bi bi-folder"></i> @category.Name</h3>
+                    <h5 style="margin: 0">@category.Name</h5>
+                    <i class="bi bi-chevron-right"></i>
                 </a>
-            </li>
+            </div>
         }
-        @if (posts != null && posts.Any())
-        {
+    </div>
+    @if (posts != null && posts.Any())
+    {
+        <div class="posts-list">
             @foreach (var post in posts)
             {
-                <li class="@(post.Title.ToLower().Contains("sešit") ? "grid-item-sesit" : "grid-item")">
-                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")" 
-                       class="">
-                        <h3><i class="bi bi-file-earmark-text"></i> @post.Title</h3>
+                <div class="post">
+                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")">
+                        <h5 style="margin: 0">@post.Title</h5>
+                        <div class="latest-muted">
+                            <small>@DisplayDate(post)</small>
+                        </div>
                     </a>
-                </li>
+                </div>
             }
-        }
-    </ul>
+        </div>
+    }
     @if (parentId != null)
     {
-        <button class="btn btn-secondary mt-3" @onclick="BackToParent">Zpět</button>
+        <button class="btn btn-secondary mt-3" @onclick="BackToParent"><i class="bi bi-arrow-left"></i></button>
     }
 }
 
@@ -147,5 +152,12 @@ else
     {
         var parent = categories?.FirstOrDefault(c => c.Id == parentId)?.ParentId;
         Navigation.NavigateTo(parent == null ? "/categories" : $"/categories/{parent}");
+    }
+
+    private string DisplayDate(PostResponse p)
+    {
+        if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
+        if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");
+        return "-";
     }
 }

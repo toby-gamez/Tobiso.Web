@@ -172,10 +172,10 @@
         }
         else
         {
-            <div class="latest-list">
+            <div class="posts-list">
                 @foreach (var post in visible)
                 {
-                    <div class="latest-item" @onclick="() => SelectPost(post)">
+                    <div class="post" @onclick="() => SelectPost(post)">
                         <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
                             <h5 style="margin: 0">@post.Title</h5>
                             <div class="latest-muted">

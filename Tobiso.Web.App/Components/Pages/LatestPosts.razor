@@ -39,7 +39,7 @@ else if (!posts.Any())
 }
 else
 {
-    <div class="latest-list">
+    <div class="posts-list">
         @if (selectedCategoryId != null)
         {
             <div class="mb-2">
@@ -49,7 +49,7 @@ else
         }
         @foreach (var p in posts)
         {
-            <div class="latest-item">
+            <div class="post">
                 <a href="post/@p.Id">
                     <h5 style="margin: 0">@p.Title</h5>
                     <div class="latest-muted">
