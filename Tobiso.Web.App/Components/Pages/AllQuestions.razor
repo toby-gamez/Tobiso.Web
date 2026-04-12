@@ -422,6 +422,7 @@
                             <i class="bi bi-funnel"></i> Filtrovat téma
                         </h6>
                         <div class="category-tree">
+                            <div class="debug-info text-muted mb-2">Kategorie celkem: @(categories?.Count ?? 0)</div>
                             @if (categories != null)
                             {
                                 @foreach (var category in categories.Where(c => c.ParentId == null).OrderBy(c => c.Name))
@@ -728,6 +729,8 @@
             questions = questionsTask.Result;
             categories = categoriesTask.Result;
             posts = postsTask.Result.ToList();
+
+            Logger.LogInformation("AllQuestions: Loaded data — questions={Questions}, categories={Categories}, posts={Posts}", questions?.Count ?? 0, categories?.Count ?? 0, posts?.Count ?? 0);
 
             await LoadPostTitles();
             BuildPostCategoriesMapping();
@@ -1125,7 +1128,7 @@
             
             @if ((isExpanded && hasChildren) || (!hasChildren && hasPostsWithQuestions))
             {
-                <div class="category-children">
+                <div class="category-children open">
                     @if (categories != null && hasChildren)
                     {
                         @foreach (var child in categories.Where(c => c.ParentId == category.Id).OrderBy(c => c.Name))
@@ -1166,6 +1169,7 @@
 
     private void OnCategoryClick(int categoryId)
     {
+        Logger.LogInformation("AllQuestions: OnCategoryClick invoked for {CategoryId}", categoryId);
         if (selectedCategoryId == categoryId)
         {
             // Zrušit výběr pokud kliknu na stejnou kategorii
@@ -1183,6 +1187,7 @@
 
     private void OnPostClick(int postId)
     {
+        Logger.LogInformation("AllQuestions: OnPostClick invoked for {PostId}", postId);
         if (selectedPostId == postId)
         {
             // Zrušit výběr pokud kliknu na stejný post
@@ -1200,13 +1205,16 @@
 
     private void ToggleCategoryExpansion(int categoryId)
     {
+        Logger.LogInformation("AllQuestions: ToggleCategoryExpansion invoked for {CategoryId}, currently expanded: {Expanded}", categoryId, string.Join(',', expandedCategoryIds));
         if (expandedCategoryIds.Contains(categoryId))
         {
             expandedCategoryIds.Remove(categoryId);
+            Logger.LogInformation("AllQuestions: Category {CategoryId} collapsed", categoryId);
         }
         else
         {
             expandedCategoryIds.Add(categoryId);
+            Logger.LogInformation("AllQuestions: Category {CategoryId} expanded", categoryId);
         }
         StateHasChanged();
     }

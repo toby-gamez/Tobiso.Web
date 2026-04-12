@@ -1,0 +1,343 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject Microsoft.JSInterop.IJSRuntime Js
+@inject ITobisoAnonymApi Api
+@inject NavigationManager Navigation
+
+<div class="right-sidebar-container">
+    <div class="right-sidebar @(IsOpen ? "open" : "closed")" aria-hidden="@(!IsOpen)">
+        <div class="sidebar-header">
+            <h4 class="sidebar-title">Obsah</h4>
+            <div class="sidebar-search-wrapper">
+                <input class="sidebar-search" placeholder="Hledat..." value="@searchQuery" @oninput="OnSearchInput" />
+            </div>
+        </div>
+        @if (loading)
+        {
+            <div class="p-3">Načítám...</div>
+        }
+        else if (filteredRootNodes == null || !filteredRootNodes.Any())
+        {
+            <div class="p-3">Žádné kategorie.</div>
+        }
+        else
+        {
+            <div class="category-tree p-2">
+                @for (int i = 0; i < filteredRootNodes.Count; i++)
+                {
+                    var node = filteredRootNodes[i];
+                    @RenderNode(node)
+                    if (i < filteredRootNodes.Count - 1)
+                    {
+                        <hr class="section-sep" />
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    <button class="right-sidebar-toggle" @onclick="Toggle" aria-label="Toggle sidebar">
+        <span class="chev">@((IsOpen) ? "✕" : "☰")</span>
+    </button>
+</div>
+
+@* Styles moved to wwwroot/css/style.css *@
+
+@code {
+    private bool IsOpen = false;
+    private bool loading = true;
+
+    private class CategoryNode
+    {
+        public CategoryResponse Category { get; set; } = null!;
+        public List<CategoryNode> Children { get; set; } = new();
+        public List<PostResponse> Posts { get; set; } = new();
+    }
+
+    private List<CategoryNode>? rootNodes;
+    private HashSet<int> expanded = new();
+    private int? currentCategoryId;
+    private int? currentPostId;
+    private List<CategoryNode>? filteredRootNodes;
+    private string searchQuery = string.Empty;
+    private System.Threading.CancellationTokenSource? _searchCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var val = await Js.InvokeAsync<string>("localStorage.getItem", "rightSidebarOpen");
+            IsOpen = val == "true";
+        }
+        catch
+        {
+            IsOpen = false;
+        }
+        // Load category tree and recent posts for sidebar
+        _ = LoadTree();
+        UpdateSelectionFromUri();
+        Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateSelectionFromUri();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateSelectionFromUri()
+    {
+        try
+        {
+            var rel = Navigation.ToBaseRelativePath(Navigation.Uri);
+            currentCategoryId = null;
+            currentPostId = null;
+            if (rel.StartsWith("categories/"))
+            {
+                var part = rel.Substring("categories/".Length).Split('/')[0];
+                if (int.TryParse(part, out var id)) currentCategoryId = id;
+            }
+            else if (rel.StartsWith("post/"))
+            {
+                var part = rel.Substring("post/".Length).Split('?')[0];
+                if (int.TryParse(part, out var id)) currentPostId = id;
+            }
+            // expand to show selected category (without collapsing already-open nodes)
+            if (currentCategoryId.HasValue && rootNodes != null)
+            {
+                ExpandTo(rootNodes, currentCategoryId.Value);
+            }
+        }
+        catch { }
+    }
+
+    private bool ExpandTo(IEnumerable<CategoryNode> nodes, int targetId)
+    {
+        foreach (var n in nodes)
+        {
+            if (n.Category.Id == targetId)
+            {
+                return true;
+            }
+            if (n.Children != null && n.Children.Count > 0)
+            {
+                if (ExpandTo(n.Children, targetId))
+                {
+                    expanded.Add(n.Category.Id);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ApplyPageClass(IsOpen);
+        }
+    }
+
+    private async Task Toggle()
+    {
+        IsOpen = !IsOpen;
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "rightSidebarOpen", IsOpen ? "true" : "false"); } catch {}
+        await ApplyPageClass(IsOpen);
+    }
+
+    private async Task LoadTree()
+    {
+        try
+        {
+            loading = true;
+            var cats = await Api.GetAllCategories();
+            var posts = (await Api.GetAllPosts()).ToList();
+
+            var lookup = cats.ToLookup(c => c.ParentId);
+
+            List<CategoryNode> Build(int? parent)
+            {
+                return lookup[parent]
+                    .Select(c => new CategoryNode
+                    {
+                        Category = c,
+                        Children = Build(c.Id),
+                        Posts = posts.Where(p => p.CategoryId == c.Id).OrderByDescending(p => p.LastEdit ?? p.LastFix ?? DateTime.MinValue).ToList()
+                    }).ToList();
+            }
+
+            rootNodes = Build(null);
+            // initialize filtered view
+            filteredRootNodes = rootNodes;
+        }
+        catch (Exception)
+        {
+            rootNodes = new List<CategoryNode>();
+        }
+        finally
+        {
+            loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredRootNodes = rootNodes;
+            return;
+        }
+
+        string q = searchQuery.Trim();
+        List<CategoryNode> Filter(IEnumerable<CategoryNode> nodes)
+        {
+            var list = new List<CategoryNode>();
+            foreach (var n in nodes)
+            {
+                // check category name
+                var match = n.Category.Name?.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+                // filter children and posts
+                var childMatches = Filter(n.Children ?? Enumerable.Empty<CategoryNode>());
+                var postMatches = (n.Posts ?? Enumerable.Empty<PostResponse>()).Where(p => (p.Title ?? string.Empty).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
+                if (match || childMatches.Any() || postMatches.Any())
+                {
+                    var copy = new CategoryNode { Category = n.Category, Children = childMatches, Posts = postMatches }; 
+                    list.Add(copy);
+                }
+            }
+            return list;
+        }
+
+        filteredRootNodes = Filter(rootNodes ?? Enumerable.Empty<CategoryNode>());
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e?.Value?.ToString() ?? string.Empty;
+        _searchCts?.Cancel();
+        _searchCts = new System.Threading.CancellationTokenSource();
+        var token = _searchCts.Token;
+        try
+        {
+            await Task.Delay(220, token);
+            ApplyFilter();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private RenderFragment RenderNode(CategoryNode node) => builder =>
+    {
+        var seq = 0;
+        var hasChildren = (node.Children != null && node.Children.Count > 0) || (node.Posts != null && node.Posts.Count > 0);
+        var isOpen = expanded.Contains(node.Category.Id);
+        var isSelected = currentCategoryId.HasValue && currentCategoryId.Value == node.Category.Id;
+
+        // .category-item — display: block; děti jdou DOLŮ
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "category-item" + (isSelected ? " selected" : ""));
+
+        // .category-header — jediný flex řádek: chevron + odkaz + count
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "category-header");
+
+        // Chevron (nebo mezera pro listy)
+        if (hasChildren)
+        {
+            builder.OpenElement(seq++, "button");
+            builder.AddAttribute(seq++, "class", "toggle-btn");
+            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => ToggleExpanded(node.Category.Id)));
+            builder.AddContent(seq++, isOpen ? "▾" : "▸");
+            builder.CloseElement();
+        }
+        else
+        {
+            // placeholder pro zarovnání
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "style", "width:22px;min-width:22px;display:inline-block;");
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(seq++, "a");
+        builder.AddAttribute(seq++, "href", $"/categories/{node.Category.Id}");
+        builder.AddContent(seq++, node.Category.Name);
+        builder.CloseElement(); // a
+
+        // item count badge
+        var cnt = CountPosts(node);
+        if (cnt > 0)
+        {
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "item-count");
+            builder.AddContent(seq++, cnt.ToString());
+            builder.CloseElement();
+        }
+
+        builder.CloseElement(); // .category-header
+
+        // children container always present to allow CSS animations
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "category-children " + (isOpen ? "open" : "closed"));
+
+        // Podkategorie
+        if (node.Children != null && node.Children.Any())
+        {
+            foreach (var child in node.Children)
+            {
+                builder.AddContent(seq++, RenderNode(child));
+            }
+        }
+
+        // Články (listy)
+        if (node.Posts != null && node.Posts.Any())
+        {
+            foreach (var p in node.Posts)
+            {
+                builder.OpenElement(seq++, "div");
+                var postSelected = currentPostId.HasValue && currentPostId.Value == p.Id;
+                builder.AddAttribute(seq++, "class", "post-item" + (postSelected ? " selected" : ""));
+                builder.OpenElement(seq++, "a");
+                builder.AddAttribute(seq++, "href", $"/post/{p.Id}");
+                builder.AddContent(seq++, p.Title);
+                builder.CloseElement(); // a
+                builder.CloseElement(); // .post-item
+            }
+        }
+
+        builder.CloseElement(); // .category-children
+
+        builder.CloseElement(); // .category-item
+    };
+
+    private int CountPosts(CategoryNode node)
+    {
+        var c = (node.Posts?.Count) ?? 0;
+        if (node.Children != null && node.Children.Count > 0)
+            c += node.Children.Sum(ch => CountPosts(ch));
+        return c;
+    }
+
+    private void ToggleExpanded(int id)
+    {
+        if (!expanded.Add(id)) expanded.Remove(id);
+    }
+
+    private async Task ApplyPageClass(bool add)
+    {
+        try
+        {
+            if (add)
+            {
+                await Js.InvokeVoidAsync("eval", "document.querySelector('.page')?.classList.add('has-right-sidebar-open')");
+            }
+            else
+            {
+                await Js.InvokeVoidAsync("eval", "document.querySelector('.page')?.classList.remove('has-right-sidebar-open')");
+            }
+        }
+        catch { }
+    }
+}

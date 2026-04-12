@@ -28,6 +28,49 @@ export function initializeApp(dotNetRef) {
   initKeyboardShortcuts();
 }
 
+// --- Reading JS fallback for when Blazor isn't connected ---
+export function initReadingFallback() {
+  try {
+    const fontSizes = [14,17,20,24,28];
+    const lineWidths = ["55ch","75ch","100ch","140ch","];
+
+    window.reading = {
+      getState() {
+        const font = localStorage.getItem('readingFont') || '';
+        const sz = parseInt(localStorage.getItem('readingFontSizeStep'));
+        const s = Number.isInteger(sz) ? Math.min(Math.max(sz,0), fontSizes.length-1) : 2;
+        const lw = parseInt(localStorage.getItem('readingLineWidthStep'));
+        const w = Number.isInteger(lw) ? Math.min(Math.max(lw,0), lineWidths.length-1) : (lineWidths.length-1);
+        return { font, s, w };
+      },
+      saveState(font, s, w) {
+        if (font !== undefined) localStorage.setItem('readingFont', font);
+        if (s !== undefined) localStorage.setItem('readingFontSizeStep', s.toString());
+        if (w !== undefined) localStorage.setItem('readingLineWidthStep', w.toString());
+      },
+      apply() {
+        try {
+          const st = this.getState();
+          const el = document.getElementById('content');
+          if (!el) return;
+          const font = st.font;
+          const size = fontSizes[st.s];
+          const width = lineWidths[st.w];
+          if (font && font.length>0) el.style.setProperty('font-family', font, 'important'); else el.style.setProperty('font-family', getComputedStyle(document.documentElement).getPropertyValue('--font-family-serif') || 'serif', 'important');
+          el.style.setProperty('--reading-font-size', size + 'px');
+          el.style.setProperty('font-size', size + 'px', 'important');
+          if (width !== '') { el.style.setProperty('max-width', width, 'important'); el.style.setProperty('margin-left','auto','important'); el.style.setProperty('margin-right','auto','important'); } else { el.style.removeProperty('max-width'); el.style.removeProperty('margin-left'); el.style.removeProperty('margin-right'); }
+        } catch(e){console.log(e)}
+      },
+      setFont(font) { this.saveState(font, undefined, undefined); this.apply(); },
+      changeSize(delta) { const st=this.getState(); let n = Math.min(Math.max(st.s+delta,0), fontSizes.length-1); this.saveState(undefined, n, undefined); this.apply(); },
+      setWidth(step) { const st=this.getState(); let w = Math.min(Math.max(step,0), lineWidths.length-1); this.saveState(undefined, undefined, w); this.apply(); }
+    };
+    // Apply initially
+    window.reading.apply();
+  } catch (e) { console.log('[reading] init failed', e); }
+}
+
 // Dark mode funkcionalita
 function initDarkMode() {
   const toggleButton = document.getElementById("dark-mode-toggle");

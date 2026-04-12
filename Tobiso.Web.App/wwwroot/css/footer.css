@@ -20,8 +20,7 @@ footer p,
     justify-content: center;
 }
 footer p {
-    margin: 0;
-    margin-left: 18rem;
+    margin: 0 0 0 18rem;
 }
 .footer-content button {
     padding: 2px 4px;
@@ -34,5 +33,11 @@ footer p {
     }
     footer p {
         margin: 0;
+    }
+}
+@media (min-width: 769px) {
+    .page.has-right-sidebar-open ~ footer p,
+    .page.has-right-sidebar-open ~ footer .footer-content {
+        margin-right: 18rem;
     }
 }
