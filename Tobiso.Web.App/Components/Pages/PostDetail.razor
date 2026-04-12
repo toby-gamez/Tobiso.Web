@@ -671,6 +671,27 @@ else
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
         html = html.Replace("...", "");
+        // If there are math placeholders present inside HTML-escaped <code> blocks, unescape
+        // their contents so KaTeX auto-render can find and render them. We only unescape
+        // when the code block contains a math placeholder to avoid altering other code.
+        try
+        {
+            var codeRx = new Regex("<code([^>]*)>(.*?)</code>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            html = codeRx.Replace(html, m =>
+            {
+                var attrs = m.Groups[1].Value;
+                var inner = m.Groups[2].Value;
+                if (inner.Contains("data-math") || inner.IndexOf("&lt;span", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // HTML-decode the inner content so any inserted <span data-math> becomes real DOM
+                    var decoded = System.Net.WebUtility.HtmlDecode(inner);
+                    return $"<code{attrs}>{decoded}</code>";
+                }
+                return m.Value;
+            });
+        }
+        catch { }
+
         html = ConvertMarkdownTablesToHtml(html);
         return html;
     }
@@ -776,13 +797,18 @@ else
     private string ReplaceFractionsInText(string input)
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
+        // Temporarily protect code regions (fenced code blocks and inline backticks)
+        // so we don't convert fractions that are part of code samples. Note: we DO NOT
+        // protect HTML <code>...</code> here so fractions inside <code> tags can be
+        // converted to math (desired behavior).
+        var (protectedText, regions) = ProtectCodeRegions(input);
 
         // Numerator/denominator: either a number (with optional comma decimals) or a single letter (to represent variables).
         // This avoids converting multi-letter words like "ano/ne" or "zvětší/změnší" into fractions.
         var fracRegex = new Regex(@"(?<![\w/\-])(-?(?:\d+(?:,\d+)?|\p{L}))(?:\s*)/(?:\s*)(-?(?:\d+(?:,\d+)?|\p{L}))(?![\w/])",
             RegexOptions.CultureInvariant);
 
-        return fracRegex.Replace(input, match =>
+        var replaced = fracRegex.Replace(protectedText, match =>
         {
             try
             {
@@ -803,14 +829,50 @@ else
                 var denNorm = den.Replace(',', '.');
 
                 // Vyrenderujeme jako inline math s \frac{num}{den}
-                    var math = $"\\frac{{{numNorm}}}{{{denNorm}}}";
-                    return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
+                var math = $"\\frac{{{numNorm}}}{{{denNorm}}}";
+                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
             }
             catch
             {
                 return match.Value;
             }
         });
+
+        // Restore protected code regions back into the text
+        return RestoreCodeRegions(replaced, regions);
+    }
+
+    private (string, Dictionary<string, string>) ProtectCodeRegions(string input)
+    {
+        var regions = new Dictionary<string, string>();
+        if (string.IsNullOrEmpty(input)) return (string.Empty, regions);
+
+        int counter = 0;
+        // Match only fenced code blocks (```...```) so inline backticks and HTML
+        // <code> elements are NOT protected and thus remain eligible for fraction
+        // replacement (desired: convert fractions even inside inline code or <code> tags).
+        var pattern = @"(?ms)(```.*?```)";
+        var rx = new Regex(pattern, RegexOptions.Singleline);
+        var result = rx.Replace(input, m =>
+        {
+            var key = $"__PROTECTED_CODE_{counter}__";
+            regions[key] = m.Value;
+            counter++;
+            return key;
+        });
+
+        return (result, regions);
+    }
+
+    private string RestoreCodeRegions(string input, Dictionary<string, string> regions)
+    {
+        if (regions == null || regions.Count == 0) return input;
+        var result = input;
+        foreach (var kv in regions)
+        {
+            result = result.Replace(kv.Key, kv.Value);
+        }
+        return result;
     }
 
     private string ReplaceMarkdownMailtoInText(string input)
