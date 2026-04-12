@@ -104,32 +104,60 @@ else
     }
     
     <div class="tools">
-        <div class="tool">
-            @if (GetLatestEditDate() != null)
-            {
-                <span>@GetLatestEditDateDisplay()</span>
-            }
-        </div>
+        <div class="tool"></div>
             <div class="tool">
-                <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
-                @if (_hasQuestions)
+                @if (_showReadingPanel)
                 {
-                    <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+                        <label style="margin:0 4px;">Písmo:</label>
+                        <select class="form-select form-select-sm" style="width:160px" @onchange="(e) => SetReadingFont(e.Value?.ToString() ?? string.Empty)">
+                            <option value="">Výchozí</option>
+                            <option value="@FontGeorgia">Georgia</option>
+                            <option value="@FontArial">Arial</option>
+                            <option value="@FontMono">Monospace</option>
+                        </select>
+
+                        <label style="margin:0 4px;">Velikost:</label>
+                        <select class="form-select form-select-sm" style="width:120px" @onchange="(e) => SetFontSizeByIndex(e.Value?.ToString())">
+                            @for (int i = 0; i < _fontSizes.Length; i++)
+                            {
+                                <option value="@i" selected="@(i == _readingFontSizeStep)">@(_fontSizes[i])px</option>
+                            }
+                        </select>
+
+                        <label style="margin:0 4px;">Šířka:</label>
+                        <select class="form-select form-select-sm" style="width:140px" @onchange="(e) => SetLineWidthByIndex(e.Value?.ToString())">
+                            @for (int i = 0; i < _lineWidths.Length; i++)
+                            {
+                                var label = string.IsNullOrEmpty(_lineWidths[i]) ? "Žádná" : _lineWidths[i];
+                                <option value="@i" selected="@(i == _readingLineWidthStep)">@label</option>
+                            }
+                        </select>
+                        <button class="btn btn-outline-secondary btn-sm" style="margin-left:8px" @onclick="ToggleReadingPanel">Zavřít</button>
+                    </div>
                 }
-                <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
-                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
-                </button>
-                <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
-                @if (_exercises != null && _exercises.Any())
+                else
                 {
-                    <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
-                        <i class="bi bi-puzzle"></i>
+                    <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+                    @if (_hasQuestions)
+                    {
+                        <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                    }
+                    <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                        <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
                     </button>
+                    <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+                    @if (_exercises != null && _exercises.Any())
+                    {
+                        <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                            <i class="bi bi-puzzle"></i>
+                        </button>
+                    }
+                    <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                        <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+                    </button>
+                    <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
                 }
-                <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
-                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
-                </button>
-                <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
@@ -153,32 +181,60 @@ else
         </div>
     </div>
     <div class="tools">
+        <div class="tool"></div>
         <div class="tool">
-            @if (GetLatestEditDate() != null)
+            @if (_showReadingPanel)
             {
-                <span>@GetLatestEditDateDisplay()</span>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+                    <label style="margin:0 4px;">Písmo:</label>
+                    <select class="form-select form-select-sm" style="width:160px" @onchange="(e) => SetReadingFont(e.Value?.ToString() ?? string.Empty)">
+                        <option value="">Výchozí</option>
+                        <option value="@FontGeorgia">Georgia</option>
+                        <option value="@FontArial">Arial</option>
+                        <option value="@FontMono">Monospace</option>
+                    </select>
+
+                    <label style="margin:0 4px;">Velikost:</label>
+                    <select class="form-select form-select-sm" style="width:120px" @onchange="(e) => SetFontSizeByIndex(e.Value?.ToString())">
+                        @for (int i = 0; i < _fontSizes.Length; i++)
+                        {
+                            <option value="@i" selected="@(i == _readingFontSizeStep)">@(_fontSizes[i])px</option>
+                        }
+                    </select>
+
+                    <label style="margin:0 4px;">Šířka:</label>
+                    <select class="form-select form-select-sm" style="width:140px" @onchange="(e) => SetLineWidthByIndex(e.Value?.ToString())">
+                        @for (int i = 0; i < _lineWidths.Length; i++)
+                        {
+                            var label = string.IsNullOrEmpty(_lineWidths[i]) ? "Žádná" : _lineWidths[i];
+                            <option value="@i" selected="@(i == _readingLineWidthStep)">@label</option>
+                        }
+                    </select>
+                    <button class="btn btn-outline-secondary btn-sm" style="margin-left:8px" @onclick="ToggleReadingPanel">Zavřít</button>
+                </div>
             }
-        </div>
-        <div class="tool">
-            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
-            @if (_hasQuestions)
+            else
             {
-                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
-            }
-            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
-                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
-            </button>
-            <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
-            @if (_exercises != null && _exercises.Any())
-            {
-                <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
-                    <i class="bi bi-puzzle"></i>
+                <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+                @if (_hasQuestions)
+                {
+                    <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                }
+                <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
                 </button>
+                <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+                @if (_exercises != null && _exercises.Any())
+                {
+                    <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                        <i class="bi bi-puzzle"></i>
+                    </button>
+                }
+                <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+                </button>
+                <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
             }
-            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
-                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
-            </button>
-            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
@@ -561,6 +617,28 @@ else
         try { await Js.InvokeVoidAsync("localStorage.setItem", "readingLineWidthStep", _readingLineWidthStep.ToString()); } catch { }
         await ApplyReadingStylesAsync();
         StateHasChanged();
+    }
+
+    private async Task SetFontSizeByIndex(string? value)
+    {
+        if (int.TryParse(value, out var idx))
+        {
+            _readingFontSizeStep = Math.Clamp(idx, 0, _fontSizes.Length - 1);
+            try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFontSizeStep", _readingFontSizeStep.ToString()); } catch { }
+            await ApplyReadingStylesAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetLineWidthByIndex(string? value)
+    {
+        if (int.TryParse(value, out var idx))
+        {
+            _readingLineWidthStep = Math.Clamp(idx, 0, _lineWidths.Length - 1);
+            try { await Js.InvokeVoidAsync("localStorage.setItem", "readingLineWidthStep", _readingLineWidthStep.ToString()); } catch { }
+            await ApplyReadingStylesAsync();
+            StateHasChanged();
+        }
     }
 
     private async Task ApplyReadingStylesAsync()
