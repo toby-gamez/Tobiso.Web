@@ -159,30 +159,26 @@
     {
         // Nastavení dark mode preference v DOM
         var darkModePref = await PreferenceService.GetPreferenceAsync("darkMode");
+        if (jsModule == null) return;
+
         if (darkModePref != null)
         {
-            // Označíme v DOM, že existuje uložená preference (i když je false)
-            await JSRuntime.InvokeVoidAsync("eval",
-                "document.body.dataset.darkModePreferenceExists = 'true'");
-
+            await jsModule.InvokeVoidAsync("setDarkModePreferenceExists", true);
             if (isDarkMode)
             {
-                await JSRuntime.InvokeVoidAsync("eval",
-                    "document.body.classList.add('dark-mode-preferred')");
+                await jsModule.InvokeVoidAsync("setDarkModePreferred", true);
             }
         }
         else
         {
-            // Pokud žádná preference, ujistíme se, že značka neexistuje
-            await JSRuntime.InvokeVoidAsync("eval",
-                "delete document.body.dataset.darkModePreferenceExists");
+            await jsModule.InvokeVoidAsync("setDarkModePreferenceExists", false);
+            await jsModule.InvokeVoidAsync("setDarkModePreferred", false);
         }
 
-        // Nastavení cookie consent v DOM
+        // Nastavení cookie consent v DOM (bez eval a bez JS string interpolation)
         if (!string.IsNullOrEmpty(cookieConsent))
         {
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"document.documentElement.dataset.cookieConsent = '{cookieConsent}'");
+            await jsModule.InvokeVoidAsync("setCookieConsent", cookieConsent);
         }
     }
 

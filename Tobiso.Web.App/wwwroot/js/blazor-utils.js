@@ -14,6 +14,22 @@ async function safeInvokeDotNet(methodName, ...args) {
   }
 }
 
+export function setDarkModePreferenceExists(value) {
+  document.body.dataset.darkModePreferenceExists = value ? "true" : "false";
+}
+
+export function setCookieConsent(value) {
+  document.documentElement.dataset.cookieConsent = value ?? "";
+  // Persist preference via Blazor (safe call — does nothing if disconnected)
+  safeInvokeDotNet('SetPreference', 'cookieConsent', value || '');
+}
+
+// Set or remove 'dark-mode-preferred' marker class used by Blazor
+export function setDarkModePreferred(value) {
+  if (value) document.body.classList.add('dark-mode-preferred');
+  else document.body.classList.remove('dark-mode-preferred');
+}
+
 // Hlavní inicializační funkce
 export function initializeApp(dotNetRef) {
   console.log("[blazor-utils] initializeApp called");
@@ -32,7 +48,7 @@ export function initializeApp(dotNetRef) {
 export function initReadingFallback() {
   try {
     const fontSizes = [14,17,20,24,28];
-    const lineWidths = ["55ch","75ch","100ch","140ch","];
+    const lineWidths = ["55ch","75ch","100ch","140ch"];
 
     window.reading = {
       getState() {
@@ -927,9 +943,7 @@ function stripMarkdown(text) {
     .trim();
 }
 
-function setCookieConsent(consent) {
-  safeInvokeDotNet('SetPreference', 'cookieConsent', consent || '');
-}
+// Note: cookie preference persistence is handled in exported `setCookieConsent` above.
 
 function getCookieConsent() {
   // Tato hodnota by měla být předána z Blazoru při inicializaci

@@ -6,19 +6,15 @@ html {
     -webkit-tap-highlight-color: transparent;
 }
 
-p,
-li,
-ul,
 textarea,
 .email-input,
 .opinion-input,
-.intro,
 #search {
     font-family: var(--font-family-serif);
     font-weight: 450;
     font-style: normal;
     color: var(--color-text);
-    font-size: 20px;
+    font-size: 16px;
     line-height: 1.4;
     text-shadow: 2px 2px 10px var(--shadow-sm);
 }
@@ -38,7 +34,9 @@ textarea,
 .content .description-text,
 .content .intro {
     font-family: inherit;
-    font-size: var(--reading-font-size, inherit);
+    /* inherit the font-size from the #content container so JS-applied inline
+       font-size (reading controls) affects normal paragraphs */
+    font-size: inherit;
     line-height: inherit;
 }
 
@@ -52,12 +50,11 @@ textarea,
     font-family: inherit;
 }
 
-.content h1 { font-size: calc(var(--reading-font-size, 20px) * 2.5); }
-.content h2 { font-size: calc(var(--reading-font-size, 20px) * 1.8); }
-.content h3 { font-size: calc(var(--reading-font-size, 20px) * 1.4); }
-.content h4 { font-size: calc(var(--reading-font-size, 20px) * 1.15); }
-.content h5 { font-size: calc(var(--reading-font-size, 20px) * 1.0); }
-.content h6 { font-size: calc(var(--reading-font-size, 20px) * 0.95); }
+.content h2 { font-size: 1.8em; }
+.content h3 { font-size: 1.4em; }
+.content h4 { font-size: 1.15em; }
+.content h5 { font-size: 1.0em; }
+.content h6 { font-size: 0.95em; }
 
 code {
     font-family: var(--font-family-monospace);
@@ -3801,4 +3798,13 @@ body.dark-mode .right-sidebar .sidebar-header {
 
 body.dark-mode .right-sidebar .sidebar-title {
         color: var(--color-text-dark);
-    }
+}
+
+body.dark-mode .reading-panel {
+    background-color: var(--intro-light-bg-dark);
+    color: var(--color-button-text-dark);
+}
+
+body.dark-mode .reading-option.active {
+    background-color: var(--color-accent-dark);
+}

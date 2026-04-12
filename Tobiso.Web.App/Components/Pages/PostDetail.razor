@@ -23,6 +23,39 @@
     .content {
         text-align: left;
     }
+    /* Article-scoped base typography: applies only inside #content so it wins over global rules.
+       Use the reading-size CSS variable so the reading panel still works. */
+    #content p,
+    #content li,
+    #content ul,
+    #content ol,
+    #content blockquote,
+    #content .description-text,
+    #content .intro {
+        /* inherit the container font-family so the reading panel's inline
+           font-family on #content takes effect for normal text */
+        font-family: inherit;
+        font-weight: 450;
+        color: var(--color-text);
+        /* inherit so container's inline font-size (set by JS) controls body text */
+        font-size: inherit;
+        line-height: 1.4;
+    }
+    /* Dark-mode overrides for article content */
+    body.dark-mode #content,
+    body.dark-mode #content p,
+    body.dark-mode #content li,
+    body.dark-mode #content ul,
+    body.dark-mode #content ol,
+    body.dark-mode #content blockquote,
+    body.dark-mode #content .description-text,
+    body.dark-mode #content .intro {
+        color: var(--color-text-dark);
+    }
+
+    /* Links inside article should also adapt to dark-mode accents */
+    #content a { color: var(--color-accent-strong); }
+    body.dark-mode #content a { color: var(--color-accent-strong-dark); }
     .ribbon-6 {
         display: none;
     }
@@ -104,117 +137,13 @@ else
     }
     
     <div class="tools">
-        <div class="tool"></div>
+        <div class="tool">
+            @if (GetLatestEditDate() != null)
+            {
+                <span>@GetLatestEditDateDisplay()</span>
+            }
+        </div>
             <div class="tool">
-                @if (_showReadingPanel)
-                {
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
-                        <label style="margin:0 4px;">Písmo:</label>
-                        <select class="form-select form-select-sm" style="width:160px" @onchange="(e) => SetReadingFont(e.Value?.ToString() ?? string.Empty)">
-                            <option value="">Výchozí</option>
-                            <option value="@FontGeorgia">Georgia</option>
-                            <option value="@FontArial">Arial</option>
-                            <option value="@FontMono">Monospace</option>
-                        </select>
-
-                        <label style="margin:0 4px;">Velikost:</label>
-                        <select class="form-select form-select-sm" style="width:120px" @onchange="(e) => SetFontSizeByIndex(e.Value?.ToString())">
-                            @for (int i = 0; i < _fontSizes.Length; i++)
-                            {
-                                <option value="@i" selected="@(i == _readingFontSizeStep)">@(_fontSizes[i])px</option>
-                            }
-                        </select>
-
-                        <label style="margin:0 4px;">Šířka:</label>
-                        <select class="form-select form-select-sm" style="width:140px" @onchange="(e) => SetLineWidthByIndex(e.Value?.ToString())">
-                            @for (int i = 0; i < _lineWidths.Length; i++)
-                            {
-                                var label = string.IsNullOrEmpty(_lineWidths[i]) ? "Žádná" : _lineWidths[i];
-                                <option value="@i" selected="@(i == _readingLineWidthStep)">@label</option>
-                            }
-                        </select>
-                        <button class="btn btn-outline-secondary btn-sm" style="margin-left:8px" @onclick="ToggleReadingPanel">Zavřít</button>
-                    </div>
-                }
-                else
-                {
-                    <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
-                    @if (_hasQuestions)
-                    {
-                        <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
-                    }
-                    <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
-                        <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
-                    </button>
-                    <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
-                    @if (_exercises != null && _exercises.Any())
-                    {
-                        <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
-                            <i class="bi bi-puzzle"></i>
-                        </button>
-                    }
-                    <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
-                        <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
-                    </button>
-                    <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
-                }
-            </div>
-        <div class="tool">
-            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
-        </div>
-    </div>
-    <div class="mb-4">
-        @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
-        <div id="content" class="content" style="@GetContentStyle()">
-            @if (_fileSuffix == ".md")
-            {
-                @((MarkupString)TransformMarkdownContent(_post.Content))
-            }
-            else if (_fileSuffix == ".html")
-            {
-                @((MarkupString)(_post.Content))
-            }
-            else
-            {
-                @((MarkupString)(_post.Content))
-            }
-        </div>
-    </div>
-    <div class="tools">
-        <div class="tool"></div>
-        <div class="tool">
-            @if (_showReadingPanel)
-            {
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
-                    <label style="margin:0 4px;">Písmo:</label>
-                    <select class="form-select form-select-sm" style="width:160px" @onchange="(e) => SetReadingFont(e.Value?.ToString() ?? string.Empty)">
-                        <option value="">Výchozí</option>
-                        <option value="@FontGeorgia">Georgia</option>
-                        <option value="@FontArial">Arial</option>
-                        <option value="@FontMono">Monospace</option>
-                    </select>
-
-                    <label style="margin:0 4px;">Velikost:</label>
-                    <select class="form-select form-select-sm" style="width:120px" @onchange="(e) => SetFontSizeByIndex(e.Value?.ToString())">
-                        @for (int i = 0; i < _fontSizes.Length; i++)
-                        {
-                            <option value="@i" selected="@(i == _readingFontSizeStep)">@(_fontSizes[i])px</option>
-                        }
-                    </select>
-
-                    <label style="margin:0 4px;">Šířka:</label>
-                    <select class="form-select form-select-sm" style="width:140px" @onchange="(e) => SetLineWidthByIndex(e.Value?.ToString())">
-                        @for (int i = 0; i < _lineWidths.Length; i++)
-                        {
-                            var label = string.IsNullOrEmpty(_lineWidths[i]) ? "Žádná" : _lineWidths[i];
-                            <option value="@i" selected="@(i == _readingLineWidthStep)">@label</option>
-                        }
-                    </select>
-                    <button class="btn btn-outline-secondary btn-sm" style="margin-left:8px" @onclick="ToggleReadingPanel">Zavřít</button>
-                </div>
-            }
-            else
-            {
                 <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
                 @if (_hasQuestions)
                 {
@@ -234,7 +163,81 @@ else
                     <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
                 </button>
                 <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+            </div>
+        <div class="tool">
+            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
+        </div>
+    </div>
+    @if (_showReadingPanel)
+    {
+        <div class="reading-panel" role="region" aria-label="Nastavení čtení">
+            <div class="reading-section">
+                <label>Písmo</label>
+                <button class="reading-option @(string.IsNullOrEmpty(_readingFont) ? "active" : "")" @onclick="() => SetReadingFont(string.Empty)">Výchozí</button>
+                <button class="reading-option @(_readingFont == FontGeorgia ? "active" : "")" @onclick="() => SetReadingFont(FontGeorgia)">Georgia</button>
+                <button class="reading-option @(_readingFont == FontArial ? "active" : "")" @onclick="() => SetReadingFont(FontArial)">Arial</button>
+                <button class="reading-option @(_readingFont == FontMono ? "active" : "")" @onclick="() => SetReadingFont(FontMono)">Monospace</button>
+            </div>
+            <div class="reading-section">
+                <label>Velikost</label>
+                <button class="reading-option" @onclick="() => ChangeFontSize(-1)">A−</button>
+                <div style="min-width:48px;text-align:center">@($"{_fontSizes[_readingFontSizeStep]}px")</div>
+                <button class="reading-option" @onclick="() => ChangeFontSize(1)">A+</button>
+            </div>
+            <div class="reading-section">
+                <label>Šířka</label>
+                <button class="reading-option @(_readingLineWidthStep==0 ? "active":"")" @onclick="() => SetLineWidth(0)">55ch</button>
+                <button class="reading-option @(_readingLineWidthStep==1 ? "active":"")" @onclick="() => SetLineWidth(1)">75ch</button>
+                <button class="reading-option @(_readingLineWidthStep==2 ? "active":"")" @onclick="() => SetLineWidth(2)">100ch</button>
+                <button class="reading-option @(_readingLineWidthStep==3 ? "active":"")" @onclick="() => SetLineWidth(3)">140ch</button>
+                <button class="reading-option @(_readingLineWidthStep==4 ? "active":"")" @onclick="() => SetLineWidth(4)">Žádná</button>
+            </div>
+        </div>
+    }
+    <div class="mb-4">
+        @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
+        <div id="content" class="content" style="@GetContentStyle()">
+            @if (_fileSuffix == ".md")
+            {
+                @((MarkupString)TransformMarkdownContent(_post.Content))
             }
+            else if (_fileSuffix == ".html")
+            {
+                @((MarkupString)(_post.Content))
+            }
+            else
+            {
+                @((MarkupString)(_post.Content))
+            }
+        </div>
+    </div>
+    <div class="tools">
+        <div class="tool">
+            @if (GetLatestEditDate() != null)
+            {
+                <span>@GetLatestEditDateDisplay()</span>
+            }
+        </div>
+        <div class="tool">
+            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+            @if (_hasQuestions)
+            {
+                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+            }
+            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+            </button>
+            <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+            @if (_exercises != null && _exercises.Any())
+            {
+                <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                    <i class="bi bi-puzzle"></i>
+                </button>
+            }
+            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+            </button>
+            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
@@ -392,9 +395,9 @@ else
     // Reading preferences state
     private bool _showReadingPanel = false;
     private string _readingFont = string.Empty;
-    private int _readingFontSizeStep = 2; // default index -> 20px
-    private int _readingLineWidthStep = 4; // default -> no limit (new index after adding 140ch)
-    private readonly int[] _fontSizes = new[] { 14, 17, 20, 24, 28 };
+    private int _readingFontSizeStep = 4; // default index -> 20px
+    private int _readingLineWidthStep = 3; // default -> no limit (new index after adding 140ch)
+    private readonly int[] _fontSizes = new[] { 14, 17, 20, 22, 24, 26, 28 };
     private readonly string[] _lineWidths = new[] { "55ch", "75ch", "100ch", "140ch", "" };
     private readonly string FontGeorgia = "Georgia, 'Times New Roman', serif";
     private readonly string FontArial = "Arial, Helvetica, sans-serif";
@@ -472,11 +475,10 @@ else
                 if (int.TryParse(sz, out var s)) _readingFontSizeStep = Math.Clamp(s, 0, _fontSizes.Length - 1);
                 var lw = await Js.InvokeAsync<string>("localStorage.getItem", "readingLineWidthStep");
                 if (int.TryParse(lw, out var w)) _readingLineWidthStep = Math.Clamp(w, 0, _lineWidths.Length - 1);
-                if (!string.IsNullOrEmpty(font) || !string.IsNullOrEmpty(sz) || !string.IsNullOrEmpty(lw))
-                {
-                    await ApplyReadingStylesAsync();
-                    StateHasChanged();
-                }
+                // Always apply reading styles so default font (set in OnInitialized)
+                // takes effect even when no persisted preferences exist.
+                await ApplyReadingStylesAsync();
+                StateHasChanged();
             }
             catch { }
             // Dynamically load KaTeX (CSS + JS) and auto-render so inline $...$ is converted to math
@@ -549,6 +551,12 @@ else
     {
         AddendumModalService.OnGlobalAddendumRequested += HandleAddendumRequest;
         ModalService.OnAddendumRequested += HandleAddendumRequest;
+
+        // Default reading font for article text (applies immediately on render)
+        if (string.IsNullOrEmpty(_readingFont))
+        {
+            _readingFont = FontGeorgia;
+        }
     }
     
     private void HandleAddendumRequest(int addendumId)
@@ -578,6 +586,9 @@ else
             var size = _fontSizes[Math.Clamp(_readingFontSizeStep, 0, _fontSizes.Length - 1)];
             // Expose base size via CSS variable so headings can scale relative to it
             sb.Append($"--reading-font-size: {size}px; ");
+            // Also set the container font-size directly so body text (which inherits)
+            // updates immediately even if JS hasn't executed.
+            sb.Append($"font-size: {size}px;");
             var width = _lineWidths[Math.Clamp(_readingLineWidthStep, 0, _lineWidths.Length - 1)];
             if (!string.IsNullOrEmpty(width))
             {
@@ -619,28 +630,6 @@ else
         StateHasChanged();
     }
 
-    private async Task SetFontSizeByIndex(string? value)
-    {
-        if (int.TryParse(value, out var idx))
-        {
-            _readingFontSizeStep = Math.Clamp(idx, 0, _fontSizes.Length - 1);
-            try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFontSizeStep", _readingFontSizeStep.ToString()); } catch { }
-            await ApplyReadingStylesAsync();
-            StateHasChanged();
-        }
-    }
-
-    private async Task SetLineWidthByIndex(string? value)
-    {
-        if (int.TryParse(value, out var idx))
-        {
-            _readingLineWidthStep = Math.Clamp(idx, 0, _lineWidths.Length - 1);
-            try { await Js.InvokeVoidAsync("localStorage.setItem", "readingLineWidthStep", _readingLineWidthStep.ToString()); } catch { }
-            await ApplyReadingStylesAsync();
-            StateHasChanged();
-        }
-    }
-
     private async Task ApplyReadingStylesAsync()
     {
         try
@@ -650,18 +639,18 @@ else
             var width = _lineWidths[Math.Clamp(_readingLineWidthStep, 0, _lineWidths.Length - 1)];
             var fontJs = System.Text.Json.JsonSerializer.Serialize(font);
             var widthJs = System.Text.Json.JsonSerializer.Serialize(width);
-            var script = $@"(function(){{try{{var el=document.getElementById('content'); if(!el) return; var setFont=(node)=>{{ if({fontJs}!=="") node.style.setProperty('font-family',{fontJs},'important'); else node.style.setProperty('font-family',getComputedStyle(document.documentElement).getPropertyValue('--font-family-serif'),'important'); node.style.setProperty('font-size','{size}px','important'); }}; // apply to container
-                setFont(el);
-                // Apply to most text descendants but exclude tables, code blocks and pre tags so layout stays intact
-                var kids=document.querySelectorAll('#content *:not(table):not(table *):not(pre):not(code):not(.blog-image):not(.katex):not(.katex *)');
-                kids.forEach(function(ch){{ try{{ // avoid touching media or interactive elements
-                        var tag = ch.tagName ? ch.tagName.toLowerCase() : '';
-                        if(['img','svg','video','iframe','canvas','button','a','input','textarea','select'].indexOf(tag) !== -1) return;
-                        setFont(ch);
-                        ch.style.removeProperty('max-width'); ch.style.removeProperty('margin-left'); ch.style.removeProperty('margin-right');
-                    }}catch(e){{}} }});
-                if({widthJs}!==""){{ el.style.setProperty('max-width',{widthJs},'important'); el.style.setProperty('margin-left','auto','important'); el.style.setProperty('margin-right','auto','important'); }} else {{ el.style.removeProperty('max-width'); el.style.removeProperty('margin-left'); el.style.removeProperty('margin-right'); }}
-            }}catch(e){{console.log(e);}} }})();";
+            // Simpler script: only set inline styles on the container element (#content).
+            // We rely on CSS `inherit` for descendant font-size/family so this is robust
+            // and avoids complex brace-escaping in interpolated verbatim strings.
+            var script = $@"(function(){{
+                var el = document.getElementById('content');
+                if(!el) return;
+                try {{
+                    if({fontJs} !== "") el.style.setProperty('font-family', {fontJs}, 'important'); else el.style.setProperty('font-family', getComputedStyle(document.documentElement).getPropertyValue('--font-family-serif'), 'important');
+                    el.style.setProperty('font-size', '{size}px', 'important');
+                    if({widthJs} !== "") {{ el.style.setProperty('max-width', {widthJs}, 'important'); el.style.setProperty('margin-left', 'auto', 'important'); el.style.setProperty('margin-right', 'auto', 'important'); }} else {{ el.style.removeProperty('max-width'); el.style.removeProperty('margin-left'); el.style.removeProperty('margin-right'); }}
+                }} catch(e) {{ console && console.log && console.log(e); }}
+            }})();";
             await Js.InvokeVoidAsync("eval", script);
         }
         catch { /* ignore */ }
