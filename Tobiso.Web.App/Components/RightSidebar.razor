@@ -159,6 +159,7 @@
             List<CategoryNode> Build(int? parent)
             {
                 return lookup[parent]
+                    .Where(c => !string.Equals(c.Name, "More", System.StringComparison.OrdinalIgnoreCase))
                     .Select(c => new CategoryNode
                     {
                         Category = c,
