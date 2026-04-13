@@ -236,8 +236,6 @@ section {
     margin: auto auto 5px;
     padding: 20px;
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
 }
 
 section #only-content {
@@ -2496,6 +2494,7 @@ strong::after {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .reading-section label {
