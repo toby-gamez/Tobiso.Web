@@ -1,4 +1,5 @@
 @using Tobiso.Web.Shared.DTOs
+@using Microsoft.AspNetCore.Components
 @inject System.Net.Http.HttpClient Http
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
@@ -21,7 +22,7 @@
             else
             {
                 <div class="msg-assistant">
-                    <div class="assistant-text">@msg.Content</div>
+                    <div class="assistant-text assistant-markdown" data-md="@msg.Content"></div>
                     <span class="ai-icon"><i class="bi bi-stars"></i></span>
                 </div>
             }
@@ -35,7 +36,7 @@
         @if (_isTyping)
         {
             <div class="msg-assistant">
-                <div class="assistant-text">@_typingText<span class="typing-cursor"></span></div>
+                <div class="assistant-text assistant-markdown" data-md="@_typingText"></div>
                 <span class="ai-icon"><i class="bi bi-stars"></i></span>
             </div>
         }
@@ -368,6 +369,38 @@ body.dark-mode .ai-notice a {
     .bubble-user { max-width: 88%; }
     .msg-assistant { max-width: 96%; }
 }
+
+/* Markdown rendered content */
+.assistant-markdown p { margin: 0 0 8px; }
+.assistant-markdown p:last-child { margin-bottom: 0; }
+.assistant-markdown ul, .assistant-markdown ol { padding-left: 1.4em; margin: 4px 0 8px; }
+.assistant-markdown li { margin-bottom: 2px; }
+.assistant-markdown code {
+    font-family: monospace;
+    font-size: 0.88em;
+    background: rgba(0,0,0,0.07);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.assistant-markdown pre {
+    background: rgba(0,0,0,0.07);
+    border-radius: 6px;
+    padding: 10px 14px;
+    overflow-x: auto;
+    margin: 6px 0;
+}
+.assistant-markdown pre code { background: none; padding: 0; }
+.assistant-markdown strong { font-weight: 700; }
+.assistant-markdown em { font-style: italic; }
+.assistant-markdown h1, .assistant-markdown h2, .assistant-markdown h3 {
+    font-size: 1em;
+    font-weight: 700;
+    margin: 8px 0 4px;
+}
+body.dark-mode .assistant-markdown code,
+body.dark-mode .assistant-markdown pre {
+    background: rgba(255,255,255,0.08);
+}
 </style>
 
 @code {
@@ -478,6 +511,19 @@ body.dark-mode .ai-notice a {
     {
         await LoadRemainingAsync();
         await LoadFromLocalStorageAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("eval",
+                "document.querySelectorAll('.assistant-markdown[data-md]').forEach(function(el){" +
+                "var md=el.getAttribute('data-md');" +
+                "if(md&&typeof marked!=='undefined'){el.innerHTML=marked.parse(md);el.removeAttribute('data-md');}" +
+                "});");
+        }
+        catch { }
     }
 
     private async Task LoadRemainingAsync()
