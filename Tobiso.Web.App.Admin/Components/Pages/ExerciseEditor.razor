@@ -407,6 +407,11 @@
                 var request = new UpdateInteractiveExerciseRequest
                 {
                     Id = ExerciseId!.Value,
+                    // Include post and category associations when updating
+                    PostIds = _model.PostIds != null && _model.PostIds.Any()
+                        ? _model.PostIds
+                        : (PostId != 0 ? new List<int> { PostId } : null),
+                    CategoryIds = _model.CategoryIds,
                     Title = _model.Title,
                     Type = _model.Type,
                     ConfigJson = _model.ConfigJson,

@@ -200,7 +200,7 @@
             string.IsNullOrWhiteSpace(searchTerm) || 
             a.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
             a.Content.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
-        ).OrderBy(a => a.Name).ToList();
+        ).OrderBy(a => a.Id).ToList();
     }
 
     private void OnSearchChanged()

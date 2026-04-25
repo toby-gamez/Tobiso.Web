@@ -47,7 +47,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var ex in _exercises.OrderBy(e => e.OrderIndex))
+                    @foreach (var ex in _exercises.OrderByDescending(e => e.UpdatedAt ?? e.CreatedAt))
                     {
                         <tr class="@(!ex.IsActive ? "table-secondary" : "")">
                             <td><span class="badge bg-secondary">@ex.OrderIndex</span></td>
