@@ -381,8 +381,83 @@ body.dark-mode .ai-notice a {
     private bool _isTyping = false;
     private string _typingText = string.Empty;
     private int _remaining = 10;
+    private string _sessionChatId = string.Empty;
 
     private int _remainingChars => Math.Max(0, 300 - (_question?.Length ?? 0));
+
+    private class SavedChat
+    {
+        public string Id { get; set; } = string.Empty;
+        public int PostId { get; set; }
+        public string PostTitle { get; set; } = string.Empty;
+        public string FirstQuestion { get; set; } = string.Empty;
+        public List<AiMessage> Messages { get; set; } = new();
+        public string UpdatedAt { get; set; } = string.Empty;
+    }
+
+    private async Task LoadFromLocalStorageAsync()
+    {
+        if (PostId <= 0) return;
+        try
+        {
+            var json = await Js.InvokeAsync<string>("localStorage.getItem", "tobiso_ai_chats");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var chats = System.Text.Json.JsonSerializer.Deserialize<List<SavedChat>>(json);
+                var existing = chats?.Where(c => c.PostId == PostId)
+                    .OrderByDescending(c => c.UpdatedAt)
+                    .FirstOrDefault();
+                if (existing != null)
+                {
+                    _sessionChatId = existing.Id;
+                    _history = existing.Messages ?? new();
+                }
+            }
+        }
+        catch { }
+        if (string.IsNullOrEmpty(_sessionChatId))
+            _sessionChatId = $"chat_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{PostId}";
+    }
+
+    private async Task SaveToLocalStorageAsync()
+    {
+        if (PostId <= 0 || !_history.Any()) return;
+        try
+        {
+            var json = await Js.InvokeAsync<string>("localStorage.getItem", "tobiso_ai_chats");
+            var chats = new List<SavedChat>();
+            if (!string.IsNullOrEmpty(json))
+                chats = System.Text.Json.JsonSerializer.Deserialize<List<SavedChat>>(json) ?? new();
+
+            var existing = chats.FirstOrDefault(c => c.Id == _sessionChatId);
+            var firstUserQ = _history.FirstOrDefault(m => m.Role == "user")?.Content ?? string.Empty;
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            if (existing != null)
+            {
+                existing.Messages = _history;
+                existing.UpdatedAt = now;
+                existing.PostTitle = string.IsNullOrEmpty(PostTitle) ? existing.PostTitle : PostTitle;
+                existing.FirstQuestion = firstUserQ;
+            }
+            else
+            {
+                chats.Add(new SavedChat
+                {
+                    Id = _sessionChatId,
+                    PostId = PostId,
+                    PostTitle = string.IsNullOrEmpty(PostTitle) ? $"Post #{PostId}" : PostTitle,
+                    FirstQuestion = firstUserQ,
+                    Messages = _history,
+                    UpdatedAt = now
+                });
+            }
+            if (chats.Count > 50)
+                chats = chats.OrderByDescending(c => c.UpdatedAt).Take(50).ToList();
+            await Js.InvokeVoidAsync("localStorage.setItem", "tobiso_ai_chats",
+                System.Text.Json.JsonSerializer.Serialize(chats));
+        }
+        catch { }
+    }
 
     private async Task HandleInput(ChangeEventArgs e)
     {
@@ -402,6 +477,7 @@ body.dark-mode .ai-notice a {
     protected override async Task OnInitializedAsync()
     {
         await LoadRemainingAsync();
+        await LoadFromLocalStorageAsync();
     }
 
     private async Task LoadRemainingAsync()
@@ -453,6 +529,7 @@ body.dark-mode .ai-notice a {
                     _loading = false;
                     await AnimateTypingAsync(aiResp.Answer);
                     _history.Add(new AiMessage { Role = "assistant", Content = aiResp.Answer });
+                    await SaveToLocalStorageAsync();
                 }
                 else
                 {

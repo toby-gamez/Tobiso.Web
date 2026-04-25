@@ -7,29 +7,65 @@
 <div class="right-sidebar-container">
     <div class="right-sidebar @(IsOpen ? "open" : "closed")" aria-hidden="@(!IsOpen)">
         <div class="sidebar-header">
-            <h4 class="sidebar-title">Obsah</h4>
-            <div class="sidebar-search-wrapper">
-                <input class="sidebar-search" placeholder="Hledat..." value="@searchQuery" @oninput="OnSearchInput" />
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab @(activeTab == "ucivo" ? "active" : "")" @onclick='() => SwitchTab("ucivo")'>Učivo</button>
+                <button class="sidebar-tab @(activeTab == "chaty" ? "active" : "")" @onclick='() => SwitchTab("chaty")'>Chaty</button>
             </div>
+            @if (activeTab == "ucivo")
+            {
+                <div class="sidebar-search-wrapper">
+                    <input class="sidebar-search" placeholder="Hledat..." value="@searchQuery" @oninput="OnSearchInput" />
+                </div>
+            }
         </div>
-        @if (loading)
+        @if (activeTab == "ucivo")
         {
-            <div class="p-3">Načítám...</div>
-        }
-        else if (filteredRootNodes == null || !filteredRootNodes.Any())
-        {
-            <div class="p-3">Žádné kategorie.</div>
+            @if (loading)
+            {
+                <div class="p-3">Načítám...</div>
+            }
+            else if (filteredRootNodes == null || !filteredRootNodes.Any())
+            {
+                <div class="p-3">Žádné kategorie.</div>
+            }
+            else
+            {
+                <div class="category-tree p-2">
+                    @for (int i = 0; i < filteredRootNodes.Count; i++)
+                    {
+                        var node = filteredRootNodes[i];
+                        @RenderNode(node)
+                        if (i < filteredRootNodes.Count - 1)
+                        {
+                            <hr class="section-sep" />
+                        }
+                    }
+                </div>
+            }
         }
         else
         {
-            <div class="category-tree p-2">
-                @for (int i = 0; i < filteredRootNodes.Count; i++)
+            <div class="chat-list p-2">
+                @if (chatsLoading)
                 {
-                    var node = filteredRootNodes[i];
-                    @RenderNode(node)
-                    if (i < filteredRootNodes.Count - 1)
+                    <div class="p-3">Načítám chaty...</div>
+                }
+                else if (savedChats == null || !savedChats.Any())
+                {
+                    <div class="chat-list-empty">Zatím žádné chaty. Začněte konverzaci na stránce článku.</div>
+                }
+                else
+                {
+                    @foreach (var chat in savedChats)
                     {
-                        <hr class="section-sep" />
+                        <a class="chat-list-item" href="/post/@chat.PostId">
+                            <div class="chat-list-title">@chat.PostTitle</div>
+                            @if (!string.IsNullOrEmpty(chat.FirstQuestion))
+                            {
+                                <div class="chat-list-preview">@(chat.FirstQuestion.Length > 60 ? chat.FirstQuestion.Substring(0, 60) + "…" : chat.FirstQuestion)</div>
+                            }
+                            <div class="chat-list-date">@FormatChatDate(chat.UpdatedAt)</div>
+                        </a>
                     }
                 }
             </div>
@@ -46,6 +82,19 @@
 @code {
     private bool IsOpen = false;
     private bool loading = true;
+    private string activeTab = "ucivo";
+    private bool chatsLoading = false;
+
+    private class SavedChat
+    {
+        public string Id { get; set; } = string.Empty;
+        public int PostId { get; set; }
+        public string PostTitle { get; set; } = string.Empty;
+        public string FirstQuestion { get; set; } = string.Empty;
+        public string UpdatedAt { get; set; } = string.Empty;
+    }
+
+    private List<SavedChat>? savedChats;
 
     private class CategoryNode
     {
@@ -144,6 +193,8 @@
         IsOpen = !IsOpen;
         try { await Js.InvokeVoidAsync("localStorage.setItem", "rightSidebarOpen", IsOpen ? "true" : "false"); } catch {}
         await ApplyPageClass(IsOpen);
+        if (IsOpen && activeTab == "chaty")
+            await LoadChatsAsync();
     }
 
     private async Task LoadTree()
@@ -340,5 +391,49 @@
             }
         }
         catch { }
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        activeTab = tab;
+        if (tab == "chaty")
+            await LoadChatsAsync();
+    }
+
+    private async Task LoadChatsAsync()
+    {
+        chatsLoading = true;
+        try
+        {
+            var json = await Js.InvokeAsync<string>("localStorage.getItem", "tobiso_ai_chats");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var all = System.Text.Json.JsonSerializer.Deserialize<List<SavedChat>>(json);
+                savedChats = all?.OrderByDescending(c => c.UpdatedAt).ToList() ?? new();
+            }
+            else
+            {
+                savedChats = new();
+            }
+        }
+        catch
+        {
+            savedChats = new();
+        }
+        finally
+        {
+            chatsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string FormatChatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dto))
+        {
+            var local = dto.ToLocalTime();
+            return local.ToString("d. M. yyyy HH:mm");
+        }
+        return string.Empty;
     }
 }
