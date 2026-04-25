@@ -400,3 +400,7 @@ build/C:/work/*
 build/tools/*
 build/build-ftp-files.json
 build/C:/work-admin/*
+cert-00
+cert-01
+cert-02
+chain.pem

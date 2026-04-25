@@ -1006,15 +1006,19 @@ else
 
         // Numerator/denominator: either a number (with optional comma decimals) or a single letter (to represent variables).
         // This avoids converting multi-letter words like "ano/ne" or "zvětší/změnší" into fractions.
-        var fracRegex = new Regex(@"(?<![\w/\-])(-?(?:\d+(?:,\d+)?|\p{L}))(?:\s*)/(?:\s*)(-?(?:\d+(?:,\d+)?|\p{L}))(?![\w/])",
+        // Rozšířený regex: podporuje buď jednoduché tokeny (číslo nebo 1 písmeno)
+        // nebo výrazy v složených závorkách jako {n + 1}/{n - 1}.
+        var fracRegex = new Regex(@"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
             RegexOptions.CultureInvariant);
 
         var replaced = fracRegex.Replace(protectedText, match =>
         {
             try
             {
-                var num = match.Groups[1].Value;
-                var den = match.Groups[2].Value;
+                // Pokud byl použit zápis s { ... }, skupiny 2 a 5 obsahují výraz bez závorek.
+                // Jinak použijeme skupiny 3 a 6 (jednotlivé tokeny jako číslo nebo písmeno).
+                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
+                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
 
                 // Explicitně vynecháme "ano"/"ne" a podobné slovní páry
                 if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
@@ -1025,7 +1029,9 @@ else
                     return match.Value;
                 }
 
-                // Normalizace desetinné čárky na tečku pro LaTeX
+                // Trim a normalizace desetinné čárky na tečku pro LaTeX
+                num = num.Trim();
+                den = den.Trim();
                 var numNorm = num.Replace(',', '.');
                 var denNorm = den.Replace(',', '.');
 
