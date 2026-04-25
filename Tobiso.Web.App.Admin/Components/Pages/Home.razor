@@ -10,7 +10,25 @@
 <PageTitle>Home - Posts</PageTitle>
 
 <h1>Posts</h1>
-<button class="btn btn-success mb-3" @onclick="GoToAddPost">Přidat článek</button>
+<div class="d-flex flex-wrap align-items-center mb-3">
+    <button class="btn btn-success me-2" @onclick="GoToAddPost">Přidat článek</button>
+
+    <div class="ms-auto d-flex align-items-center">
+        <input class="form-control me-2" placeholder="Hledat podle názvu..." @bind="SearchTerm" @bind:event="oninput" style="width:260px;" />
+
+        <select class="form-select me-2" style="width:200px;" @bind="SortBy">
+            <option value="Updated">Nejnovější</option>
+            <option value="Title">Název</option>
+            <option value="Category">Kategorie</option>
+            <option value="Id">ID</option>
+            <option value="FilePath">Cesta</option>
+        </select>
+
+        <button class="btn btn-outline-secondary btn-sm" title="Přepnout směr řazení" @onclick="ToggleSortDirection">
+            <i class="@(SortDescending ? "bi bi-sort-down" : "bi bi-sort-up")"></i>
+        </button>
+    </div>
+</div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -115,6 +133,30 @@ else
 
 @code {
     private IList<PostResponse>? posts;
+    private IList<PostResponse> allPosts = new List<PostResponse>();
+    private string _searchTerm = string.Empty;
+    private string SearchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            if (_searchTerm == value) return;
+            _searchTerm = value;
+            ApplyFilters();
+        }
+    }
+    private string _sortBy = "Id";
+    private string SortBy
+    {
+        get => _sortBy;
+        set
+        {
+            if (_sortBy == value) return;
+            _sortBy = value;
+            ApplyFilters();
+        }
+    }
+    private bool SortDescending { get; set; } = false;
     private IList<CategoryResponse> categories = new List<CategoryResponse>();
     private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
     private string? errorMessage;
@@ -180,14 +222,14 @@ else
             Console.WriteLine("Starting to load posts...");
             Logger.LogInformation("Starting to load posts from API");
 
-            posts = await Api.GetAllPosts();
+            var loaded = await Api.GetAllPosts();
+            allPosts = loaded ?? new List<PostResponse>();
 
-            // nothing extra to load here
+            ApplyFilters();
 
-            Console.WriteLine($"Successfully loaded {posts.Count} posts");
-            Logger.LogInformation("Successfully loaded {PostCount} posts", posts.Count);
+            Console.WriteLine($"Successfully loaded {allPosts.Count} posts");
+            Logger.LogInformation("Successfully loaded {PostCount} posts", allPosts.Count);
 
-            StateHasChanged();
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -216,6 +258,47 @@ else
         {
             errorMessage = $"Chyba při mazání: {ex.Message}";
         }
+    }
+
+    private void ApplyFilters()
+    {
+        if (allPosts == null) allPosts = new List<PostResponse>();
+
+        IEnumerable<PostResponse> query = allPosts;
+
+        if (!string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            query = query.Where(p => !string.IsNullOrEmpty(p.Title) && p.Title.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        switch (SortBy)
+        {
+            case "Title":
+                query = SortDescending ? query.OrderByDescending(p => p.Title) : query.OrderBy(p => p.Title);
+                break;
+            case "Category":
+                query = SortDescending ? query.OrderByDescending(p => p.CategoryId ?? int.MinValue) : query.OrderBy(p => p.CategoryId ?? int.MaxValue);
+                break;
+            case "Id":
+                query = SortDescending ? query.OrderByDescending(p => p.Id) : query.OrderBy(p => p.Id);
+                break;
+            case "FilePath":
+                query = SortDescending ? query.OrderByDescending(p => p.FilePath) : query.OrderBy(p => p.FilePath);
+                break;
+            case "Updated":
+            default:
+                query = SortDescending ? query.OrderByDescending(p => GetLatest(p) ?? DateTime.MinValue) : query.OrderBy(p => GetLatest(p) ?? DateTime.MinValue);
+                break;
+        }
+
+        posts = query.ToList();
+        StateHasChanged();
+    }
+
+    private void ToggleSortDirection()
+    {
+        SortDescending = !SortDescending;
+        ApplyFilters();
     }
 
     private void GoToAddPost()
