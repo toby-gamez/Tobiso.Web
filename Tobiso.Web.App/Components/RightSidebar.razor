@@ -58,7 +58,7 @@
                 {
                     @foreach (var chat in savedChats)
                     {
-                        <a class="chat-list-item" href="/post/@chat.PostId">
+                        <a class="chat-list-item" href="/chat?postId=@chat.PostId">
                             <div class="chat-list-title">@chat.PostTitle</div>
                             @if (!string.IsNullOrEmpty(chat.FirstQuestion))
                             {

@@ -1926,6 +1926,8 @@ body.scroll-lock {
     display: flex;
     gap: 4px;
     margin-bottom: 2px;
+    padding-right: 54px;
+    margin-top: 10px;
 }
 
 .sidebar-tab {

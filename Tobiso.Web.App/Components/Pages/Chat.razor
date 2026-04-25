@@ -203,6 +203,9 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "postId")]
+    public int? PostIdQuery { get; set; }
+
     private List<PostResponse> _posts = new();
     private Dictionary<int, string> _categoryNames = new();
 
@@ -236,6 +239,10 @@ else
         finally
         {
             _loading = false;
+            if (PostIdQuery.HasValue && PostIdQuery.Value > 0)
+            {
+                _selectedPost = _posts.FirstOrDefault(p => p.Id == PostIdQuery.Value);
+            }
         }
     }
 
