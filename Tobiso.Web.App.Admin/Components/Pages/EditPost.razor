@@ -8,7 +8,9 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @using System
 
-<h3>Editace postu</h3>
+<PageTitle>Editace článku</PageTitle>
+
+<h3>Editace článku</h3>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -34,13 +36,7 @@ else
         </div>
         <div class="mb-3">
             <label for="category" class="form-label">Kategorie</label>
-            <InputSelect id="category" class="form-select" @bind-Value="post.CategoryId">
-                <option value="">-- vyber kategorii --</option>
-                @foreach (var cat in categories)
-                {
-                    <option value="@cat.Id">@cat.Name</option>
-                }
-            </InputSelect>
+            <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
         </div>
         <div class="mb-3">
             <label for="content" class="form-label">Obsah</label>

@@ -1,0 +1,108 @@
+@using Tobiso.Web.Shared.DTOs
+
+<div class="position-relative">
+    <div class="input-group">
+        <input type="text"
+               class="form-control"
+               placeholder="Vyhledat kategorii..."
+               @bind="searchText"
+               @oninput="OnSearchInput"
+               @onfocus="ShowDropdown"
+               @onblur="HideDropdownDelayed" />
+        @if (Value != null)
+        {
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    @onclick="ClearSelection">
+                <i class="bi bi-x"></i>
+            </button>
+        }
+    </div>
+
+    @if (showDropdown)
+    {
+        var filtered = GetFiltered();
+        @if (filtered.Any())
+        {
+            <div class="dropdown-menu show position-absolute w-100 mt-1" style="z-index:1000; max-height:250px; overflow-y:auto;">
+                @foreach (var cat in filtered)
+                {
+                    <button type="button"
+                            class="dropdown-item @(Value == cat.Id ? "active" : "")"
+                            @onmousedown:preventDefault="true"
+                            @onclick="() => SelectCategory(cat)">
+                        @cat.Name
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="dropdown-menu show position-absolute w-100 mt-1">
+                <div class="dropdown-item-text text-muted">Žádná kategorie nenalezena</div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    [Parameter] public List<CategoryResponse> Categories { get; set; } = new();
+
+    private string searchText = string.Empty;
+    private bool showDropdown = false;
+
+    protected override void OnParametersSet()
+    {
+        // Sync display text with current value
+        if (Value.HasValue)
+        {
+            var selected = Categories.FirstOrDefault(c => c.Id == Value.Value);
+            if (selected != null && searchText != selected.Name)
+                searchText = selected.Name;
+        }
+        else if (!showDropdown)
+        {
+            searchText = string.Empty;
+        }
+    }
+
+    private IEnumerable<CategoryResponse> GetFiltered()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            return Categories;
+        return Categories.Where(c => c.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? string.Empty;
+        showDropdown = true;
+    }
+
+    private void ShowDropdown()
+    {
+        showDropdown = true;
+    }
+
+    private async Task HideDropdownDelayed()
+    {
+        await Task.Delay(150);
+        showDropdown = false;
+    }
+
+    private async Task SelectCategory(CategoryResponse cat)
+    {
+        searchText = cat.Name;
+        showDropdown = false;
+        await ValueChanged.InvokeAsync(cat.Id);
+    }
+
+    private async Task ClearSelection()
+    {
+        searchText = string.Empty;
+        showDropdown = false;
+        await ValueChanged.InvokeAsync(null);
+    }
+}
