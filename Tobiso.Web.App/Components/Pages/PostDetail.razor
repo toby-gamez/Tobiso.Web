@@ -395,8 +395,8 @@ else
     // Reading preferences state
     private bool _showReadingPanel = false;
     private string _readingFont = string.Empty;
-    private int _readingFontSizeStep = 4; // default index -> 20px
-    private int _readingLineWidthStep = 3; // default -> no limit (new index after adding 140ch)
+    private int _readingFontSizeStep = 2; // default index -> 20px
+    private int _readingLineWidthStep = 4; // default -> no limit (new index after adding 140ch)
     private readonly int[] _fontSizes = new[] { 14, 17, 20, 22, 24, 26, 28 };
     private readonly string[] _lineWidths = new[] { "55ch", "75ch", "100ch", "140ch", "" };
     private readonly string FontGeorgia = "Georgia, 'Times New Roman', serif";
@@ -551,12 +551,6 @@ else
     {
         AddendumModalService.OnGlobalAddendumRequested += HandleAddendumRequest;
         ModalService.OnAddendumRequested += HandleAddendumRequest;
-
-        // Default reading font for article text (applies immediately on render)
-        if (string.IsNullOrEmpty(_readingFont))
-        {
-            _readingFont = FontGeorgia;
-        }
     }
     
     private void HandleAddendumRequest(int addendumId)
