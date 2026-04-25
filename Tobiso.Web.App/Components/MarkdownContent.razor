@@ -1,0 +1,519 @@
+@using System.Text.RegularExpressions
+@using Tobiso.Web.Shared.DTOs
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
+
+@((MarkupString)_renderedHtml)
+
+@if (_addendumIds.Count > 0)
+{
+    <div style="display:none;">
+        @foreach (var addendumId in _addendumIds)
+        {
+            <AddendumButton AddendumId="@addendumId" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Content { get; set; }
+    [Parameter] public List<PostResponse>? AllPosts { get; set; }
+    /// <summary>ID of the container element that wraps this component's output – used by KaTeX to target math rendering.</summary>
+    [Parameter] public string ContainerId { get; set; } = "content";
+
+    private string _renderedHtml = string.Empty;
+    private List<int> _addendumIds = new();
+    private bool _katexLoaded = false;
+
+    protected override void OnParametersSet()
+    {
+        _renderedHtml = TransformMarkdownContent(Content);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Dynamically load KaTeX (CSS + JS) and auto-render inline $...$ math
+            await Js.InvokeVoidAsync("eval", $@"
+                (function(){{
+                    var containerId = '{ContainerId}';
+                    function renderMath(){{
+                        try{{ renderMathInElement(document.getElementById(containerId), {{delimiters: [{{left:'$$', right:'$$', display:true}},{{left:'$', right:'$', display:false}}]}}); }}catch(e){{}}
+                        try{{
+                            document.querySelectorAll('[data-math]').forEach(function(el){{
+                                try{{
+                                    var math = el.getAttribute('data-math');
+                                    if(math && window.katex && typeof window.katex.render === 'function'){{
+                                        katex.render(math, el, {{throwOnError:false, displayMode:false}});
+                                    }}
+                                }}catch(_){{ }}
+                            }});
+                        }}catch(_){{ }}
+                    }}
+                    if (window.__katexLoaded) {{
+                        renderMath();
+                        return;
+                    }}
+                    window.__katexLoaded = true;
+                    try{{
+                        var link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
+                        document.head.appendChild(link);
+
+                        var s1 = document.createElement('script');
+                        s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
+                        s1.defer = true;
+                        document.head.appendChild(s1);
+
+                        var s2 = document.createElement('script');
+                        s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
+                        s2.defer = true;
+                        s2.onload = function(){{ renderMath(); }};
+                        document.head.appendChild(s2);
+                    }}catch(e){{}}
+                }})();
+            ");
+        }
+        else
+        {
+            // On subsequent renders re-run math rendering if KaTeX is already available
+            await Js.InvokeVoidAsync("eval", $@"
+                try{{
+                    if(window.renderMathInElement){{
+                        renderMathInElement(document.getElementById('{ContainerId}'), {{delimiters: [{{left:'$$', right:'$$', display:true}},{{left:'$', right:'$', display:false}}]}});
+                    }}
+                    try{{
+                        document.querySelectorAll('[data-math]').forEach(function(el){{
+                            try{{
+                                var math = el.getAttribute('data-math');
+                                if(math && window.katex && typeof window.katex.render === 'function'){{
+                                    katex.render(math, el, {{throwOnError:false, displayMode:false}});
+                                }}
+                            }}catch(_){{ }}
+                        }});
+                    }}catch(_){{ }}
+                }}catch(e){{}}
+            ");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Main transformation pipeline
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string TransformMarkdownContent(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
+
+        // Convert Markdown-style mailto links to <a href="mailto:..."> before processing
+        content = ReplaceMarkdownMailtoInText(content);
+
+        // Convert simple fraction notation (1/2, 1/x, {n+1}/{n-1} …) to inline LaTeX math
+        content = ReplaceFractionsInText(content);
+
+        // Replace -> with arrow icon BEFORE HTML conversion
+        content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
+        content = content.Replace("->", "<i class=\"bi bi-arrow-right-short\"></i>");
+
+        // Group images with captions/sources BEFORE conversion while paragraph structure is clear
+        content = PreprocessImageGroups(content);
+
+        var html = Markdig.Markdown.ToHtml(content);
+
+        // Process addendum markers (--DOD-x--) AFTER HTML conversion
+        _addendumIds.Clear();
+        var addendumRegex = new Regex(@"\(--DOD-(\d+)--\)", RegexOptions.IgnoreCase);
+        html = addendumRegex.Replace(html, match =>
+        {
+            var addendumId = int.Parse(match.Groups[1].Value);
+            if (!_addendumIds.Contains(addendumId))
+                _addendumIds.Add(addendumId);
+            return $"<a class='addendum-btn' onclick='window.requestAddendum({addendumId})'><i class=\"bi bi-patch-question\"></i></a>";
+        });
+
+        // Fix image src: add prefix to relative <img> src attributes
+        var imgRegex = new Regex("<img\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+        html = imgRegex.Replace(html, match =>
+        {
+            var origSrc = match.Groups[1].Value;
+            if (origSrc.Contains("http")) return match.Value;
+            if (origSrc.Contains("images"))
+            {
+                var fullSrc = origSrc.StartsWith("/")
+                    ? $"https://files.tobiso.com{origSrc}"
+                    : $"https://files.tobiso.com/{origSrc}";
+                return match.Value.Replace(origSrc, fullSrc);
+            }
+            return match.Value;
+        });
+
+        // Process links
+        var linkRegex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
+        html = linkRegex.Replace(html, match =>
+        {
+            var origHref = match.Groups[1].Value;
+            var attrs = match.Groups[2].Value;
+            var linkText = match.Groups[3].Value;
+
+            if (origHref.Contains("http"))
+                return $"<a href=\"{origHref}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
+
+            if (origHref.Contains("files"))
+            {
+                var fullUrl = origHref.StartsWith("/")
+                    ? $"https://files.tobiso.com{origHref}"
+                    : $"https://files.tobiso.com/{origHref}";
+                return $"<a href=\"{fullUrl}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
+            }
+
+            if (origHref.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var mailto = origHref.Substring("mailto:".Length);
+                    var parts = mailto.Split('?', 2);
+                    var address = parts[0] ?? "";
+                    var encodedQuery = "";
+                    if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        encodedQuery = string.Join("&",
+                            parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(p =>
+                                {
+                                    var kv = p.Split('=', 2);
+                                    var k = kv[0];
+                                    var v = kv.Length > 1 ? kv[1] : "";
+                                    return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                                })
+                        );
+                    }
+                    var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                    return $"<a href=\"{href}\"{attrs}>{linkText}</a>";
+                }
+                catch
+                {
+                    return $"<a href=\"{origHref}\"{attrs}>{linkText}</a>";
+                }
+            }
+
+            var file = Regex.Replace(origHref, "^(ml-|l-|sl-|hv-|m-|ch-|f-|pr-|z-|li-|geo-)", "");
+            file = file.Replace(".html", ".md");
+            if (!file.StartsWith("/")) file = "/" + file;
+            var postMatch = AllPosts?.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
+            if (postMatch != null)
+                return $"<a href=\"/post/{postMatch.Id}\"{attrs}>{linkText}</a>";
+
+            return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
+        });
+
+        // Wrap text between ... ... into intro div
+        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
+        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>", 1);
+        var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
+        html = singleDotsRegex.Replace(html, "");
+        html = html.Replace("...", "");
+
+        // Unescape math placeholders inside HTML-escaped <code> blocks
+        try
+        {
+            var codeRx = new Regex("<code([^>]*)>(.*?)</code>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            html = codeRx.Replace(html, m =>
+            {
+                var codeAttrs = m.Groups[1].Value;
+                var inner = m.Groups[2].Value;
+                if (inner.Contains("data-math") || inner.IndexOf("&lt;span", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    var decoded = System.Net.WebUtility.HtmlDecode(inner);
+                    return $"<code{codeAttrs}>{decoded}</code>";
+                }
+                return m.Value;
+            });
+        }
+        catch { }
+
+        html = ConvertMarkdownTablesToHtml(html);
+        return html;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Image group pre-processing
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string PreprocessImageGroups(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return content;
+
+        var paras = Regex.Split(content, @"\r?\n[ \t]*\r?\n")
+                         .Select(p => p.Trim('\r', '\n', ' ', '\t'))
+                         .ToList();
+
+        var imgRx = new Regex(@"^!\[([^\]]*)\]\(([^)]+)\)\s*$");
+        var result = new List<string>();
+        int i = 0;
+
+        while (i < paras.Count)
+        {
+            var para = paras[i];
+            if (string.IsNullOrWhiteSpace(para)) { i++; continue; }
+
+            var imgM = imgRx.Match(para);
+            if (!imgM.Success) { result.Add(para); i++; continue; }
+
+            int srcIdx = -1;
+            for (int j = i + 1; j < paras.Count && j <= i + 3; j++)
+            {
+                if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                if (paras[j].StartsWith("Zdroj") || paras[j].StartsWith("Autor"))
+                { srcIdx = j; break; }
+            }
+
+            var imgSrc = imgM.Groups[2].Value;
+            var imgAlt = System.Net.WebUtility.HtmlEncode(imgM.Groups[1].Value);
+
+            if (srcIdx < 0)
+            {
+                result.Add($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" /></div>");
+                i++;
+                continue;
+            }
+
+            bool isTobiso = paras[srcIdx].Contains("Tobiso", StringComparison.OrdinalIgnoreCase);
+
+            var captionParts = new List<string>();
+            for (int j = i + 1; j < srcIdx; j++)
+            {
+                if (!string.IsNullOrWhiteSpace(paras[j]))
+                    captionParts.Add(paras[j].Trim());
+            }
+            var captionAttr = System.Net.WebUtility.HtmlEncode(string.Join(" ", captionParts));
+            var sourceAttr = System.Net.WebUtility.HtmlEncode(paras[srcIdx].Trim());
+
+            if (isTobiso)
+            {
+                var imgHtml = $"<img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />";
+                result.Add(imgHtml);
+                for (int j = i + 1; j <= srcIdx; j++)
+                {
+                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
+                    if (ph.StartsWith("<p>") && ph.EndsWith("</p>"))
+                        ph = "<p class=\"tobiso-source\">" + ph.Substring(3, ph.Length - 7) + "</p>";
+                    result.Add(ph);
+                }
+            }
+            else
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.Append($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />");
+                for (int j = i + 1; j <= srcIdx; j++)
+                {
+                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
+                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
+                    sb.Append(ph);
+                }
+                sb.Append("</div>");
+                result.Add(sb.ToString());
+            }
+
+            i = srcIdx + 1;
+        }
+
+        return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Fraction → LaTeX math replacement
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string ReplaceFractionsInText(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+
+        var (protectedText, regions) = ProtectCodeRegions(input);
+
+        var fracRegex = new Regex(
+            @"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
+            RegexOptions.CultureInvariant);
+
+        var replaced = fracRegex.Replace(protectedText, match =>
+        {
+            try
+            {
+                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
+                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
+
+                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
+                    return match.Value;
+
+                num = num.Trim().Replace(',', '.');
+                den = den.Trim().Replace(',', '.');
+
+                var math = $"\\frac{{{num}}}{{{den}}}";
+                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+
+        return RestoreCodeRegions(replaced, regions);
+    }
+
+    private (string, Dictionary<string, string>) ProtectCodeRegions(string input)
+    {
+        var regions = new Dictionary<string, string>();
+        if (string.IsNullOrEmpty(input)) return (string.Empty, regions);
+
+        int counter = 0;
+        var rx = new Regex(@"(?ms)(```.*?```)", RegexOptions.Singleline);
+        var result = rx.Replace(input, m =>
+        {
+            var key = $"__PROTECTED_CODE_{counter}__";
+            regions[key] = m.Value;
+            counter++;
+            return key;
+        });
+
+        return (result, regions);
+    }
+
+    private string RestoreCodeRegions(string input, Dictionary<string, string> regions)
+    {
+        if (regions == null || regions.Count == 0) return input;
+        var result = input;
+        foreach (var kv in regions)
+            result = result.Replace(kv.Key, kv.Value);
+        return result;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Mailto link normalisation
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string ReplaceMarkdownMailtoInText(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.Contains("mailto:", StringComparison.OrdinalIgnoreCase))
+            return input ?? string.Empty;
+
+        var mdMailtoRegex = new Regex(@"\[([^\]]+)\]\((mailto:([^\)\s]+)(\?[^\)]*)?)\)", RegexOptions.IgnoreCase);
+        return mdMailtoRegex.Replace(input, match =>
+        {
+            try
+            {
+                var linkText = match.Groups[1].Value;
+                var full = match.Groups[2].Value;
+                var mailto = full.Substring("mailto:".Length);
+                var parts = mailto.Split('?', 2);
+                var address = parts[0] ?? "";
+                var encodedQuery = "";
+                if (parts.Length > 1 && !string.IsNullOrEmpty(parts[1]))
+                {
+                    encodedQuery = string.Join("&",
+                        parts[1].Split('&', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(p =>
+                            {
+                                var kv = p.Split('=', 2);
+                                var k = kv[0];
+                                var v = kv.Length > 1 ? kv[1] : "";
+                                return $"{Uri.EscapeDataString(k)}={Uri.EscapeDataString(Uri.UnescapeDataString(v))}";
+                            })
+                    );
+                }
+                var href = "mailto:" + address + (string.IsNullOrEmpty(encodedQuery) ? "" : "?" + encodedQuery);
+                return $"[{linkText}]({href})";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Markdown table → HTML table conversion (fallback for Markdig misses)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string ConvertMarkdownTablesToHtml(string html)
+    {
+        var tableRegex = new Regex(@"<p>(\s*\|.*(?:<br\s*/?>\s*\|.*)+)</p>", RegexOptions.Singleline);
+        html = tableRegex.Replace(html, match =>
+        {
+            var tableContent = match.Groups[1].Value.Trim();
+            var lines = Regex.Split(tableContent, @"<br\s*/?>")
+                             .Select(l => l.Trim())
+                             .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                             .ToList();
+
+            if (lines.Count < 2) return match.Value;
+
+            int separatorIndex = lines.FindIndex(line =>
+                Regex.IsMatch(line, @"^\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?$"));
+            if (separatorIndex < 1) return match.Value;
+
+            var headerLine = lines[separatorIndex - 1];
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+            var headerCells = ParseTableRow(headerLine);
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<table class=\"md-table\"><thead><tr>");
+            foreach (var cell in headerCells) sb.Append($"<th>{cell}</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseTableRow(bodyLine);
+                sb.Append("<tr>");
+                for (int i = 0; i < headerCells.Count; i++)
+                    sb.Append($"<td>{(i < bodyCells.Count ? bodyCells[i] : "")}</td>");
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+            return sb.ToString();
+        });
+
+        var universalTableRegex = new Regex(@"<p>((?:\|[^\n]+\n)+\|[^\n]+)</p>", RegexOptions.Singleline);
+        html = universalTableRegex.Replace(html, match =>
+        {
+            var tableContent = match.Groups[1].Value.Trim();
+            var lines = Regex.Split(tableContent, @"\r?\n|<br\s*/?>")
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l) && l.Contains("|"))
+                .ToList();
+            if (lines.Count < 2) return match.Value;
+            int separatorIndex = lines.FindIndex(line =>
+                Regex.IsMatch(line, @"^\|?([\-: ]+\|)+[\-: ]*\|?$"));
+            if (separatorIndex < 1) return match.Value;
+            var headerCells = ParseTableRow(lines[separatorIndex - 1]);
+            var bodyLines = lines.Skip(separatorIndex + 1).ToList();
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<table class=\"md-table\"><thead><tr>");
+            foreach (var cell in headerCells) sb.Append($"<th>{cell}</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var bodyLine in bodyLines)
+            {
+                var bodyCells = ParseTableRow(bodyLine);
+                sb.Append("<tr>");
+                for (int i = 0; i < headerCells.Count; i++)
+                    sb.Append($"<td>{(i < bodyCells.Count ? bodyCells[i] : "")}</td>");
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+            return sb.ToString();
+        });
+
+        return html;
+    }
+
+    private List<string> ParseTableRow(string rowText)
+    {
+        var clean = rowText;
+        if (clean.StartsWith("|")) clean = clean.Substring(1);
+        if (clean.EndsWith("|")) clean = clean.Substring(0, clean.Length - 1);
+        return clean.Split('|', StringSplitOptions.None).Select(s => s.Trim()).ToList();
+    }
+}
