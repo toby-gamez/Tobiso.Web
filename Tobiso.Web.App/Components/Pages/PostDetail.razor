@@ -367,9 +367,8 @@ else
     [Parameter]
     public int Id { get; set; }
     private PostResponse? _post;
-    private List<PostResponse>? _allPosts;
+    private List<PostSummaryResponse>? _allPosts;
     private List<RelatedPostResponse>? _relatedPosts;
-    private List<CategoryResponse>? _allCategories;
     private List<CategoryResponse>? _breadcrumbCategories;
     private string? _returnUrl;
     private string? _fileSuffix;
@@ -395,9 +394,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         _post = await Api.GetPostById(Id);
-        _allPosts = (await Api.GetAllPosts()).ToList();
-        _allCategories = await Api.GetAllCategories();
-        BuildBreadcrumb();
+        _allPosts = (await Api.GetPostSummaries()).ToList();
+        await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
@@ -410,9 +408,8 @@ else
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         _post = await Api.GetPostById(Id);
-        _allPosts = (await Api.GetAllPosts()).ToList();
-        _allCategories = await Api.GetAllCategories();
-        BuildBreadcrumb();
+        _allPosts = (await Api.GetPostSummaries()).ToList();
+        await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
         await LoadRelatedPosts();
@@ -780,25 +777,20 @@ else
         return d?.ToString("d. M. yyyy") ?? string.Empty;
     }
 
-    private void BuildBreadcrumb()
+    private async Task LoadBreadcrumb()
     {
         _breadcrumbCategories = new List<CategoryResponse>();
-        
-        if (_post?.CategoryId == null || _allCategories == null) return;
-
-        var currentCategoryId = _post.CategoryId.Value;
-        var visited = new HashSet<int>();
-
-        while (currentCategoryId > 0)
+        try
         {
-            if (visited.Contains(currentCategoryId)) break;
-            visited.Add(currentCategoryId);
-
-            var category = _allCategories.FirstOrDefault(c => c.Id == currentCategoryId);
-            if (category == null) break;
-
-            _breadcrumbCategories.Insert(0, category);
-            currentCategoryId = category.ParentId ?? 0;
+            if (_post?.CategoryId != null)
+            {
+                var ancestors = await Api.GetCategoryAncestors(_post.CategoryId.Value);
+                _breadcrumbCategories = ancestors ?? new List<CategoryResponse>();
+            }
+        }
+        catch
+        {
+            _breadcrumbCategories = new List<CategoryResponse>();
         }
     }
 

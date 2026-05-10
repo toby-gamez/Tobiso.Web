@@ -59,7 +59,7 @@ else
     [Parameter]
     public int? parentId { get; set; }
     private List<CategoryResponse>? categories;
-    private IList<PostResponse>? posts;
+    private IList<PostSummaryResponse>? posts;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -107,7 +107,7 @@ else
         {
             try
             {
-                var allPosts = await Api.GetAllPosts();
+                var allPosts = await Api.GetPostSummaries();
 
                 // only show posts from the direct category (not recursive)
                 var filtered = allPosts.Where(p => p.CategoryId == parentId.Value).ToList();
@@ -154,7 +154,7 @@ else
         Navigation.NavigateTo(parent == null ? "/categories" : $"/categories/{parent}");
     }
 
-    private string DisplayDate(PostResponse p)
+    private string DisplayDate(PostSummaryResponse p)
     {
         if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
         if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");

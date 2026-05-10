@@ -132,8 +132,8 @@ else
 }
 
 @code {
-    private IList<PostResponse>? posts;
-    private IList<PostResponse> allPosts = new List<PostResponse>();
+    private IList<PostSummaryResponse>? posts;
+    private IList<PostSummaryResponse> allPosts = new List<PostSummaryResponse>();
     private string _searchTerm = string.Empty;
     private string SearchTerm
     {
@@ -206,7 +206,7 @@ else
 
         return categoryNames.TryGetValue(categoryId.Value, out var name) ? name : null;
     }
-    private DateTime? GetLatest(PostResponse post)
+    private DateTime? GetLatest(PostSummaryResponse post)
     {
         if (post == null) return null;
         if (post.LastFix.HasValue && post.LastEdit.HasValue)
@@ -222,8 +222,8 @@ else
             Console.WriteLine("Starting to load posts...");
             Logger.LogInformation("Starting to load posts from API");
 
-            var loaded = await Api.GetAllPosts();
-            allPosts = loaded ?? new List<PostResponse>();
+            var loaded = await Api.GetPostSummaries();
+            allPosts = loaded ?? new List<PostSummaryResponse>();
 
             ApplyFilters();
 
@@ -262,9 +262,9 @@ else
 
     private void ApplyFilters()
     {
-        if (allPosts == null) allPosts = new List<PostResponse>();
+        if (allPosts == null) allPosts = new List<PostSummaryResponse>();
 
-        IEnumerable<PostResponse> query = allPosts;
+        IEnumerable<PostSummaryResponse> query = allPosts;
 
         if (!string.IsNullOrWhiteSpace(SearchTerm))
         {

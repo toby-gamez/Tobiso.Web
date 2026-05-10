@@ -34,6 +34,14 @@ public class PostsController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("summaries")]
+    public async Task<IActionResult> GetPostSummaries()
+    {
+        var posts = await _postService.GetSummaries();
+        return Ok(posts);
+    }
+
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPost(int id)
     {

@@ -8,6 +8,7 @@ namespace Tobiso.Web.Api.Services;
 public interface IPostService
 {
     Task<List<PostResponse>> GetAll();
+    Task<List<PostSummaryResponse>> GetSummaries();
     Task<List<PostLinkResponse>> GetLinks();
     Task<PostResponse?> GetById(int id);
     Task<bool> Update(PostResponse post);
@@ -57,6 +58,21 @@ public class PostService : IPostService
                 Id = p.Id,
                 Title = p.Title,
                 FilePath = p.FilePath
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<PostSummaryResponse>> GetSummaries()
+    {
+        return await _context.Posts
+            .Select(p => new PostSummaryResponse
+            {
+                Id = p.Id,
+                Title = p.Title,
+                CategoryId = p.CategoryId,
+                FilePath = p.FilePath,
+                LastFix = p.LastFix,
+                LastEdit = p.LastEdit
             })
             .ToListAsync();
     }

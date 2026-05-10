@@ -206,10 +206,10 @@ else
     [SupplyParameterFromQuery(Name = "postId")]
     public int? PostIdQuery { get; set; }
 
-    private List<PostResponse> _posts = new();
+    private List<PostSummaryResponse> _posts = new();
     private Dictionary<int, string> _categoryNames = new();
 
-    private PostResponse? _selectedPost;
+    private PostSummaryResponse? _selectedPost;
     private string _search = string.Empty;
     private bool _loading = true;
     private string? _error;
@@ -218,14 +218,14 @@ else
     {
         try
         {
-            var postsTask = Api.GetAllPosts();
+            var postsTask = Api.GetPostSummaries();
             var catsTask = Api.GetAllCategories();
             await Task.WhenAll(postsTask, catsTask);
 
             var allCats = catsTask.Result ?? new List<CategoryResponse>();
             _categoryNames = allCats.ToDictionary(c => c.Id, c => c.Name);
 
-            _posts = (postsTask.Result ?? new List<PostResponse>())
+            _posts = (postsTask.Result ?? new List<PostSummaryResponse>())
                 .Where(p => p.CategoryId == null
                             || !string.Equals(CategoryName(p.CategoryId), "More", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.Title)
@@ -246,14 +246,14 @@ else
         }
     }
 
-    private List<PostResponse> FilteredPosts()
+    private List<PostSummaryResponse> FilteredPosts()
     {
         var q = _search.Trim();
         if (string.IsNullOrEmpty(q)) return _posts;
         return _posts.Where(p => p.Title.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
-    private void SelectPost(PostResponse post)
+    private void SelectPost(PostSummaryResponse post)
     {
         _selectedPost = post;
         _search = string.Empty;

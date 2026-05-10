@@ -23,6 +23,12 @@ public class PagesController : ControllerBase
         return Ok(await _postService.GetAll());
     }
 
+    [HttpGet("summaries")]
+    public async Task<IActionResult> GetPostSummaries()
+    {
+        return Ok(await _postService.GetSummaries());
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPost(int id)
     {
@@ -42,6 +48,13 @@ public class PagesController : ControllerBase
     public async Task<IActionResult> GetCategoryTree()
     {
         return Ok(await _categoryService.GetTree());
+    }
+
+    [HttpGet("categories/ancestors/{categoryId}")]
+    public async Task<IActionResult> GetCategoryAncestors(int categoryId)
+    {
+        var ancestors = await _categoryService.GetAncestors(categoryId);
+        return Ok(ancestors);
     }
 
 }

@@ -15,6 +15,7 @@ namespace Tobiso.Web.App.Controllers
         }
 
         [HttpGet("sitemap.xml")]
+        [ResponseCache(Duration = 3600)]
         public async Task<IActionResult> GetSitemap()
         {
             try
@@ -29,8 +30,8 @@ namespace Tobiso.Web.App.Controllers
                 xml.AppendLine("    <priority>1.0</priority>");
                 xml.AppendLine("  </url>");
                 
-                // Získání všech postů
-                var posts = await _api.GetAllPosts();
+                // Získání všech postů (pouze souhrny, bez obsahu)
+                var posts = await _api.GetPostSummaries();
                 
                 // Přidání hlavní stránky pro posty
                 xml.AppendLine("  <url>");

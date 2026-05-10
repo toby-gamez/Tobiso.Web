@@ -28,24 +28,23 @@ public class InteractiveExerciseService : IInteractiveExerciseService
                 .Select(p => new { p.Id, p.CategoryId })
                 .FirstOrDefaultAsync();
 
-            List<int> categoryIds = new();
-
+            // Load categories once and traverse in-memory to avoid N+1 roundtrips
+            var categoryIds = new List<int>();
             if (post?.CategoryId != null)
             {
+                var allCats = await _context.Categories
+                    .Select(c => new { c.Id, c.ParentId })
+                    .ToListAsync();
+                var catDict = allCats.ToDictionary(c => c.Id, c => c.ParentId);
+
                 var current = post.CategoryId.Value;
-
-                while (true)
+                var visited = new HashSet<int>();
+                while (current != 0 && !visited.Contains(current))
                 {
+                    visited.Add(current);
                     categoryIds.Add(current);
-
-                    var parent = await _context.Categories
-                        .Where(c => c.Id == current)
-                        .Select(c => c.ParentId)
-                        .FirstOrDefaultAsync();
-
-                    if (!parent.HasValue)
+                    if (!catDict.TryGetValue(current, out var parent) || parent == null)
                         break;
-
                     current = parent.Value;
                 }
             }

@@ -280,7 +280,7 @@
     private bool _showCategoryLinks = false;
     private IJSObjectReference? _jsModule;
 
-    private List<PostResponse>? _posts;
+    private List<PostSummaryResponse>? _posts;
     private List<CategoryResponse>? _categories;
     private List<RelatedPostResponse>? _relatedPosts;
 
@@ -328,7 +328,7 @@
         try
         {
             // Load all data in parallel
-            var postsTask = Api.GetAllPosts();
+            var postsTask = Api.GetPostSummaries();
             var categoriesTask = Api.GetAllCategories();
             var relatedPostsTask = Api.GetAllRelatedPosts();
 

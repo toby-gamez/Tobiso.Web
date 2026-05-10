@@ -99,7 +99,7 @@
     {
         public CategoryResponse Category { get; set; } = null!;
         public List<CategoryNode> Children { get; set; } = new();
-        public List<PostResponse> Posts { get; set; } = new();
+        public List<PostSummaryResponse> Posts { get; set; } = new();
     }
 
     private List<CategoryNode>? rootNodes;
@@ -202,7 +202,7 @@
         {
             loading = true;
             var cats = await Api.GetAllCategories();
-            var posts = (await Api.GetAllPosts()).ToList();
+            var posts = (await Api.GetPostSummaries()).ToList();
 
             var lookup = cats.ToLookup(c => c.ParentId);
 
@@ -251,7 +251,7 @@
                 var match = n.Category.Name?.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
                 // filter children and posts
                 var childMatches = Filter(n.Children ?? Enumerable.Empty<CategoryNode>());
-                var postMatches = (n.Posts ?? Enumerable.Empty<PostResponse>()).Where(p => (p.Title ?? string.Empty).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                var postMatches = (n.Posts ?? Enumerable.Empty<PostSummaryResponse>()).Where(p => (p.Title ?? string.Empty).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
 
                 if (match || childMatches.Any() || postMatches.Any())
                 {

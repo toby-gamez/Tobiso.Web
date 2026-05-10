@@ -206,7 +206,7 @@ else
 
 @code {
     private IList<CategoryTreeResponse>? categoryTree;
-    private IList<PostResponse>? selectedPosts;
+    private IList<PostSummaryResponse>? selectedPosts;
     private string? errorMessage;
     private HashSet<int> selectedCategoryIds = new();
     private bool showCategoryModal = false;
@@ -243,7 +243,7 @@ else
         CollectCategoryIds(categoryId, categoryTree);
         try
         {
-            var allPosts = await Api.GetAllPosts();
+            var allPosts = await Api.GetPostSummaries();
             selectedPosts = allPosts.Where(p => p.CategoryId.HasValue && selectedCategoryIds.Contains(p.CategoryId.Value)).ToList();
         }
         catch (Exception ex)
@@ -289,7 +289,7 @@ else
         return FindCategoryName(categoryId.Value, categoryTree);
     }
 
-    private DateTime? GetLatest(PostResponse post)
+    private DateTime? GetLatest(PostSummaryResponse post)
     {
         if (post == null) return null;
         if (post.LastFix.HasValue && post.LastEdit.HasValue)

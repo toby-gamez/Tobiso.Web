@@ -8,6 +8,9 @@ public interface ITobisoAnonymApi
     [Get("/api/Pages")]
     Task<IList<PostResponse>> GetAllPosts();
 
+    [Get("/api/Pages/summaries")]
+    Task<IList<PostSummaryResponse>> GetPostSummaries();
+
     [Get("/api/Pages/{id}")]
     Task<PostResponse> GetPostById(int id);
 
@@ -16,6 +19,9 @@ public interface ITobisoAnonymApi
 
     [Get("/api/Categories/tree")]
     Task<CategoryTreeResponse> GetTree();
+
+    [Get("/api/Categories/ancestors/{categoryId}")]
+    Task<List<CategoryResponse>> GetCategoryAncestors(int categoryId);
 
     [Get("/api/Questions")]
     Task<List<QuestionResponse>> GetAllQuestions();

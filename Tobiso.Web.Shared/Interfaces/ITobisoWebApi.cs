@@ -9,8 +9,14 @@ public interface ITobisoWebApi
     [Get("/api/Posts")]
     Task<IList<PostResponse>> GetAllPosts();
 
+    [Get("/api/Posts/summaries")]
+    Task<IList<PostSummaryResponse>> GetPostSummaries();
+
     [Get("/api/Categories/tree")]
     Task<IList<CategoryTreeResponse>> GetCategoryTree();
+
+    [Get("/api/Categories/ancestors/{categoryId}")]
+    Task<IList<CategoryResponse>> GetCategoryAncestors(int categoryId);
 
     [Get("/api/Posts?categoryId={categoryId}")]
     Task<IList<PostResponse>> GetPostsByCategory(int categoryId);

@@ -17,7 +17,7 @@
 
 @code {
     [Parameter] public string? Content { get; set; }
-    [Parameter] public List<PostResponse>? AllPosts { get; set; }
+    [Parameter] public List<PostSummaryResponse>? AllPosts { get; set; }
     /// <summary>ID of the container element that wraps this component's output – used by KaTeX to target math rendering.</summary>
     [Parameter] public string ContainerId { get; set; } = "content";
 

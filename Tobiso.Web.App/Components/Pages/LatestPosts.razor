@@ -66,9 +66,9 @@ else
 }
 
 @code {
-    private List<PostResponse>? posts;
-    private IList<PostResponse> allPosts = new List<PostResponse>();
-    private List<PostResponse> orderedPosts = new List<PostResponse>();
+    private List<PostSummaryResponse>? posts;
+    private IList<PostSummaryResponse> allPosts = new List<PostSummaryResponse>();
+    private List<PostSummaryResponse> orderedPosts = new List<PostSummaryResponse>();
     private IList<CategoryResponse> categories = new List<CategoryResponse>();
     private Dictionary<int, string> categoryNames = new Dictionary<int, string>();
     private string? errorMessage;
@@ -79,11 +79,11 @@ else
         try
         {
             // Fetch posts and categories concurrently, then filter
-            var postsTask = Api.GetAllPosts();
+            var postsTask = Api.GetPostSummaries();
             var categoriesTask = Api.GetAllCategories();
             await Task.WhenAll(postsTask, categoriesTask);
 
-            allPosts = (postsTask.Result) ?? new List<PostResponse>();
+            allPosts = (postsTask.Result) ?? new List<PostSummaryResponse>();
             categories = (categoriesTask.Result) ?? new List<CategoryResponse>();
             categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
 
@@ -168,7 +168,7 @@ else
         return categoryNames.TryGetValue(categoryId.Value, out var n) ? n : null;
     }
 
-    private string DisplayDate(PostResponse p)
+    private string DisplayDate(PostSummaryResponse p)
     {
         if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
         if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");

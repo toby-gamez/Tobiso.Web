@@ -28,14 +28,20 @@ public class RelatedPostService : IRelatedPostService
     {
         try
         {
-            var relatedPosts = await _context.RelatedPosts.ToListAsync();
-            return relatedPosts.Select(rp => new RelatedPostResponse
-            {
-                Id = rp.Id,
-                PostId = rp.PostId,
-                RelatedPostId = rp.RelatedPostId,
-                Text = rp.Text,
-            }).ToList();
+            // Join to Posts table to populate PostTitle and RelatedPostTitle
+            var relatedPosts = await _context.RelatedPosts
+                .Select(rp => new RelatedPostResponse
+                {
+                    Id = rp.Id,
+                    PostId = rp.PostId,
+                    RelatedPostId = rp.RelatedPostId,
+                    Text = rp.Text,
+                    PostTitle = rp.Post != null ? rp.Post.Title : null,
+                    RelatedPostTitle = rp.RelatedPostRef != null ? rp.RelatedPostRef.Title : null
+                })
+                .ToListAsync();
+
+            return relatedPosts;
         }
         catch (Exception ex)
         {
@@ -51,15 +57,18 @@ public class RelatedPostService : IRelatedPostService
         {
             var relatedPosts = await _context.RelatedPosts
                 .Where(rp => rp.PostId == postId)
+                .Select(rp => new RelatedPostResponse
+                {
+                    Id = rp.Id,
+                    PostId = rp.PostId,
+                    RelatedPostId = rp.RelatedPostId,
+                    Text = rp.Text,
+                    PostTitle = rp.Post != null ? rp.Post.Title : null,
+                    RelatedPostTitle = rp.RelatedPostRef != null ? rp.RelatedPostRef.Title : null
+                })
                 .ToListAsync();
 
-            return relatedPosts.Select(rp => new RelatedPostResponse
-            {
-                Id = rp.Id,
-                PostId = rp.PostId,
-                RelatedPostId = rp.RelatedPostId,
-                Text = rp.Text,
-            }).ToList();
+            return relatedPosts;
         }
         catch (Exception ex)
         {

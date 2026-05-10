@@ -30,6 +30,14 @@ public class CategoriesController : ControllerBase
         return Ok(await _categoryService.GetTree());
     }
 
+    [HttpGet("ancestors/{categoryId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetCategoryAncestors(int categoryId)
+    {
+        var ancestors = await _categoryService.GetAncestors(categoryId);
+        return Ok(ancestors);
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> CreateCategory([FromBody] CategoryResponse category)

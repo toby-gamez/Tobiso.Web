@@ -9,6 +9,7 @@ public interface ICategoryService
 {
     Task<List<CategoryResponse>> GetAll();
     Task<List<CategoryTreeResponse>> GetTree();
+    Task<List<CategoryResponse>> GetAncestors(int categoryId);
     Task<CategoryResponse> Create(CategoryResponse category);
     Task<CategoryResponse> Update(int id, CategoryResponse category);
     Task Delete(int id);
@@ -37,7 +38,10 @@ public class CategoryService : ICategoryService
 
     public async Task<List<CategoryTreeResponse>> GetTree()
     {
-        var categories = await _context.Categories.ToListAsync();
+        // Only select the minimal fields needed for tree construction to avoid over-fetching
+        var categories = await _context.Categories
+            .Select(c => new { c.Id, c.Name, c.ParentId })
+            .ToListAsync();
         var lookup = categories.ToLookup(c => c.ParentId);
         List<CategoryTreeResponse> BuildTree(int? parentId)
         {
@@ -50,6 +54,34 @@ public class CategoryService : ICategoryService
                 }).ToList();
         }
         return BuildTree(null);
+    }
+
+    public async Task<List<CategoryResponse>> GetAncestors(int categoryId)
+    {
+        var result = new List<CategoryResponse>();
+        if (categoryId <= 0) return result;
+
+        // Walk up the parent chain. This does one DB query per level which is
+        // acceptable for typical category depths and avoids returning the full
+        // category list.
+        var currentId = categoryId;
+        while (currentId > 0)
+        {
+            var cat = await _context.Categories
+                .Where(c => c.Id == currentId)
+                .Select(c => new { c.Id, c.Name, c.ParentId })
+                .FirstOrDefaultAsync();
+
+            if (cat == null) break;
+
+            // Insert at the beginning so the list is ordered from root -> leaf
+            result.Insert(0, new CategoryResponse { Id = cat.Id, Name = cat.Name, ParentId = cat.ParentId });
+
+            if (!cat.ParentId.HasValue) break;
+            currentId = cat.ParentId.Value;
+        }
+
+        return result;
     }
 
     public async Task<CategoryResponse> Create(CategoryResponse category)
