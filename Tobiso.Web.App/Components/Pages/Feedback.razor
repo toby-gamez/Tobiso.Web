@@ -34,27 +34,39 @@
 
     @if (!isSubmitted)
     {
-        <div class="feedback-form">
+    <div class="feedback-form">
+            <label for="feedback-name" class="visually-hidden">Vaše jméno</label>
             <input
+                id="feedback-name"
                 type="text"
                 class="opinion-input"
                 placeholder="Vaše jméno"
                 @bind="feedback.Name"
                 required
+                aria-required="true"
             />
+
+            <label for="feedback-email" class="visually-hidden">Váš e-mail</label>
             <input
+                id="feedback-email"
                 type="email"
                 class="email-input"
                 placeholder="Váš e-mail"
                 @bind="feedback.Email"
                 required
+                aria-required="true"
             />
+
+            <label for="feedback-message" class="visually-hidden">Zpráva</label>
             <textarea
+                id="feedback-message"
                 placeholder="Zde napište svou zpětnou vazbu"
                 @bind="feedback.Message"
                 required
+                aria-required="true"
             ></textarea>
-            <button type="button" @onclick="SubmitFeedback" disabled="@isSubmitting">
+
+            <button type="button" @onclick="SubmitFeedback" disabled="@isSubmitting" aria-label="Odeslat zpětnou vazbu">
                 @if (isSubmitting)
                 {
                     <span>Odesílání...</span>

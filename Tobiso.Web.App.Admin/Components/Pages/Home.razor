@@ -24,7 +24,7 @@
             <option value="FilePath">Cesta</option>
         </select>
 
-        <button class="btn btn-outline-secondary btn-sm" title="Přepnout směr řazení" @onclick="ToggleSortDirection">
+        <button class="btn btn-outline-secondary btn-sm" aria-label="Přepnout směr řazení" @onclick="ToggleSortDirection">
             <i class="@(SortDescending ? "bi bi-sort-down" : "bi bi-sort-up")"></i>
         </button>
     </div>
@@ -109,10 +109,10 @@ else
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-primary" title="Správa cvičení" @onclick="@(() => GoToExercises(post.Id))">
+                                <button class="btn btn-outline-primary" aria-label="Správa cvičení" @onclick="@(() => GoToExercises(post.Id))">
                                     <i class="bi bi-puzzle"></i>
                                 </button>
-                                <button class="btn btn-outline-danger" title="Smazat" @onclick="() => OnDeletePost(post.Id)">
+                                <button class="btn btn-outline-danger" aria-label="Smazat příspěvek" @onclick="() => OnDeletePost(post.Id)">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>

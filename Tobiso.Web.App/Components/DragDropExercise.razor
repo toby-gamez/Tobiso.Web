@@ -43,9 +43,9 @@
                                         <div class="draggable-item @(_draggedItem == itemId ? "dragging" : "") @(GetItemClass(item.Id))" 
                                          draggable="true"
                                          @ondragstart="() => OnDragStart(itemId)"
-                                         @ondragend="OnDragEnd"
-                                         @onclick="() => RemoveItem(itemId)"
-                                         title="Klikni pro vrácení nebo přetáhni jinam">
+                                          @ondragend="OnDragEnd"
+                                          @onclick="() => RemoveItem(itemId)"
+                                          aria-label="Klikni pro vrácení nebo přetáhni jinam">
                                         <i class="bi bi-grip-vertical drag-handle"></i>
                                         <span class="item-text">@item.Text</span>
                                         <i class="bi bi-x-circle remove-icon"></i>
@@ -86,11 +86,11 @@
                         <div class="source-items">
                             @foreach (var item in _items.Where(i => !_userPlacements.ContainsKey(i.Id)))
                             {
-                                <div class="draggable-item source-item @(_draggedItem == item.Id ? "dragging" : "") @(GetItemClass(item.Id))" 
-                                     draggable="true"
-                                     @ondragstart="() => OnDragStart(item.Id)"
-                                     @ondragend="OnDragEnd"
-                                     title="Přetáhni do správné kategorie">
+                                      <div class="draggable-item source-item @(_draggedItem == item.Id ? "dragging" : "") @(GetItemClass(item.Id))" 
+                                      draggable="true"
+                                      @ondragstart="() => OnDragStart(item.Id)"
+                                      @ondragend="OnDragEnd"
+                                      aria-label="Přetáhni do správné kategorie">
                                     <i class="bi bi-grip-vertical drag-handle"></i>
                                     <span class="item-text">@item.Text</span>
                                 </div>

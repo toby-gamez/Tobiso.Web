@@ -1,11 +1,12 @@
-<div id="searchModal" class="search-modal">
+<div id="searchModal" class="search-modal" role="dialog" aria-modal="true" aria-label="Vyhledávání">
     <div class="search-backdrop"></div>
     <div class="search-container">
         <div class="search-header">
+            <h2 class="visually-hidden">Vyhledávání</h2>
             <div class="search-input-wrapper">
                 <i class="bi bi-search search-icon"></i>
                 <input type="text" id="search" placeholder="Začněte psát a vyhledejte..." autocomplete="off" spellcheck="false" />
-                <button id="closeSearch" class="search-close" title="Zavřít (Esc)">
+                <button id="closeSearch" class="search-close" aria-label="Zavřít vyhledávání (Esc)">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>

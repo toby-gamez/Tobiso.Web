@@ -144,25 +144,25 @@ else
             }
         </div>
             <div class="tool">
-                <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+                <button class="btn btn-secondary mb-3" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
                 @if (_hasQuestions)
                 {
-                    <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                    <button class="btn btn-secondary mb-3" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
                 }
-                <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+                <button class="btn btn-secondary mb-3" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
                     <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
                 </button>
-                <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+                <button class="btn btn-secondary mb-3" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
                 @if (_exercises != null && _exercises.Any())
                 {
-                    <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                    <button class="btn btn-secondary mb-3" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
                         <i class="bi bi-puzzle"></i>
                     </button>
                 }
-                <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+                <button class="btn btn-secondary mb-3" aria-label="Sdílet článek" @onclick="SharePost">
                     <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
                 </button>
-                <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+                <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
@@ -215,25 +215,25 @@ else
             }
         </div>
         <div class="tool">
-            <button class="btn btn-secondary mb-3" title="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-secondary mb-3" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
             @if (_hasQuestions)
             {
-                <button class="btn btn-secondary mb-3" title="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                <button class="btn btn-secondary mb-3" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
             }
-            <button class="btn btn-secondary mb-3" title="Režim soustředění" @onclick="ToggleFocusMode">
+            <button class="btn btn-secondary mb-3" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
                 <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
             </button>
-            <button class="btn btn-secondary mb-3" title="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+            <button class="btn btn-secondary mb-3" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
             @if (_exercises != null && _exercises.Any())
             {
-                <button class="btn btn-secondary mb-3" title="Interaktivní cvičení" @onclick="ScrollToExercises">
+                <button class="btn btn-secondary mb-3" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
                     <i class="bi bi-puzzle"></i>
                 </button>
             }
-            <button class="btn btn-secondary mb-3" title="Sdílet článek" @onclick="SharePost">
+            <button class="btn btn-secondary mb-3" aria-label="Sdílet článek" @onclick="SharePost">
                 <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
             </button>
-            <button title="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+            <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>

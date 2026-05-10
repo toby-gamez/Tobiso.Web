@@ -39,8 +39,8 @@
                         </span>
                     }
                     <button class="btn btn-link category-tree-btn" @onclick="() => OnCategoryClick.InvokeAsync(child.Id)">@child.Name</button>
-                    <button class="btn btn-sm btn-outline-primary ms-2" title="Upravit" @onclick="() => OnEditCategory.InvokeAsync(child)">Upravit</button>
-                    <button class="btn btn-sm btn-outline-danger ms-1" title="Smazat" @onclick="() => OnDeleteCategory.InvokeAsync(child.Id)">Smazat</button>
+                    <button class="btn btn-sm btn-outline-primary ms-2" aria-label="Upravit kategorii" @onclick="() => OnEditCategory.InvokeAsync(child)">Upravit</button>
+                    <button class="btn btn-sm btn-outline-danger ms-1" aria-label="Smazat kategorii" @onclick="() => OnDeleteCategory.InvokeAsync(child.Id)">Smazat</button>
                 </div>
                 @if (child.Children != null && child.Children.Count > 0 && expandedIds.Contains(child.Id))
                 {

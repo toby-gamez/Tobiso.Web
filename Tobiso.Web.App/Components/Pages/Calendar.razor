@@ -40,9 +40,9 @@
                         {
                             <div class="event-item @GetEventCssClass(eventInfo.EventType)" 
                                  style="background-color: @eventInfo.Event.Color; cursor: pointer;" 
-                                 @onclick="() => ShowEventDetails(eventInfo.Event)" 
-                                 @onclick:stopPropagation="true"
-                                 title="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)">
+                                  @onclick="() => ShowEventDetails(eventInfo.Event)" 
+                                  @onclick:stopPropagation="true"
+                                  aria-label="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)">
                                 @if (eventInfo.Event.IsAllDay)
                                 {
                                     <span class="event-title">@GetEventDisplayTitle(eventInfo.Event, eventInfo.EventType)</span>

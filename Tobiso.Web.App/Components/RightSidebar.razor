@@ -52,7 +52,9 @@
                 }
                 else if (savedChats == null || !savedChats.Any())
                 {
-                    <div class="chat-list-empty">Zatím žádné chaty. Začněte se zajímavou konverzací.</div>                }
+                    <div class="chat-list-empty">Zatím žádné chaty. Začněte se zajímavou konverzací.</div>
+                    <button @onclick="StartNewChat">Začít nový chat</button>
+                }
                 else
                 {
                     @foreach (var chat in savedChats)
@@ -434,5 +436,10 @@
             return local.ToString("d. M. yyyy HH:mm");
         }
         return string.Empty;
+    }
+
+    private void StartNewChat()
+    {
+        Navigation.NavigateTo("/chat");
     }
 }

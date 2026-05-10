@@ -63,7 +63,7 @@
                 @oninput="HandleInput" @onkeydown="HandleKeyDown"></textarea>
             <div class="input-bar-actions">
                 <span class="char-count">@_remainingChars</span>
-                <button class="send-btn" @onclick="Send" disabled="@(_loading || _remaining == 0 || string.IsNullOrWhiteSpace(_question))" title="Odeslat">
+                <button class="send-btn" @onclick="Send" disabled="@(_loading || _remaining == 0 || string.IsNullOrWhiteSpace(_question))" aria-label="Odeslat">
                     <i class="bi bi-arrow-up"></i>
                 </button>
             </div>

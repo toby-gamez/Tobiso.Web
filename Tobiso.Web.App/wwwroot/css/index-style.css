@@ -93,9 +93,16 @@ section {
     margin-top: 40px;
 }
 
-.home-grid-item:hover {
+/* Make grid items keyboard-focusable when they are anchors */
+.home-grid-item:focus {
+    box-shadow: 0 0 0 3px rgba(193,111,154,0.25);
+}
+
+.home-grid-item:hover,
+.home-grid-item:focus {
     transform: scale(1.05);
     cursor: pointer;
+    outline: none;
 }
 
 .home-grid-item:active {

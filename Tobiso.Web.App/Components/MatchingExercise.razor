@@ -65,7 +65,7 @@
                             {
                                 <div class="preview-pair @(GetLeftClass(pair.LeftId))">
                                     <span class="pair-text"><strong>@l.Text</strong> <i class="bi bi-link-45deg mx-2"></i> @r.Text</span>
-                                    <button class="remove-pair-btn" @onclick="() => RemovePair(pair.LeftId, pair.RightId)" title="Odebrat pár"><i class="bi bi-trash"></i></button>
+                                    <button class="remove-pair-btn" @onclick="() => RemovePair(pair.LeftId, pair.RightId)" aria-label="Odebrat pár"><i class="bi bi-trash"></i></button>
                                 </div>
                             }
                         }

@@ -69,8 +69,8 @@ else
                         <i class="bi bi-folder2-open" style="font-size:1.2em; margin-right:0.3em;"></i>
                     </span>
                     <button class="category-tree-btn-root" @onclick="() => OnCategoryClick(category.Id)">@category.Name</button>
-                    <button class="btn btn-sm btn-outline-primary ms-2" title="Upravit" @onclick="() => ShowEditCategoryModal(category)">Upravit</button>
-                    <button class="btn btn-sm btn-outline-danger ms-1" title="Smazat" @onclick="() => DeleteCategory(category.Id)">Smazat</button>
+                    <button class="btn btn-sm btn-outline-primary ms-2" aria-label="Upravit kategorii" @onclick="() => ShowEditCategoryModal(category)">Upravit</button>
+                    <button class="btn btn-sm btn-outline-danger ms-1" aria-label="Smazat kategorii" @onclick="() => DeleteCategory(category.Id)">Smazat</button>
                 </div>
                 @if (category.Children != null && category.Children.Count > 0)
                 {

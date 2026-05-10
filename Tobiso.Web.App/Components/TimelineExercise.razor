@@ -54,8 +54,8 @@
                                                  draggable="true"
                                                  @ondragstart="() => OnDragStart(evt.Id)"
                                                  @ondragend="OnDragEnd"
-                                                 @onclick="(() => RemoveEventById(evt.Id))"
-                                                 title="Klikni pro odebrání zpět dolů">
+                                                  @onclick="(() => RemoveEventById(evt.Id))"
+                                                  aria-label="Klikni pro odebrání zpět dolů">
                                                 <i class="bi bi-grip-vertical drag-handle"></i>
                                                 <span class="item-text">@evt.Label <span class="event-year">(@evt.Year)</span></span>
                                             </div>
@@ -98,7 +98,7 @@
                             <div class="source-items events-list">
                                 @foreach (var evt in _events.Where(e => !_userOrder.Contains(e.Id)))
                                 {
-                                    <div class="draggable-item source-item @(evt.Id == _draggedEventId ? "dragging" : "")" draggable="true" @ondragstart="() => OnDragStart(evt.Id)" @ondragend="OnDragEnd" title="Přetáhni na osu">
+                                    <div class="draggable-item source-item @(evt.Id == _draggedEventId ? "dragging" : "")" draggable="true" @ondragstart="() => OnDragStart(evt.Id)" @ondragend="OnDragEnd" aria-label="Přetáhni na osu">
                                         <i class="bi bi-grip-vertical drag-handle"></i>
                                         <span class="item-text">@evt.Label</span>
                                     </div>

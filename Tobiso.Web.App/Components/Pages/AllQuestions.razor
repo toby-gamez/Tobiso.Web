@@ -481,7 +481,7 @@
                         <tr style="cursor: pointer;" @onclick="() => ToggleQuestionDetail(question.Id)" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
                             <td><strong>@question.Id</strong></td>
                             <td>
-                                <div title="@question.QuestionText">
+                                <div aria-label="@question.QuestionText">
                                     @if (expandedQuestionId == question.Id)
                                     {
                                         <span class="question-text-full">@question.QuestionText</span>

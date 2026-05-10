@@ -27,6 +27,13 @@ public class PostsController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("summaries")]
+    public async Task<IActionResult> GetPostSummaries()
+    {
+        return Ok(await _postService.GetSummaries());
+    }
+
+    [AllowAnonymous]
     [HttpGet("links")]
     public async Task<IActionResult> GetPostLinks()
     {

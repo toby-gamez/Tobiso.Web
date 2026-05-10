@@ -137,7 +137,7 @@
                     <div class="component-buttons">
                         @foreach (var type in new[] { "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer" })
                         {
-                            <button class="component-btn" @onclick="() => AddComponent(type)" title="Přidat @GetComponentTypeLabel(type)">
+                            <button class="component-btn" @onclick="() => AddComponent(type)" aria-label="Přidat @GetComponentTypeLabel(type)">
                                 <i class="bi bi-@GetBootstrapIcon(type)"></i>
                                 <span>@GetComponentTypeLabel(type)</span>
                             </button>
