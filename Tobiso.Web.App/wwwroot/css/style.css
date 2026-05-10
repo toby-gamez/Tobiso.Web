@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Marcellus&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @import url("./variables.css");
+@import url("./focus-accessibility.css");
 
 html {
     -webkit-tap-highlight-color: transparent;
@@ -522,7 +523,10 @@ button {
     border: none;
     background-color: var(--color-button-bg);
     cursor: pointer;
-    outline: none;
+    /* Remove blanket outline:none which makes keyboard focus invisible.
+       Provide accessible visible focus styles using :focus-visible so keyboard
+       users retain a clear indicator while mouse users are unaffected. */
+    /* outline: none; */
     color: var(--color-white);
     font-size: 16px;
     padding: 10px 20px;
@@ -608,11 +612,13 @@ textarea {
     border-radius: 10px;
 }
 
-.email-input:focus,
-.opinion-input:focus,
-textarea:focus {
+    .email-input:focus,
+    .opinion-input:focus,
+    textarea:focus {
     border: 2px solid var(--color-button-text);
-    outline: none;
+    /* Visible focus styling for keyboard users is provided by
+       focus-accessibility.css using :focus-visible. Avoid forcing
+       outline removal here. */
 }
 
 @media only screen and (min-width: 1200px) {
@@ -763,7 +769,7 @@ textarea:focus {
 #search {
     flex: 1;
     border: none;
-    outline: none;
+    /* Rely on focus-accessibility.css (:focus-visible) for keyboard focus rings */
     background: transparent;
     font-size: 18px;
     font-weight: 450;
@@ -1324,7 +1330,7 @@ body.scroll-lock {
 
 .text-answer-input:focus {
     border: 2px solid var(--color-button-text);
-    outline: none;
+    /* Focus ring handled by focus-accessibility.css for keyboard users */
 }
 
 .text-answer-input::placeholder {
@@ -1905,7 +1911,7 @@ body.scroll-lock {
 }
 
 .sidebar-search-wrapper { padding-top: 8px; }
-.sidebar-search {
+    .sidebar-search {
     box-sizing: border-box;
     display: block;
     max-width: 100%;
@@ -1913,7 +1919,7 @@ body.scroll-lock {
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid rgba(0,0,0,0.06);
-    outline: none;
+    /* visible focus provided by focus-accessibility.css */
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .sidebar-search:focus {
@@ -2940,12 +2946,12 @@ body.dark-mode textarea {
     background-color: var(--color-accent-dark);
 }
 
-body.dark-mode .opinion-input:focus,
-body.dark-mode .email-input:focus,
-body.dark-mode #search:focus,
-body.dark-mode textarea:focus {
+    body.dark-mode .opinion-input:focus,
+    body.dark-mode .email-input:focus,
+    body.dark-mode #search:focus,
+    body.dark-mode textarea:focus {
     border: 2px solid var(--color-text-dark);
-    outline: none;
+    /* keep focus visible for keyboard users via focus-accessibility.css */
 }
 
 body.dark-mode img:not(.navImg, footer img),
@@ -3287,7 +3293,7 @@ body.dark-mode .text-answer-input {
 
 body.dark-mode .text-answer-input:focus {
     border: 2px solid var(--color-text-dark);
-    outline: none;
+    /* focus ring shown by focus-accessibility.css (:focus-visible) */
 }
 
 body.dark-mode .text-answer-input::placeholder {

@@ -14,7 +14,7 @@
 @if (_isVisible)
 {
     <div class="posts-graph-modal-overlay" tabindex="-1" @onclick="Close">
-        <div class="posts-graph-modal-content" @onclick:stopPropagation="true">
+        <div class="posts-graph-modal-content" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Síť článků">
             <div class="posts-graph-header">
                 <h3 class="posts-graph-title">
                     <i class="bi bi-diagram-3"></i> Síť článků
@@ -54,7 +54,7 @@
             </div>
         </div>
     </div>
-    <div class="posts-graph-backdrop" @onclick="Close"></div>
+    <div class="posts-graph-backdrop" tabindex="0" role="button" aria-label="Zavřít síť článků" @onclick="Close" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Escape\" || e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") Close(); })"></div>
 }
 
 <style>

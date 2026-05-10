@@ -32,7 +32,9 @@
                 <div class="category-tree-row">
                     @if (child.Children != null && child.Children.Count > 0)
                     {
-                        <span class="category-tree-toggle" @onclick="() => ToggleExpand(child.Id)">
+                        <span class="category-tree-toggle" tabindex="0" role="button"
+                              @onclick="() => ToggleExpand(child.Id)"
+                              @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleExpand(child.Id); })">
                             <i class="bi" style="font-size:1.1em;">
                                 @(expandedIds.Contains(child.Id) ? "▼" : "▶")
                             </i>
@@ -86,7 +88,7 @@
     color: #333;
     background: none;
     border: none;
-    outline: none;
+    /* Focus styling is provided centrally via focus-accessibility.css (:focus-visible). */
     transition: color 0.2s;
 }
 .category-tree-btn:hover {

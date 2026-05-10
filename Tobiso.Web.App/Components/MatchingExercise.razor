@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Microsoft.AspNetCore.Components.Web
 @inject IInteractiveExerciseService ExerciseService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -27,7 +28,7 @@
                     <div class="matching-list">
                         @foreach (var l in _left)
                         {
-                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" @onclick="() => SelectLeft(l.Id)">
+                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" tabindex="0" role="button" aria-pressed="@(SelectedLeft == l.Id ? \"true\" : \"false\")" @onclick="() => SelectLeft(l.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectLeft(l.Id); })">
                                 @l.Text
                             </div>
                         }
@@ -42,7 +43,7 @@
                     <div class="matching-list">
                         @foreach (var r in _right)
                         {
-                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" @onclick="() => SelectRight(r.Id)">
+                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" tabindex="0" role="button" aria-pressed="@(SelectedRight == r.Id ? \"true\" : \"false\")" @onclick="() => SelectRight(r.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectRight(r.Id); })">
                                 @r.Text
                             </div>
                         }

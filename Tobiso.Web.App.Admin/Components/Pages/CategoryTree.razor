@@ -65,7 +65,9 @@ else
         {
             <li class="category-tree-root-item">
                 <div class="category-tree-root-row">
-                    <span class="category-tree-toggle" @onclick="() => OnCategoryClick(category.Id)">
+                    <span class="category-tree-toggle" tabindex="0" role="button"
+                          @onclick="() => OnCategoryClick(category.Id)"
+                          @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnCategoryClick(category.Id); })">
                         <i class="bi bi-folder2-open" style="font-size:1.2em; margin-right:0.3em;"></i>
                     </span>
                     <button class="category-tree-btn-root" @onclick="() => OnCategoryClick(category.Id)">@category.Name</button>
@@ -186,7 +188,7 @@ else
     color: #212529;
     background: none;
     border: none;
-    outline: none;
+    /* Focus styling is provided centrally via focus-accessibility.css (:focus-visible). */
     padding: 0.1em 0.3em;
     cursor: pointer;
     transition: color 0.2s;

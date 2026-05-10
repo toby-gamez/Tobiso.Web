@@ -41,9 +41,9 @@
         </button>
     </div>
     
-    @if (isMobileMenuOpen)
+        @if (isMobileMenuOpen)
     {
-        <div class="mobile-menu-overlay" @onclick="CloseMobileMenu"></div>
+        <div class="mobile-menu-overlay" tabindex="0" role="button" aria-label="Zavřít mobilní menu" @onclick="CloseMobileMenu" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Escape\" || e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") CloseMobileMenu(); })"></div>
         <style>
             main a,
             main strong,

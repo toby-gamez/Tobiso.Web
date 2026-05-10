@@ -2,6 +2,7 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
 @using System.Linq
 @inject ITobisoAnonymApi Api
 @inject NavigationManager Navigation
@@ -478,7 +479,7 @@
                 <tbody>
                     @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
                     {
-                        <tr style="cursor: pointer;" @onclick="() => ToggleQuestionDetail(question.Id)" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
+                        <tr style="cursor: pointer;" tabindex="0" role="button" aria-expanded="@(expandedQuestionId == question.Id ? \"true\" : \"false\")" @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleQuestionDetail(question.Id); })" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
                             <td><strong>@question.Id</strong></td>
                             <td>
                                 <div aria-label="@question.QuestionText">
@@ -587,7 +588,7 @@
             @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
             {
                 <div class="mobile-question-card @(expandedQuestionId == question.Id ? "expanded" : "")">
-                    <div class="mobile-question-header" @onclick="() => ToggleQuestionDetail(question.Id)">
+                <div class="mobile-question-header" tabindex="0" role="button" aria-expanded="@(expandedQuestionId == question.Id ? \"true\" : \"false\")" @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleQuestionDetail(question.Id); })">
                         <div class="mobile-question-id">#@question.Id</div>
                         <div class="mobile-question-text @(expandedQuestionId == question.Id ? "expanded" : "")">
                             @if (expandedQuestionId == question.Id)
@@ -1106,11 +1107,11 @@
         var isSelected = selectedCategoryId == category.Id;
         
         <div class="category-node">
-            <div class="category-item @(isSelected ? "selected" : "") @(hasChildren ? "has-children" : "")" 
-                 @onclick="() => OnCategoryClick(category.Id)">
+        <div class="category-item @(isSelected ? "selected" : "") @(hasChildren ? "has-children" : "")" 
+                 tabindex="0" role="button" aria-pressed="@(isSelected ? "true" : "false")" aria-expanded="@(hasChildren ? (isExpanded ? "true" : "false") : null)" @onclick="() => OnCategoryClick(category.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnCategoryClick(category.Id); })">
                 @if (hasChildren)
                 {
-                    <button type="button" class="expand-toggle" @onclick="() => ToggleCategoryExpansion(category.Id)" @onclick:stopPropagation="true">
+                    <button type="button" class="expand-toggle" @onclick="() => ToggleCategoryExpansion(category.Id)" @onclick:stopPropagation="true" aria-label="Rozbalit/skrýt podkategorie" aria-expanded="@(isExpanded ? "true" : "false")">
                         <i class="bi @(isExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
                     </button>
                 }
@@ -1152,7 +1153,7 @@
         var questionCount = questions?.Count(q => q.PostId == post.Id) ?? 0;
         var isSelected = selectedPostId == post.Id;
         
-        <div class="post-item @(isSelected ? "selected" : "")" @onclick="() => OnPostClick(post.Id)">
+        <div class="post-item @(isSelected ? "selected" : "")" tabindex="0" role="button" aria-pressed="@(isSelected ? \"true\" : \"false\")" @onclick="() => OnPostClick(post.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnPostClick(post.Id); })">
             <i class="bi bi-file-earmark-text post-icon"></i>
             @post.Title
             <span class="question-count">(@questionCount)</span>

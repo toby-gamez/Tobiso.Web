@@ -1,5 +1,6 @@
 h1:focus {
-    outline: none;
+    /* Avoid removing outline globally; use :focus-visible on interactive elements instead */
+    /* outline: none; */
 }
 
 .blazor-error-boundary {

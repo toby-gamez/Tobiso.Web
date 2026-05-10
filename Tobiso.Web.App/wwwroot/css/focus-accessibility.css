@@ -1,0 +1,57 @@
+/* Accessible focus styles for keyboard users
+   - Uses :focus-visible so mouse users are not shown the ring.
+   - Targets common interactive controls across the app.
+   - Kept minimal and themable via CSS variables. */
+
+:root {
+    /* Soft accent used for focus rings in light mode. Matches existing site accent (#d175a6). */
+    --focus-ring-color: rgba(209,117,166,0.32);
+    /* Slightly lighter ring for dark mode to keep contrast pleasant. */
+    --focus-ring-dark: rgba(255,255,255,0.14);
+}
+
+/* Common interactive elements */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+.toggle-btn:focus-visible,
+.search-close:focus-visible,
+.sidebar-tab:focus-visible,
+.chat-list-item:focus-visible,
+.home-grid-item:focus-visible,
+.category-header:focus-visible,
+.search-result:focus-visible {
+    outline: none;
+    /* Use a soft box-shadow ring so layout does not shift. */
+    box-shadow: 0 0 0 4px var(--focus-ring-color);
+    border-radius: 8px;
+}
+
+/* Dark mode variant - slightly different alpha to preserve contrast */
+body.dark-mode a:focus-visible,
+body.dark-mode button:focus-visible,
+body.dark-mode input:focus-visible,
+body.dark-mode textarea:focus-visible,
+body.dark-mode select:focus-visible,
+body.dark-mode [role="button"]:focus-visible,
+body.dark-mode .toggle-btn:focus-visible,
+body.dark-mode .search-close:focus-visible,
+body.dark-mode .sidebar-tab:focus-visible,
+body.dark-mode .chat-list-item:focus-visible,
+body.dark-mode .home-grid-item:focus-visible,
+body.dark-mode .category-header:focus-visible,
+body.dark-mode .search-result:focus-visible {
+    box-shadow: 0 0 0 4px var(--focus-ring-dark);
+}
+
+/* Ensure keyboard users navigating search results see an explicit, visible state */
+.search-results.keyboard-navigation .search-result:focus-visible,
+.search-result:focus-visible {
+    border-color: var(--color-text);
+}
+
+/* Small helper: if some elements rely on outline removal, provide a visible fallback */
+/* Avoid aggressive rules here; prefer specific selectors above. */

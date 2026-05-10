@@ -63,7 +63,7 @@
         border-radius: 12px;
         background: var(--color-bg);
         color: var(--color-text);
-        outline: none;
+        /* focus styling is provided by focus-accessibility.css (:focus-visible) */
         transition: border-color 0.2s;
     }
 
@@ -175,7 +175,7 @@
             <div class="posts-list">
                 @foreach (var post in visible)
                 {
-                    <div class="post" @onclick="() => SelectPost(post)">
+                    <div class="post" tabindex="0" role="button" @onclick="() => SelectPost(post)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectPost(post); })">
                         <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
                             <h5 style="margin: 0">@post.Title</h5>
                             <div class="latest-muted">

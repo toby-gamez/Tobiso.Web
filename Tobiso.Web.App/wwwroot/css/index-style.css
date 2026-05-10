@@ -102,7 +102,8 @@ section {
 .home-grid-item:focus {
     transform: scale(1.05);
     cursor: pointer;
-    outline: none;
+    /* Avoid removing focus outline globally. Use focus-visible for keyboard focus. */
+    /* outline: none; */
 }
 
 .home-grid-item:active {

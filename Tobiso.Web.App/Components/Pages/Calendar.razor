@@ -40,9 +40,7 @@
                         {
                             <div class="event-item @GetEventCssClass(eventInfo.EventType)" 
                                  style="background-color: @eventInfo.Event.Color; cursor: pointer;" 
-                                  @onclick="() => ShowEventDetails(eventInfo.Event)" 
-                                  @onclick:stopPropagation="true"
-                                  aria-label="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)">
+                                  tabindex="0" role="button" aria-label="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)" @onclick="() => ShowEventDetails(eventInfo.Event)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ShowEventDetails(eventInfo.Event); })" @onclick:stopPropagation="true">
                                 @if (eventInfo.Event.IsAllDay)
                                 {
                                     <span class="event-title">@GetEventDisplayTitle(eventInfo.Event, eventInfo.EventType)</span>
@@ -60,7 +58,7 @@
                         }
                         @if (day.Events.Count > 3)
                         {
-                            <div class="more-events" @onclick="() => ShowDayEvents(day.Day)">
+                            <div class="more-events" tabindex="0" role="button" aria-label="Zobrazit všechny události dne" @onclick="() => ShowDayEvents(day.Day)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ShowDayEvents(day.Day); })">
                                 +@(day.Events.Count - 3) dalších
                             </div>
                         }
@@ -74,7 +72,7 @@
 @if (ShowEventModal && SelectedEvent != null)
 {
     <div class="modal show d-block event-modal-overlay" tabindex="-1" @onclick="CloseEventModal">
-        <div class="event-modal-content" @onclick:stopPropagation="true">
+        <div class="event-modal-content" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="Detaily události">
                 <div class="event-title-section">
                     <div class="title-and-color">
                         <h5 class="modal-event-title">@SelectedEvent.Title</h5>
