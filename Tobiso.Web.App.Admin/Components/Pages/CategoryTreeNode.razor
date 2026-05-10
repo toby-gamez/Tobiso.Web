@@ -21,20 +21,26 @@
         if (!expandedIds.Add(id))
             expandedIds.Remove(id);
     }
+
+    private void HandleCategoryTreeNodeToggleKey(KeyboardEventArgs e, int id)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            ToggleExpand(id);
+    }
 }
 
 @if (Children != null && Children.Count > 0)
 {
     <ul class="category-tree-list">
         @foreach (var child in Children.OrderBy(c => c.Id))
-        {
-            <li class="category-tree-item">
+                        {
+                        <li class="category-tree-item">
                 <div class="category-tree-row">
                     @if (child.Children != null && child.Children.Count > 0)
                     {
                         <span class="category-tree-toggle" tabindex="0" role="button"
                               @onclick="() => ToggleExpand(child.Id)"
-                              @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleExpand(child.Id); })">
+                              @onkeydown="@( (KeyboardEventArgs e) => HandleCategoryTreeNodeToggleKey(e, child.Id) )">
                             <i class="bi" style="font-size:1.1em;">
                                 @(expandedIds.Contains(child.Id) ? "▼" : "▶")
                             </i>

@@ -40,7 +40,7 @@
                         {
                             <div class="event-item @GetEventCssClass(eventInfo.EventType)" 
                                  style="background-color: @eventInfo.Event.Color; cursor: pointer;" 
-                                  tabindex="0" role="button" aria-label="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)" @onclick="() => ShowEventDetails(eventInfo.Event)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ShowEventDetails(eventInfo.Event); })" @onclick:stopPropagation="true">
+                                    tabindex="0" role="button" aria-label="@GetEventTooltip(eventInfo.Event, eventInfo.EventType)" @onclick="() => ShowEventDetails(eventInfo.Event)" @onkeydown="@( (KeyboardEventArgs e) => HandleShowEventKey(e, eventInfo.Event) )" @onclick:stopPropagation="true">
                                 @if (eventInfo.Event.IsAllDay)
                                 {
                                     <span class="event-title">@GetEventDisplayTitle(eventInfo.Event, eventInfo.EventType)</span>
@@ -58,7 +58,7 @@
                         }
                         @if (day.Events.Count > 3)
                         {
-                            <div class="more-events" tabindex="0" role="button" aria-label="Zobrazit všechny události dne" @onclick="() => ShowDayEvents(day.Day)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ShowDayEvents(day.Day); })">
+                            <div class="more-events" tabindex="0" role="button" aria-label="Zobrazit všechny události dne" @onclick="() => ShowDayEvents(day.Day)" @onkeydown="@( (KeyboardEventArgs e) => HandleShowDayEventsKey(e, day.Day) )">
                                 +@(day.Events.Count - 3) dalších
                             </div>
                         }
@@ -365,6 +365,12 @@
         StateHasChanged(); // Explicit call to update UI
     }
 
+    private void HandleShowEventKey(KeyboardEventArgs e, EventResponse eventItem)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            ShowEventDetails(eventItem);
+    }
+
     private void CloseEventModal()
     {
         ShowEventModal = false;
@@ -379,6 +385,12 @@
         // Implementace pro zobrazení všech událostí dne
         // Zatím jen zavře modal
         CloseEventModal();
+    }
+
+    private void HandleShowDayEventsKey(KeyboardEventArgs e, DateTime day)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            ShowDayEvents(day);
     }
 
     private void OnTouchStart(TouchEventArgs e)

@@ -54,7 +54,7 @@
             </div>
         </div>
     </div>
-    <div class="posts-graph-backdrop" tabindex="0" role="button" aria-label="Zavřít síť článků" @onclick="Close" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Escape\" || e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") Close(); })"></div>
+    <div class="posts-graph-backdrop" tabindex="0" role="button" aria-label="Zavřít síť článků" @onclick="Close" @onkeydown="HandlePostsGraphBackdropKey"></div>
 }
 
 <style>
@@ -498,6 +498,12 @@
         
         _isVisible = false;
         await IsVisibleChanged.InvokeAsync(_isVisible);
+    }
+
+    private void HandlePostsGraphBackdropKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" || e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            _ = Close();
     }
 
     public async ValueTask DisposeAsync()

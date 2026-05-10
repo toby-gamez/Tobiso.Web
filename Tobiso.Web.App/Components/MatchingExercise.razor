@@ -28,7 +28,7 @@
                     <div class="matching-list">
                         @foreach (var l in _left)
                         {
-                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" tabindex="0" role="button" aria-pressed="@(SelectedLeft == l.Id ? \"true\" : \"false\")" @onclick="() => SelectLeft(l.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectLeft(l.Id); })">
+                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" tabindex="0" role="button" aria-pressed='@(SelectedLeft == l.Id ? "true" : "false")' @onclick="() => SelectLeft(l.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleLeftKey(e, l.Id) )">
                                 @l.Text
                             </div>
                         }
@@ -43,7 +43,7 @@
                     <div class="matching-list">
                         @foreach (var r in _right)
                         {
-                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" tabindex="0" role="button" aria-pressed="@(SelectedRight == r.Id ? \"true\" : \"false\")" @onclick="() => SelectRight(r.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectRight(r.Id); })">
+                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" tabindex="0" role="button" aria-pressed='@(SelectedRight == r.Id ? "true" : "false")' @onclick="() => SelectRight(r.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleRightKey(e, r.Id) )">
                                 @r.Text
                             </div>
                         }
@@ -704,6 +704,16 @@
     {
         SelectedRight = id;
         TryPair();
+    }
+    private void HandleLeftKey(KeyboardEventArgs e, string id)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            SelectLeft(id);
+    }
+    private void HandleRightKey(KeyboardEventArgs e, string id)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            SelectRight(id);
     }
     private void TryPair()
     {

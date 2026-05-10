@@ -43,7 +43,7 @@
     
         @if (isMobileMenuOpen)
     {
-        <div class="mobile-menu-overlay" tabindex="0" role="button" aria-label="Zavřít mobilní menu" @onclick="CloseMobileMenu" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Escape\" || e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") CloseMobileMenu(); })"></div>
+        <div class="mobile-menu-overlay" tabindex="0" role="button" aria-label="Zavřít mobilní menu" @onclick="CloseMobileMenu" @onkeydown="@( (KeyboardEventArgs e) => HandleCloseMobileMenuKey(e) )"></div>
         <style>
             main a,
             main strong,
@@ -383,5 +383,11 @@
     {
         CloseMobileMenu();
         GraphModalService.OpenGraphModal();
+    }
+
+    private void HandleCloseMobileMenuKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" || e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            CloseMobileMenu();
     }
 }

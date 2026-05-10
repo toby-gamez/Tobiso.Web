@@ -526,7 +526,7 @@ button {
     /* Remove blanket outline:none which makes keyboard focus invisible.
        Provide accessible visible focus styles using :focus-visible so keyboard
        users retain a clear indicator while mouse users are unaffected. */
-    /* outline: none; */
+    /* outline: none; -- intentionally commented out: focus rings are handled in focus-accessibility.css */
     color: var(--color-white);
     font-size: 16px;
     padding: 10px 20px;

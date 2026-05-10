@@ -67,7 +67,7 @@ else
                 <div class="category-tree-root-row">
                     <span class="category-tree-toggle" tabindex="0" role="button"
                           @onclick="() => OnCategoryClick(category.Id)"
-                          @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnCategoryClick(category.Id); })">
+                          @onkeydown="@( (KeyboardEventArgs e) => HandleCategoryTreeToggleKey(e, category.Id) )">
                         <i class="bi bi-folder2-open" style="font-size:1.2em; margin-right:0.3em;"></i>
                     </span>
                     <button class="category-tree-btn-root" @onclick="() => OnCategoryClick(category.Id)">@category.Name</button>
@@ -251,6 +251,14 @@ else
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+    }
+
+    private void HandleCategoryTreeToggleKey(KeyboardEventArgs e, int categoryId)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+        {
+            OnCategoryClick(categoryId);
         }
     }
 

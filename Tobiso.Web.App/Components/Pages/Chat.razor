@@ -175,7 +175,7 @@
             <div class="posts-list">
                 @foreach (var post in visible)
                 {
-                    <div class="post" tabindex="0" role="button" @onclick="() => SelectPost(post)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") SelectPost(post); })">
+                    <div class="post" tabindex="0" role="button" @onclick="() => SelectPost(post)" @onkeydown="@( (KeyboardEventArgs e) => HandleSelectPostKey(e, post) )">
                         <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
                             <h5 style="margin: 0">@post.Title</h5>
                             <div class="latest-muted">
@@ -257,6 +257,12 @@ else
     {
         _selectedPost = post;
         _search = string.Empty;
+    }
+
+    private void HandleSelectPostKey(KeyboardEventArgs e, PostSummaryResponse post)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            SelectPost(post);
     }
 
     private void GoBack()

@@ -478,8 +478,8 @@
                 </thead>
                 <tbody>
                     @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
-                    {
-                        <tr style="cursor: pointer;" tabindex="0" role="button" aria-expanded="@(expandedQuestionId == question.Id ? \"true\" : \"false\")" @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleQuestionDetail(question.Id); })" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
+                        {
+                            <tr style="cursor: pointer;" tabindex="0" role="button" aria-expanded='@(expandedQuestionId == question.Id ? "true" : "false")' @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleToggleQuestionKey(e, question.Id) )" class="@(expandedQuestionId == question.Id ? "table-active" : "")">
                             <td><strong>@question.Id</strong></td>
                             <td>
                                 <div aria-label="@question.QuestionText">
@@ -496,7 +496,7 @@
                             <td class="text-center"><span class="badge bg-primary">@question.Answers.Count</span></td>
                             <td class="text-center"><span class="badge bg-info">@question.Explanations.Count</span></td>
                             <td>
-                                <button @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
+                    <button @onclick="() => GoToPost(question.PostId)" @onclick:stopPropagation="true">
                                     <i class="bi bi-arrow-right"></i> Článek
                                 </button>
                                 @if (expandedQuestionId == question.Id)
@@ -586,9 +586,9 @@
         <!-- Mobile Cards View -->
         <div class="mobile-questions-list">
             @foreach (var question in filteredQuestions ?? Enumerable.Empty<QuestionResponse>())
-            {
-                <div class="mobile-question-card @(expandedQuestionId == question.Id ? "expanded" : "")">
-                <div class="mobile-question-header" tabindex="0" role="button" aria-expanded="@(expandedQuestionId == question.Id ? \"true\" : \"false\")" @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") ToggleQuestionDetail(question.Id); })">
+                {
+                    <div class="mobile-question-card @(expandedQuestionId == question.Id ? "expanded" : "")">
+                    <div class="mobile-question-header" tabindex="0" role="button" aria-expanded='@(expandedQuestionId == question.Id ? "true" : "false")' @onclick="() => ToggleQuestionDetail(question.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleToggleQuestionKey(e, question.Id) )">
                         <div class="mobile-question-id">#@question.Id</div>
                         <div class="mobile-question-text @(expandedQuestionId == question.Id ? "expanded" : "")">
                             @if (expandedQuestionId == question.Id)
@@ -612,7 +612,7 @@
                     </div>
                     
                     <div class="mobile-question-actions">
-                        <button type="button" @onclick="() => GoToPost(question.PostId)">
+                    <button type="button" @onclick="() => GoToPost(question.PostId)">
                             <i class="bi bi-arrow-right"></i> Jít na článek
                         </button>
                         @if (expandedQuestionId == question.Id)
@@ -792,6 +792,14 @@
             expandedQuestionId = questionId;
         }
         StateHasChanged();
+    }
+
+    private void HandleToggleQuestionKey(KeyboardEventArgs e, int questionId)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+        {
+            ToggleQuestionDetail(questionId);
+        }
     }
 
     private void CloseDetail()
@@ -1107,8 +1115,8 @@
         var isSelected = selectedCategoryId == category.Id;
         
         <div class="category-node">
-        <div class="category-item @(isSelected ? "selected" : "") @(hasChildren ? "has-children" : "")" 
-                 tabindex="0" role="button" aria-pressed="@(isSelected ? "true" : "false")" aria-expanded="@(hasChildren ? (isExpanded ? "true" : "false") : null)" @onclick="() => OnCategoryClick(category.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnCategoryClick(category.Id); })">
+                 <div class="category-item @(isSelected ? "selected" : "") @(hasChildren ? "has-children" : "")" 
+                 tabindex="0" role="button" aria-pressed='@(isSelected ? "true" : "false")' aria-expanded='@(hasChildren ? (isExpanded ? "true" : "false") : null)' @onclick="() => OnCategoryClick(category.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleCategoryKey(e, category.Id) )">
                 @if (hasChildren)
                 {
                     <button type="button" class="expand-toggle" @onclick="() => ToggleCategoryExpansion(category.Id)" @onclick:stopPropagation="true" aria-label="Rozbalit/skrýt podkategorie" aria-expanded="@(isExpanded ? "true" : "false")">
@@ -1152,8 +1160,8 @@
     {
         var questionCount = questions?.Count(q => q.PostId == post.Id) ?? 0;
         var isSelected = selectedPostId == post.Id;
-        
-        <div class="post-item @(isSelected ? "selected" : "")" tabindex="0" role="button" aria-pressed="@(isSelected ? \"true\" : \"false\")" @onclick="() => OnPostClick(post.Id)" @onkeydown="@((KeyboardEventArgs e) => { if (e.Key == \"Enter\" || e.Key == \" \" || e.Key == \"Spacebar\") OnPostClick(post.Id); })">
+         
+                   <div class="post-item @(isSelected ? "selected" : "")" tabindex="0" role="button" aria-pressed='@(isSelected ? "true" : "false")' @onclick="() => OnPostClick(post.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandlePostKey(e, post.Id) )">
             <i class="bi bi-file-earmark-text post-icon"></i>
             @post.Title
             <span class="question-count">(@questionCount)</span>
@@ -1181,9 +1189,17 @@
             selectedCategoryId = categoryId;
             selectedPostId = null; // Zrušit výběr postu
         }
-        
+
         ApplyFilter();
         StateHasChanged();
+    }
+
+    private void HandleCategoryKey(KeyboardEventArgs e, int categoryId)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+        {
+            OnCategoryClick(categoryId);
+        }
     }
 
     private void OnPostClick(int postId)
@@ -1199,9 +1215,15 @@
             selectedPostId = postId;
             selectedCategoryId = null; // Zrušit výběr kategorie
         }
-        
+
         ApplyFilter();
         StateHasChanged();
+    }
+
+    private void HandlePostKey(KeyboardEventArgs e, int postId)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+            OnPostClick(postId);
     }
 
     private void ToggleCategoryExpansion(int categoryId)
