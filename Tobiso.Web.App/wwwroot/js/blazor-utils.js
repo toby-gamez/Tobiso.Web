@@ -34,6 +34,9 @@ export function setDarkModePreferred(value) {
 export function initializeApp(dotNetRef) {
   console.log("[blazor-utils] initializeApp called");
   dotNetHelper = dotNetRef;
+  
+  // Expose dotNetHelper globally for NavMenu to access
+  window.__mainLayoutRef = dotNetRef;
 
   // Inicializace všech funkcionalit
   initDarkMode();

@@ -1,4 +1,8 @@
-﻿<!-- Mobilní menu -->
+﻿@using Tobiso.Web.App.Services
+@inject PostsGraphModalService GraphModalService
+@rendermode InteractiveServer
+
+<!-- Mobilní menu -->
 <nav id="myNavbar">
     <div class="mobile-header">
         <div>
@@ -76,6 +80,10 @@
                     <a class="menu-grid-item" href="latest" @onclick="CloseMobileMenu">
                         <i class="bi bi-star"></i>
                         <span>Nejnovější učivo</span>
+                    </a>
+                    <a class="menu-grid-item" href="#" @onclick="OpenGraph" @onclick:preventDefault="true">
+                        <i class="bi bi-diagram-3"></i>
+                        <span>Síť článků</span>
                     </a>
                     <a class="menu-grid-item" href="chat" @onclick="CloseMobileMenu">
                         <i class="bi bi-stars"></i>
@@ -188,6 +196,14 @@
                         <div class="nav-link-content">
                             <i class="bi bi-star"></i>
                             <span>Nejnovější učivo</span>
+                        </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" @onclick="OpenGraph" @onclick:preventDefault="true" style="cursor: pointer">
+                        <div class="nav-link-content">
+                            <i class="bi bi-diagram-3"></i>
+                            <span>Síť článků</span>
                         </div>
                     </a>
                 </li>
@@ -362,4 +378,10 @@
     private bool isMobileMenuOpen = false;
     private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
     private void CloseMobileMenu() => isMobileMenuOpen = false;
+    
+    private void OpenGraph()
+    {
+        CloseMobileMenu();
+        GraphModalService.OpenGraphModal();
+    }
 }

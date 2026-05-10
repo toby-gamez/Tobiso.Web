@@ -5,6 +5,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IPreferenceService PreferenceService
+@inject PostsGraphModalService GraphModalService
  
 <HeadContent>
     <meta name="description" content="Tobiso je vzdělávací platforma zaměřená na školní výuku pro žáky základních škol. Nabízí materiály, které pokrývají různé předměty, jako je mluvnice, literatura, sloh, matematika, chemie a hudební výchova.">
@@ -57,6 +58,8 @@
 <Footer />
 @* Search Modal *@
 <SearchModal />
+@* Posts Graph Modal *@
+<PostsGraphModal IsVisible="_isGraphModalOpen" IsVisibleChanged="OnGraphModalChanged" />
 @* App install banner (global) *@
 
 
@@ -129,12 +132,16 @@
 
     public bool isDarkMode = false;
     private string? cookieConsent = null;
+    private bool _isGraphModalOpen = false;
 
     protected override async Task OnInitializedAsync()
     {
         var darkModePref = await PreferenceService.GetPreferenceAsync("darkMode");
         isDarkMode = bool.TryParse(darkModePref, out var darkMode) && darkMode;
         cookieConsent = await PreferenceService.GetPreferenceAsync("cookieConsent");
+        
+        // Subscribe to graph modal events
+        GraphModalService.OnGraphModalRequested += HandleGraphModalRequest;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -261,8 +268,23 @@
             await jsModule.InvokeVoidAsync("removeCookieConsent");
     }
 
+    private void HandleGraphModalRequest()
+    {
+        _isGraphModalOpen = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGraphModalChanged(bool isOpen)
+    {
+        _isGraphModalOpen = isOpen;
+        StateHasChanged();
+    }
+
     public async ValueTask DisposeAsync()
     {
+        // Unsubscribe from graph modal events
+        GraphModalService.OnGraphModalRequested -= HandleGraphModalRequest;
+        
         try
         {
             if (jsModule != null)
