@@ -1707,6 +1707,19 @@ body.scroll-lock {
     white-space: normal;
 }
 
+/* Make tables horizontally scrollable on small screens without breaking layout */
+.table-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+    width: 100%;
+    margin: 8px 0;
+}
+
+.table-scroll-wrapper table {
+    margin: 0; /* wrapper handles outer spacing */
+    min-width: max-content; /* keep table width matching content so horizontal scroll appears when needed */
+}
+
 .detail-section {
     background-color: var(--color-accent);
     padding: 0.75rem;

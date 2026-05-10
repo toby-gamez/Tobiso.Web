@@ -234,6 +234,35 @@
         catch { }
 
         html = ConvertMarkdownTablesToHtml(html);
+
+        // Ensure tables are wrapped in a horizontal-scroll container so they
+        // don't break mobile layouts. This wraps any <table ...>...</table>
+        // with <div class="table-scroll-wrapper">...</div>.
+        html = WrapTablesForScroll(html);
+        return html;
+    }
+
+    private string WrapTablesForScroll(string html)
+    {
+        if (string.IsNullOrEmpty(html)) return html ?? string.Empty;
+
+        try
+        {
+            // Only wrap table tags that are not already inside a .table-scroll-wrapper
+            // Simple approach: replace opening <table with wrapper, and closing </table> with wrapper close.
+            // Avoid double-wrapping by first replacing any existing wrapper markers.
+
+            // Insert wrapper before each table tag
+            html = Regex.Replace(html, "(<table\\b)", "<div class=\"table-scroll-wrapper\">$1", RegexOptions.IgnoreCase);
+            // Close wrapper after each table end tag
+            html = Regex.Replace(html, "(</table>)", "$1</div>", RegexOptions.IgnoreCase);
+        }
+        catch
+        {
+            // If anything goes wrong, return original HTML unchanged
+            return html;
+        }
+
         return html;
     }
 
