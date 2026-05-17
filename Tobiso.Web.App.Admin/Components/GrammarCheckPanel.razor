@@ -1,0 +1,30 @@
+@using Tobiso.Web.Shared.DTOs
+
+<div class="card mt-3" style="display:@(Issues?.Any() == true ? "block" : "none")">
+    <div class="card-header">Návrhy oprav</div>
+    <div class="card-body">
+        @if (Issues == null || Issues.Count == 0)
+        {
+            <div class="text-success">Žádné chyby nenalezeny.</div>
+        }
+        else
+        {
+            <ul class="list-group">
+                @foreach (var it in Issues)
+                {
+                    <li class="list-group-item">
+                        <strong>Originál:</strong> <code>@it.OriginalText</code>
+                        <br />
+                        <strong>Návrh:</strong> <code>@it.Correction</code>
+                        <br />
+                        <small class="text-muted">@it.Explanation</small>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<GrammarIssue>? Issues { get; set; }
+}

@@ -25,6 +25,7 @@
     private string textareaId = $"markdown-editor-{Guid.NewGuid():N}";
     private IJSObjectReference? jsModule;
     private bool isInitialized = false;
+    private bool hasHighlights = false;
 
     protected override void OnParametersSet()
     {
@@ -75,6 +76,20 @@
             await jsModule.InvokeVoidAsync("setEditorValue", textareaId, content);
         }
         Value = content;
+    }
+
+    public async Task HighlightErrors(List<Tobiso.Web.Shared.DTOs.GrammarIssue> issues)
+    {
+        if (!isInitialized || jsModule == null) return;
+        await jsModule.InvokeVoidAsync("highlightGrammarErrors", textareaId, issues);
+        hasHighlights = issues != null && issues.Count > 0;
+    }
+
+    public async Task ClearHighlights()
+    {
+        if (!isInitialized || jsModule == null) return;
+        await jsModule.InvokeVoidAsync("clearGrammarHighlights", textareaId);
+        hasHighlights = false;
     }
 
     public async ValueTask DisposeAsync()

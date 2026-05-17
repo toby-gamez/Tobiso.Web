@@ -115,4 +115,8 @@ public interface ITobisoWebApi
     
     [Delete("/api/files/{fileName}")]
     Task DeleteImageAsync(string fileName);
+
+    // Grammar check via AI
+    [Post("/api/ai/grammar-check")]
+    Task<GrammarCheckResponse> CheckGrammar([Body] GrammarCheckRequest request);
 }

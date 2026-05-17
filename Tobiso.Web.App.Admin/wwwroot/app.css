@@ -172,3 +172,9 @@
         background-color: #343a40;
     }
 }
+
+/* Grammar error underline */
+.grammar-error {
+    text-decoration: underline wavy #d9534f; /* bootstrap danger */
+    cursor: help;
+}

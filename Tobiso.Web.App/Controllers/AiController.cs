@@ -118,6 +118,25 @@ namespace Tobiso.Web.App.Controllers
             return Ok(names);
         }
 
+        [HttpPost("grammar-check")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GrammarCheck([FromBody] GrammarCheckRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Content))
+                return BadRequest("Missing content");
+
+            try
+            {
+                var resp = await _aiService.CheckGrammarAsync(request.Content);
+                return Ok(resp);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Grammar check failed");
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
         [HttpGet("person")]
         [AllowAnonymous]
         public async Task<IActionResult> GetPerson([FromQuery] string name)

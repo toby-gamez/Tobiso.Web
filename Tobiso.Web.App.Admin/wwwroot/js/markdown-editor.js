@@ -104,3 +104,44 @@ export function disposeMarkdownEditor(textareaId) {
         }
     }
 }
+
+// Highlight grammar issues in the editor. Issues is an array of objects with { originalText, correction, explanation }
+export function highlightGrammarErrors(textareaId, issues) {
+    const instance = editorInstances.get(textareaId);
+    if (!instance) return;
+    try {
+        const cm = instance.codemirror;
+        // clear previous marks first
+        clearGrammarHighlights(textareaId);
+
+        const content = cm.getValue();
+        issues.forEach((it) => {
+            if (!it || !it.originalText) return;
+            const needle = it.originalText;
+            let startIndex = 0;
+            while (true) {
+                const found = content.indexOf(needle, startIndex);
+                if (found === -1) break;
+                const from = cm.posFromIndex(found);
+                const to = cm.posFromIndex(found + needle.length);
+                // Mark with a class and a title (tooltip showing correction)
+                cm.markText(from, to, { className: 'grammar-error', title: `Suggestion: ${it.correction}\n${it.explanation}` });
+                startIndex = found + needle.length;
+            }
+        });
+    } catch (e) {
+        console.error('Failed to highlight grammar errors', e);
+    }
+}
+
+export function clearGrammarHighlights(textareaId) {
+    const instance = editorInstances.get(textareaId);
+    if (!instance) return;
+    try {
+        const cm = instance.codemirror;
+        const marks = cm.getAllMarks();
+        marks.forEach(m => m.clear());
+    } catch (e) {
+        console.error('Failed to clear grammar highlights', e);
+    }
+}

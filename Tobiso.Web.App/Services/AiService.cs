@@ -271,5 +271,86 @@ namespace Tobiso.Web.App.Services
                 return new List<string>();
             }
         }
+
+        public async Task<GrammarCheckResponse> CheckGrammarAsync(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return new GrammarCheckResponse();
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            var systemPrompt = _configuration["OpenAI:GrammarSystemPrompt"] ??
+                "You are a multilingual grammar checker. Analyze the provided text and identify grammar, spelling, and punctuation errors. " +
+                "Return ONLY a JSON object with a single key \"issues\" containing an array of objects. Each object must have: \"originalText\" (exact incorrect text), \"correction\" (the corrected replacement), \"explanation\" (brief explanation in the same language). " +
+                "Focus on clear errors only, not stylistic choices. If no errors are found, return {\"issues\": []}.";
+
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            // Keep the content reasonably sized
+            var trimmed = PrepareArticleContext(content);
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Return JSON as described. Text:\n{trimmed}" }
+            };
+
+            var payload = new
+            {
+                model = model,
+                messages = messages,
+                max_tokens = 800,
+                response_format = new { type = "json_object" }
+            };
+
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI grammar check request failed");
+                return new GrammarCheckResponse();
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            try
+            {
+                // Parse top-level JSON object from model output
+                // The model may wrap JSON in text, so try to extract first '{'.. '}' span
+                var start = body.IndexOf('{');
+                var end = body.LastIndexOf('}');
+                if (start >= 0 && end > start)
+                {
+                    var jsonObj = body.Substring(start, end - start + 1);
+                    var doc = JsonDocument.Parse(jsonObj);
+                    if (doc.RootElement.TryGetProperty("issues", out var issuesEl) && issuesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        var issues = new List<GrammarIssue>();
+                        foreach (var it in issuesEl.EnumerateArray())
+                        {
+                            var original = it.TryGetProperty("originalText", out var o) && o.ValueKind != JsonValueKind.Null ? o.GetString() ?? string.Empty : string.Empty;
+                            var correction = it.TryGetProperty("correction", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? string.Empty : string.Empty;
+                            var explanation = it.TryGetProperty("explanation", out var e) && e.ValueKind != JsonValueKind.Null ? e.GetString() ?? string.Empty : string.Empty;
+                            if (!string.IsNullOrWhiteSpace(original))
+                                issues.Add(new GrammarIssue { OriginalText = original, Correction = correction, Explanation = explanation });
+                        }
+
+                        return new GrammarCheckResponse { Issues = issues };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse grammar check response: {Body}", body);
+            }
+
+            return new GrammarCheckResponse();
+        }
     }
 }

@@ -11,5 +11,7 @@ namespace Tobiso.Web.Shared.Interfaces
         // Sends a request with a fully custom system prompt and enforces JSON output mode.
         // Returns the raw JSON string from the model. Throws on HTTP or config errors.
         Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt);
+        // Check grammar and return identified issues (multilingual)
+        Task<GrammarCheckResponse> CheckGrammarAsync(string content);
     }
 }

@@ -40,7 +40,12 @@ else
         </div>
         <div class="mb-3">
             <label for="content" class="form-label">Obsah</label>
-            <MarkdownEditor @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
+            <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            </div>
+            <GrammarCheckPanel Issues="grammarIssues" />
         </div>
         <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="isFix" @bind="_isFixSelected" />
@@ -63,6 +68,9 @@ else
     private List<CategoryResponse> categories = new();
     private string? errorMessage;
     private bool _isFixSelected = false;
+    private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
+    private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
+    private bool isChecking = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,6 +96,48 @@ else
         {
             errorMessage = ex.Message;
         }
+    }
+
+    private async Task CheckGrammar()
+    {
+        if (post == null) return;
+        try
+        {
+            isChecking = true;
+            grammarIssues.Clear();
+            var req = new Tobiso.Web.Shared.DTOs.GrammarCheckRequest { Content = post.Content ?? string.Empty };
+            var resp = await Api.CheckGrammar(req);
+            if (resp?.Issues != null && resp.Issues.Count > 0)
+            {
+                grammarIssues = resp.Issues;
+                if (markdownEditor != null)
+                {
+                    await markdownEditor.HighlightErrors(grammarIssues);
+                }
+            }
+            else
+            {
+                grammarIssues = new List<Tobiso.Web.Shared.DTOs.GrammarIssue>();
+                if (markdownEditor != null)
+                {
+                    await markdownEditor.ClearHighlights();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isChecking = false;
+        }
+    }
+
+    private async Task ClearGrammarHighlights()
+    {
+        grammarIssues.Clear();
+        if (markdownEditor != null) await markdownEditor.ClearHighlights();
     }
 
     private async Task HandleValidSubmit()

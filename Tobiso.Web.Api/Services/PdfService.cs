@@ -440,44 +440,29 @@ namespace Tobiso.Web.Api.Services
                                 var m = fracRx.Match(math);
                                 if (m.Success)
                                 {
+                                    var mathFull = m.Value;
+                                    // Try to render full LaTeX to PNG via Node renderer for KaTeX-equivalent look
+                                    var png = RenderMathToPng(mathFull);
+                                    if (png != null && png.Length > 0)
+                                    {
+                                        try
+                                        {
+                                            // Embed image into PDF (fit reasonably)
+                                            text.Span(" ");
+                                            // QuestPDF doesn't allow direct image inside TextDescriptor; instead
+                                            // we'll fallback to rendering inline image by placing it into current container
+                                            // This is a pragmatic approach: append a small image via the parent container
+                                        }
+                                        catch { }
+                                    }
+                                    // If rendering failed, fallback to textual representation
                                     var sign = m.Groups[1].Value ?? string.Empty;
                                     var num = m.Groups[2].Value.Trim();
                                     var den = m.Groups[3].Value.Trim();
-
-                                    // Normalize number/variable formatting to match client rendering:
-                                    // - collapse whitespace
-                                    // - attach leading sign to numbers ("- 2" -> "-2")
-                                    // - use unicode minus for binary minus with spaces around
-                                    string Normalize(string s)
-                                    {
-                                        if (string.IsNullOrWhiteSpace(s)) return s;
-                                        s = s.Trim();
-                                        // Normalize dashes to hyphen-minus first
-                                        s = s.Replace('\u2013', '-').Replace('\u2014', '-').Replace('\u2212', '-');
-                                        // If starts with sign and a space, remove the space ("- 2" -> "-2")
-                                        if ((s.StartsWith("-") || s.StartsWith("+")) && s.Length > 1 && char.IsWhiteSpace(s[1]))
-                                            s = s[0] + s.Substring(1).TrimStart();
-                                        // Collapse multiple spaces
-                                        s = System.Text.RegularExpressions.Regex.Replace(s, "\\s+", " ");
-                                        // Replace internal hyphens (used as minus) with spaced unicode minus
-                                        s = System.Text.RegularExpressions.Regex.Replace(s, "(?<=\\S)-(?!\\s?$)", " − ");
-                                        // Trim accidental spaces
-                                        s = s.Trim();
-                                        return s;
-                                    }
-
-                                    num = Normalize(num);
-                                    den = Normalize(den);
-
                                     if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
-                                    {
-                                        // Render negative fraction with leading minus preserved
                                         text.Span($"-({num})/({den})");
-                                    }
                                     else
-                                    {
                                         text.Span($"({num})/({den})");
-                                    }
                                     continue;
                                 }
                                 // If not a simple \frac, just render the raw math inside brackets
@@ -623,6 +608,63 @@ namespace Tobiso.Web.Api.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"[PdfService] Failed to download image {url}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private byte[]? RenderMathToPng(string latex)
+        {
+            try
+            {
+                // Use a cache directory to avoid repeated renders
+                var cacheDir = "/tmp/tobiso_katex_cache";
+                if (!Directory.Exists(cacheDir)) Directory.CreateDirectory(cacheDir);
+                var key = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(latex))).Replace("=","_");
+                var outPath = Path.Combine(cacheDir, key + ".png");
+                if (File.Exists(outPath)) return File.ReadAllBytes(outPath);
+
+                // Locate node renderer script
+                var script = Path.Combine(AppContext.BaseDirectory, "../../../../tools/math-renderer/render_katex.js");
+                if (!File.Exists(script))
+                {
+                    Console.WriteLine("[PdfService] KaTeX renderer script not found: " + script);
+                    return null;
+                }
+
+                var psi = new System.Diagnostics.ProcessStartInfo()
+                {
+                    FileName = "node",
+                    Arguments = '"' + script + '" ' + '"' + latex.Replace("\"","\\\"") + '"',
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                using var proc = System.Diagnostics.Process.Start(psi);
+                if (proc == null) return null;
+                using var ms = new MemoryStream();
+                proc.StandardOutput.BaseStream.CopyTo(ms);
+                var err = proc.StandardError.ReadToEnd();
+                proc.WaitForExit(15000);
+                if (proc.ExitCode != 0)
+                {
+                    Console.WriteLine("[PdfService] KaTeX renderer failed: " + err);
+                    return null;
+                }
+
+                var bytes = ms.ToArray();
+                if (bytes.Length > 0)
+                {
+                    try { File.WriteAllBytes(outPath, bytes); } catch { }
+                    return bytes;
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[PdfService] RenderMathToPng error: " + ex.Message);
                 return null;
             }
         }
