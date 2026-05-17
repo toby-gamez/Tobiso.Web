@@ -422,6 +422,41 @@ namespace Tobiso.Web.Api.Services
                     
                     var innerText = HtmlEntity.DeEntitize(child.InnerText);
                     
+                    // Special-case: KaTeX math placeholders rendered client-side are
+                    // represented as empty <span class='math-inline' data-math="..."></span>.
+                    // These spans carry the LaTeX in the data-math attribute — extract
+                    // and render a textual fallback into the PDF (e.g. (a)/(b)).
+                    if (childTag == "span")
+                    {
+                        var dataMath = child.GetAttributeValue("data-math", "");
+                        if (!string.IsNullOrEmpty(dataMath))
+                        {
+                            try
+                            {
+                                // HtmlAgilityPack may return encoded attribute values; de-entitize
+                                var math = HtmlEntity.DeEntitize(dataMath);
+                                // Look for \frac{num}{den} pattern
+                                var fracRx = new System.Text.RegularExpressions.Regex(@"\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+                                var m = fracRx.Match(math);
+                                if (m.Success)
+                                {
+                                    var num = m.Groups[1].Value.Trim();
+                                    var den = m.Groups[2].Value.Trim();
+                                    // Render as (num)/(den) which is clear in plain text PDFs
+                                    text.Span($"({num})/({den})");
+                                    continue;
+                                }
+                                // If not a simple \frac, just render the raw math inside brackets
+                                text.Span($"[{math}]");
+                                continue;
+                            }
+                            catch
+                            {
+                                // fall through to generic handling
+                            }
+                        }
+                    }
+
                     if (childTag == "strong" || childTag == "b")
                     {
                         text.Span(innerText).Bold();

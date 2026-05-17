@@ -78,6 +78,10 @@ public class PdfController : ControllerBase
         // Replace markdown mailto links before processing
         content = ReplaceMarkdownMailtoInText(content);
         
+        // Convert fraction notation to inline math spans so PDF rendering can
+        // pick them up server-side (mirrors client-side MarkdownContent behavior).
+        content = ReplaceFractionsInText(content);
+
         var html = Markdig.Markdown.ToHtml(content);
 
         // Get all posts for link transformation
@@ -321,6 +325,85 @@ public class PdfController : ControllerBase
             return sb.ToString();
         });
         return html;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Fraction replacement (port from MarkdownContent.razor)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string ReplaceFractionsInText(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+
+        var (protectedText, regions) = ProtectCodeRegions(input);
+
+        var fracRegex = new Regex(
+            @"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
+            RegexOptions.CultureInvariant);
+
+        var replaced = fracRegex.Replace(protectedText, match =>
+        {
+            try
+            {
+                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
+                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
+
+                var fracStrikeRx = new Regex(@"#s#(.*?)#s#");
+                num = fracStrikeRx.Replace(num, sm => $"\\cancel{{{sm.Groups[1].Value}}}");
+                den = fracStrikeRx.Replace(den, sm => $"\\cancel{{{sm.Groups[1].Value}}}");
+
+                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
+                    return match.Value;
+
+                num = num.Trim().Replace(',', '.');
+                den = den.Trim().Replace(',', '.');
+
+                var math = $"\\frac{{{num}}}{{{den}}}";
+                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+
+        try
+        {
+            replaced = Regex.Replace(replaced, "-\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
+        }
+        catch { }
+
+        return RestoreCodeRegions(replaced, regions);
+    }
+
+    private (string, Dictionary<string, string>) ProtectCodeRegions(string input)
+    {
+        var regions = new Dictionary<string, string>();
+        if (string.IsNullOrEmpty(input)) return (string.Empty, regions);
+
+        int counter = 0;
+        var rx = new Regex("(?ms)(```.*?```)", RegexOptions.Singleline);
+        var result = rx.Replace(input, m =>
+        {
+            var key = $"__PROTECTED_CODE_{counter}__";
+            regions[key] = m.Value;
+            counter++;
+            return key;
+        });
+
+        return (result, regions);
+    }
+
+    private string RestoreCodeRegions(string input, Dictionary<string, string> regions)
+    {
+        if (regions == null || regions.Count == 0) return input;
+        var result = input;
+        foreach (var kv in regions)
+            result = result.Replace(kv.Key, kv.Value);
+        return result;
     }
 
     private List<string> ParseConcatenatedRow(string rowText)
