@@ -435,15 +435,49 @@ namespace Tobiso.Web.Api.Services
                             {
                                 // HtmlAgilityPack may return encoded attribute values; de-entitize
                                 var math = HtmlEntity.DeEntitize(dataMath);
-                                // Look for \frac{num}{den} pattern
-                                var fracRx = new System.Text.RegularExpressions.Regex(@"\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+                                // Look for an optional leading sign followed by \frac{num}{den}
+                                var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
                                 var m = fracRx.Match(math);
                                 if (m.Success)
                                 {
-                                    var num = m.Groups[1].Value.Trim();
-                                    var den = m.Groups[2].Value.Trim();
-                                    // Render as (num)/(den) which is clear in plain text PDFs
-                                    text.Span($"({num})/({den})");
+                                    var sign = m.Groups[1].Value ?? string.Empty;
+                                    var num = m.Groups[2].Value.Trim();
+                                    var den = m.Groups[3].Value.Trim();
+
+                                    // Normalize number/variable formatting to match client rendering:
+                                    // - collapse whitespace
+                                    // - attach leading sign to numbers ("- 2" -> "-2")
+                                    // - use unicode minus for binary minus with spaces around
+                                    string Normalize(string s)
+                                    {
+                                        if (string.IsNullOrWhiteSpace(s)) return s;
+                                        s = s.Trim();
+                                        // Normalize dashes to hyphen-minus first
+                                        s = s.Replace('\u2013', '-').Replace('\u2014', '-').Replace('\u2212', '-');
+                                        // If starts with sign and a space, remove the space ("- 2" -> "-2")
+                                        if ((s.StartsWith("-") || s.StartsWith("+")) && s.Length > 1 && char.IsWhiteSpace(s[1]))
+                                            s = s[0] + s.Substring(1).TrimStart();
+                                        // Collapse multiple spaces
+                                        s = System.Text.RegularExpressions.Regex.Replace(s, "\\s+", " ");
+                                        // Replace internal hyphens (used as minus) with spaced unicode minus
+                                        s = System.Text.RegularExpressions.Regex.Replace(s, "(?<=\\S)-(?!\\s?$)", " − ");
+                                        // Trim accidental spaces
+                                        s = s.Trim();
+                                        return s;
+                                    }
+
+                                    num = Normalize(num);
+                                    den = Normalize(den);
+
+                                    if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
+                                    {
+                                        // Render negative fraction with leading minus preserved
+                                        text.Span($"-({num})/({den})");
+                                    }
+                                    else
+                                    {
+                                        text.Span($"({num})/({den})");
+                                    }
                                     continue;
                                 }
                                 // If not a simple \frac, just render the raw math inside brackets

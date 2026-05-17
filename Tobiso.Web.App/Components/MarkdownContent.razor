@@ -407,7 +407,7 @@
         // that patterns like "- 1/2" become negative fractions: "-\frac{1}{2}".
         try
         {
-            replaced = Regex.Replace(replaced, "-\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
+            replaced = Regex.Replace(replaced, "-\\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
         }
         catch { }
 

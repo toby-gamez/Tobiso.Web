@@ -372,7 +372,7 @@ public class PdfController : ControllerBase
 
         try
         {
-            replaced = Regex.Replace(replaced, "-\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
+            replaced = Regex.Replace(replaced, "-\\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
         }
         catch { }
 
