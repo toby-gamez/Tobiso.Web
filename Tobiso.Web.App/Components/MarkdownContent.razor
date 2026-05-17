@@ -435,7 +435,7 @@
                 // it is safe for HTML attributes and can be decoded reliably in JS.
                 var encodedName = System.Uri.EscapeDataString(name);
                 // Render a non-navigating anchor/button with a data-person-name attribute.
-                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<button data-person-name=\"{encodedName}\" class=\"person-link\" type=\"button\" aria-label=\"Open person card\"><i class=\"bi bi-person-circle\"></i></button></span>");
+                result = rx.Replace(result, m => $"<span class=\"person-mention person-link \" data-person-name=\"{encodedName}\">{m.Groups[1].Value}<i class=\"bi bi-search\" style=\"font-size: 12px; margin-left: 3px\"></i></span>");
             }
             catch { }
         }

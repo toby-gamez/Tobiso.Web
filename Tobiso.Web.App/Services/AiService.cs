@@ -117,6 +117,58 @@ namespace Tobiso.Web.App.Services
             return new AiChatResponse { Answer = contentText.Trim(), RemainingQuestions = remaining };
         }
 
+        public async Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user",   content = userPrompt   }
+            };
+
+            var payload = new
+            {
+                model = model,
+                messages = messages,
+                max_tokens = 500,
+                response_format = new { type = "json_object" }
+            };
+
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI AskRawJsonAsync request failed");
+                throw;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("choices", out var choices)
+                && choices.GetArrayLength() > 0
+                && choices[0].TryGetProperty("message", out var msg)
+                && msg.TryGetProperty("content", out var content))
+            {
+                return content.GetString()?.Trim() ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
         public async Task<List<string>> DetectPeopleInTextAsync(string content)
         {
             if (string.IsNullOrWhiteSpace(content)) return new List<string>();

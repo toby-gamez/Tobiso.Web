@@ -28,8 +28,24 @@
                             <img src="@_person.PhotoUrl" alt="@_person.Name" class="person-modal-photo" />
                         }
                         <div>
-                            <div class="person-modal-name">@_person.Name @if (_person.BirthYear.HasValue || _person.DeathYear.HasValue) { <span class="person-modal-years">(@_person.BirthYear?.ToString() ?? "?") - @_person.DeathYear?.ToString()</span> }</div>
                             @if (!string.IsNullOrEmpty(_person.Role)) { <div class="person-modal-role">@_person.Role</div> }
+                            @if (_person.BirthYear.HasValue || _person.DeathYear.HasValue)
+                            {
+                                <span class="person-modal-years">
+                                    @if (_person.BirthYear.HasValue && _person.DeathYear.HasValue)
+                                    {
+                                        @($"({_person.BirthYear}–{_person.DeathYear})")
+                                    }
+                                    else if (_person.BirthYear.HasValue)
+                                    {
+                                        @($"({_person.BirthYear})")
+                                    }
+                                    else
+                                    {
+                                        @($"(†{_person.DeathYear})")
+                                    }
+                                </span>
+                            }
                         </div>
                     </div>
                     @if (!string.IsNullOrEmpty(_person.Bio))
@@ -38,13 +54,14 @@
                     }
                     @if (!string.IsNullOrEmpty(_person.ExternalLink))
                     {
-                        <div class="mt-2"><a class="btn btn-outline-primary" href="@_person.ExternalLink" target="_blank" rel="noopener noreferrer">Externí odkaz</a></div>
+                        <div class="mt-2"><a class="btn btn-outline-primary" href="@_person.ExternalLink" target="_blank" rel="noopener noreferrer">@GetSiteName(_person.ExternalLink) <i class="bi bi-arrow-up-right"></i></a></div>
                     }
                 }
                 else
                 {
                     <div class="alert alert-secondary">Informace nejsou k dispozici.</div>
                 }
+                <div class="person-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
             </div>
         </div>
         <div class="modal-backdrop event-modal-backdrop"></div>
@@ -99,5 +116,22 @@
     {
         _isVisible = false;
         await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private static string GetSiteName(string url)
+    {
+        try
+        {
+            var host = new Uri(url).Host;
+            if (host.Contains("wikipedia"))   return "Wikipedia";
+            if (host.Contains("britannica"))  return "Britannica";
+            if (host.Contains("wikidata"))    return "Wikidata";
+            if (host.Contains("imdb"))        return "IMDb";
+            if (host.Contains("musicbrainz")) return "MusicBrainz";
+            if (host.Contains("spotify"))     return "Spotify";
+            if (host.Contains("youtube"))     return "YouTube";
+            return host.Replace("www.", "");
+        }
+        catch { return "Odkaz"; }
     }
 }

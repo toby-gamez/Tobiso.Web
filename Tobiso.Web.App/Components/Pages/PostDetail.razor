@@ -525,7 +525,7 @@ else
             // Import our JS module and initialize delegated handlers (person links, lightbox).
             try
             {
-                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=8");
+                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=9");
                 try { await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef); } catch { }
                 try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); } catch { }
             }
@@ -550,7 +550,7 @@ else
         // Re-run module initialization in case module wasn't available earlier; keep non-fatal.
         try
         {
-            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=8");
+            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=9");
             await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef);
             await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
         }
@@ -574,6 +574,12 @@ else
     public static void TriggerPersonByName(string name)
     {
         PersonModalService.TriggerGlobalRequest(name);
+    }
+
+    [JSInvokable("OpenPersonByName")]
+    public void OpenPersonByName(string name)
+    {
+        HandlePersonRequestByName(name);
     }
 
     protected override void OnInitialized()
@@ -613,6 +619,7 @@ else
     {
         AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
         ModalService.OnAddendumRequested -= HandleAddendumRequest;
+        PersonModalService.OnGlobalPersonRequested -= HandlePersonRequestByName;
         _dotNetRef?.Dispose();
         if (_jsModule != null) _ = _jsModule.DisposeAsync().AsTask();
     }

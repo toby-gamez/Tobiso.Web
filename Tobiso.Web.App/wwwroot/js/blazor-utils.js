@@ -861,10 +861,27 @@ export function initImageLightbox(containerId) {
 // dynamically rendered content. We accept an optional DotNetObjectReference so the
 // handler can call back into the specific Blazor component instance; otherwise it
 // falls back to the global DotNet.invokeMethodAsync (static JSInvokable).
+//
+// The active dotNetRef is stored in window.__personLinkDotNetRef so it can be
+// updated on every Blazor navigation without re-registering the event listener.
 export function initPersonLinkHandler(dotNetRef) {
   try {
+    // Always update the current ref so navigations pick up the new component instance.
+    window.__personLinkDotNetRef = dotNetRef;
+
     if (window.__personLinkHandlerBound) return;
     window.__personLinkHandlerBound = true;
+
+    function invokePersonByName(name) {
+      var ref = window.__personLinkDotNetRef;
+      if (ref && typeof ref.invokeMethodAsync === 'function') {
+        ref.invokeMethodAsync('OpenPersonByName', name);
+      } else if (window.__postDetailRef && typeof window.__postDetailRef.invokeMethodAsync === 'function') {
+        window.__postDetailRef.invokeMethodAsync('OpenPersonByName', name);
+      } else if (window.DotNet && typeof DotNet.invokeMethodAsync === 'function') {
+        DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
+      }
+    }
 
     document.addEventListener('click', function (e) {
       try {
@@ -876,22 +893,14 @@ export function initPersonLinkHandler(dotNetRef) {
         var raw = a.getAttribute('data-person-name') || (a.dataset && a.dataset.personName) || '';
         var name = raw ? decodeURIComponent(raw) : '';
         if (!name) return;
-        if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
-          // Prefer calling an instance method on the passed DotNetObjectReference.
-          dotNetRef.invokeMethodAsync('OpenPersonByName', name);
-        } else if (window.__postDetailRef && typeof window.__postDetailRef.invokeMethodAsync === 'function') {
-          window.__postDetailRef.invokeMethodAsync('OpenPersonByName', name);
-        } else if (window.DotNet && typeof DotNet.invokeMethodAsync === 'function') {
-          // Fallback to static JSInvokable on the assembly if instance refs are not available.
-          DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
-        }
+        invokePersonByName(name);
       } catch (err) { console && console.log && console.log('[initPersonLinkHandler] click handler error', err); }
     }, false);
 
-    // Accessibility: support keyboard activation for focused anchors
+    // Accessibility: support keyboard activation for focused elements
     document.addEventListener('keydown', function (e) {
       try {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.key !== 'Enter' && e.key !== ' ') return;
         var el = document.activeElement;
         if (!el || !el.matches) return;
         if (!el.matches('[data-person-name]')) return;
@@ -899,13 +908,7 @@ export function initPersonLinkHandler(dotNetRef) {
         var raw = el.getAttribute('data-person-name') || (el.dataset && el.dataset.personName) || '';
         var name = raw ? decodeURIComponent(raw) : '';
         if (!name) return;
-        if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
-          dotNetRef.invokeMethodAsync('TriggerPersonByName', name);
-        } else if (window.__postDetailRef && typeof window.__postDetailRef.invokeMethodAsync === 'function') {
-          window.__postDetailRef.invokeMethodAsync('TriggerPersonByName', name);
-        } else if (window.DotNet && typeof DotNet.invokeMethodAsync === 'function') {
-          DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
-        }
+        invokePersonByName(name);
       } catch (err) { console && console.log && console.log('[initPersonLinkHandler] keydown handler error', err); }
     }, false);
   } catch (err) { console && console.log && console.log('[initPersonLinkHandler] init error', err); }

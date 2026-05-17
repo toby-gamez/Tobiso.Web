@@ -2223,6 +2223,8 @@ body.scroll-lock {
     overflow: hidden;
     max-width: 500px;
     width: 90%;
+    position: relative;
+    z-index: 10000;
 }
 
 .event-title-section {
@@ -3787,14 +3789,51 @@ body.dark-mode code {
 }
 
 /* Person mention styling */
-.person-mention { color: var(--color-accent); border-bottom: 1px dotted var(--color-accent); cursor: default; }
-.person-mention .person-link { margin-left: 6px; color: inherit; text-decoration: none; }
-.person-modal-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-.person-modal-photo { width:72px; height:72px; border-radius:50%; object-fit:cover; }
-.person-modal-name { font-weight:700; font-size:1.05rem; }
-.person-modal-years { color: var(--color-text-muted); font-size:0.9rem; margin-left:6px; }
-.person-modal-role { color: var(--color-accent); font-size:0.95rem; }
-.person-modal-bio { margin-top:8px; }
+.person-mention {
+    color: var(--color-accent);
+    border-bottom: 1px solid var(--color-accent);
+    cursor: default;
+}
+.person-mention .person-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.person-mention:hover {
+    cursor: pointer;
+}
+.person-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.person-modal-photo {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.person-modal-years {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    display: block;
+    margin-top: 2px;
+}
+.person-modal-role {
+    color: var(--color-accent);
+    font-size: 0.95rem;
+}
+.person-modal-bio {
+    margin-top: 8px;
+}
+.person-modal-disclaimer {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-accent-2);
+}
 
 /* Make images in content look clickable */
 #content img,

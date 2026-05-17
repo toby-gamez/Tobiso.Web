@@ -123,47 +123,37 @@ namespace Tobiso.Web.App.Controllers
         public async Task<IActionResult> GetPerson([FromQuery] string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return BadRequest("Missing name");
-            var aiReq = new Tobiso.Web.Shared.DTOs.AiChatRequest
-            {
-                PostId = 0,
-                Question = $"Provide a short factual card for the person named '{name}'. Return JSON with keys: name, role, birthYear, deathYear, bio, externalLink, photoUrl."
-            };
+
+            var systemPrompt = _configuration["OpenAI:PersonSystemPrompt"]
+                ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object — no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";
+
+            var userPrompt = $"Return a JSON object for the person \"{name}\" with exactly these keys: " +
+                "name (string, full name), " +
+                "role (string, short description, e.g. \"Czech composer and pianist\"), " +
+                "birthYear (integer or null), " +
+                "deathYear (integer or null), " +
+                "bio (string, 2-3 factual sentences), " +
+                "externalLink (string, Wikipedia URL or empty string).";
 
             try
             {
-                var aiResp = await _aiService.AskAsync(aiReq, "person-gen");
-                var raw = aiResp?.Answer ?? string.Empty;
+                var raw = await _aiService.AskRawJsonAsync(systemPrompt, userPrompt);
 
-                // Try to extract the first JSON object in the AI response. Be tolerant of extra text.
-                string jsonToParse = string.Empty;
-                if (!string.IsNullOrWhiteSpace(raw))
+                if (string.IsNullOrWhiteSpace(raw))
                 {
-                    var start = raw.IndexOf('{');
-                    var end = raw.LastIndexOf('}');
-                    if (start >= 0 && end > start)
-                        jsonToParse = raw.Substring(start, end - start + 1);
-                    else
-                        jsonToParse = raw.Trim();
+                    Serilog.Log.Warning("Person generation returned empty response for {Name}", name);
+                    return StatusCode(502, new { message = "AI returned an empty response" });
                 }
 
                 JsonDocument doc;
                 try
                 {
-                    doc = string.IsNullOrEmpty(jsonToParse) ? JsonDocument.Parse("{}") : JsonDocument.Parse(jsonToParse);
+                    doc = JsonDocument.Parse(raw);
                 }
-                catch
+                catch (JsonException ex)
                 {
-                    // Fallback: try to find a JSON object via regex and parse it
-                    var m = System.Text.RegularExpressions.Regex.Match(raw, @"\{[\s\S]*\}");
-                    if (m.Success)
-                    {
-                        try { doc = JsonDocument.Parse(m.Value); }
-                        catch { doc = JsonDocument.Parse("{}"); }
-                    }
-                    else
-                    {
-                        doc = JsonDocument.Parse("{}");
-                    }
+                    Serilog.Log.Error(ex, "Person JSON parse failed for {Name}. Raw: {Raw}", name, raw);
+                    return StatusCode(502, new { message = "AI response was not valid JSON", raw });
                 }
 
                 var root = doc.RootElement;
@@ -181,22 +171,20 @@ namespace Tobiso.Web.App.Controllers
 
                 var resp = new Tobiso.Web.Shared.DTOs.PersonResponse
                 {
-                    Name = string.IsNullOrEmpty(GetProp("name")) ? name : GetProp("name"),
-                    Slug = GetProp("slug"),
-                    Bio = GetProp("bio"),
-                    Role = GetProp("role"),
-                    BirthYear = GetInt("birthYear"),
-                    DeathYear = GetInt("deathYear"),
+                    Name         = string.IsNullOrEmpty(GetProp("name")) ? name : GetProp("name"),
+                    Bio          = GetProp("bio"),
+                    Role         = GetProp("role"),
+                    BirthYear    = GetInt("birthYear"),
+                    DeathYear    = GetInt("deathYear"),
                     ExternalLink = GetProp("externalLink"),
-                    PhotoUrl = GetProp("photoUrl"),
-                    AiGenerated = true
+                    AiGenerated  = true
                 };
                 return Ok(resp);
             }
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Person generation failed for {Name}", name);
-                return StatusCode(502, new { message = "AI generation failed" });
+                return StatusCode(502, new { message = ex.Message });
             }
         }
     }
