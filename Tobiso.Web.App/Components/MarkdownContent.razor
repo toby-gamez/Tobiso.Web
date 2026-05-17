@@ -18,6 +18,7 @@
 @code {
     [Parameter] public string? Content { get; set; }
     [Parameter] public List<PostSummaryResponse>? AllPosts { get; set; }
+    [Parameter] public List<PersonSummaryResponse>? AllPeople { get; set; }
     /// <summary>ID of the container element that wraps this component's output – used by KaTeX to target math rendering.</summary>
     [Parameter] public string ContainerId { get; set; } = "content";
 
@@ -112,6 +113,9 @@
 
         // Convert simple fraction notation (1/2, 1/x, {n+1}/{n-1} …) to inline LaTeX math
         content = ReplaceFractionsInText(content);
+
+        // Replace known person mentions in markdown BEFORE HTML conversion
+        content = ReplacePeopleMentionsInText(content);
 
         // Replace -> with arrow icon BEFORE HTML conversion
         content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
@@ -392,6 +396,44 @@
         });
 
         return RestoreCodeRegions(replaced, regions);
+    }
+
+    private string ReplacePeopleMentionsInText(string input)
+    {
+        if (string.IsNullOrEmpty(input) || AllPeople == null || AllPeople.Count == 0) return input ?? string.Empty;
+
+        var (protectedText, regions) = ProtectCodeRegions(input);
+
+        // Build list of names and aliases, ordered by length desc to avoid partial matches
+        var nameMap = new List<(string name, int id)>();
+        foreach (var p in AllPeople)
+        {
+            var names = new List<string> { p.Name };
+            if (p.Aliases != null) names.AddRange(p.Aliases.Where(a => !string.IsNullOrWhiteSpace(a)));
+            foreach (var n in names.Where(x => !string.IsNullOrWhiteSpace(x)))
+            {
+                nameMap.Add((n.Trim(), p.Id));
+            }
+        }
+
+        nameMap = nameMap.OrderByDescending(x => x.name.Length).ToList();
+
+        var result = protectedText;
+
+        foreach (var (name, id) in nameMap)
+        {
+            try
+            {
+                // Whole-word match (Unicode aware)
+                var rx = new Regex($"(?<![\\w@#\\-])({Regex.Escape(name)})(?![\\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                // Use name-based opener: pass canonical name JSON-encoded to JS bridge
+                var escapedName = System.Text.Json.JsonSerializer.Serialize(name);
+                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<a onclick=\"window.openPersonByName({escapedName})\" class=\"person-link\" href=\"#\" aria-label=\"Open person card\"><i class=\"bi bi-person-circle\"></i></a></span>");
+            }
+            catch { }
+        }
+
+        return RestoreCodeRegions(result, regions);
     }
 
     private (string, Dictionary<string, string>) ProtectCodeRegions(string input)

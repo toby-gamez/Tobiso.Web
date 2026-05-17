@@ -58,6 +58,8 @@ services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
+    // Person modal service (persons are now AI-generated on demand)
+    services.AddScoped<PersonModalService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
@@ -66,6 +68,8 @@ services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.
 // AI chat services
 services.AddSingleton<Tobiso.Web.App.Services.IAiRateLimitService, Tobiso.Web.App.Services.AiRateLimitService>();
 services.AddScoped<Tobiso.Web.App.Services.IAiService, Tobiso.Web.App.Services.AiService>();
+// Also register shared IAiService so API services can receive it via DI when hosted in the App
+services.AddScoped<Tobiso.Web.Shared.Interfaces.IAiService, Tobiso.Web.App.Services.AiService>();
 services.AddHttpClient("OpenAI")
     .ConfigurePrimaryHttpMessageHandler(() =>
     {

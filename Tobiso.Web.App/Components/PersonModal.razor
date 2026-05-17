@@ -1,0 +1,102 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.App.Services
+@using Tobiso.Web.Shared.Interfaces
+@rendermode InteractiveServer
+@inject ITobisoAnonymApi Api
+
+@if (_isVisible)
+{
+    <div class="modal show d-block event-modal-overlay" tabindex="-1">
+        <div class="event-modal-content" role="dialog" aria-modal="true" aria-label="Person">
+            <div class="event-title-section">
+                <div class="title-and-color">
+                    <h5 class="modal-event-title">@(_person?.Name ?? "Osoba")</h5>
+                </div>
+                <button type="button" class="event-modal-close" @onclick="Close" aria-label="Zavřít">×</button>
+            </div>
+            <div class="modal-body event-modal-body">
+                @if (_isLoading)
+                {
+                    <p>Načítám...</p>
+                }
+                else if (_person != null)
+                {
+                    <div class="person-modal-header">
+                        @if (!string.IsNullOrEmpty(_person.PhotoUrl))
+                        {
+                            <img src="@_person.PhotoUrl" alt="@_person.Name" class="person-modal-photo" />
+                        }
+                        <div>
+                            <div class="person-modal-name">@_person.Name @if (_person.BirthYear.HasValue || _person.DeathYear.HasValue) { <span class="person-modal-years">(@_person.BirthYear?.ToString() ?? "?") - @_person.DeathYear?.ToString()</span> }</div>
+                            @if (!string.IsNullOrEmpty(_person.Role)) { <div class="person-modal-role">@_person.Role</div> }
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_person.Bio))
+                    {
+                        <div class="person-modal-bio">@((MarkupString)Markdig.Markdown.ToHtml(_person.Bio))</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_person.ExternalLink))
+                    {
+                        <div class="mt-2"><a class="btn btn-outline-primary" href="@_person.ExternalLink" target="_blank" rel="noopener noreferrer">Externí odkaz</a></div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-secondary">Informace nejsou k dispozici.</div>
+                }
+            </div>
+        </div>
+        <div class="modal-backdrop event-modal-backdrop"></div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public string? PersonName { get; set; }
+
+    private bool _isVisible;
+    private bool _isLoading;
+    private PersonResponse? _person;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible != _isVisible)
+        {
+            _isVisible = IsVisible;
+            if (_isVisible)
+            {
+                if (!string.IsNullOrEmpty(PersonName))
+                    await LoadPersonByName(PersonName);
+                else
+                    _person = null;
+            }
+        }
+    }
+
+    [Inject] private HttpClient Http { get; set; } = default!;
+
+    private async Task LoadPersonByName(string name)
+    {
+        _isLoading = true;
+        _person = null;
+        try
+        {
+            // Request AI-generated person card from App AI controller
+            var resp = await Http.GetAsync("/api/ai/person?name=" + Uri.EscapeDataString(name));
+            if (resp.IsSuccessStatusCode)
+            {
+                var pr = await resp.Content.ReadFromJsonAsync<PersonResponse>();
+                _person = pr;
+            }
+        }
+        catch { }
+        finally { _isLoading = false; }
+    }
+
+    private async Task Close()
+    {
+        _isVisible = false;
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+}

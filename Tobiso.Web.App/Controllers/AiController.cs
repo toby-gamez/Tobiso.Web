@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
 using Tobiso.Web.Shared.DTOs;
+using System.Text.Json;
 using Tobiso.Web.App.Services;
+using Tobiso.Web.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Tobiso.Web.App.Controllers
@@ -10,17 +12,19 @@ namespace Tobiso.Web.App.Controllers
     [Route("api/ai")]
     public class AiController : ControllerBase
     {
-        private readonly IAiService _aiService;
+        private readonly Tobiso.Web.Shared.Interfaces.IAiService _aiService;
         private readonly IAiRateLimitService _rateLimitService;
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly Tobiso.Web.Api.Services.IPostService _postService;
 
-        public AiController(IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
+            _postService = postService;
         }
 
         [HttpGet("diag")]
@@ -102,6 +106,98 @@ namespace Tobiso.Web.App.Controllers
             var resp = await _aiService.AskAsync(request, rateKey);
             resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, limit);
             return Ok(resp);
+        }
+
+        [HttpGet("detect-persons/{postId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DetectPersons(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            if (post == null) return NotFound();
+            var names = await _aiService.DetectPeopleInTextAsync(post.Content ?? string.Empty);
+            return Ok(names);
+        }
+
+        [HttpGet("person")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPerson([FromQuery] string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return BadRequest("Missing name");
+            var aiReq = new Tobiso.Web.Shared.DTOs.AiChatRequest
+            {
+                PostId = 0,
+                Question = $"Provide a short factual card for the person named '{name}'. Return JSON with keys: name, role, birthYear, deathYear, bio, externalLink, photoUrl."
+            };
+
+            try
+            {
+                var aiResp = await _aiService.AskAsync(aiReq, "person-gen");
+                var raw = aiResp?.Answer ?? string.Empty;
+
+                // Try to extract the first JSON object in the AI response. Be tolerant of extra text.
+                string jsonToParse = string.Empty;
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    var start = raw.IndexOf('{');
+                    var end = raw.LastIndexOf('}');
+                    if (start >= 0 && end > start)
+                        jsonToParse = raw.Substring(start, end - start + 1);
+                    else
+                        jsonToParse = raw.Trim();
+                }
+
+                JsonDocument doc;
+                try
+                {
+                    doc = string.IsNullOrEmpty(jsonToParse) ? JsonDocument.Parse("{}") : JsonDocument.Parse(jsonToParse);
+                }
+                catch
+                {
+                    // Fallback: try to find a JSON object via regex and parse it
+                    var m = System.Text.RegularExpressions.Regex.Match(raw, "\{[\s\S]*\}");
+                    if (m.Success)
+                    {
+                        try { doc = JsonDocument.Parse(m.Value); }
+                        catch { doc = JsonDocument.Parse("{}"); }
+                    }
+                    else
+                    {
+                        doc = JsonDocument.Parse("{}");
+                    }
+                }
+
+                var root = doc.RootElement;
+
+                string GetProp(string prop) => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() ?? string.Empty : string.Empty;
+                int? GetInt(string prop)
+                {
+                    if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null)
+                    {
+                        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)) return i;
+                        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var j)) return j;
+                    }
+                    return null;
+                }
+
+                var resp = new Tobiso.Web.Shared.DTOs.PersonResponse
+                {
+                    Name = string.IsNullOrEmpty(GetProp("name")) ? name : GetProp("name"),
+                    Slug = GetProp("slug"),
+                    Bio = GetProp("bio"),
+                    Role = GetProp("role"),
+                    BirthYear = GetInt("birthYear"),
+                    DeathYear = GetInt("deathYear"),
+                    ExternalLink = GetProp("externalLink"),
+                    PhotoUrl = GetProp("photoUrl"),
+                    AiGenerated = true
+                };
+                return Ok(resp);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Person generation failed for {Name}", name);
+                return StatusCode(502, new { message = "AI generation failed" });
+            }
         }
     }
 }

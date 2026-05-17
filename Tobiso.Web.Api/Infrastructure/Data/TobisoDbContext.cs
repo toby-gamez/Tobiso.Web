@@ -16,6 +16,9 @@ public class TobisoDbContext : DbContext
     public DbSet<Event> Events { get; set; }
     public DbSet<RelatedPost> RelatedPosts { get; set; }
     public DbSet<Addendum> Addendums { get; set; }
+    // Persons removed - AI-generated on demand. Keep code commented for easy rollback if needed.
+    // public DbSet<Person> Persons { get; set; }
+    // public DbSet<PostPersonMention> PostPersonMentions { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
     public DbSet<InteractiveExercise> InteractiveExercises { get; set; }
     public DbSet<InteractiveExercisePost> InteractiveExercisePosts { get; set; }

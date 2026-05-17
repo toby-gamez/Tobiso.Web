@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.Interfaces;
 
 namespace Tobiso.Web.App.Services
 {
-    public class AiService : IAiService
+    public class AiService : IAiService, Tobiso.Web.Shared.Interfaces.IAiService
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
@@ -114,6 +115,109 @@ namespace Tobiso.Web.App.Services
             var remaining = _rateLimitService.GetRemaining(clientKey, limit);
 
             return new AiChatResponse { Answer = contentText.Trim(), RemainingQuestions = remaining };
+        }
+
+        public async Task<List<string>> DetectPeopleInTextAsync(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return new List<string>();
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            var systemPrompt = _configuration["OpenAI:SystemPrompt"] ?? "You are an assistant that extracts lists of real people mentioned in a text. Return only a JSON array of distinct person names, no extras.";
+
+            var trimmed = PrepareArticleContext(content);
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Extract all real person full names mentioned in the following text. Return a JSON array of names only.\n\nText:\n{trimmed}" }
+            };
+
+            var payload = new
+            {
+                model = model,
+                messages = messages,
+                max_tokens = 400
+            };
+
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI detection request failed");
+                return new List<string>();
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
+                string contentText = string.Empty;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                {
+                    var first = choices[0];
+                    if (first.TryGetProperty("message", out var messageEl) && messageEl.TryGetProperty("content", out var contentEl))
+                        contentText = contentEl.GetString() ?? string.Empty;
+                }
+
+                // Try to parse any JSON array found inside the returned text
+                var names = new List<string>();
+                // Find first '[' and ']' and attempt to parse
+                var start = contentText.IndexOf('[');
+                var end = contentText.LastIndexOf(']');
+                if (start >= 0 && end > start)
+                {
+                    var arr = contentText.Substring(start, end - start + 1);
+                    try
+                    {
+                        var parsed = JsonSerializer.Deserialize<List<string>>(arr);
+                        if (parsed != null)
+                        {
+                            names.AddRange(parsed.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()));
+                        }
+                    }
+                    catch { }
+                }
+
+                // Fallback: if no JSON found, try newline-split heuristics
+                if (names.Count == 0)
+                {
+                    var lines = contentText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(l => l.Trim()).Where(l => l.Length > 2).ToList();
+                    foreach (var l in lines)
+                    {
+                        // simple heuristic: skip sentences; take short lines
+                        if (l.Length < 120 && l.Count(c => char.IsWhiteSpace(c)) >= 1)
+                            names.Add(l);
+                    }
+                }
+
+                // Deduplicate while preserving order
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var result = new List<string>();
+                foreach (var n in names)
+                {
+                    if (string.IsNullOrWhiteSpace(n)) continue;
+                    var clean = System.Text.RegularExpressions.Regex.Replace(n, @"[""']", "").Trim();
+                    if (!seen.Contains(clean)) { seen.Add(clean); result.Add(clean); }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse OpenAI detection response");
+                return new List<string>();
+            }
         }
     }
 }

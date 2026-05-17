@@ -123,7 +123,7 @@ body.focus-mode section {
 else
 {
     <h1 class="verybig">@_post.Title</h1>
-    
+
     @if (_breadcrumbCategories != null && _breadcrumbCategories.Any())
     {
         <nav class="breadcrumb-nav" aria-label="Breadcrumb">
@@ -135,7 +135,7 @@ else
             <span class="current">@_post.Title</span>
         </nav>
     }
-    
+
     <div class="tools">
         <div class="tool">
             @if (GetLatestEditDate() != null)
@@ -199,7 +199,14 @@ else
         <div id="content" class="content" style="@GetContentStyle()">
             @if (_fileSuffix == ".md")
             {
-                <MarkdownContent Content="@_post.Content" AllPosts="@_allPosts" ContainerId="content" />
+                <MarkdownContent Content="@_post.Content" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
+                @if (!_aiAvailable)
+                {
+                    <div class="alert alert-warning mt-3">
+                        AI detection is currently unavailable locally. Post will use existing person summaries. <br />
+                        @if (!string.IsNullOrEmpty(_aiDiagError)) { <small>@_aiDiagError</small> }
+                    </div>
+                }
             }
             else
             {
@@ -265,7 +272,7 @@ else
             </div>
         </div>
     }
-    
+
     @* Interaktivní cvičení *@
     @if (_exercises != null && _exercises.Any())
     {
@@ -274,7 +281,7 @@ else
             <h2>
                 <i class="bi bi-puzzle"></i> Interaktivní cvičení
             </h2>
-            
+
             @foreach (var exercise in _exercises)
             {
                 <div class="card mb-4 shadow-sm">
@@ -290,7 +297,7 @@ else
                                 @((MarkupString)Markdig.Markdown.ToHtml(exercise.InstructionsMarkdown))
                             </div>
                         }
-                        
+
                         <div class="exercise-content bg-light p-4 rounded">
                             @switch (exercise.Type)
                             {
@@ -309,7 +316,7 @@ else
                                 case "molecule":
                                 default:
                                     <div class="alert alert-warning">
-                                        <i class="bi bi-tools"></i> 
+                                        <i class="bi bi-tools"></i>
                                         <strong>Vývoj probíhá:</strong> Interaktivní komponenta pro typ "@exercise.Type" bude brzy dostupná.
                                     </div>
                                     break;
@@ -321,7 +328,7 @@ else
         </div>
         </section>
     }
-    
+
     <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
 
     <AiChatBox PostId="@Id" ShowEmptyPrompt="false" PostTitle="@(_post?.Title ?? string.Empty)" />
@@ -341,7 +348,7 @@ else
                     {
                         <a href="/post/@relatedPost.RelatedPostId">
                         <div class="related-posts-div">
-                        
+
                             <h5 >
                                 @relatedPostData.Title
                             </h5>
@@ -361,6 +368,7 @@ else
 }
 
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
+<PersonModal IsVisible="@_showPersonModal" IsVisibleChanged="@OnPersonModalClose" PersonName="@_personNameForModal" />
 
 @using Tobiso.Web.App.Components.Shared
 @code {
@@ -368,6 +376,7 @@ else
     public int Id { get; set; }
     private PostResponse? _post;
     private List<PostSummaryResponse>? _allPosts;
+    private List<PersonSummaryResponse>? _allPeople;
     private List<RelatedPostResponse>? _relatedPosts;
     private List<CategoryResponse>? _breadcrumbCategories;
     private string? _returnUrl;
@@ -390,11 +399,47 @@ else
     private readonly string FontMono = "'Courier New', Courier, monospace";
     private List<InteractiveExerciseResponse>? _exercises;
     private IJSObjectReference? _jsModule;
+    private bool _aiAvailable = true;
+    private string? _aiDiagError = null;
 
     protected override async Task OnInitializedAsync()
     {
         _post = await Api.GetPostById(Id);
         _allPosts = (await Api.GetPostSummaries()).ToList();
+
+        // Check AI availability (runs against App's /api/ai/diag endpoint)
+            try
+            {
+                var diag = await Http.GetAsync("/api/ai/diag");
+                if (diag.IsSuccessStatusCode)
+                {
+                    _aiAvailable = true;
+                    _aiDiagError = null;
+                    try
+                    {
+                        var names = await Http.GetFromJsonAsync<List<string>>($"/api/ai/detect-persons/{Id}");
+                        _allPeople = (names ?? new List<string>()).Select(n => new PersonSummaryResponse { Id = 0, Name = n, Slug = null, Aliases = null }).ToList();
+                    }
+                    catch
+                    {
+                        _allPeople = new List<PersonSummaryResponse>();
+                    }
+                }
+                else
+                {
+                    _aiAvailable = false;
+                    var body = await diag.Content.ReadAsStringAsync();
+                    _aiDiagError = body;
+                    // Fallback to empty list if AI detection isn't available
+                    _allPeople = new List<PersonSummaryResponse>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _aiAvailable = false;
+                _aiDiagError = ex.Message;
+                _allPeople = new List<PersonSummaryResponse>();
+            }
         await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
@@ -424,6 +469,12 @@ else
             await Js.InvokeVoidAsync("eval", @"
                 window.requestAddendum = function(addendumId) {
                     DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerAddendum', addendumId);
+                };
+                window.openPersonCard = function(personId) {
+                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPerson', personId);
+                };
+                window.openPersonByName = function(name){
+                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
                 };
                 // Initialize instance bridge and fullscreen listener
                 window.__initPostDetail = function(dotnet){
@@ -481,18 +532,52 @@ else
     {
         AddendumModalService.TriggerGlobalRequest(addendumId);
     }
-    
+
+    [JSInvokable("TriggerPerson")]
+    public static void TriggerPerson(int personId)
+    {
+        // Preserve backwards compatibility: numbers are not used anymore; convert to string
+        PersonModalService.TriggerGlobalRequest(personId.ToString());
+    }
+
+    [JSInvokable("TriggerPersonByName")]
+    public static void TriggerPersonByName(string name)
+    {
+        PersonModalService.TriggerGlobalRequest(name);
+    }
+
     protected override void OnInitialized()
     {
         AddendumModalService.OnGlobalAddendumRequested += HandleAddendumRequest;
         ModalService.OnAddendumRequested += HandleAddendumRequest;
+        // PersonModalService now uses names (string) for AI-generated persons
+        PersonModalService.OnGlobalPersonRequested += HandlePersonRequestByName;
+        ModalService.OnAddendumRequested += HandleAddendumRequest;
     }
-    
+
+    private bool _showPersonModal = false;
+    private void OnPersonModalClose(bool isVisible)
+    {
+        _showPersonModal = isVisible;
+        if (!isVisible) _personNameForModal = null;
+    }
+
     private void HandleAddendumRequest(int addendumId)
     {
         OpenAddendumModal(addendumId);
         InvokeAsync(StateHasChanged);
     }
+
+    private void HandlePersonRequestByName(string name)
+    {
+        // When person name requested, open modal and use PersonName parameter
+        _showPersonModal = true;
+        // Pass name to modal via PersonModalService? Simpler: store in a field and bind
+        _personNameForModal = name;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string? _personNameForModal = null;
 
     public void Dispose()
     {
@@ -646,7 +731,7 @@ else
             if (_post?.Id != null)
             {
                 _relatedPosts = (await Api.GetRelatedPostsByPostId(_post.Id)).ToList();
-                
+
                 // Přidat články ze stejné kategorie
                 if (_post.CategoryId.HasValue && _allPosts != null)
                 {
@@ -660,11 +745,11 @@ else
                             Text = "souvisí s tématem"
                         })
                         .ToList();
-                    
+
                     // Vyfiltrovat články, které už jsou v _relatedPosts
                     var existingIds = _relatedPosts.Select(rp => rp.RelatedPostId).ToHashSet();
                     var newCategoryPosts = categoryPosts.Where(cp => !existingIds.Contains(cp.RelatedPostId)).ToList();
-                    
+
                     _relatedPosts.AddRange(newCategoryPosts);
                 }
             }
@@ -709,12 +794,12 @@ else
     private async Task SharePost()
     {
         if (_post == null) return;
-        
+
         var url = $"https://www.tobiso.com/post/{_post.Id}";
         await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
         _isShared = true;
         StateHasChanged();
-        
+
         await Task.Delay(1000);
         _isShared = false;
         StateHasChanged();

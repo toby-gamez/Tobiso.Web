@@ -10,8 +10,7 @@
 
     protected override void OnInitialized()
     {
-        // When component initializes, trigger the modal service request
-        // This happens when the HTML button (from TransformMarkdownContent) is clicked
-        // and the event propagates here
+        // No-op: the clickable element in the rendered HTML triggers a JS function
+        // that calls into the static bridge on PostDetail which fires the modal service.
     }
 }

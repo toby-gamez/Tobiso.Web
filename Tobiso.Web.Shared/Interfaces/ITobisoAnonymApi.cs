@@ -45,4 +45,14 @@ public interface ITobisoAnonymApi
     
     [Get("/api/RelatedPosts/by-post/{postId}")]
     Task<List<RelatedPostResponse>> GetRelatedPostsByPostId(int postId);
+
+    //[Get("/api/Persons/summaries")]
+    //Task<List<PersonSummaryResponse>> GetPersonSummaries();
+
+    // Detection is now AI-only; remove endpoint to avoid DB-backed persons
+    //[Get("/api/Persons/by-post/{postId}")]
+    //Task<List<PersonSummaryResponse>> GetPersonsByPostId(int postId);
+
+    //[Get("/api/Persons/{id}")]
+    //Task<PersonResponse> GetPersonById(int id);
 }
