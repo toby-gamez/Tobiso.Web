@@ -36,8 +36,8 @@
         <label for="content" class="form-label">Obsah</label>
         <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
         <div class="mt-2">
-            <button class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
-            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            <button type="button" class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
         </div>
         <GrammarCheckPanel Issues="grammarIssues" />
     </div>

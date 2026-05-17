@@ -88,6 +88,48 @@ namespace Tobiso.Web.Api.Services
             // Remove (--DOD-x--) patterns where x is any integer
             html = System.Text.RegularExpressions.Regex.Replace(html, @"\(--DOD-\d+--\)", "");
 
+            // Try headless Chrome (Puppeteer) renderer if available for exact KaTeX output
+            try
+            {
+                var script = Path.Combine(AppContext.BaseDirectory, "../../../../tools/html-to-pdf/render_pdf.js");
+                if (File.Exists(script))
+                {
+                    var tmpHtml = Path.Combine(Path.GetTempPath(), $"tobiso_pdf_{Guid.NewGuid()}.html");
+                    var tmpPdf = Path.Combine(Path.GetTempPath(), $"tobiso_pdf_{Guid.NewGuid()}.pdf");
+                    File.WriteAllText(tmpHtml, html);
+                    var psi = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "node",
+                        Arguments = $"\"{script}\" \"{tmpHtml}\" \"{tmpPdf}\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    using var proc = System.Diagnostics.Process.Start(psi);
+                    if (proc != null)
+                    {
+                        var stderr = proc.StandardError.ReadToEndAsync();
+                        proc.WaitForExit(30000);
+                        if (proc.ExitCode == 0 && File.Exists(tmpPdf))
+                        {
+                            var bytes = File.ReadAllBytes(tmpPdf);
+                            try { File.Delete(tmpPdf); } catch { }
+                            try { File.Delete(tmpHtml); } catch { }
+                            return bytes;
+                        }
+                        else
+                        {
+                            Console.WriteLine("[PdfService] Puppeteer renderer failed: " + stderr.Result);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[PdfService] Puppeteer render error: " + ex.Message);
+            }
+
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -344,6 +386,7 @@ namespace Tobiso.Web.Api.Services
         {
             // Zkontroluj, jestli node obsahuje img tagy
             var imgNodes = node.SelectNodes(".//img");
+            var mathNodes = node.SelectNodes(".//span[@data-math]");
             if (imgNodes != null && imgNodes.Any())
             {
                 // Pokud obsahuje obrázky, renderuj je postupně
@@ -375,6 +418,38 @@ namespace Tobiso.Web.Api.Services
                                 }
                                 catch { }
                             }
+                        }
+                        else if (child.NodeType == HtmlNodeType.Text || (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() != "img"))
+                        {
+                            col.Item().Text(txt => ProcessNodeContent(txt, node, skipImages: true));
+                        }
+                    }
+                });
+            }
+            else if (mathNodes != null && mathNodes.Any())
+            {
+                // Render math spans and surrounding text as column items; embed rendered PNGs for KaTeX visuals
+                container.Column(col =>
+                {
+                    col.Spacing(2);
+                    foreach (var child in node.ChildNodes)
+                    {
+                        if (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() == "span" && child.GetAttributeValue("data-math", null) != null)
+                        {
+                            var dataMath = HtmlEntity.DeEntitize(child.GetAttributeValue("data-math", ""));
+                            try
+                            {
+                                var png = RenderMathToPng(dataMath);
+                                if (png != null && png.Length > 0)
+                                {
+                                    col.Item().MaxHeight(24).Image(png).FitArea();
+                                    continue;
+                                }
+                            }
+                            catch { }
+
+                            // fallback textual
+                            col.Item().Text(text => text.Span("[" + dataMath + "]"));
                         }
                         else if (child.NodeType == HtmlNodeType.Text || (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() != "img"))
                         {
@@ -634,7 +709,7 @@ namespace Tobiso.Web.Api.Services
                 var psi = new System.Diagnostics.ProcessStartInfo()
                 {
                     FileName = "node",
-                    Arguments = '"' + script + '" ' + '"' + latex.Replace("\"","\\\"") + '"',
+                    Arguments = $"\"{script}\" \"{latex.Replace("\"","\\\"")}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
