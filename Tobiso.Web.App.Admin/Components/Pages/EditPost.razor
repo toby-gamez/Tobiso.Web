@@ -39,6 +39,16 @@ else
             <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
         </div>
         <div class="mb-3">
+            <label for="grade" class="form-label">Ročník (verze)</label>
+            <InputSelect id="grade" class="form-select" TValue="int?" @bind-Value="post.GradeId" @onchange="OnGradeChanged">
+                <option value="">-- vyberte ročník --</option>
+                @foreach (var g in grades)
+                {
+                    <option value="@g.Id">@g.Name</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
             <label for="content" class="form-label">Obsah</label>
             <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
             <div class="mt-2">
@@ -66,6 +76,7 @@ else
 
     private PostResponse? post;
     private List<CategoryResponse> categories = new();
+    private List<GradeResponse> grades = new();
     private string? errorMessage;
     private bool _isFixSelected = false;
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
@@ -84,17 +95,29 @@ else
 
         try
         {
-            post = await Api.GetPostById(Id);
             categories = (await Api.GetAllCategories()).ToList();
+            grades = (await Api.GetGrades()).ToList();
+            // load default version (no grade specified) - admin can choose grade to edit
+            post = await Api.GetPostById(Id);
             if (post != null)
             {
                 // default checkbox state: true if LastFix is newer than LastEdit
                 _isFixSelected = post.LastFix.HasValue && (post.LastEdit == null || post.LastFix > post.LastEdit);
             }
         }
+        catch (Refit.ApiException rex) when (rex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Friendly message when post not found
+            errorMessage = $"Post with ID {Id} was not found (404). It may have been deleted or missing PostVersion entries after migration.";
+            // leave post as null so form is not shown
+            categories = new List<CategoryResponse>();
+            grades = new List<GradeResponse>();
+            Console.WriteLine($"Post {Id} not found when loading for edit: {rex.Message}");
+        }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+            Console.WriteLine($"Error initializing EditPost for {Id}: {ex.Message}");
         }
     }
 
@@ -157,6 +180,31 @@ else
             }
             await Api.UpdatePost(post.Id, post);
             Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task OnGradeChanged(ChangeEventArgs args)
+    {
+        if (post == null) return;
+        if (args?.Value == null) return;
+        if (!int.TryParse(args.Value.ToString(), out var gradeId)) return;
+        try
+        {
+            // reload version content for selected grade
+            var version = await Api.GetPostById(Id, gradeId);
+            if (version != null)
+            {
+                post.Content = version.Content;
+                post.GradeId = version.GradeId;
+                // preserve metadata fields
+                post.Title = version.Title;
+                post.FilePath = version.FilePath;
+                post.CategoryId = version.CategoryId;
+            }
         }
         catch (Exception ex)
         {

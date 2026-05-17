@@ -4,13 +4,10 @@ public class Post
 {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
-    // Renamed: UpdatedAt -> LastFix
-    public DateTime? LastFix { get; set; }
-    // New: last edit timestamp (content edit)
-    public DateTime? LastEdit { get; set; }
+    // Content moved to PostVersion to allow multiple versions (per grade)
+    public ICollection<PostVersion> Versions { get; set; } = new List<PostVersion>();
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
     public ICollection<Question> Questions { get; set; } = new List<Question>();

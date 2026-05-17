@@ -2,19 +2,21 @@
 using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
+using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.Api.Services;
 
-public interface IPostService
-{
-    Task<List<PostResponse>> GetAll();
-    Task<List<PostSummaryResponse>> GetSummaries();
-    Task<List<PostLinkResponse>> GetLinks();
-    Task<PostResponse?> GetById(int id);
-    Task<bool> Update(PostResponse post);
-    Task<bool> Delete(int id);
-    Task<PostResponse?> Create(PostResponse post);
-};
+    public interface IPostService
+    {
+        // optional gradeId: prefer this grade or lower; when null return all posts latest version (highest level)
+        Task<List<PostResponse>> GetAll(int? gradeId = null);
+        Task<List<PostSummaryResponse>> GetSummaries();
+        Task<List<PostLinkResponse>> GetLinks();
+    	Task<PostResponse?> GetById(int id, int? gradeId = null);
+        Task<bool> Update(PostResponse post);
+        Task<bool> Delete(int id);
+        Task<PostResponse?> Create(PostResponse post);
+    };
 public class PostService : IPostService
 {
     private readonly TobisoDbContext _context;
@@ -26,20 +28,97 @@ public class PostService : IPostService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<List<PostResponse>> GetAll()
+    public async Task<List<PostResponse>> GetAll(int? gradeId = null)
     {
         try
         {
-            var posts = await _context.Posts.ToListAsync();
-            return posts.Select(p => new PostResponse
+            // If gradeId is provided, compute best-match PostVersion per Post.
+            if (gradeId.HasValue)
             {
-                Id = p.Id,
-                Title = p.Title,
-                Content = p.Content,
-                FilePath = p.FilePath,
-                LastFix = p.LastFix,
-                LastEdit = p.LastEdit,
-                CategoryId = p.CategoryId
+                // resolve level
+                var preferredGrade = await _context.Grades.FirstOrDefaultAsync(g => g.Id == gradeId.Value);
+                if (preferredGrade == null) return new List<PostResponse>();
+
+                var preferredLevel = preferredGrade.Level;
+
+                // For each post, pick the version with Grade.Level <= preferredLevel, highest Level.
+                var posts = await _context.Posts
+                    .Include(p => p.Versions)!
+                        .ThenInclude(v => v.Grade)
+                    .ToListAsync();
+
+                var result = new List<PostResponse>();
+                foreach (var p in posts)
+                {
+                    var candidate = p.Versions
+                        .Where(v => v.Grade != null && v.Grade.Level <= preferredLevel)
+                        .OrderByDescending(v => v.Grade!.Level)
+                        .FirstOrDefault();
+
+                    // fallback: if no suitable version, pick highest-level version available
+                    if (candidate == null)
+                        candidate = p.Versions
+                            .OrderByDescending(v => v.Grade?.Level ?? int.MinValue)
+                            .FirstOrDefault();
+
+                    if (candidate == null)
+                    {
+                        // no versions at all -> skip
+                        continue;
+                    }
+
+                    result.Add(new PostResponse
+                    {
+                        Id = p.Id,
+                        Title = p.Title,
+                        Content = candidate.Content,
+                        FilePath = p.FilePath,
+                        LastFix = candidate.LastFix,
+                        LastEdit = candidate.LastEdit,
+                        CategoryId = p.CategoryId,
+                        GradeId = candidate.GradeId
+                    });
+                }
+
+                return result;
+            }
+
+            // no grade filter: return latest version per post (highest grade level)
+            var allPosts = await _context.Posts
+                .Include(p => p.Versions)!
+                    .ThenInclude(v => v.Grade)
+                .ToListAsync();
+
+            return allPosts.Select(p =>
+            {
+                var candidate = p.Versions
+                    .OrderByDescending(v => v.Grade?.Level ?? int.MinValue)
+                    .FirstOrDefault();
+                if (candidate != null)
+                {
+                    return new PostResponse
+                    {
+                        Id = p.Id,
+                        Title = p.Title,
+                        Content = candidate.Content,
+                        FilePath = p.FilePath,
+                        LastFix = candidate.LastFix,
+                        LastEdit = candidate.LastEdit,
+                        CategoryId = p.CategoryId,
+                        GradeId = candidate.GradeId
+                    };
+                }
+                // fallback to empty content
+                return new PostResponse
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Content = string.Empty,
+                    FilePath = p.FilePath,
+                    LastFix = null,
+                    LastEdit = null,
+                    CategoryId = p.CategoryId
+                };
             }).ToList();
         }
         catch (Exception ex)
@@ -64,49 +143,126 @@ public class PostService : IPostService
 
     public async Task<List<PostSummaryResponse>> GetSummaries()
     {
-        return await _context.Posts
-            .Select(p => new PostSummaryResponse
-            {
-                Id = p.Id,
-                Title = p.Title,
-                CategoryId = p.CategoryId,
-                FilePath = p.FilePath,
-                LastFix = p.LastFix,
-                LastEdit = p.LastEdit
-            })
+        // Return summaries based on latest/highest-level version per post
+        var posts = await _context.Posts
+            .Include(p => p.Versions)!
+                .ThenInclude(v => v.Grade)
             .ToListAsync();
+
+        return posts.Select(p =>
+        {
+            var candidate = p.Versions.OrderByDescending(v => v.Grade?.Level ?? int.MinValue).FirstOrDefault();
+            if (candidate != null)
+            {
+                return new PostSummaryResponse
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    CategoryId = p.CategoryId,
+                    FilePath = p.FilePath,
+                    LastFix = candidate.LastFix,
+                    LastEdit = candidate.LastEdit
+                };
+            }
+            return new PostSummaryResponse { Id = p.Id, Title = p.Title, CategoryId = p.CategoryId, FilePath = p.FilePath };
+        }).ToList();
     }
 
-    public async Task<PostResponse?> GetById(int id)
+    public async Task<PostResponse?> GetById(int id, int? gradeId = null)
     {
-        var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == id);
+        var post = await _context.Posts
+            .Include(p => p.Versions)!
+                .ThenInclude(v => v.Grade)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (post == null) return null;
+
+        PostVersion? candidate = null;
+        if (gradeId.HasValue)
+        {
+            var preferred = await _context.Grades.FirstOrDefaultAsync(g => g.Id == gradeId.Value);
+            if (preferred != null)
+            {
+                candidate = post.Versions
+                    .Where(v => v.Grade != null && v.Grade.Level <= preferred.Level)
+                    .OrderByDescending(v => v.Grade!.Level)
+                    .FirstOrDefault();
+            }
+        }
+
+        candidate ??= post.Versions.OrderByDescending(v => v.Grade?.Level ?? int.MinValue).FirstOrDefault();
+
+        if (candidate == null)
+        {
+            // fallback: no versions
+            return new PostResponse
+            {
+                Id = post.Id,
+                Title = post.Title,
+                Content = string.Empty,
+                FilePath = post.FilePath,
+                LastFix = null,
+                LastEdit = null,
+                CategoryId = post.CategoryId
+            };
+        }
+
         return new PostResponse
         {
             Id = post.Id,
             Title = post.Title,
-            Content = post.Content,
+            Content = candidate.Content,
             FilePath = post.FilePath,
-            LastFix = post.LastFix,
-            LastEdit = post.LastEdit,
-            CategoryId = post.CategoryId
+            LastFix = candidate.LastFix,
+            LastEdit = candidate.LastEdit,
+            CategoryId = post.CategoryId,
+            GradeId = candidate.GradeId
         };
     }
 
     public async Task<bool> Update(PostResponse post)
     {
+        // Updating a post's metadata (title, filepath, category) remains on Post entity.
         var entity = await _context.Posts.FindAsync(post.Id);
         if (entity == null) return false;
 
         entity.Title = post.Title;
-        entity.Content = post.Content;
         entity.FilePath = post.FilePath;
-        // Update LastFix / LastEdit only if provided in DTO. This allows caller (admin) to decide which timestamp to bump.
-        if (post.LastFix.HasValue)
-            entity.LastFix = post.LastFix;
-        if (post.LastEdit.HasValue)
-            entity.LastEdit = post.LastEdit;
         entity.CategoryId = post.CategoryId;
+
+        // If GradeId is provided, update/create the corresponding PostVersion
+        if (post.GradeId.HasValue)
+        {
+            var version = await _context.PostVersions.FirstOrDefaultAsync(v => v.PostId == post.Id && v.GradeId == post.GradeId.Value);
+            if (version == null)
+            {
+                version = new PostVersion
+                {
+                    PostId = post.Id,
+                    GradeId = post.GradeId,
+                    Content = post.Content,
+                    LastFix = post.LastFix,
+                    LastEdit = post.LastEdit
+                };
+                _context.PostVersions.Add(version);
+            }
+            else
+            {
+                version.Content = post.Content;
+                if (post.LastFix.HasValue) version.LastFix = post.LastFix;
+                if (post.LastEdit.HasValue) version.LastEdit = post.LastEdit;
+            }
+        }
+        else
+        {
+            // No GradeId: update the highest-level version if exists, else do nothing to content
+            var highest = await _context.PostVersions.Where(v => v.PostId == post.Id).OrderByDescending(v => v.Grade!.Level).FirstOrDefaultAsync();
+            if (highest != null)
+            {
+                highest.Content = post.Content;
+                if (post.LastFix.HasValue) highest.LastFix = post.LastFix;
+                if (post.LastEdit.HasValue) highest.LastEdit = post.LastEdit;
+            }
+        }
 
         await _context.SaveChangesAsync();
         return true;
@@ -149,26 +305,36 @@ public class PostService : IPostService
         var entity = new Tobiso.Web.Domain.Entities.Post
         {
             Title = post.Title,
-            Content = post.Content,
             FilePath = post.FilePath,
-            LastFix = post.LastFix ?? post.LastEdit ?? DateTime.UtcNow,
-            LastEdit = post.LastEdit,
             CategoryId = post.CategoryId
         };
         _context.Posts.Add(entity);
         await _context.SaveChangesAsync();
-        // načtení včetně kategorie
+
+        // create version
+        var version = new PostVersion
+        {
+            PostId = entity.Id,
+            GradeId = post.GradeId,
+            Content = post.Content,
+            LastFix = post.LastFix ?? post.LastEdit ?? DateTime.UtcNow,
+            LastEdit = post.LastEdit
+        };
+        _context.PostVersions.Add(version);
+        await _context.SaveChangesAsync();
+
         var created = await _context.Posts.FirstOrDefaultAsync(p => p.Id == entity.Id);
         if (created == null) return null;
         return new PostResponse
         {
             Id = created.Id,
             Title = created.Title,
-            Content = created.Content,
+            Content = version.Content,
             FilePath = created.FilePath,
-            LastFix = created.LastFix,
-            LastEdit = created.LastEdit,
-            CategoryId = created.CategoryId
+            LastFix = version.LastFix,
+            LastEdit = version.LastEdit,
+            CategoryId = created.CategoryId,
+            GradeId = version.GradeId
         };
     }
 }

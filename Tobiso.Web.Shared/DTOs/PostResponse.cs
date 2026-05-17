@@ -12,4 +12,6 @@ public class PostResponse
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
     public int? CategoryId { get; set; }
+    // Provided when returning a matched version
+    public int? GradeId { get; set; }
 }

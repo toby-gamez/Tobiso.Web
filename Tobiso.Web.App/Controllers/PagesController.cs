@@ -20,7 +20,11 @@ public class PagesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetPosts()
     {
-        return Ok(await _postService.GetAll());
+        // optional gradeId query parameter
+        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
+        int? gradeId = null;
+        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
+        return Ok(await _postService.GetAll(gradeId));
     }
 
     [HttpGet("summaries")]
@@ -32,7 +36,10 @@ public class PagesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPost(int id)
     {
-        var post = await _postService.GetById(id);
+        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
+        int? gradeId = null;
+        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
+        var post = await _postService.GetById(id, gradeId);
         if (post == null)
             return NotFound();
         return Ok(post);

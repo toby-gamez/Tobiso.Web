@@ -2,6 +2,7 @@
 @using Tobiso.Web.Shared.Interfaces
 @inject Microsoft.JSInterop.IJSRuntime Js
 @inject ITobisoAnonymApi Api
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @inject NavigationManager Navigation
 
 <div class="right-sidebar-container">
@@ -204,7 +205,8 @@
         {
             loading = true;
             var cats = await Api.GetAllCategories();
-            var posts = (await Api.GetPostSummaries()).ToList();
+            var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
+            var posts = (await Api.GetPostSummaries(preferredGrade)).ToList();
 
             var lookup = cats.ToLookup(c => c.ParentId);
 

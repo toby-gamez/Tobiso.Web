@@ -8,4 +8,5 @@ public class PostSummaryResponse
     public string FilePath { get; set; } = string.Empty;
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
+    public int? GradeId { get; set; }
 }

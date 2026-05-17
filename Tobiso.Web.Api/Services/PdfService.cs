@@ -76,6 +76,18 @@ namespace Tobiso.Web.Api.Services
                 // If reflection fails, let QuestPDF throw its own informative exception at generation time.
             }
 
+            // Enable QuestPDF debugging output to get detailed layout diagnostics
+            try
+            {
+                // Prefer direct call; if property name changes across versions, ignore failures
+                QuestPDF.Settings.EnableDebugging = true;
+                Console.WriteLine("[PdfService] QuestPDF debugging enabled");
+            }
+            catch
+            {
+                // Ignore if not available
+            }
+
         }
 
         public byte[] GeneratePdf(PdfRequestDto request)
@@ -88,47 +100,9 @@ namespace Tobiso.Web.Api.Services
             // Remove (--DOD-x--) patterns where x is any integer
             html = System.Text.RegularExpressions.Regex.Replace(html, @"\(--DOD-\d+--\)", "");
 
-            // Try headless Chrome (Puppeteer) renderer if available for exact KaTeX output
-            try
-            {
-                var script = Path.Combine(AppContext.BaseDirectory, "../../../../tools/html-to-pdf/render_pdf.js");
-                if (File.Exists(script))
-                {
-                    var tmpHtml = Path.Combine(Path.GetTempPath(), $"tobiso_pdf_{Guid.NewGuid()}.html");
-                    var tmpPdf = Path.Combine(Path.GetTempPath(), $"tobiso_pdf_{Guid.NewGuid()}.pdf");
-                    File.WriteAllText(tmpHtml, html);
-                    var psi = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "node",
-                        Arguments = $"\"{script}\" \"{tmpHtml}\" \"{tmpPdf}\"",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    using var proc = System.Diagnostics.Process.Start(psi);
-                    if (proc != null)
-                    {
-                        var stderr = proc.StandardError.ReadToEndAsync();
-                        proc.WaitForExit(30000);
-                        if (proc.ExitCode == 0 && File.Exists(tmpPdf))
-                        {
-                            var bytes = File.ReadAllBytes(tmpPdf);
-                            try { File.Delete(tmpPdf); } catch { }
-                            try { File.Delete(tmpHtml); } catch { }
-                            return bytes;
-                        }
-                        else
-                        {
-                            Console.WriteLine("[PdfService] Puppeteer renderer failed: " + stderr.Result);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[PdfService] Puppeteer render error: " + ex.Message);
-            }
+            // Using QuestPDF pipeline only (Plan B): remove Puppeteer/Node path and render
+            // textual math fallbacks directly. This keeps PDF generation deterministic
+            // and free of external runtime dependencies.
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -345,9 +319,17 @@ namespace Tobiso.Web.Api.Services
                                 row.AutoItem().Width(indent).Text("");
                             }
                             row.AutoItem().Text(prefix).FontSize(11);
-                            row.RelativeItem().PaddingLeft(5).Text(txt =>
+                            row.RelativeItem().PaddingLeft(5).Element(c =>
                             {
-                                ProcessNodeContent(txt, item);
+                                if (ContainsMathFraction(item))
+                                {
+                                    var segments = ExtractSegments(item);
+                                    RenderMixedContent(c, segments, 11f);
+                                }
+                                else
+                                {
+                                    c.Text(txt => ProcessNodeContent(txt, item));
+                                }
                             });
                         });
                 }
@@ -386,7 +368,6 @@ namespace Tobiso.Web.Api.Services
         {
             // Zkontroluj, jestli node obsahuje img tagy
             var imgNodes = node.SelectNodes(".//img");
-            var mathNodes = node.SelectNodes(".//span[@data-math]");
             if (imgNodes != null && imgNodes.Any())
             {
                 // Pokud obsahuje obrázky, renderuj je postupně
@@ -421,49 +402,336 @@ namespace Tobiso.Web.Api.Services
                         }
                         else if (child.NodeType == HtmlNodeType.Text || (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() != "img"))
                         {
-                            col.Item().Text(txt => ProcessNodeContent(txt, node, skipImages: true));
-                        }
-                    }
-                });
-            }
-            else if (mathNodes != null && mathNodes.Any())
-            {
-                // Render math spans and surrounding text as column items; embed rendered PNGs for KaTeX visuals
-                container.Column(col =>
-                {
-                    col.Spacing(2);
-                    foreach (var child in node.ChildNodes)
-                    {
-                        if (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() == "span" && child.GetAttributeValue("data-math", null) != null)
-                        {
-                            var dataMath = HtmlEntity.DeEntitize(child.GetAttributeValue("data-math", ""));
-                            try
+                            if (ContainsMathFraction(node))
                             {
-                                var png = RenderMathToPng(dataMath);
-                                if (png != null && png.Length > 0)
-                                {
-                                    col.Item().MaxHeight(24).Image(png).FitArea();
-                                    continue;
-                                }
+                                var segments = ExtractSegments(node);
+                                col.Item().Element(c => RenderMixedContent(c, segments, 11f));
                             }
-                            catch { }
-
-                            // fallback textual
-                            col.Item().Text(text => text.Span("[" + dataMath + "]"));
-                        }
-                        else if (child.NodeType == HtmlNodeType.Text || (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() != "img"))
-                        {
-                            col.Item().Text(txt => ProcessNodeContent(txt, node, skipImages: true));
+                            else
+                            {
+                                col.Item().Text(txt => ProcessNodeContent(txt, node, skipImages: true));
+                            }
                         }
                     }
                 });
             }
             else
             {
-                container.Text(txt =>
+                if (ContainsMathFraction(node))
                 {
-                    ProcessNodeContent(txt, node, skipImages: false);
+                    var segments = ExtractSegments(node);
+                    container.Element(c => RenderMixedContent(c, segments, 11f));
+                }
+                else
+                {
+                    container.Text(txt => ProcessNodeContent(txt, node, skipImages: false));
+                }
+            }
+        }
+
+        // Segment types used to split a node into text and fraction pieces
+        private abstract record ContentSegment;
+        private record TextNodes(System.Collections.Generic.List<HtmlNode> Nodes) : ContentSegment;
+        private record FractionSeg(string Sign, string Num, string Den) : ContentSegment;
+
+        private bool ContainsMathFraction(HtmlNode node)
+        {
+            var spans = node.SelectNodes(".//span[@data-math]");
+            if (spans == null) return false;
+            foreach (var s in spans)
+            {
+                var data = s.GetAttributeValue("data-math", "");
+                if (!string.IsNullOrEmpty(data) && data.Contains("frac")) return true;
+            }
+            return false;
+        }
+
+        private System.Collections.Generic.List<ContentSegment> ExtractSegments(HtmlNode node)
+        {
+            var list = new System.Collections.Generic.List<ContentSegment>();
+            var buffer = new System.Collections.Generic.List<HtmlNode>();
+
+            void flushBuffer()
+            {
+                if (buffer.Any())
+                {
+                    list.Add(new TextNodes(new System.Collections.Generic.List<HtmlNode>(buffer)));
+                    buffer.Clear();
+                }
+            }
+
+            void processNode(HtmlNode current)
+            {
+                foreach (var child in current.ChildNodes)
+                {
+                    if (child.NodeType == HtmlNodeType.Text)
+                    {
+                        buffer.Add(child);
+                        continue;
+                    }
+
+                    if (child.NodeType == HtmlNodeType.Element && child.Name.ToLowerInvariant() == "span")
+                    {
+                        var dataMath = child.GetAttributeValue("data-math", "");
+                        if (!string.IsNullOrEmpty(dataMath))
+                        {
+                            var math = HtmlEntity.DeEntitize(dataMath);
+                            var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+                            var m = fracRx.Match(math);
+                            if (m.Success)
+                            {
+                                flushBuffer();
+                                var sign = m.Groups[1].Value ?? string.Empty;
+                                var num = m.Groups[2].Value.Trim();
+                                var den = m.Groups[3].Value.Trim();
+                                list.Add(new FractionSeg(sign, num, den));
+                                continue;
+                            }
+                        }
+                    }
+
+                    // If element contains descendant data-math spans, recurse into it to split properly
+                    if (child.NodeType == HtmlNodeType.Element && child.SelectSingleNode(".//span[@data-math]") != null)
+                    {
+                        processNode(child);
+                    }
+                    else
+                    {
+                        // Element without fractions: keep as a single node so formatting (strong/em) is preserved
+                        buffer.Add(child);
+                    }
+                }
+            }
+
+            processNode(node);
+            flushBuffer();
+            return list;
+        }
+
+        // Render a stacked fraction visually inside an IContainer
+        private void RenderVisualFraction(QuestPDF.Infrastructure.IContainer container, FractionSeg frac, float fontSize)
+        {
+            // Use a narrow column: numerator, rule, denominator
+            // Avoid forcing a large MaxWidth or horizontal padding which can
+            // introduce excessive whitespace to the right of the fraction.
+            // Render as a compact column aligned to the left so it occupies only
+            // the minimal horizontal space inside its AutoItem.
+            container.Column(col =>
+            {
+                col.Spacing(0);
+                col.Item().AlignLeft().Text(t =>
+                {
+                    var numText = (string.IsNullOrEmpty(frac.Sign) || frac.Sign.Trim() == "+") ? frac.Num : frac.Sign + frac.Num;
+                    t.Span(numText).FontSize(fontSize * 0.85f);
                 });
+
+                // Thin horizontal rule without extra padding
+                col.Item().Height(0.5f).BorderBottom(0.5f).BorderColor(Colors.Black);
+
+                col.Item().AlignLeft().Text(t => t.Span(frac.Den).FontSize(fontSize * 0.85f));
+            });
+        }
+
+        // Render a mixed sequence of TextNodes and FractionSegs into a TextDescriptor (or container represented as TextDescriptor)
+        private void RenderMixedContent(QuestPDF.Fluent.TextDescriptor text, System.Collections.Generic.List<ContentSegment> segments, float fontSize)
+        {
+            // TextDescriptor can't directly contain container elements, so instead
+            // create an outer element and re-render segments using Row/Element.
+            // We assume caller is rendering into a container that supports Element().
+            // Find a way to access parent container: use a temporary inline hack by
+            // writing segments into the TextDescriptor as spans where possible and
+            // delegating stacked fractions to a simple {num}/{den} fallback if we
+            // cannot render complex layout here. To fully support stacked layout
+            // we require the caller to render via IContainer.Element. We will
+            // therefore fall back to rendering as inline text within braces for
+            // safety when called with a TextDescriptor.
+
+            // Simple fallback: write as {num}/{den} to avoid breaking PDF generation.
+            foreach (var seg in segments)
+            {
+                if (seg is TextNodes tn)
+                {
+                    // Render nodes as normal
+                    foreach (var n in tn.Nodes)
+                    {
+                        if (n.NodeType == HtmlNodeType.Text)
+                        {
+                            var content = HtmlEntity.DeEntitize(n.InnerText);
+                            if (!string.IsNullOrWhiteSpace(content)) text.Span(content);
+                        }
+                        else
+                        {
+                            // For element nodes, delegate to existing processor
+                            ProcessNodeContent(text, n, skipImages: true);
+                        }
+                    }
+                }
+                else if (seg is FractionSeg f)
+                {
+                    // Fallback inline textual representation; this keeps the PDF
+                    // layout stable when ProcessNodeContent expects a TextDescriptor.
+                    var sign = (!string.IsNullOrEmpty(f.Sign) && f.Sign.Trim() == "-") ? "-" : string.Empty;
+                    text.Span(sign + "{" + f.Num + "}/{" + f.Den + "}");
+                }
+            }
+        }
+
+        // Overload for rendering mixed content into an outer container (preferred)
+        private void RenderMixedContent(QuestPDF.Infrastructure.IContainer container, System.Collections.Generic.List<ContentSegment> segments, float fontSize)
+        {
+            // If there's only a single TextNodes, shortcut
+            if (segments.Count == 1 && segments[0] is TextNodes tn)
+            {
+                container.Text(txt => ProcessNodeContent(txt, tn.Nodes));
+                return;
+            }
+
+            container.Row(row =>
+            {
+                // Group consecutive TextNodes into a single RelativeItem to avoid
+                // creating multiple flexible items which can lead to conflicting
+                // size constraints in complex layouts.
+                var textBuffer = new System.Collections.Generic.List<HtmlNode>();
+
+                void flushTextBuffer(bool preferAuto = false)
+                {
+                    if (!textBuffer.Any()) return;
+                    var nodesToRender = new System.Collections.Generic.List<HtmlNode>(textBuffer);
+                    textBuffer.Clear();
+                    if (preferAuto)
+                    {
+                        // Render short text before a fraction as AutoItem so the
+                        // fraction sits immediately after it. AutoItems do not wrap,
+                        // so we only prefer this when the buffered text is short.
+                        var totalTextLength = string.Join("", nodesToRender.Where(n => n.NodeType == HtmlNodeType.Text).Select(n => n.InnerText)).Length;
+                        if (totalTextLength < 80)
+                        {
+                            row.AutoItem().Element(c =>
+                            {
+                                c.Text(txt => ProcessNodeContent(txt, nodesToRender));
+                            });
+                            return;
+                        }
+                        // Fallback to RelativeItem if text is long (to allow wrapping)
+                    }
+
+                    row.RelativeItem().Element(c =>
+                    {
+                        c.Text(txt => ProcessNodeContent(txt, nodesToRender));
+                    });
+                }
+
+                foreach (var seg in segments)
+                {
+                    if (seg is TextNodes tn2)
+                    {
+                        // Accumulate text nodes
+                        textBuffer.AddRange(tn2.Nodes);
+                    }
+                    else if (seg is FractionSeg f)
+                    {
+                        // First flush any accumulated text
+                        flushTextBuffer(preferAuto: true);
+                        // Compute a small heuristic width for the fraction to avoid
+                        // the AutoItem being much wider than the content which causes
+                        // visible whitespace. This is a heuristic based on character
+                        // count and font size.
+                        var approxChars = (f.Num?.Length ?? 0) + (f.Den?.Length ?? 0) + (string.IsNullOrEmpty(f.Sign) ? 0 : 1);
+                        // base width in points (approx); clamp tighter to avoid
+                        // wide fraction cells that create large whitespace to the right.
+                        var minWidth = Math.Clamp(approxChars * (fontSize * 0.3f) + 6f, 10f, 36f);
+                        // Align left inside the AutoItem so the fraction content sits
+                        // immediately after the text, avoiding centered padding.
+                        row.AutoItem().AlignLeft().Width(minWidth).Element(c => RenderVisualFraction(c, f, fontSize));
+                    }
+                }
+
+                // Flush tailing text (allow wrapping)
+                flushTextBuffer(preferAuto: false);
+            });
+        }
+
+        // Overload that processes a sequence of nodes (used by mixed-content renderers)
+        private void ProcessNodeContent(QuestPDF.Fluent.TextDescriptor text, System.Collections.Generic.IEnumerable<HtmlNode> nodes, bool skipImages = false)
+        {
+            foreach (var child in nodes)
+            {
+                if (child.NodeType == HtmlNodeType.Text)
+                {
+                    var content = HtmlEntity.DeEntitize(child.InnerText);
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        text.Span(content);
+                    }
+                }
+                else if (child.NodeType == HtmlNodeType.Element)
+                {
+                    var childTag = child.Name.ToLowerInvariant();
+
+                    if (childTag == "ul" || childTag == "ol")
+                    {
+                        continue;
+                    }
+
+                    if (skipImages && childTag == "img")
+                    {
+                        continue;
+                    }
+
+                    var innerText = HtmlEntity.DeEntitize(child.InnerText);
+
+                    if (childTag == "span")
+                    {
+                        var dataMath = child.GetAttributeValue("data-math", "");
+                        if (!string.IsNullOrEmpty(dataMath))
+                        {
+                            try
+                            {
+                                var math = HtmlEntity.DeEntitize(dataMath);
+                                var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+                                var m = fracRx.Match(math);
+                                if (m.Success)
+                                {
+                                    var sign = m.Groups[1].Value ?? string.Empty;
+                                    var num = m.Groups[2].Value.Trim();
+                                    var den = m.Groups[3].Value.Trim();
+                                    if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
+                                        text.Span($"-{{{num}}}/{{{den}}}");
+                                    else
+                                        text.Span($"{{{num}}}/{{{den}}}");
+                                    continue;
+                                }
+
+                                text.Span($"{{{math}}}");
+                                continue;
+                            }
+                            catch
+                            {
+                            }
+                        }
+                    }
+
+                    if (childTag == "strong" || childTag == "b")
+                    {
+                        text.Span(innerText).Bold();
+                    }
+                    else if (childTag == "em" || childTag == "i")
+                    {
+                        if (innerText.Contains("zde", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        text.Span(innerText).Italic();
+                    }
+                    else if (childTag == "img")
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        ProcessNodeContent(text, child, skipImages);
+                    }
+                }
             }
         }
 
@@ -516,32 +784,19 @@ namespace Tobiso.Web.Api.Services
                                 if (m.Success)
                                 {
                                     var mathFull = m.Value;
-                                    // Try to render full LaTeX to PNG via Node renderer for KaTeX-equivalent look
-                                    var png = RenderMathToPng(mathFull);
-                                    if (png != null && png.Length > 0)
-                                    {
-                                        try
-                                        {
-                                            // Embed image into PDF (fit reasonably)
-                                            text.Span(" ");
-                                            // QuestPDF doesn't allow direct image inside TextDescriptor; instead
-                                            // we'll fallback to rendering inline image by placing it into current container
-                                            // This is a pragmatic approach: append a small image via the parent container
-                                        }
-                                        catch { }
-                                    }
-                                    // If rendering failed, fallback to textual representation
+                                    // If rendering to image is not available, always use textual fallback
                                     var sign = m.Groups[1].Value ?? string.Empty;
                                     var num = m.Groups[2].Value.Trim();
                                     var den = m.Groups[3].Value.Trim();
+                                    // Use curly-brace format as canonical textual representation
                                     if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
-                                        text.Span($"-({num})/({den})");
+                                        text.Span($"-{{{num}}}/{{{den}}}");
                                     else
-                                        text.Span($"({num})/({den})");
+                                        text.Span($"{{{num}}}/{{{den}}}");
                                     continue;
                                 }
-                                // If not a simple \frac, just render the raw math inside brackets
-                                text.Span($"[{math}]");
+                                // If not a simple \frac, render raw math inside curly braces
+                                text.Span($"{{{math}}}");
                                 continue;
                             }
                             catch
@@ -687,61 +942,7 @@ namespace Tobiso.Web.Api.Services
             }
         }
 
-        private byte[]? RenderMathToPng(string latex)
-        {
-            try
-            {
-                // Use a cache directory to avoid repeated renders
-                var cacheDir = "/tmp/tobiso_katex_cache";
-                if (!Directory.Exists(cacheDir)) Directory.CreateDirectory(cacheDir);
-                var key = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(latex))).Replace("=","_");
-                var outPath = Path.Combine(cacheDir, key + ".png");
-                if (File.Exists(outPath)) return File.ReadAllBytes(outPath);
-
-                // Locate node renderer script
-                var script = Path.Combine(AppContext.BaseDirectory, "../../../../tools/math-renderer/render_katex.js");
-                if (!File.Exists(script))
-                {
-                    Console.WriteLine("[PdfService] KaTeX renderer script not found: " + script);
-                    return null;
-                }
-
-                var psi = new System.Diagnostics.ProcessStartInfo()
-                {
-                    FileName = "node",
-                    Arguments = $"\"{script}\" \"{latex.Replace("\"","\\\"")}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-
-                using var proc = System.Diagnostics.Process.Start(psi);
-                if (proc == null) return null;
-                using var ms = new MemoryStream();
-                proc.StandardOutput.BaseStream.CopyTo(ms);
-                var err = proc.StandardError.ReadToEnd();
-                proc.WaitForExit(15000);
-                if (proc.ExitCode != 0)
-                {
-                    Console.WriteLine("[PdfService] KaTeX renderer failed: " + err);
-                    return null;
-                }
-
-                var bytes = ms.ToArray();
-                if (bytes.Length > 0)
-                {
-                    try { File.WriteAllBytes(outPath, bytes); } catch { }
-                    return bytes;
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[PdfService] RenderMathToPng error: " + ex.Message);
-                return null;
-            }
-        }
+        // Note: Node-based KaTeX rendering was removed (Plan B). Math rendering
+        // now uses textual curly-brace fallbacks produced in ProcessNodeContent.
     }
 }

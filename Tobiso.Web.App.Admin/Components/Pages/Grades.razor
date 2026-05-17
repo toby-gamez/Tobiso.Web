@@ -1,0 +1,69 @@
+@page "/grades"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+
+<PageTitle>Grades</PageTitle>
+
+<h3>Grades / Versions</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-sm btn-primary" @onclick="SeedGrades">Seed default grades</button>
+    <span class="ms-2 text-muted">(only inserts when no grades exist)</span>
+</div>
+
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Level</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var g in grades)
+        {
+            <tr>
+                <td>@g.Id</td>
+                <td>@g.Name</td>
+                <td>@g.Level</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<GradeResponse> grades = new();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            grades = (await Api.GetGrades()).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task SeedGrades()
+    {
+        try
+        {
+            await Api.SeedGrades();
+            grades = (await Api.GetGrades()).ToList();
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

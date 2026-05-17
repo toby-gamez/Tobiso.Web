@@ -128,12 +128,15 @@ namespace Tobiso.Web.App.Controllers
             try
             {
                 var resp = await _aiService.CheckGrammarAsync(request.Content);
-                return Ok(resp);
+                // If AI is unavailable locally (SSL or network issues), the service may return an empty response.
+                // Return OK with empty issues so the admin UI can continue working without blocking post edits.
+                return Ok(resp ?? new GrammarCheckResponse());
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "Grammar check failed");
-                return StatusCode(502, new { message = ex.Message });
+                // Log but do not fail the request — fall back to empty result so editor remains usable offline.
+                Serilog.Log.Warning(ex, "Grammar check failed; returning empty issues to keep editor usable");
+                return Ok(new GrammarCheckResponse());
             }
         }
 

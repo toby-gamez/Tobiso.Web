@@ -7,10 +7,10 @@ public interface ITobisoWebApi
 {
     // todo: odstranit, až bude náhrada, je anonymní
     [Get("/api/Posts")]
-    Task<IList<PostResponse>> GetAllPosts();
+    Task<IList<PostResponse>> GetAllPosts([Query] int? gradeId = null);
 
     [Get("/api/Posts/summaries")]
-    Task<IList<PostSummaryResponse>> GetPostSummaries();
+    Task<IList<PostSummaryResponse>> GetPostSummaries([Query] int? gradeId = null);
 
     [Get("/api/Categories/tree")]
     Task<IList<CategoryTreeResponse>> GetCategoryTree();
@@ -22,7 +22,19 @@ public interface ITobisoWebApi
     Task<IList<PostResponse>> GetPostsByCategory(int categoryId);
 
     [Get("/api/Posts/{id}")]
-    Task<PostResponse> GetPostById(int id);
+    Task<PostResponse> GetPostById(int id, [Query] int? gradeId = null);
+
+    [Get("/api/PostVersions/by-post/{postId}")]
+    Task<IList<PostVersionResponse>> GetVersionsByPost(int postId);
+
+    [Post("/api/PostVersions")]
+    Task<PostVersionResponse> CreateVersion([Body] PostVersionResponse version);
+
+    [Put("/api/PostVersions/{id}")]
+    Task UpdateVersion(int id, [Body] PostVersionResponse version);
+
+    [Delete("/api/PostVersions/{id}")]
+    Task DeleteVersion(int id);
 
     [Put("/api/Posts/{id}")]
     Task UpdatePost(int id, [Body] PostResponse post);
@@ -76,6 +88,12 @@ public interface ITobisoWebApi
 
     [Get("/api/RelatedPosts/by-post/{postId}")]
     Task<IList<RelatedPostResponse>> GetRelatedPostsByPostId(int postId);
+
+    [Get("/api/Grades")]
+    Task<IList<GradeResponse>> GetGrades();
+    
+    [Post("/api/Grades/seed")]
+    Task SeedGrades();
 
     [Get("/api/RelatedPosts/{id}")]
     Task<RelatedPostResponse> GetRelatedPostById(int id);

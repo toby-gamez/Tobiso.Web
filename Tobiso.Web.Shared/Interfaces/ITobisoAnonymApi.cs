@@ -6,13 +6,13 @@ namespace Tobiso.Web.Shared.Interfaces;
 public interface ITobisoAnonymApi
 {
     [Get("/api/Pages")]
-    Task<IList<PostResponse>> GetAllPosts();
+    Task<IList<PostResponse>> GetAllPosts([Query] int? gradeId = null);
 
     [Get("/api/Pages/summaries")]
-    Task<IList<PostSummaryResponse>> GetPostSummaries();
+    Task<IList<PostSummaryResponse>> GetPostSummaries([Query] int? gradeId = null);
 
     [Get("/api/Pages/{id}")]
-    Task<PostResponse> GetPostById(int id);
+    Task<PostResponse> GetPostById(int id, [Query] int? gradeId = null);
 
     [Get("/api/Categories")]
     Task<List<CategoryResponse>> GetAllCategories();
@@ -45,6 +45,9 @@ public interface ITobisoAnonymApi
     
     [Get("/api/RelatedPosts/by-post/{postId}")]
     Task<List<RelatedPostResponse>> GetRelatedPostsByPostId(int postId);
+
+    [Get("/api/Grades")]
+    Task<List<Tobiso.Web.Shared.DTOs.GradeResponse>> GetGrades();
 
     //[Get("/api/Persons/summaries")]
     //Task<List<PersonSummaryResponse>> GetPersonSummaries();

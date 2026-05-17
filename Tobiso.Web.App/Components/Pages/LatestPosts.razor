@@ -3,6 +3,7 @@
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoWebApi Api
 @inject ILogger<LatestPosts> Logger
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 <PageTitle>Nejnovější učivo - Tobiso</PageTitle>
 
 <h1 class="verybig">Nejnovější učivo</h1>
@@ -79,7 +80,8 @@ else
         try
         {
             // Fetch posts and categories concurrently, then filter
-            var postsTask = Api.GetPostSummaries();
+            var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+            var postsTask = Api.GetPostSummaries(preferredGradeId);
             var categoriesTask = Api.GetAllCategories();
             await Task.WhenAll(postsTask, categoriesTask);
 

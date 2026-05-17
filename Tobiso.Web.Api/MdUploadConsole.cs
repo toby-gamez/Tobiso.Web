@@ -27,6 +27,7 @@ public class MdUploadConsole
                 services.AddDbContext<TobisoDbContext>(options =>
                     options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
                 services.AddScoped<IPostService, PostService>();
+                services.AddScoped<IGradeService, GradeService>();
             })
             .Build();
         using var scope = host.Services.CreateScope();

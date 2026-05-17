@@ -11,6 +11,7 @@
 @inject NavigationManager Navigation
 @inject System.Net.Http.HttpClient Http
 @inject AddendumModalService ModalService
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @rendermode InteractiveServer
 @implements IDisposable
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
@@ -63,20 +64,6 @@
         margin: 0 4px;
         cursor: pointer;
     }
-    /* Dotted underline for semantic headings (matching .verybig decoration style) */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    text-decoration-line: underline;
-    text-decoration-style: dotted;
-    text-decoration-color: var(--color-accent-3);
-    text-decoration-thickness: 3px;
-    text-underline-offset: 9px;
-    transition: text-decoration-color 0.2s ease;
-}
 
 /* Dark mode variant for headings */
 body.dark-mode h1,
@@ -404,8 +391,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _post = await Api.GetPostById(Id);
-        _allPosts = (await Api.GetPostSummaries()).ToList();
+        var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
+        _post = await Api.GetPostById(Id, preferredGrade);
+        _allPosts = (await Api.GetPostSummaries(preferredGrade)).ToList();
 
         // Check AI availability (runs against App's /api/ai/diag endpoint)
             try
@@ -452,8 +440,9 @@ else
         var uri = new Uri(Navigation.Uri);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
-        _post = await Api.GetPostById(Id);
-        _allPosts = (await Api.GetPostSummaries()).ToList();
+        var preferredGrade2 = await PreferenceService.GetPreferredGradeIdAsync();
+        _post = await Api.GetPostById(Id, preferredGrade2);
+        _allPosts = (await Api.GetPostSummaries(preferredGrade2)).ToList();
         await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();

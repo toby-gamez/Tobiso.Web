@@ -8,8 +8,10 @@ public class TobisoDbContext : DbContext
     public TobisoDbContext(DbContextOptions<TobisoDbContext> options)
         : base(options) { }
 
-   public DbSet<Category> Categories { get; set; }
+    public DbSet<Category> Categories { get; set; }
     public DbSet<Post> Posts { get; set; }
+    public DbSet<PostVersion> PostVersions { get; set; }
+    public DbSet<Grade> Grades { get; set; }
     public DbSet<Question> Questions { get; set; }
     public DbSet<Answer> Answers { get; set; }
     public DbSet<Explanation> Explanations { get; set; }
@@ -120,6 +122,29 @@ public class TobisoDbContext : DbContext
                 
             // Konfigurace tabulky s check constraint
             entity.ToTable(t => t.HasCheckConstraint("CK_RelatedPost_DifferentPosts", "[PostId] <> [RelatedPostId]"));
+        });
+
+        // Configure PostVersion
+        modelBuilder.Entity<PostVersion>(entity =>
+        {
+            entity.HasOne(v => v.Post)
+                .WithMany(p => p.Versions)
+                .HasForeignKey(v => v.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(v => v.Grade)
+                .WithMany()
+                .HasForeignKey(v => v.GradeId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.Property(v => v.Content).IsRequired();
+        });
+
+        // Configure Grade
+        modelBuilder.Entity<Grade>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Level).IsRequired();
+            entity.HasIndex(e => e.Level).IsUnique();
         });
         
         // Configure InteractiveExercise entity

@@ -4,6 +4,7 @@
 @using System.Text.Json
 @rendermode InteractiveServer
 @inject ITobisoAnonymApi Api
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
@@ -328,7 +329,8 @@
         try
         {
             // Load all data in parallel
-            var postsTask = Api.GetPostSummaries();
+            var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
+            var postsTask = Api.GetPostSummaries(preferredGrade);
             var categoriesTask = Api.GetAllCategories();
             var relatedPostsTask = Api.GetAllRelatedPosts();
 

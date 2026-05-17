@@ -33,5 +33,17 @@ namespace Tobiso.Web.App.Services
         {
             await _localStorage.DeleteAsync(key);
         }
+
+        public async Task<int?> GetPreferredGradeIdAsync()
+        {
+            var val = await GetPreferenceAsync("preferredGradeId");
+            if (int.TryParse(val, out var g)) return g;
+            return null;
+        }
+
+        public async Task SetPreferredGradeIdAsync(int gradeId)
+        {
+            await SetPreferenceAsync("preferredGradeId", gradeId.ToString());
+        }
     }
 }

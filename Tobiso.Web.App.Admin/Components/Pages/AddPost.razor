@@ -33,6 +33,16 @@
         <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
     </div>
     <div class="mb-3">
+        <label for="grade" class="form-label">Ročník</label>
+        <InputSelect id="grade" class="form-select" @bind-Value="post.GradeId">
+            <option value="">-- vyberte ročník --</option>
+            @foreach (var g in grades)
+            {
+                <option value="@g.Id">@g.Name</option>
+            }
+        </InputSelect>
+    </div>
+    <div class="mb-3">
         <label for="content" class="form-label">Obsah</label>
         <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
         <div class="mt-2">
@@ -52,6 +62,7 @@
 @code {
     private PostResponse post = new();
     private List<CategoryResponse> categories = new();
+    private List<GradeResponse> grades = new();
     private string? errorMessage;
     private bool _isFixSelected = false;
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
@@ -71,6 +82,9 @@
         try
         {
             categories = (await Api.GetAllCategories()).ToList();
+            grades = (await Api.GetGrades()).ToList();
+            // default to highest available grade (if any)
+            if (grades.Any()) post.GradeId = grades.OrderByDescending(g => g.Level).First().Id;
         }
         catch (Exception ex)
         {
