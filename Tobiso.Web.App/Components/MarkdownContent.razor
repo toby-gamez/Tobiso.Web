@@ -114,6 +114,9 @@
         // Convert simple fraction notation (1/2, 1/x, {n+1}/{n-1} …) to inline LaTeX math
         content = ReplaceFractionsInText(content);
 
+        // Convert #s#text#s# strikethrough markers to <del>text</del>
+        content = ReplaceStrikethroughSyntax(content);
+
         // Replace known person mentions in markdown BEFORE HTML conversion
         content = ReplacePeopleMentionsInText(content);
 
@@ -377,6 +380,11 @@
                 var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
                 var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
 
+                // Convert #s#...#s# strikethrough markers to \cancel{} inside KaTeX math
+                var fracStrikeRx = new Regex(@"#s#(.*?)#s#");
+                num = fracStrikeRx.Replace(num, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
+                den = fracStrikeRx.Replace(den, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
+
                 if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
@@ -468,6 +476,19 @@
         foreach (var kv in regions)
             result = result.Replace(kv.Key, kv.Value);
         return result;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Strikethrough syntax: #s#text#s# → <del>text</del>
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string ReplaceStrikethroughSyntax(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.Contains("#s#")) return input ?? string.Empty;
+        var (protectedText, regions) = ProtectCodeRegions(input);
+        var rx = new Regex(@"#s#(.*?)#s#", RegexOptions.Singleline);
+        var result = rx.Replace(protectedText, m => $"<del>{m.Groups[1].Value}</del>");
+        return RestoreCodeRegions(result, regions);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
