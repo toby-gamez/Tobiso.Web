@@ -3,6 +3,7 @@
 @using Tobiso.Web.Shared.Interfaces
 @rendermode InteractiveServer
 @inject ITobisoAnonymApi Api
+@inject NavigationManager Navigation
 
 @if (_isVisible)
 {
@@ -83,7 +84,7 @@
         try
         {
             // Request AI-generated person card from App AI controller
-            var resp = await Http.GetAsync("/api/ai/person?name=" + Uri.EscapeDataString(name));
+            var resp = await Http.GetAsync(new Uri(Navigation.BaseUri + "api/ai/person?name=" + Uri.EscapeDataString(name)));
             if (resp.IsSuccessStatusCode)
             {
                 var pr = await resp.Content.ReadFromJsonAsync<PersonResponse>();

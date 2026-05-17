@@ -428,7 +428,14 @@
                 var rx = new Regex($"(?<![\\w@#\\-])({Regex.Escape(name)})(?![\\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
                 // Use name-based opener: pass canonical name JSON-encoded to JS bridge
                 var escapedName = System.Text.Json.JsonSerializer.Serialize(name);
-                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<a onclick=\"window.openPersonByName({escapedName})\" class=\"person-link\" href=\"#\" aria-label=\"Open person card\"><i class=\"bi bi-person-circle\"></i></a></span>");
+                // Emit a data-person-name attribute instead of inline onclick to avoid
+                // quoting/escaping issues and to let the page attach a delegated click
+                // handler that calls into Blazor. HTML-encode the name for safety.
+                // Store a percent-encoded version of the name in the data attribute so
+                // it is safe for HTML attributes and can be decoded reliably in JS.
+                var encodedName = System.Uri.EscapeDataString(name);
+                // Render a non-navigating anchor/button with a data-person-name attribute.
+                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<button data-person-name=\"{encodedName}\" class=\"person-link\" type=\"button\" aria-label=\"Open person card\"><i class=\"bi bi-person-circle\"></i></button></span>");
             }
             catch { }
         }

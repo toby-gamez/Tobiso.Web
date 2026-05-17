@@ -410,14 +410,14 @@ else
         // Check AI availability (runs against App's /api/ai/diag endpoint)
             try
             {
-                var diag = await Http.GetAsync("/api/ai/diag");
+                var diag = await Http.GetAsync(new Uri(Navigation.BaseUri + "api/ai/diag"));
                 if (diag.IsSuccessStatusCode)
                 {
                     _aiAvailable = true;
                     _aiDiagError = null;
                     try
                     {
-                        var names = await Http.GetFromJsonAsync<List<string>>($"/api/ai/detect-persons/{Id}");
+                        var names = await Http.GetFromJsonAsync<List<string>>(new Uri(Navigation.BaseUri + $"api/ai/detect-persons/{Id}"));
                         _allPeople = (names ?? new List<string>()).Select(n => new PersonSummaryResponse { Id = 0, Name = n, Slug = null, Aliases = null }).ToList();
                     }
                     catch
@@ -476,6 +476,27 @@ else
                 window.openPersonByName = function(name){
                     DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
                 };
+                // Delegated click handler for person links (a[data-person-name]) so clicks on
+                // dynamically rendered content trigger the Blazor modal. Uses closest() to
+                // handle clicks on inner <i> elements.
+                document.addEventListener('click', function(e){
+                    try {
+                        var tgt = e.target;
+                        if (!tgt || !tgt.closest) return;
+                        var a = tgt.closest('a[data-person-name]');
+                        if (!a) return;
+                        e.preventDefault();
+                        var name = a.getAttribute('data-person-name') || (a.dataset && a.dataset.personName) || '';
+                        if (!name) return;
+                        if (window.openPersonByName) {
+                            window.openPersonByName(name);
+                        } else if (window.__postDetailRef) {
+                            window.__postDetailRef.invokeMethodAsync('TriggerPersonByName', name);
+                        } else {
+                            try { DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name); } catch(_){}
+                        }
+                    } catch (err) { /* ignore */ }
+                }, false);
                 // Initialize instance bridge and fullscreen listener
                 window.__initPostDetail = function(dotnet){
                     window.__postDetailRef = dotnet;
@@ -501,6 +522,14 @@ else
             ");
             // Pass DotNet object reference to JS to enable instance callbacks
             await Js.InvokeVoidAsync("__initPostDetail", _dotNetRef);
+            // Import our JS module and initialize delegated handlers (person links, lightbox).
+            try
+            {
+                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=8");
+                try { await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef); } catch { }
+                try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); } catch { }
+            }
+            catch { /* ignore */ }
             // Load persisted reading preferences from localStorage (if present)
             try
             {
@@ -518,10 +547,11 @@ else
             catch { }
         }
 
-        // Initialize lightbox for images in content (after every render so newly loaded images get handlers)
+        // Re-run module initialization in case module wasn't available earlier; keep non-fatal.
         try
         {
             _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=8");
+            await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef);
             await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
         }
         catch { /* ignore */ }

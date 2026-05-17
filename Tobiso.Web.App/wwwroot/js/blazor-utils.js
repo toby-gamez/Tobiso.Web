@@ -857,6 +857,60 @@ export function initImageLightbox(containerId) {
   });
 }
 
+// Initialize delegated click handler for <a data-person-name="..."> links inside
+// dynamically rendered content. We accept an optional DotNetObjectReference so the
+// handler can call back into the specific Blazor component instance; otherwise it
+// falls back to the global DotNet.invokeMethodAsync (static JSInvokable).
+export function initPersonLinkHandler(dotNetRef) {
+  try {
+    if (window.__personLinkHandlerBound) return;
+    window.__personLinkHandlerBound = true;
+
+    document.addEventListener('click', function (e) {
+      try {
+        var tgt = e.target;
+        if (!tgt || !tgt.closest) return;
+        var a = tgt.closest('[data-person-name]');
+        if (!a) return;
+        e.preventDefault();
+        var raw = a.getAttribute('data-person-name') || (a.dataset && a.dataset.personName) || '';
+        var name = raw ? decodeURIComponent(raw) : '';
+        if (!name) return;
+        if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
+          // Prefer calling an instance method on the passed DotNetObjectReference.
+          dotNetRef.invokeMethodAsync('OpenPersonByName', name);
+        } else if (window.__postDetailRef && typeof window.__postDetailRef.invokeMethodAsync === 'function') {
+          window.__postDetailRef.invokeMethodAsync('OpenPersonByName', name);
+        } else if (window.DotNet && typeof DotNet.invokeMethodAsync === 'function') {
+          // Fallback to static JSInvokable on the assembly if instance refs are not available.
+          DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
+        }
+      } catch (err) { console && console.log && console.log('[initPersonLinkHandler] click handler error', err); }
+    }, false);
+
+    // Accessibility: support keyboard activation for focused anchors
+    document.addEventListener('keydown', function (e) {
+      try {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+        var el = document.activeElement;
+        if (!el || !el.matches) return;
+        if (!el.matches('[data-person-name]')) return;
+        e.preventDefault();
+        var raw = el.getAttribute('data-person-name') || (el.dataset && el.dataset.personName) || '';
+        var name = raw ? decodeURIComponent(raw) : '';
+        if (!name) return;
+        if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
+          dotNetRef.invokeMethodAsync('TriggerPersonByName', name);
+        } else if (window.__postDetailRef && typeof window.__postDetailRef.invokeMethodAsync === 'function') {
+          window.__postDetailRef.invokeMethodAsync('TriggerPersonByName', name);
+        } else if (window.DotNet && typeof DotNet.invokeMethodAsync === 'function') {
+          DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
+        }
+      } catch (err) { console && console.log && console.log('[initPersonLinkHandler] keydown handler error', err); }
+    }, false);
+  } catch (err) { console && console.log && console.log('[initPersonLinkHandler] init error', err); }
+}
+
 function openLightbox(src, alt, caption, source) {
   // Remove any existing overlay
   closeLightbox();

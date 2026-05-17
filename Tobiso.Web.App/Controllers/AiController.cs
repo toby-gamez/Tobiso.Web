@@ -154,7 +154,7 @@ namespace Tobiso.Web.App.Controllers
                 catch
                 {
                     // Fallback: try to find a JSON object via regex and parse it
-                    var m = System.Text.RegularExpressions.Regex.Match(raw, "\{[\s\S]*\}");
+                    var m = System.Text.RegularExpressions.Regex.Match(raw, @"\{[\s\S]*\}");
                     if (m.Success)
                     {
                         try { doc = JsonDocument.Parse(m.Value); }
