@@ -178,7 +178,34 @@ else
                 post.LastEdit = DateTime.UtcNow;
                 post.LastFix = null;
             }
+            // Update post metadata
             await Api.UpdatePost(post.Id, post);
+
+            // Persist the edited content as a PostVersion (create or update)
+            if (post.GradeId.HasValue)
+            {
+                var versions = (await Api.GetVersionsByPost(Id))?.ToList() ?? new List<PostVersionResponse>();
+                var existing = versions.FirstOrDefault(v => v.GradeId == post.GradeId.Value);
+                if (existing != null)
+                {
+                    existing.Content = post.Content;
+                    existing.LastEdit = post.LastEdit;
+                    existing.LastFix = post.LastFix;
+                    await Api.UpdateVersion(existing.Id, existing);
+                }
+                else
+                {
+                    var newVersion = new PostVersionResponse
+                    {
+                        PostId = post.Id,
+                        GradeId = post.GradeId,
+                        Content = post.Content,
+                        LastEdit = post.LastEdit,
+                        LastFix = post.LastFix
+                    };
+                    await Api.CreateVersion(newVersion);
+                }
+            }
             Navigation.NavigateTo("/");
         }
         catch (Exception ex)
@@ -195,15 +222,36 @@ else
         try
         {
             // reload version content for selected grade
-            var version = await Api.GetPostById(Id, gradeId);
+            var versions = await Api.GetVersionsByPost(Id);
+            var version = versions?.FirstOrDefault(v => v.GradeId == gradeId);
             if (version != null)
             {
                 post.Content = version.Content;
+                post.LastEdit = version.LastEdit;
+                post.LastFix = version.LastFix;
                 post.GradeId = version.GradeId;
-                // preserve metadata fields
-                post.Title = version.Title;
-                post.FilePath = version.FilePath;
-                post.CategoryId = version.CategoryId;
+                // Set the markdown editor value and clear previous highlights
+                if (markdownEditor != null)
+                {
+                    await markdownEditor.SetValue(post.Content ?? string.Empty);
+                    await markdownEditor.ClearHighlights();
+                }
+                // Update fix checkbox default
+                _isFixSelected = post.LastFix.HasValue && (post.LastEdit == null || post.LastFix > post.LastEdit);
+            }
+            else
+            {
+                // No version for this grade yet - clear editor and set grade
+                post.Content = string.Empty;
+                post.LastEdit = null;
+                post.LastFix = null;
+                post.GradeId = gradeId;
+                if (markdownEditor != null)
+                {
+                    await markdownEditor.SetValue(string.Empty);
+                    await markdownEditor.ClearHighlights();
+                }
+                _isFixSelected = false;
             }
         }
         catch (Exception ex)

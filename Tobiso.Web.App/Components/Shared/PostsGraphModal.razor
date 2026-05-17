@@ -330,7 +330,7 @@
         {
             // Load all data in parallel
             var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
-            var postsTask = Api.GetPostSummaries(preferredGrade);
+            var postsTask = Api.GetPostSummaries();
             var categoriesTask = Api.GetAllCategories();
             var relatedPostsTask = Api.GetAllRelatedPosts();
 

@@ -392,8 +392,19 @@ else
     protected override async Task OnInitializedAsync()
     {
         var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
-        _post = await Api.GetPostById(Id, preferredGrade);
-        _allPosts = (await Api.GetPostSummaries(preferredGrade)).ToList();
+        _post = await Api.GetPostById(Id);
+        if (_post != null && preferredGrade.HasValue)
+        {
+            var prefVersion = _post.Versions?.FirstOrDefault(v => v.GradeId == preferredGrade.Value);
+            if (prefVersion != null)
+            {
+                _post.Content = prefVersion.Content;
+                _post.LastFix = prefVersion.LastFix;
+                _post.LastEdit = prefVersion.LastEdit;
+                _post.GradeId = prefVersion.GradeId;
+            }
+        }
+        _allPosts = (await Api.GetPostSummaries()).ToList();
 
         // Check AI availability (runs against App's /api/ai/diag endpoint)
             try
@@ -441,8 +452,19 @@ else
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         var preferredGrade2 = await PreferenceService.GetPreferredGradeIdAsync();
-        _post = await Api.GetPostById(Id, preferredGrade2);
-        _allPosts = (await Api.GetPostSummaries(preferredGrade2)).ToList();
+        _post = await Api.GetPostById(Id);
+        if (_post != null && preferredGrade2.HasValue)
+        {
+            var prefVersion2 = _post.Versions?.FirstOrDefault(v => v.GradeId == preferredGrade2.Value);
+            if (prefVersion2 != null)
+            {
+                _post.Content = prefVersion2.Content;
+                _post.LastFix = prefVersion2.LastFix;
+                _post.LastEdit = prefVersion2.LastEdit;
+                _post.GradeId = prefVersion2.GradeId;
+            }
+        }
+        _allPosts = (await Api.GetPostSummaries()).ToList();
         await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();

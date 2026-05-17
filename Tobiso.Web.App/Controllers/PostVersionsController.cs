@@ -21,11 +21,13 @@ public class PostVersionsController : ControllerBase
     {
         var versions = await _context.PostVersions
             .Where(v => v.PostId == postId)
+            .Include(v => v.Grade)
             .Select(v => new PostVersionResponse
             {
                 Id = v.Id,
                 PostId = v.PostId,
                 GradeId = v.GradeId,
+                GradeLevel = v.Grade != null ? v.Grade.Level : (int?)null,
                 Content = v.Content,
                 LastFix = v.LastFix,
                 LastEdit = v.LastEdit

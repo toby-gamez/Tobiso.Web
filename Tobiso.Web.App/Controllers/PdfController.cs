@@ -43,13 +43,16 @@ public class PdfController : ControllerBase
 
         // Transform content using the same logic as PostDetail.razor
         string contentHtml;
+        // Use the content already resolved by PostService.GetById (it returns
+        // the appropriate version's content in PostResponse.Content).
+        var versionContent = post.Content ?? string.Empty;
         if (!string.IsNullOrEmpty(post.FilePath) && post.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
         {
-            contentHtml = await TransformMarkdownContent(post.Content ?? string.Empty);
+            contentHtml = await TransformMarkdownContent(versionContent);
         }
         else
         {
-            contentHtml = post.Content ?? string.Empty;
+            contentHtml = versionContent;
         }
 
         // Preserve the original characters in the title (do not HtmlEncode to entities).
@@ -64,6 +67,11 @@ public class PdfController : ControllerBase
         }
 
         var wrapper = $"<div><h1>{titleHtml}</h1>{contentHtml}</div>";
+        Console.WriteLine($"[PdfController] Generating PDF for post {post.Id} titleLen={post.Title?.Length ?? 0} contentHtmlLen={contentHtml?.Length ?? 0} wrapperLen={wrapper?.Length ?? 0}");
+        if (!string.IsNullOrEmpty(contentHtml) && contentHtml.Length > 1000)
+        {
+            Console.WriteLine($"[PdfController] contentHtml head: {contentHtml.Substring(0, 500).Replace('\n',' ')}");
+        }
         var req = new PdfRequestDto { Html = wrapper, FileName = outputName };
         var bytes = _pdfService.GeneratePdf(req);
         if (bytes == null || bytes.Length == 0) return BadRequest("Failed to generate PDF");

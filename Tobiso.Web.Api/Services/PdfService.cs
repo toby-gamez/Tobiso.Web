@@ -110,9 +110,21 @@ namespace Tobiso.Web.Api.Services
             var titleNode = doc.DocumentNode.SelectSingleNode("//h1")?.InnerText?.Trim();
             
             // Filter to get actual content nodes (skip the wrapper div and get its children)
-            var contentNodes = doc.DocumentNode.SelectNodes("//div/*") ?? 
-                              doc.DocumentNode.SelectNodes("//*") ?? 
+            var contentNodes = doc.DocumentNode.SelectNodes("//div/*") ??
+                              doc.DocumentNode.SelectNodes("//*") ??
                               new HtmlNodeCollection(doc.DocumentNode);
+
+            Console.WriteLine($"[PdfService] HTML length={html.Length}, title='{titleNode ?? "(none)"}'");
+            if (contentNodes != null)
+            {
+                Console.WriteLine($"[PdfService] contentNodes count={contentNodes.Count}");
+                var idx = 0;
+                foreach (var n in contentNodes.Take(20))
+                {
+                    Console.WriteLine($"[PdfService] contentNodes[{idx}] = <{n.Name}> innerLen={n.InnerText?.Trim().Length ?? 0}");
+                    idx++;
+                }
+            }
 
             var document = Document.Create(container =>
             {
@@ -150,6 +162,7 @@ namespace Tobiso.Web.Api.Services
         {
             foreach (var node in nodes)
             {
+                Console.WriteLine($"[PdfService] RenderContent node: <{node.Name}> innerLen={node.InnerText?.Trim().Length ?? 0} hasMath={ContainsMathFraction(node)}");
                 if (node.Name.ToLowerInvariant() == "h1") continue; // Skip h1
                 
                 var tagName = node.Name.ToLowerInvariant();
@@ -223,17 +236,19 @@ namespace Tobiso.Web.Api.Services
                             }
                         }
                     }
-                    else if (!string.IsNullOrWhiteSpace(node.InnerText))
+                    else if (ContainsMathFraction(node) || !string.IsNullOrWhiteSpace(node.InnerText))
                     {
+                        // Render even when InnerText is empty if there are math spans
+                        // (KaTeX inline placeholders are empty but carry data-math).
                         column.Item().Element(container => RenderTextWithFormatting(container, node));
                     }
                 }
                 else if (tagName == "div")
                 {
-                    if (!string.IsNullOrWhiteSpace(node.InnerText))
-                    {
-                        column.Item().Element(container => RenderTextWithFormatting(container, node));
-                    }
+                if (ContainsMathFraction(node) || !string.IsNullOrWhiteSpace(node.InnerText))
+                {
+                    column.Item().Element(container => RenderTextWithFormatting(container, node));
+                }
                 }
                 else if (tagName == "ul" || tagName == "ol")
                 {
@@ -505,30 +520,42 @@ namespace Tobiso.Web.Api.Services
 
             processNode(node);
             flushBuffer();
+            Console.WriteLine($"[PdfService] ExtractSegments -> {list.Count} segments for node <{node.Name}> innerLen={node.InnerText?.Trim().Length ?? 0}");
+            var si = 0;
+            foreach (var s in list)
+            {
+                if (s is TextNodes tn) Console.WriteLine($"[PdfService]  seg[{si}] TextNodes count={tn.Nodes.Count}");
+                if (s is FractionSeg fs) Console.WriteLine($"[PdfService]  seg[{si}] Fraction sign='{fs.Sign}' num='{fs.Num}' den='{fs.Den}'");
+                si++;
+            }
             return list;
         }
 
         // Render a stacked fraction visually inside an IContainer
         private void RenderVisualFraction(QuestPDF.Infrastructure.IContainer container, FractionSeg frac, float fontSize)
         {
-            // Use a narrow column: numerator, rule, denominator
-            // Avoid forcing a large MaxWidth or horizontal padding which can
-            // introduce excessive whitespace to the right of the fraction.
-            // Render as a compact column aligned to the left so it occupies only
-            // the minimal horizontal space inside its AutoItem.
+            // Use a compact column: numerator, rule, denominator. The container
+            // will size to its content when placed inside an AutoItem. We add
+            // a small horizontal padding to the rule so it matches text width
+            // and doesn't extend beyond the numerator/denominator.
             container.Column(col =>
             {
                 col.Spacing(0);
-                col.Item().AlignLeft().Text(t =>
+                col.Item().AlignCenter().Text(t =>
                 {
                     var numText = (string.IsNullOrEmpty(frac.Sign) || frac.Sign.Trim() == "+") ? frac.Num : frac.Sign + frac.Num;
                     t.Span(numText).FontSize(fontSize * 0.85f);
                 });
 
-                // Thin horizontal rule without extra padding
-                col.Item().Height(0.5f).BorderBottom(0.5f).BorderColor(Colors.Black);
+                // Render the rule as a small box with bottom border. To make
+                // the rule the same width as the widest of numerator/denominator,
+                // render the numerator and denominator in separate centered
+                // items and let the column width be determined by the widest
+                // item. The rule is an Item with fixed height and no extra width
+                // so it naturally matches the container width.
+                col.Item().Height(0.5f).BorderBottom(0.5f).BorderColor(Colors.Black).PaddingHorizontal(1);
 
-                col.Item().AlignLeft().Text(t => t.Span(frac.Den).FontSize(fontSize * 0.85f));
+                col.Item().AlignCenter().Text(t => t.Span(frac.Den).FontSize(fontSize * 0.85f));
             });
         }
 
@@ -606,7 +633,8 @@ namespace Tobiso.Web.Api.Services
                         var totalTextLength = string.Join("", nodesToRender.Where(n => n.NodeType == HtmlNodeType.Text).Select(n => n.InnerText)).Length;
                         if (totalTextLength < 80)
                         {
-                            row.AutoItem().Element(c =>
+                            // Center text vertically so it aligns with stacked fraction
+                            row.AutoItem().AlignMiddle().Element(c =>
                             {
                                 c.Text(txt => ProcessNodeContent(txt, nodesToRender));
                             });
@@ -615,12 +643,14 @@ namespace Tobiso.Web.Api.Services
                         // Fallback to RelativeItem if text is long (to allow wrapping)
                     }
 
-                    row.RelativeItem().Element(c =>
+                    // Allow wrapping but center vertically to match fraction height
+                    row.RelativeItem().AlignMiddle().Element(c =>
                     {
                         c.Text(txt => ProcessNodeContent(txt, nodesToRender));
                     });
                 }
 
+                Console.WriteLine($"[PdfService] RenderMixedContent(container) called with {segments.Count} segments");
                 foreach (var seg in segments)
                 {
                     if (seg is TextNodes tn2)
@@ -632,17 +662,12 @@ namespace Tobiso.Web.Api.Services
                     {
                         // First flush any accumulated text
                         flushTextBuffer(preferAuto: true);
-                        // Compute a small heuristic width for the fraction to avoid
-                        // the AutoItem being much wider than the content which causes
-                        // visible whitespace. This is a heuristic based on character
-                        // count and font size.
-                        var approxChars = (f.Num?.Length ?? 0) + (f.Den?.Length ?? 0) + (string.IsNullOrEmpty(f.Sign) ? 0 : 1);
-                        // base width in points (approx); clamp tighter to avoid
-                        // wide fraction cells that create large whitespace to the right.
-                        var minWidth = Math.Clamp(approxChars * (fontSize * 0.3f) + 6f, 10f, 36f);
-                        // Align left inside the AutoItem so the fraction content sits
-                        // immediately after the text, avoiding centered padding.
-                        row.AutoItem().AlignLeft().Width(minWidth).Element(c => RenderVisualFraction(c, f, fontSize));
+                        // Let the AutoItem size to the content so the fraction's
+                        // rule will be as long as the text. Add a small horizontal
+                        // padding so the fraction doesn't butt directly against
+                        // neighbouring characters.
+                        // Keep the fraction vertically centered in the row
+                        row.AutoItem().AlignMiddle().AlignLeft().PaddingLeft(2).PaddingRight(2).Element(c => RenderVisualFraction(c, f, fontSize));
                     }
                 }
 

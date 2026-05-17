@@ -14,4 +14,6 @@ public class PostResponse
     public int? CategoryId { get; set; }
     // Provided when returning a matched version
     public int? GradeId { get; set; }
+    // Embedded versions (new per-grade content). May be null for older responses.
+    public List<PostVersionResponse>? Versions { get; set; } = new List<PostVersionResponse>();
 }

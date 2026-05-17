@@ -206,7 +206,7 @@
             loading = true;
             var cats = await Api.GetAllCategories();
             var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
-            var posts = (await Api.GetPostSummaries(preferredGrade)).ToList();
+            var posts = (await Api.GetPostSummaries()).ToList();
 
             var lookup = cats.ToLookup(c => c.ParentId);
 

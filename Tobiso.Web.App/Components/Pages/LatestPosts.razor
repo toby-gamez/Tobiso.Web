@@ -81,7 +81,7 @@ else
         {
             // Fetch posts and categories concurrently, then filter
             var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
-            var postsTask = Api.GetPostSummaries(preferredGradeId);
+            var postsTask = Api.GetPostSummaries();
             var categoriesTask = Api.GetAllCategories();
             await Task.WhenAll(postsTask, categoriesTask);
 

@@ -76,6 +76,20 @@
             await jsModule.InvokeVoidAsync("setEditorValue", textareaId, content);
         }
         Value = content;
+        // Notify parent binding of changed value
+        await ValueChanged.InvokeAsync(content);
+        // Notify EditContext (for validation) if present
+        if (For != null && CascadedEditContext != null)
+        {
+            try
+            {
+                CascadedEditContext.NotifyFieldChanged(FieldIdentifier);
+            }
+            catch
+            {
+                // ignore notify errors
+            }
+        }
     }
 
     public async Task HighlightErrors(List<Tobiso.Web.Shared.DTOs.GrammarIssue> issues)

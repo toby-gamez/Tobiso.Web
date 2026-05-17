@@ -147,6 +147,18 @@
                 post.LastEdit = DateTime.UtcNow;
                 post.LastFix = null;
             }
+            // Create a PostVersion for the initial content so versions are seeded
+            post.Versions = new List<PostVersionResponse>
+            {
+                new PostVersionResponse
+                {
+                    GradeId = post.GradeId,
+                    Content = post.Content,
+                    LastFix = post.LastFix,
+                    LastEdit = post.LastEdit
+                }
+            };
+
             var created = await Api.CreatePost(post);
             errorMessage = null;
             Navigation.NavigateTo($"/posts/edit/{created.Id}");

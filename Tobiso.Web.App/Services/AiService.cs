@@ -53,7 +53,8 @@ namespace Tobiso.Web.App.Services
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
             var post = await _postService.GetById(request.PostId);
-            var articleContext = PrepareArticleContext(post?.Content ?? string.Empty);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
 
             var messages = new List<object>
             {
