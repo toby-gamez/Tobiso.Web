@@ -3,6 +3,19 @@
 @inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi Api
 @inject NavigationManager Navigation
 <PageTitle>@GetCategoryTitle() - Tobiso</PageTitle>
+<style>
+.grade-badge-sm {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-accent, #4a90d9);
+    color: #fff;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+</style>
 
 
 
@@ -43,6 +56,10 @@ else
                         <h5 style="margin: 0">@post.Title</h5>
                         <div class="latest-muted">
                             <small>@DisplayDate(post)</small>
+                            @foreach (var grade in post.AvailableGradeNames)
+                            {
+                                <span class="grade-badge-sm">@grade</span>
+                            }
                         </div>
                     </a>
                 </div>

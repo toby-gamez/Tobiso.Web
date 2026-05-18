@@ -5,6 +5,19 @@
 @inject ILogger<LatestPosts> Logger
 @inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 <PageTitle>Nejnovější učivo - Tobiso</PageTitle>
+<style>
+.grade-badge-sm {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-accent, #4a90d9);
+    color: #fff;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+</style>
 
 <h1 class="verybig">Nejnovější učivo</h1>
 
@@ -59,6 +72,10 @@ else
                             <small class="text-muted">@cat</small>
                         }
                         <small>@DisplayDate(p)</small>
+                        @foreach (var grade in p.AvailableGradeNames)
+                        {
+                            <span class="grade-badge-sm">@grade</span>
+                        }
                     </div>
                 </a>
             </div>

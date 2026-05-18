@@ -102,6 +102,21 @@ body.focus-mode section {
     margin-top: 2px;
     margin-bottom: 2px;
 }
+.grade-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--color-accent, #4a90d9);
+    color: #fff;
+    margin-bottom: 0.75rem;
+    vertical-align: middle;
+}
+body.dark-mode .grade-badge {
+    background: var(--color-accent-dark, #2d6db5);
+}
 </style>
 @if (_post == null)
 {
@@ -110,6 +125,10 @@ body.focus-mode section {
 else
 {
     <h1 class="verybig">@_post.Title</h1>
+    @if (ActiveVersion != null)
+    {
+        <span class="grade-badge">@(ActiveVersion.GradeName ?? $"Ročník {ActiveVersion.GradeLevel}")</span>
+    }
 
     @if (_breadcrumbCategories != null && _breadcrumbCategories.Any())
     {
@@ -152,7 +171,7 @@ else
                 <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
             </div>
         <div class="tool">
-            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
+            <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
         </div>
     </div>
     @if (_showReadingPanel)
@@ -186,7 +205,7 @@ else
         <div id="content" class="content" style="@GetContentStyle()">
             @if (_fileSuffix == ".md")
             {
-                <MarkdownContent Content="@_post.Content" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
+                <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
                 @if (!_aiAvailable)
                 {
                     <div class="alert alert-warning mt-3">
@@ -197,7 +216,7 @@ else
             }
             else
             {
-                @((MarkupString)(_post.Content))
+                @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
             }
         </div>
     </div>
@@ -230,7 +249,7 @@ else
             <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
         </div>
         <div class="tool">
-            <span>@((MarkupString)GetWordCountInfo(_post.Content))</span>
+            <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
         </div>
     </div>
     @if (_showReadingPanel)
@@ -362,6 +381,8 @@ else
     [Parameter]
     public int Id { get; set; }
     private PostResponse? _post;
+    /// <summary>The version selected by the server (Versions[0] when gradeId was passed, or highest grade otherwise).</summary>
+    private PostVersionResponse? ActiveVersion => _post?.Versions?.FirstOrDefault();
     private List<PostSummaryResponse>? _allPosts;
     private List<PersonSummaryResponse>? _allPeople;
     private List<RelatedPostResponse>? _relatedPosts;
@@ -392,18 +413,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
-        _post = await Api.GetPostById(Id);
-        if (_post != null && preferredGrade.HasValue)
-        {
-            var prefVersion = _post.Versions?.FirstOrDefault(v => v.GradeId == preferredGrade.Value);
-            if (prefVersion != null)
-            {
-                _post.Content = prefVersion.Content;
-                _post.LastFix = prefVersion.LastFix;
-                _post.LastEdit = prefVersion.LastEdit;
-                _post.GradeId = prefVersion.GradeId;
-            }
-        }
+        // Pass gradeId to API so server picks best matching version (BestMatch logic).
+        // No client-side version selection needed.
+        _post = await Api.GetPostById(Id, preferredGrade);
         _allPosts = (await Api.GetPostSummaries()).ToList();
 
         // Check AI availability (runs against App's /api/ai/diag endpoint)
@@ -452,18 +464,8 @@ else
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         var preferredGrade2 = await PreferenceService.GetPreferredGradeIdAsync();
-        _post = await Api.GetPostById(Id);
-        if (_post != null && preferredGrade2.HasValue)
-        {
-            var prefVersion2 = _post.Versions?.FirstOrDefault(v => v.GradeId == preferredGrade2.Value);
-            if (prefVersion2 != null)
-            {
-                _post.Content = prefVersion2.Content;
-                _post.LastFix = prefVersion2.LastFix;
-                _post.LastEdit = prefVersion2.LastEdit;
-                _post.GradeId = prefVersion2.GradeId;
-            }
-        }
+        // Pass gradeId to API so server picks best matching version.
+        _post = await Api.GetPostById(Id, preferredGrade2);
         _allPosts = (await Api.GetPostSummaries()).ToList();
         await LoadBreadcrumb();
         SetFileSuffix();
@@ -898,8 +900,8 @@ else
     private DateTime? GetLatestEditDate()
     {
         if (_post == null) return null;
-        var e = _post.LastEdit;
-        var f = _post.LastFix;
+        var e = ActiveVersion?.LastEdit;
+        var f = ActiveVersion?.LastFix;
         if (e.HasValue && f.HasValue) return e > f ? e : f;
         return e ?? f;
     }

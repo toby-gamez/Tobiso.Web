@@ -41,11 +41,10 @@ public class PdfController : ControllerBase
         var safeTitle = string.IsNullOrWhiteSpace(post.Title) ? "post" : string.Join('_', post.Title.Split(Path.GetInvalidFileNameChars()).Select(s => s.Trim()).Where(s => s.Length > 0));
         var outputName = string.IsNullOrEmpty(fileName) ? $"{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.pdf" : fileName;
 
-        // Transform content using the same logic as PostDetail.razor
+        // Content lives in Versions[]: GetById without gradeId returns all versions;
+        // use the first (highest grade) as the canonical content for the PDF.
+        var versionContent = post.Versions.FirstOrDefault()?.Content ?? string.Empty;
         string contentHtml;
-        // Use the content already resolved by PostService.GetById (it returns
-        // the appropriate version's content in PostResponse.Content).
-        var versionContent = post.Content ?? string.Empty;
         if (!string.IsNullOrEmpty(post.FilePath) && post.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
         {
             contentHtml = await TransformMarkdownContent(versionContent);

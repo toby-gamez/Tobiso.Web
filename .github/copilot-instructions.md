@@ -60,4 +60,8 @@ This .NET solution has not Bootstrap or other CSS/JS frameworks integrated. The 
 - To add a new Blazor page, add a `.razor` file in `Components/Pages/` and update `Routes.razor`.
 
 ---
+
+## Commits
+- Never commit anything.
+
 For further details, see the README.md and referenced source files. If any section is unclear or missing, please request clarification or provide feedback for improvement.

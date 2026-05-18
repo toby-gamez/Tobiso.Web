@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.DTOs;
 
-namespace Tobiso.Web.Api.Controllers;
+namespace Tobiso.Web.App.Admin.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]

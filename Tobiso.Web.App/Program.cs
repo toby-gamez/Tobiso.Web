@@ -51,8 +51,8 @@ services.AddRazorComponents().AddInteractiveServerComponents();
 // Register API services from Tobiso.Web.Api.Services
 services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<IPostService, PostService>();
+            services.AddScoped<IPostVersionService, PostVersionService>();
             services.AddScoped<IGradeService, GradeService>();
-            // make GradeService available to server-side app
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();

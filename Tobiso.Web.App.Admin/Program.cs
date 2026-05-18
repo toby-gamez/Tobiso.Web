@@ -70,6 +70,7 @@ services
 services.AddEndpointsApiExplorer();
 
             services.AddScoped<IPostService, PostService>();
+            services.AddScoped<IPostVersionService, PostVersionService>();
             services.AddScoped<IGradeService, GradeService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();

@@ -17,24 +17,24 @@
     <div class="alert alert-danger">@errorMessage</div>
 }
 
-<EditForm Model="post" OnValidSubmit="HandleValidSubmit">
+<EditForm Model="request" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
     <ValidationSummary />
     <div class="mb-3">
         <label for="title" class="form-label">Název</label>
-        <InputText id="title" class="form-control" @bind-Value="post.Title" @bind-Value:after="GenerateFilePath" />
+        <InputText id="title" class="form-control" @bind-Value="request.Title" @bind-Value:after="GenerateFilePath" />
     </div>
     <div class="mb-3">
         <label for="filePath" class="form-label">Soubor</label>
-        <InputText id="filePath" class="form-control" @bind-Value="post.FilePath" />
+        <InputText id="filePath" class="form-control" @bind-Value="request.FilePath" />
     </div>
     <div class="mb-3">
         <label for="category" class="form-label">Kategorie</label>
-        <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
+        <SearchableCategorySelect Categories="categories" Value="request.CategoryId" ValueChanged="id => request.CategoryId = id" />
     </div>
     <div class="mb-3">
-        <label for="grade" class="form-label">Ročník</label>
-        <InputSelect id="grade" class="form-select" @bind-Value="post.GradeId">
+        <label for="grade" class="form-label">Ročník (verze obsahu)</label>
+        <InputSelect id="grade" class="form-select" @bind-Value="request.GradeId">
             <option value="">-- vyberte ročník --</option>
             @foreach (var g in grades)
             {
@@ -44,7 +44,7 @@
     </div>
     <div class="mb-3">
         <label for="content" class="form-label">Obsah</label>
-        <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
+        <MarkdownEditor @ref="markdownEditor" @bind-Value="request.Content" For="@(() => request.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
         <div class="mt-2">
             <button type="button" class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
@@ -52,7 +52,7 @@
         <GrammarCheckPanel Issues="grammarIssues" />
     </div>
     <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="isFix" @bind="_isFixSelected" />
+        <input class="form-check-input" type="checkbox" id="isFix" @bind="request.IsFix" />
         <label class="form-check-label" for="isFix">Oprava (Fix)</label>
     </div>
     <button type="submit" class="btn btn-success">Přidat článek</button>
@@ -60,18 +60,16 @@
 </EditForm>
 
 @code {
-    private PostResponse post = new();
+    private CreatePostRequest request = new();
     private List<CategoryResponse> categories = new();
     private List<GradeResponse> grades = new();
     private string? errorMessage;
-    private bool _isFixSelected = false;
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if user is authenticated
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated != true)
         {
@@ -83,8 +81,9 @@
         {
             categories = (await Api.GetAllCategories()).ToList();
             grades = (await Api.GetGrades()).ToList();
-            // default to highest available grade (if any)
-            if (grades.Any()) post.GradeId = grades.OrderByDescending(g => g.Level).First().Id;
+            // default to highest available grade
+            if (grades.Any())
+                request.GradeId = grades.OrderByDescending(g => g.Level).First().Id;
         }
         catch (Exception ex)
         {
@@ -98,23 +97,19 @@
         {
             isChecking = true;
             grammarIssues.Clear();
-            var req = new Tobiso.Web.Shared.DTOs.GrammarCheckRequest { Content = post.Content ?? string.Empty };
+            var req = new Tobiso.Web.Shared.DTOs.GrammarCheckRequest { Content = request.Content ?? string.Empty };
             var resp = await Api.CheckGrammar(req);
             if (resp?.Issues != null && resp.Issues.Count > 0)
             {
                 grammarIssues = resp.Issues;
                 if (markdownEditor != null)
-                {
                     await markdownEditor.HighlightErrors(grammarIssues);
-                }
             }
             else
             {
                 grammarIssues = new List<Tobiso.Web.Shared.DTOs.GrammarIssue>();
                 if (markdownEditor != null)
-                {
                     await markdownEditor.ClearHighlights();
-                }
             }
         }
         catch (Exception ex)
@@ -137,29 +132,7 @@
     {
         try
         {
-            if (_isFixSelected)
-            {
-                post.LastFix = DateTime.UtcNow;
-                post.LastEdit = null;
-            }
-            else
-            {
-                post.LastEdit = DateTime.UtcNow;
-                post.LastFix = null;
-            }
-            // Create a PostVersion for the initial content so versions are seeded
-            post.Versions = new List<PostVersionResponse>
-            {
-                new PostVersionResponse
-                {
-                    GradeId = post.GradeId,
-                    Content = post.Content,
-                    LastFix = post.LastFix,
-                    LastEdit = post.LastEdit
-                }
-            };
-
-            var created = await Api.CreatePost(post);
+            var created = await Api.CreatePost(request);
             errorMessage = null;
             Navigation.NavigateTo($"/posts/edit/{created.Id}");
         }
@@ -171,10 +144,8 @@
 
     private void GenerateFilePath()
     {
-        if (!string.IsNullOrWhiteSpace(post.Title))
-        {
-            post.FilePath = "/" + ToKebabCase(post.Title) + ".md";
-        }
+        if (!string.IsNullOrWhiteSpace(request.Title))
+            request.FilePath = "/" + ToKebabCase(request.Title) + ".md";
     }
 
     private static string ToKebabCase(string text)
@@ -199,8 +170,5 @@
         return result.ToString().Trim('-');
     }
 
-    private void GoBack()
-    {
-        Navigation.NavigateTo("/");
-    }
+    private void GoBack() => Navigation.NavigateTo("/");
 }

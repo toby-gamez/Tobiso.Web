@@ -3,10 +3,10 @@
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.AspNetCore.Components.Authorization
 @using Tobiso.Web.Api.Services
+@using System
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@using System
 
 <PageTitle>Editace článku</PageTitle>
 
@@ -40,7 +40,13 @@ else
         </div>
         <div class="mb-3">
             <label for="grade" class="form-label">Ročník (verze)</label>
-            <InputSelect id="grade" class="form-select" TValue="int?" @bind-Value="post.GradeId" @onchange="OnGradeChanged">
+            @* Use Value+ValueChanged instead of @bind-Value+@onchange — Blazor's @bind-Value already
+               subscribes the change event internally, so adding @onchange would fire twice and conflict.
+               ValueExpression is required when splitting @bind-Value into Value+ValueChanged manually. *@
+            <InputSelect id="grade" class="form-select" TValue="int?"
+                         Value="_selectedGradeId"
+                         ValueChanged="OnGradeChanged"
+                         ValueExpression="@(() => _selectedGradeId)">
                 <option value="">-- vyberte ročník --</option>
                 @foreach (var g in grades)
                 {
@@ -50,7 +56,7 @@ else
         </div>
         <div class="mb-3">
             <label for="content" class="form-label">Obsah</label>
-            <MarkdownEditor @ref="markdownEditor" @bind-Value="post.Content" For="@(() => post.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
+            <MarkdownEditor @ref="markdownEditor" @bind-Value="_editContent" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
             <div class="mt-2">
                 <button type="button" class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
@@ -79,13 +85,18 @@ else
     private List<GradeResponse> grades = new();
     private string? errorMessage;
     private bool _isFixSelected = false;
+    /// <summary>Tracks the currently selected grade independently of the loaded version.</summary>
+    private int? _selectedGradeId;
+    /// <summary>Content being edited (bound to MarkdownEditor instead of post.Content).</summary>
+    private string _editContent = string.Empty;
+    private DateTime? _editLastFix;
+    private DateTime? _editLastEdit;
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if user is authenticated
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated != true)
         {
@@ -97,19 +108,32 @@ else
         {
             categories = (await Api.GetAllCategories()).ToList();
             grades = (await Api.GetGrades()).ToList();
-            // load default version (no grade specified) - admin can choose grade to edit
+            // Load the post without a specific grade preference so all versions are available
             post = await Api.GetPostById(Id);
             if (post != null)
             {
-                // default checkbox state: true if LastFix is newer than LastEdit
-                _isFixSelected = post.LastFix.HasValue && (post.LastEdit == null || post.LastFix > post.LastEdit);
+                // Default to first version's grade, or highest grade available
+                var firstVersion = post.Versions?.FirstOrDefault();
+                _selectedGradeId = firstVersion?.GradeId
+                    ?? (grades.Any() ? grades.OrderByDescending(g => g.Level).First().Id : null);
+                // Load content from the version for the selected grade
+                if (_selectedGradeId.HasValue)
+                {
+                    var ver = post.Versions?.FirstOrDefault(v => v.GradeId == _selectedGradeId.Value)
+                              ?? post.Versions?.FirstOrDefault();
+                    if (ver != null)
+                    {
+                        _editContent = ver.Content ?? string.Empty;
+                        _editLastFix = ver.LastFix;
+                        _editLastEdit = ver.LastEdit;
+                    }
+                }
+                _isFixSelected = _editLastFix.HasValue && (_editLastEdit == null || _editLastFix > _editLastEdit);
             }
         }
         catch (Refit.ApiException rex) when (rex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            // Friendly message when post not found
-            errorMessage = $"Post with ID {Id} was not found (404). It may have been deleted or missing PostVersion entries after migration.";
-            // leave post as null so form is not shown
+            errorMessage = $"Post s ID {Id} nebyl nalezen (404). Mohl být smazán nebo nemá žádnou PostVersion.";
             categories = new List<CategoryResponse>();
             grades = new List<GradeResponse>();
             Console.WriteLine($"Post {Id} not found when loading for edit: {rex.Message}");
@@ -128,23 +152,19 @@ else
         {
             isChecking = true;
             grammarIssues.Clear();
-            var req = new Tobiso.Web.Shared.DTOs.GrammarCheckRequest { Content = post.Content ?? string.Empty };
+            var req = new Tobiso.Web.Shared.DTOs.GrammarCheckRequest { Content = _editContent };
             var resp = await Api.CheckGrammar(req);
             if (resp?.Issues != null && resp.Issues.Count > 0)
             {
                 grammarIssues = resp.Issues;
                 if (markdownEditor != null)
-                {
                     await markdownEditor.HighlightErrors(grammarIssues);
-                }
             }
             else
             {
                 grammarIssues = new List<Tobiso.Web.Shared.DTOs.GrammarIssue>();
                 if (markdownEditor != null)
-                {
                     await markdownEditor.ClearHighlights();
-                }
             }
         }
         catch (Exception ex)
@@ -165,47 +185,48 @@ else
 
     private async Task HandleValidSubmit()
     {
+        if (post == null) return;
         try
         {
-            if (post == null) return;
-            if (_isFixSelected)
+            // 1. Save post metadata (title, filePath, category)
+            await Api.UpdatePost(post.Id, new UpdatePostRequest
             {
-                post.LastFix = DateTime.UtcNow;
-                post.LastEdit = null;
-            }
-            else
-            {
-                post.LastEdit = DateTime.UtcNow;
-                post.LastFix = null;
-            }
-            // Update post metadata
-            await Api.UpdatePost(post.Id, post);
+                Title = post.Title,
+                FilePath = post.FilePath ?? string.Empty,
+                CategoryId = post.CategoryId
+            });
 
-            // Persist the edited content as a PostVersion (create or update)
-            if (post.GradeId.HasValue)
+            // 2. Save version content for the selected grade
+            if (_selectedGradeId.HasValue)
             {
+                var lastFix = _isFixSelected ? DateTime.UtcNow : (DateTime?)null;
+                var lastEdit = _isFixSelected ? (DateTime?)null : DateTime.UtcNow;
+
                 var versions = (await Api.GetVersionsByPost(Id))?.ToList() ?? new List<PostVersionResponse>();
-                var existing = versions.FirstOrDefault(v => v.GradeId == post.GradeId.Value);
+                var existing = versions.FirstOrDefault(v => v.GradeId == _selectedGradeId.Value);
                 if (existing != null)
                 {
-                    existing.Content = post.Content;
-                    existing.LastEdit = post.LastEdit;
-                    existing.LastFix = post.LastFix;
-                    await Api.UpdateVersion(existing.Id, existing);
+                    await Api.UpdateVersion(existing.Id, new UpdateVersionRequest
+                    {
+                        Content = _editContent,
+                        LastFix = lastFix,
+                        LastEdit = lastEdit
+                    });
                 }
                 else
                 {
-                    var newVersion = new PostVersionResponse
+                    await Api.CreateVersion(new CreateVersionRequest
                     {
                         PostId = post.Id,
-                        GradeId = post.GradeId,
-                        Content = post.Content,
-                        LastEdit = post.LastEdit,
-                        LastFix = post.LastFix
-                    };
-                    await Api.CreateVersion(newVersion);
+                        GradeId = _selectedGradeId.Value,
+                        Content = _editContent,
+                        LastFix = lastFix,
+                        LastEdit = lastEdit
+                    });
                 }
             }
+
+            errorMessage = null;
             Navigation.NavigateTo("/");
         }
         catch (Exception ex)
@@ -214,38 +235,37 @@ else
         }
     }
 
-    private async Task OnGradeChanged(ChangeEventArgs args)
+    /// <summary>
+    /// Called when the user picks a different grade from the dropdown.
+    /// Loads the version content for that grade (or clears editor if no version exists yet).
+    /// Uses ValueChanged pattern to avoid @bind-Value + @onchange conflict.
+    /// </summary>
+    private async Task OnGradeChanged(int? gradeId)
     {
-        if (post == null) return;
-        if (args?.Value == null) return;
-        if (!int.TryParse(args.Value.ToString(), out var gradeId)) return;
+        _selectedGradeId = gradeId;
+        if (post == null || !gradeId.HasValue) return;
         try
         {
-            // reload version content for selected grade
             var versions = await Api.GetVersionsByPost(Id);
-            var version = versions?.FirstOrDefault(v => v.GradeId == gradeId);
+            var version = versions?.FirstOrDefault(v => v.GradeId == gradeId.Value);
             if (version != null)
             {
-                post.Content = version.Content;
-                post.LastEdit = version.LastEdit;
-                post.LastFix = version.LastFix;
-                post.GradeId = version.GradeId;
-                // Set the markdown editor value and clear previous highlights
+                _editContent = version.Content ?? string.Empty;
+                _editLastEdit = version.LastEdit;
+                _editLastFix = version.LastFix;
                 if (markdownEditor != null)
                 {
-                    await markdownEditor.SetValue(post.Content ?? string.Empty);
+                    await markdownEditor.SetValue(_editContent);
                     await markdownEditor.ClearHighlights();
                 }
-                // Update fix checkbox default
-                _isFixSelected = post.LastFix.HasValue && (post.LastEdit == null || post.LastFix > post.LastEdit);
+                _isFixSelected = _editLastFix.HasValue && (_editLastEdit == null || _editLastFix > _editLastEdit);
             }
             else
             {
-                // No version for this grade yet - clear editor and set grade
-                post.Content = string.Empty;
-                post.LastEdit = null;
-                post.LastFix = null;
-                post.GradeId = gradeId;
+                // No version exists for this grade yet — clear editor
+                _editContent = string.Empty;
+                _editLastEdit = null;
+                _editLastFix = null;
                 if (markdownEditor != null)
                 {
                     await markdownEditor.SetValue(string.Empty);
@@ -253,6 +273,7 @@ else
                 }
                 _isFixSelected = false;
             }
+            grammarIssues.Clear();
         }
         catch (Exception ex)
         {
@@ -260,15 +281,12 @@ else
         }
     }
 
-    private void GoBack()
-    {
-        Navigation.NavigateTo("/");
-    }
+    private void GoBack() => Navigation.NavigateTo("/");
 
     private async Task OnDeletePost()
     {
         if (post == null) return;
-        if (!await JsConfirm($"Opravdu chcete smazat post s ID {post.Id}?") ) return;
+        if (!await JsConfirm($"Opravdu chcete smazat post s ID {post.Id}?")) return;
         try
         {
             await Api.DeletePost(post.Id);

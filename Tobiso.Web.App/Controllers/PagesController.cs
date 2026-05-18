@@ -10,7 +10,6 @@ public class PagesController : ControllerBase
     private readonly IPostService _postService;
     private readonly ICategoryService _categoryService;
 
-
     public PagesController(IPostService postService, ICategoryService categoryService)
     {
         _postService = postService;
@@ -18,12 +17,8 @@ public class PagesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPosts()
+    public async Task<IActionResult> GetPosts([FromQuery] int? gradeId = null)
     {
-        // optional gradeId query parameter
-        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
-        int? gradeId = null;
-        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
         return Ok(await _postService.GetAll(gradeId));
     }
 
@@ -34,14 +29,10 @@ public class PagesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetPost(int id)
+    public async Task<IActionResult> GetPost(int id, [FromQuery] int? gradeId = null)
     {
-        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
-        int? gradeId = null;
-        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
         var post = await _postService.GetById(id, gradeId);
-        if (post == null)
-            return NotFound();
+        if (post == null) return NotFound();
         return Ok(post);
     }
 
@@ -60,8 +51,6 @@ public class PagesController : ControllerBase
     [HttpGet("categories/ancestors/{categoryId}")]
     public async Task<IActionResult> GetCategoryAncestors(int categoryId)
     {
-        var ancestors = await _categoryService.GetAncestors(categoryId);
-        return Ok(ancestors);
+        return Ok(await _categoryService.GetAncestors(categoryId));
     }
-
 }

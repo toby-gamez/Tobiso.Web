@@ -8,7 +8,7 @@ public class PostVersion
     public int PostId { get; set; }
     public Post? Post { get; set; }
 
-    public int? GradeId { get; set; }
+    public int GradeId { get; set; }
     public Grade? Grade { get; set; }
 
     public string Content { get; set; } = string.Empty;

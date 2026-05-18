@@ -9,7 +9,7 @@ public interface ITobisoAnonymApi
     Task<IList<PostResponse>> GetAllPosts([Query] int? gradeId = null);
 
     [Get("/api/Pages/summaries")]
-    Task<IList<PostSummaryResponse>> GetPostSummaries([Query] int? gradeId = null);
+    Task<IList<PostSummaryResponse>> GetPostSummaries();
 
     [Get("/api/Pages/{id}")]
     Task<PostResponse> GetPostById(int id, [Query] int? gradeId = null);

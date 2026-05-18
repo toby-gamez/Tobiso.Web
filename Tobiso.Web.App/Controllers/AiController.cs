@@ -115,7 +115,8 @@ namespace Tobiso.Web.App.Controllers
             var post = await _postService.GetById(postId);
             if (post == null) return NotFound();
             // Choose the most appropriate version: prefer highest grade-level if available, else first.
-            var versionContent = post.Versions?.OrderByDescending(v => v.GradeId.HasValue ? v.GradeId.Value : int.MinValue)
+            // GradeId is non-nullable int — order directly; highest grade = most advanced content.
+            var versionContent = post.Versions?.OrderByDescending(v => v.GradeId)
                 .FirstOrDefault()?.Content ?? string.Empty;
             var names = await _aiService.DetectPeopleInTextAsync(versionContent);
             return Ok(names);

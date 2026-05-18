@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Helpers;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.App.Admin.Controllers;
 
@@ -20,11 +21,8 @@ public class PostsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> GetPosts()
+    public async Task<IActionResult> GetPosts([FromQuery] int? gradeId = null)
     {
-        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
-        int? gradeId = null;
-        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
         return Ok(await _postService.GetAll(gradeId));
     }
 
@@ -39,31 +37,31 @@ public class PostsController : ControllerBase
     [HttpGet("links")]
     public async Task<IActionResult> GetPostLinks()
     {
-        var posts = await _postService.GetLinks();
-        return Ok(posts);
+        return Ok(await _postService.GetLinks());
     }
 
     [AllowAnonymous]
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetPost(int id)
+    public async Task<IActionResult> GetPost(int id, [FromQuery] int? gradeId = null)
     {
-        var gradeIdStr = HttpContext.Request.Query["gradeId"].FirstOrDefault();
-        int? gradeId = null;
-        if (int.TryParse(gradeIdStr, out var g)) gradeId = g;
         var post = await _postService.GetById(id, gradeId);
-        if (post == null)
-            return NotFound();
+        if (post == null) return NotFound();
         return Ok(post);
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdatePost(int id, [FromBody] Tobiso.Web.Shared.DTOs.PostResponse post)
+    [HttpPost]
+    public async Task<IActionResult> CreatePost([FromBody] CreatePostRequest req)
     {
-        if (id != post.Id)
-            return BadRequest("Id v URL neodpovídá Id v těle požadavku.");
-        var updated = await _postService.Update(post);
-        if (!updated)
-            return NotFound();
+        var created = await _postService.Create(req);
+        if (created == null) return BadRequest("Post se nepodařilo vytvořit.");
+        return CreatedAtAction(nameof(GetPost), new { id = created.Id }, created);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdatePost(int id, [FromBody] UpdatePostRequest req)
+    {
+        var updated = await _postService.UpdateMetadata(id, req);
+        if (!updated) return NotFound();
         return NoContent();
     }
 
@@ -71,18 +69,8 @@ public class PostsController : ControllerBase
     public async Task<IActionResult> DeletePost(int id)
     {
         var deleted = await _postService.Delete(id);
-        if (!deleted)
-            return NotFound();
+        if (!deleted) return NotFound();
         return NoContent();
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreatePost([FromBody] Tobiso.Web.Shared.DTOs.PostResponse post)
-    {
-        var created = await _postService.Create(post);
-        if (created == null)
-            return BadRequest("Post se nepodařilo vytvořit.");
-        return CreatedAtAction(nameof(GetPost), new { id = created.Id }, created);
     }
 
     [HttpPost("upload-md")]
@@ -92,9 +80,6 @@ public class PostsController : ControllerBase
             return BadRequest("Neplatná cesta ke složce.");
         var uploader = new MdUploader(_postService);
         var posts = await uploader.UploadFromDirectory(directory);
-        return Ok(new {
-            count = posts.Count,
-            titles = posts.Select(p => p.Title).ToList()
-        });
+        return Ok(new { count = posts.Count, titles = posts.Select(p => p.Title).ToList() });
     }
 }

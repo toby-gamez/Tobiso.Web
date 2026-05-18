@@ -135,7 +135,9 @@ public class TobisoDbContext : DbContext
             entity.HasOne(v => v.Grade)
                 .WithMany()
                 .HasForeignKey(v => v.GradeId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(v => new { v.PostId, v.GradeId }).IsUnique();
             entity.Property(v => v.Content).IsRequired();
         });
 

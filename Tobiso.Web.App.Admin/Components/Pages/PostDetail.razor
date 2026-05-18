@@ -28,7 +28,7 @@ else
         <span style="margin-left:12px; color:var(--bs-secondary);">@GetLatestEditDateDisplay()</span>
     </div>
     <div class="mb-4">
-        @((MarkupString)Markdig.Markdown.ToHtml(post.Content))
+        @((MarkupString)Markdig.Markdown.ToHtml(ActiveVersion?.Content ?? string.Empty))
     </div>
 }
 
@@ -36,6 +36,7 @@ else
     [Parameter]
     public int id { get; set; }
     private PostResponse? post;
+    private PostVersionResponse? ActiveVersion => post?.Versions?.FirstOrDefault();
     private bool _isFixSelected = false;
     private string? _saveStatus;
 
@@ -55,11 +56,12 @@ else
             // Default checkbox selection: choose Fix if LastFix is newer or only one exists
             if (post != null)
             {
-                if (post.LastFix.HasValue && post.LastEdit.HasValue)
+                var av = post.Versions?.FirstOrDefault();
+                if (av?.LastFix.HasValue == true && av?.LastEdit.HasValue == true)
                 {
-                    _isFixSelected = post.LastFix >= post.LastEdit;
+                    _isFixSelected = av.LastFix >= av.LastEdit;
                 }
-                else if (post.LastFix.HasValue)
+                else if (av?.LastFix.HasValue == true)
                 {
                     _isFixSelected = true;
                 }
@@ -83,21 +85,31 @@ else
     private async Task SaveChanges()
     {
         if (post == null) return;
-        // Set timestamps according to checkbox: if Fix selected, update LastFix; otherwise update LastEdit
-        if (_isFixSelected)
-        {
-            post.LastFix = DateTime.UtcNow;
-            post.LastEdit = null;
-        }
-        else
-        {
-            post.LastEdit = DateTime.UtcNow;
-            post.LastFix = null;
-        }
+        DateTime? lastFix = _isFixSelected ? DateTime.UtcNow : null;
+        DateTime? lastEdit = _isFixSelected ? null : DateTime.UtcNow;
 
         try
         {
-            await Api.UpdatePost(post.Id, post);
+            // Update post metadata
+            await Api.UpdatePost(post.Id, new UpdatePostRequest
+            {
+                Title = post.Title,
+                FilePath = post.FilePath ?? string.Empty,
+                CategoryId = post.CategoryId
+            });
+
+            // Update the active version's timestamps (use first version)
+            if (post.Versions?.Any() == true)
+            {
+                var activeVersion = post.Versions.First();
+                await Api.UpdateVersion(activeVersion.Id, new UpdateVersionRequest
+                {
+                    Content = activeVersion.Content,
+                    LastFix = lastFix,
+                    LastEdit = lastEdit
+                });
+            }
+
             _saveStatus = "Uloženo";
         }
         catch (Refit.ApiException ex)
@@ -110,8 +122,8 @@ else
     private DateTime? GetLatestEditDate()
     {
         if (post == null) return null;
-        var e = post.LastEdit;
-        var f = post.LastFix;
+        var e = ActiveVersion?.LastEdit;
+        var f = ActiveVersion?.LastFix;
         if (e.HasValue && f.HasValue) return e > f ? e : f;
         return e ?? f;
     }

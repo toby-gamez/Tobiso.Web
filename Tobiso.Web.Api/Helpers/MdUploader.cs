@@ -1,14 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Tobiso.Web.Domain.Entities;
-using Tobiso.Api.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.DTOs;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Tobiso.Web.Api.Helpers;
 
@@ -30,18 +22,20 @@ public class MdUploader
             var lines = await File.ReadAllLinesAsync(file);
             if (lines.Length < 3) continue;
             var titleLine = lines[1];
-            var title = titleLine.StartsWith("title:") ? titleLine.Substring(6).Trim() : "";
+            var title = titleLine.StartsWith("title:") ? titleLine[6..].Trim() : "";
             var content = string.Join("\n", lines.Skip(3));
-            var post = new PostResponse
+
+            // GradeId = null: no initial version — admin assigns grade content later
+            var req = new CreatePostRequest
             {
                 Title = title,
-                Content = content,
                 FilePath = "/" + Path.GetFileName(file),
-                LastFix = null,
-                LastEdit = null,
                 CategoryId = null,
+                GradeId = null,
+                Content = content,
+                IsFix = false
             };
-            var created = await _postService.Create(post);
+            var created = await _postService.Create(req);
             if (created != null)
                 posts.Add(created);
         }
@@ -55,8 +49,6 @@ public class MdUploader
         var posts = await uploader.UploadFromDirectory(directoryPath);
         Console.WriteLine($"Nahráno {posts.Count} postů.");
         foreach (var post in posts)
-        {
             Console.WriteLine($"{post.Title} -> {post.FilePath}");
-        }
     }
 }

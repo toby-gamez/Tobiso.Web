@@ -1,19 +1,16 @@
-﻿using Tobiso.Web.Domain.Entities;
+﻿namespace Tobiso.Web.Shared.DTOs;
 
-namespace Tobiso.Web.Shared.DTOs;
-
+/// <summary>
+/// Response DTO for a post.
+/// Content and timestamps live exclusively in <see cref="Versions"/>.
+/// When gradeId is passed to the API, Versions contains only the single best-matching version.
+/// When no gradeId is passed, Versions contains all versions (useful for admin grade switching).
+/// </summary>
 public class PostResponse
 {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
-    // Replaced UpdatedAt with LastFix and added LastEdit
-    public DateTime? LastFix { get; set; }
-    public DateTime? LastEdit { get; set; }
     public int? CategoryId { get; set; }
-    // Provided when returning a matched version
-    public int? GradeId { get; set; }
-    // Embedded versions (new per-grade content). May be null for older responses.
-    public List<PostVersionResponse>? Versions { get; set; } = new List<PostVersionResponse>();
+    public List<PostVersionResponse> Versions { get; set; } = new();
 }
