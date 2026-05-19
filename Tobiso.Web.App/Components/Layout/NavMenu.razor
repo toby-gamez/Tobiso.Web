@@ -195,10 +195,6 @@
     <!-- Desktop sidebar -->
     <div id="MyNavBar" class="@(isSidebarExpanded ? "expanded" : "collapsed")">
         <!-- Toggle + Logos -->
-        <button class="sidebar-toggle-btn" @onclick="ToggleSidebar" aria-label="Toggle sidebar">
-            <i class="bi bi-layout-sidebar"></i>
-        </button>
-
         <!-- Full logo (shown when expanded) -->
         <a href="categories" class="nav-logo-full">
             <img class="navImg" src="https://files.tobiso.com/images/normal-logo.png" alt="normální logo" width="150px" />
@@ -208,6 +204,9 @@
         <a href="categories" class="nav-logo-small">
             <img class="navImg navImg-small" src="@(IsDarkMode ? "https://files.tobiso.com/images/tobiso-small-dark.png" : "https://files.tobiso.com/images/tobiso-small.png")" alt="tobiso" width="40px" />
         </a>
+        <button class="sidebar-toggle-btn" @onclick="ToggleSidebar" aria-label="Toggle sidebar">
+            <i class="bi bi-layout-sidebar"></i>
+        </button>
             <div class="scrollable-menu">
                 <ul class="nav flex-column w-100">
                     <li class="nav-item">

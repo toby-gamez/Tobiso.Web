@@ -27,7 +27,8 @@
 
 #MyNavBar.collapsed .nav-link-content span,
 #MyNavBar.collapsed .nav-text span {
-    display: none;
+    /* keep switch slider span visible; more specific rule below hides only direct label spans */
+    display: inline;
 }
 
 #MyNavBar.collapsed .nav-logo-full,
@@ -48,6 +49,37 @@
     justify-content: center;
     gap: 0;
 }
+
+/* Collapsed: hide nav labels but keep icons visible. Only hide sun/moon icons so the switch appears alone. */
+/* hide only the direct text label spans inside nav-link-content (keep nested spans like the switch slider) */
+#MyNavBar.collapsed .nav-link-content > span {
+    display: none;
+}
+
+/* hide key-icon badges in collapsed state */
+#MyNavBar.collapsed .key-icon { display: none; }
+
+#MyNavBar.collapsed .nav-text {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem 0;
+    gap: 0;
+}
+
+/* Hide only the sun/moon icons next to the switch so the switch control remains visible */
+#MyNavBar.collapsed .nav-text i { display: none; }
+
+/* Force the switch and its internals to remain visible in collapsed state */
+#MyNavBar.collapsed .nav-text .switch,
+#MyNavBar.collapsed .nav-text .switch input,
+#MyNavBar.collapsed .nav-text .switch .slider {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#MyNavBar.collapsed .nav-text .switch { margin: 0.25rem auto; }
 
 /* Toggle button */
 .sidebar-toggle-btn {
@@ -104,6 +136,7 @@ nav {
     text-decoration: none;
     width: 250px;
     border-radius: 10px;
+    margin-left: 1rem;;
 }
 
 .nav-link-content {
@@ -139,12 +172,35 @@ a:has(.navImg) {
     text-decoration: none;
 }
 #MyNavBar .nav-link:hover {
-    background-color: var(--color-accent-3);
+    background-color: var(--color-accent-5);
 }
 
 .navImg:active,
 #MyNavBar .nav-link:active {
     transform: scale(0.95);
+}
+
+body:has(#MyNavBar.collapsed) .nav-link {
+    margin: 0 !important;
+    padding: 3px;
+    background-color: transparent;
+    box-shadow: none;
+    transition: all ease 0.2s;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    margin: 3px;
+    color: var(--color-button-text);
+    align-content: center;
+}
+
+body:has(#MyNavBar.collapsed) .nav-item {
+    justify-content: center;
+}
+
+body:has(#MyNavBar.collapsed) .nav-link:hover {
+    transform: none;
+    background-color: var(--color-accent-5);
 }
 
 .navbar-toggler:hover {
@@ -399,6 +455,17 @@ a:has(.navImg) {
         text-align: left;
         border: none !important;
     }
+}
+
+.navImg-small {
+    padding: 0;
+    border-radius: 0;
+    width: 25px;
+    padding-bottom: 3px;
+}
+
+.nav-logo-small {
+    padding: 0;
 }
 
 .openNav {
