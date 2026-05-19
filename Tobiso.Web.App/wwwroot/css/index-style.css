@@ -57,6 +57,11 @@ section {
     text-decoration: underline;
     text-decoration-color: var(--underline-color);
     text-underline-offset: 10px;
+    font-family: inherit;
+    font-weight: inherit;
+    color: inherit;
+    font-size: inherit;
+
 }
 
 .home-grid {
@@ -75,12 +80,21 @@ section {
     border-radius: 10px;
     backdrop-filter: blur(10px);
     transition: 0.3s all ease;
+    text-decoration: none;
 }
 
 .home-grid-item i {
     font-size: 4rem;
     color: var(--color-accent-strong);
     margin-top: 40px;
+}
+
+.home-grid-item span {
+    font-family: var(--font-family-sans);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 20px;
+    color: var(--color-accent-strong);
 }
 
 /* Make grid items keyboard-focusable when they are anchors */

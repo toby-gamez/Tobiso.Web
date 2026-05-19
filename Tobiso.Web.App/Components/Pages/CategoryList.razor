@@ -1,6 +1,9 @@
 @page "/categories/{parentId:int?}"
+@rendermode InteractiveServer
 @using Tobiso.Web.Shared.DTOs
 @inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi Api
+@inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi AnonymApi
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @inject NavigationManager Navigation
 <PageTitle>@GetCategoryTitle() - Tobiso</PageTitle>
 <style>
@@ -56,9 +59,19 @@ else
                         <h5 style="margin: 0">@post.Title</h5>
                         <div class="latest-muted">
                             <small>@DisplayDate(post)</small>
-                            @foreach (var grade in post.AvailableGradeNames)
-                            {
-                                <span class="grade-badge-sm">@grade</span>
+                            @{
+                                var bestGrade = GetBestMatchGradeName(post);
+                                if (!string.IsNullOrEmpty(bestGrade))
+                                {
+                                    <span class="grade-badge-sm">@bestGrade</span>
+                                }
+                                else
+                                {
+                                    @foreach (var grade in post.AvailableGradeNames)
+                                    {
+                                        <span class="grade-badge-sm">@grade</span>
+                                    }
+                                }
                             }
                         </div>
                     </a>
@@ -78,12 +91,21 @@ else
     private List<CategoryResponse>? categories;
     private IList<PostSummaryResponse>? posts;
     private string? errorMessage;
+    private List<GradeResponse>? grades;
+    private int? selectedGradeId;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            categories = await Api.GetAllCategories();
+            // Load categories and grades in parallel
+            var catsTask = Api.GetAllCategories();
+            var gradesTask = AnonymApi.GetGrades();
+
+            categories = (await catsTask)?.ToList();
+            grades = (await gradesTask)?.ToList();
+            selectedGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+
             await LoadPosts();
         }
         catch (System.Net.Http.HttpRequestException ex)
@@ -104,6 +126,9 @@ else
         {
             if (categories == null)
                 categories = await Api.GetAllCategories();
+            if (grades == null)
+                grades = (await AnonymApi.GetGrades())?.ToList();
+            selectedGradeId = await PreferenceService.GetPreferredGradeIdAsync();
             await LoadPosts();
         }
         catch (System.Net.Http.HttpRequestException ex)
@@ -176,5 +201,34 @@ else
         if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
         if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");
         return "-";
+    }
+
+    // Determine the best matching grade name for the post based on selectedGradeId
+    private string? GetBestMatchGradeName(PostSummaryResponse post)
+    {
+        try
+        {
+            if (selectedGradeId == null || grades == null || post.AvailableGradeNames == null || !post.AvailableGradeNames.Any())
+                return null;
+
+            var selectedLevel = grades.FirstOrDefault(g => g.Id == selectedGradeId)?.Level;
+            if (selectedLevel == null) return null;
+
+            // Map available grade names to known grade levels when possible
+            var gradeInfos = post.AvailableGradeNames
+                .Select(name => new { Name = name, Level = grades.FirstOrDefault(g => g.Name == name)?.Level ?? -1 })
+                .Where(g => g.Level >= 0)
+                .ToList();
+
+            if (!gradeInfos.Any()) return null;
+
+            var best = gradeInfos.Where(g => g.Level <= selectedLevel).OrderByDescending(g => g.Level).FirstOrDefault()
+                       ?? gradeInfos.OrderByDescending(g => g.Level).FirstOrDefault();
+            return best?.Name;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

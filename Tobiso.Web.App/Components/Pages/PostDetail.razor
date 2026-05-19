@@ -24,6 +24,30 @@
     .content {
         text-align: left;
     }
+
+    .content p,
+.content li,
+.content ul,
+.content ol,
+.content blockquote,
+.content .description-text,
+.content .intro {
+    font-family: inherit;
+    /* inherit the font-size from the #content container so JS-applied inline
+       font-size (reading controls) affects normal paragraphs */
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/* Headings scale relative to reading base size so A+/A- affects them too */
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+    font-family: inherit;
+}
     /* Article-scoped base typography: applies only inside #content so it wins over global rules.
        Use the reading-size CSS variable so the reading panel still works. */
     #content p,
@@ -52,6 +76,10 @@
     body.dark-mode #content .description-text,
     body.dark-mode #content .intro {
         color: var(--color-text-dark);
+    }
+
+    .verybig {
+        margin-bottom: 5px;
     }
 
     /* Links inside article should also adapt to dark-mode accents */

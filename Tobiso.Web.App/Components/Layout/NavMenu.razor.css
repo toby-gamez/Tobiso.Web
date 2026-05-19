@@ -8,12 +8,62 @@
     top: 0;
     padding-top: 1rem;
     padding-bottom: 1rem;
-    background-color: var(--color-accent);
+    background-color: var(--color-accent-4);
     display: flex;
     flex-direction: column;
     z-index: 1040;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }
+
+/* Smooth width transition for collapse/expand */
+#MyNavBar {
+    transition: width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Collapsed: icons only */
+#MyNavBar.collapsed {
+    width: 60px;
+}
+
+#MyNavBar.collapsed .nav-link-content span,
+#MyNavBar.collapsed .nav-text span {
+    display: none;
+}
+
+#MyNavBar.collapsed .nav-logo-full,
+#MyNavBar.collapsed .nav-footer {
+    display: none;
+}
+
+#MyNavBar.collapsed .nav-logo-small {
+    display: block;
+}
+
+#MyNavBar.expanded .nav-logo-small {
+    display: none;
+}
+
+/* Center icons when collapsed */
+#MyNavBar.collapsed .nav-link-content {
+    justify-content: center;
+    gap: 0;
+}
+
+/* Toggle button */
+.sidebar-toggle-btn {
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.5rem;
+    font-size: 1.05rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-logo-small { display: none; padding: 0.5rem; text-align: center; }
+.navImg-small { display: block; margin: 0 auto; }
 
 .scrollable-menu {
     overflow-y: auto;
@@ -22,8 +72,7 @@
     /* Adjust height to enable scrolling */
     scrollbar-width: auto;
     /* For Firefox */
-    scrollbar-color: var(--color-accent-3) var(--color-accent);
-    /* For Firefox */
+    scrollbar-color: var(--color-accent-5) var(--color-accent);
 }
 
 /* For Webkit browsers (Chrome, Safari) */
@@ -37,7 +86,7 @@
 }
 
 .scrollable-menu::-webkit-scrollbar-track {
-    background-color: var(--color-accent);
+    background-color: var(--color-accent-5);
 }
 
 nav {
@@ -66,11 +115,17 @@ nav {
     margin-right: auto;
     gap: 0.5rem;
 }
+
+.nav-link-content span,
+#openSearch span {
+    font-family: var(--font-family-sans);
+}
+
 a:has(.navImg) {
     margin-left: 15px;
     margin-right: 15px;
     text-align: center;
-    border-bottom: 3px solid var(--color-accent-3);
+    border-bottom: 3px solid var(--color-accent-5);
 }
 .navImg {
     transition: all 0.3s ease;
@@ -103,15 +158,10 @@ a:has(.navImg) {
 }
 
 .version-info {
-    margin-top: auto;
     padding: 1rem;
     padding-right: 0;
-    text-align: right;
     font-size: 0.8rem;
     color: var(--color-version);
-    border-top: 3px solid var(--color-accent-3);
-    margin-left: 15px;
-    margin-right: 15px;
     font-weight: 500;
 }
 
@@ -171,9 +221,7 @@ a:has(.navImg) {
     overflow-y: auto;
     z-index: 1050;
     border-radius: 20px 20px 0 0;
-    /* For Firefox */
-    scrollbar-color: var(--color-accent-3) var(--color-accent);
-    /* For Firefox */
+    scrollbar-color: var(--color-accent-5) var(--color-accent);
 }
 
 .mobile-menu-header {
@@ -378,7 +426,7 @@ a:has(.navImg) {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: var(--color-toggle-bg);
+    background-color: var(--color-accent-5);
     transition: 0.4s;
     border-radius: 34px;
 }

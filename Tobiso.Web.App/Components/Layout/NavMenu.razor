@@ -3,6 +3,7 @@
 @inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi AnonymApi
 @inject IPreferenceService PreferenceService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
 <!-- Mobilní menu -->
@@ -10,7 +11,8 @@
     <div class="mobile-header">
         <div>
             <a href="categories" @onclick="CloseMobileMenu">
-                <img class="navImg" src="https://files.tobiso.com/images/normal-logo.png" width="150px" alt="normální logo">
+                <img class="navImg" src="https://files.tobiso.com/images/normal-logo.png" width="150px"
+                     alt="normální logo">
             </a>
         </div>
         <div class="nav-link-content">
@@ -43,24 +45,25 @@
             <i class="bi bi-list"></i>
         </button>
     </div>
-    
-        @if (isMobileMenuOpen)
+
+    @if (isMobileMenuOpen)
     {
-        <div class="mobile-menu-overlay" tabindex="0" role="button" aria-label="Zavřít mobilní menu" @onclick="CloseMobileMenu" @onkeydown="@( (KeyboardEventArgs e) => HandleCloseMobileMenuKey(e) )"></div>
+        <div class="mobile-menu-overlay" tabindex="0" role="button" aria-label="Zavřít mobilní menu"
+             @onclick="CloseMobileMenu" @onkeydown="@( (KeyboardEventArgs e) => HandleCloseMobileMenuKey(e))"></div>
         <style>
-            main a,
-            main strong,
-            main h1,
-            main h2,
-            main h3,
-            main h4,
-            main h5,
-            main h6 {
-                z-index: -1 !important;
-            }
+                main a,
+                main strong,
+                main h1,
+                main h2,
+                main h3,
+                main h4,
+                main h5,
+                main h6 {
+                    z-index: -1 !important;
+                }
         </style>
     }
-    
+
     <div class="mobile-menu @(isMobileMenuOpen ? "show" : "")">
         <div class="mobile-menu-header">
             <h5>Menu</h5>
@@ -166,231 +169,265 @@
                         <span>Kalendář</span>
                     </a>
                 </div>
+                <div class="grade-picker">
+                    <label>Ročník:</label>
+                    @if (grades == null)
+                    {
+                        <span>načítám...</span>
+                    }
+                    else
+                    {
+                        <select @onchange="OnGradeChanged">
+                            <option value="">--Vše--</option>
+                            @foreach (var g in grades)
+                            {
+                                <option value="@g.Id" selected="@(g.Id == selectedGradeId)">@g.Name</option>
+                            }
+                        </select>
+                    }
+                </div>
             </div>
-            
+
             <div class="version-info">3.4</div>
         </div>
     </div>
 
-    <div class="grade-picker">
-        <label>Ročník:</label>
-        @if (grades == null)
-        {
-            <span>načítám...</span>
-        }
-        else
-        {
-            <select @onchange="OnGradeChanged">
-                <option value="">--Vše--</option>
-                @foreach (var g in grades)
-                {
-                    <option value="@g.Id" selected="@(g.Id==selectedGradeId)">@g.Name</option>
-                }
-            </select>
-        }
-    </div>
-
     <!-- Desktop sidebar -->
-    <div id="MyNavBar">
-        <a href="categories"><img class="navImg" src="https://files.tobiso.com/images/normal-logo.png" alt="normální logo"
-                width="150px"></a>
-        <div class="scrollable-menu">
-            <ul class="nav flex-column w-100">
-                <li class="nav-item">
-                    <a class="nav-link navHo" href="categories">
-                        <div class="nav-link-content">
-                            <i class="bi bi-house-door"></i>
-                            <span>Domů</span>
+    <div id="MyNavBar" class="@(isSidebarExpanded ? "expanded" : "collapsed")">
+        <!-- Toggle + Logos -->
+        <button class="sidebar-toggle-btn" @onclick="ToggleSidebar" aria-label="Toggle sidebar">
+            <i class="bi bi-layout-sidebar"></i>
+        </button>
+
+        <!-- Full logo (shown when expanded) -->
+        <a href="categories" class="nav-logo-full">
+            <img class="navImg" src="https://files.tobiso.com/images/normal-logo.png" alt="normální logo" width="150px" />
+        </a>
+
+        <!-- Small logo (shown when collapsed). Selects dark variant based on IsDarkMode -->
+        <a href="categories" class="nav-logo-small">
+            <img class="navImg navImg-small" src="@(IsDarkMode ? "https://files.tobiso.com/images/tobiso-small-dark.png" : "https://files.tobiso.com/images/tobiso-small.png")" alt="tobiso" width="40px" />
+        </a>
+            <div class="scrollable-menu">
+                <ul class="nav flex-column w-100">
+                    <li class="nav-item">
+                        <a class="nav-link navHo" href="categories">
+                            <div class="nav-link-content">
+                                <i class="bi bi-house-door"></i>
+                                <span>Domů</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="all-questions">
+                            <div class="nav-link-content">
+                                <i class="bi bi-person-walking"></i>
+                                <span>Procvičování</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="latest">
+                            <div class="nav-link-content">
+                                <i class="bi bi-star"></i>
+                                <span>Nejnovější učivo</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" @onclick="OpenGraph" @onclick:preventDefault="true"
+                           style="cursor: pointer">
+                            <div class="nav-link-content">
+                                <i class="bi bi-diagram-3"></i>
+                                <span>Síť článků</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="chat">
+                            <div class="nav-link-content">
+                                <i class="bi bi-stars"></i>
+                                <span>AI Chat</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a id="openSearch" class="nav-link" style="cursor: pointer">
+                            <div class="nav-link-content">
+                                <i class="bi bi-search"></i>
+                                <span>Hledat</span>
+                            </div>
+                            <span class="key-icon">K</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" style="padding-top: 3rem">
+                        <a class="nav-link navAb" href="categories/2">
+                            <div class="nav-link-content">
+                                <i class="bi bi-journal-text"></i>
+                                <span>Mluvnice</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navLi" href="categories/5">
+                            <div class="nav-link-content">
+                                <i class="bi bi-book"></i>
+                                <span>Literatura</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navSl" href="categories/3">
+                            <div class="nav-link-content">
+                                <i class="bi bi-pen"></i>
+                                <span>Sloh</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navHu" href="categories/4">
+                            <div class="nav-link-content">
+                                <i class="bi bi-music-note"></i>
+                                <span>Hudební výchova</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navMa" href="categories/6">
+                            <div class="nav-link-content">
+                                <i class="bi bi-calculator"></i>
+                                <span>Matematika</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navCh" href="categories/7">
+                            <div class="nav-link-content">
+                                <i class="bi bi-balloon"></i>
+                                <span>Chemie</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navFy" href="categories/8">
+                            <div class="nav-link-content">
+                                <i class="bi bi-gear"></i>
+                                <span>Fyzika</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navFy" href="categories/9">
+                            <div class="nav-link-content">
+                                <i class="bi bi-flower2"></i>
+                                <span>Přírodopis</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navFy" href="categories/10">
+                            <div class="nav-link-content">
+                                <i class="bi bi-globe-americas"></i>
+                                <span>Zeměpis</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item " style="padding-top: 3rem">
+                        <a class="nav-link navAnd" href="post/240">
+                            <div class="nav-link-content">
+                                <i class="bi bi-android"></i>
+                                <span>Android aplikace</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navAb" href="post/16">
+                            <div class="nav-link-content">
+                                <i class="bi bi-info-circle"></i>
+                                <span>O mně</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navCil" href="post/230">
+                            <div class="nav-link-content">
+                                <i class="bi bi-bullseye"></i>
+                                <span>Cíl projektu</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navNa" href="feedback">
+                            <div class="nav-link-content">
+                                <i class="bi bi-megaphone"></i>
+                                <span>Zpětná vazba</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navCha" href="post/134">
+                            <div class="nav-link-content">
+                                <i class="bi bi-file-text"></i>
+                                <span>Deník změn</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link navAnd" href="calendar" @onclick="CloseMobileMenu">
+                            <div class="nav-link-content">
+                                <i class="bi bi-calendar-week"></i>
+                                <span>Kalendář</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <div class="nav-link-content nav-text">
+                            @if (IsDarkMode)
+                            {
+                                <i class="bi bi-sun"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-sun-fill"></i>
+                            }
+                            <label class="switch">
+                                <input type="checkbox" id="dark-mode-toggle" aria-label="Přepnout tmavý režim">
+                                <span class="slider round"></span>
+                            </label>
+                            @if (IsDarkMode)
+                            {
+                                <i class="bi bi-moon-fill"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-moon"></i>
+                            }
                         </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="all-questions">
-                        <div class="nav-link-content">
-                            <i class="bi bi-person-walking"></i>
-                            <span>Procvičování</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="latest">
-                        <div class="nav-link-content">
-                            <i class="bi bi-star"></i>
-                            <span>Nejnovější učivo</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" @onclick="OpenGraph" @onclick:preventDefault="true" style="cursor: pointer">
-                        <div class="nav-link-content">
-                            <i class="bi bi-diagram-3"></i>
-                            <span>Síť článků</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="chat">
-                        <div class="nav-link-content">
-                            <i class="bi bi-stars"></i>
-                            <span>AI Chat</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a id="openSearch" class="nav-link" style="cursor: pointer">
-                        <span><i class="bi bi-search"></i> Hledat</span>
-                        <span class="key-icon">K</span>
-                    </a>
-                </li>
-                <li class="nav-item" style="padding-top: 3rem">
-                    <a class="nav-link navAb" href="categories/2">
-                        <div class="nav-link-content">
-                            <i class="bi bi-journal-text"></i>
-                            <span>Mluvnice</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navLi" href="categories/5">
-                        <div class="nav-link-content">
-                            <i class="bi bi-book"></i>
-                            <span>Literatura</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navSl" href="categories/3">
-                        <div class="nav-link-content">
-                            <i class="bi bi-pen"></i>
-                            <span>Sloh</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navHu" href="categories/4">
-                        <div class="nav-link-content">
-                            <i class="bi bi-music-note"></i>
-                            <span>Hudební výchova</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navMa" href="categories/6">
-                        <div class="nav-link-content">
-                            <i class="bi bi-calculator"></i>
-                            <span>Matematika</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navCh" href="categories/7">
-                        <div class="nav-link-content">
-                            <i class="bi bi-balloon"></i>
-                            <span>Chemie</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navFy" href="categories/8">
-                        <div class="nav-link-content">
-                            <i class="bi bi-gear"></i>
-                            <span>Fyzika</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navFy" href="categories/9">
-                        <div class="nav-link-content">
-                            <i class="bi bi-flower2"></i>
-                            <span>Přírodopis</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navFy" href="categories/10">
-                        <div class="nav-link-content">
-                            <i class="bi bi-globe-americas"></i>
-                            <span>Zeměpis</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item " style="padding-top: 3rem">
-                    <a class="nav-link navAnd" href="post/240">
-                        <div class="nav-link-content">
-                            <i class="bi bi-android"></i>
-                            <span>Android aplikace</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navAb" href="post/16">
-                        <div class="nav-link-content">
-                            <i class="bi bi-info-circle"></i>
-                            <span>O mně</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navCil" href="post/230">
-                        <div class="nav-link-content">
-                            <i class="bi bi-bullseye"></i>
-                            <span>Cíl projektu</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navNa" href="feedback">
-                        <div class="nav-link-content">
-                            <i class="bi bi-megaphone"></i>
-                            <span>Zpětná vazba</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navCha" href="post/134">
-                        <div class="nav-link-content">
-                            <i class="bi bi-file-text"></i>
-                            <span>Deník změn</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link navAnd" href="calendar" @onclick="CloseMobileMenu">
-                        <div class="nav-link-content">
-                            <i class="bi bi-calendar-week"></i>
-                            <span>Kalendář</span>
-                        </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <div class="nav-link-content nav-text">
-                        @if (IsDarkMode)
+                    </li>
+                </ul>
+            </div>
+            <div class="nav-footer">
+            <div class="grade-picker">
+                <label>Ročník:</label>
+                @if (grades == null)
+                {
+                    <span>načítám...</span>
+                }
+                else
+                {
+                    <select @onchange="OnGradeChanged">
+                        <option value="">--Vše--</option>
+                        @foreach (var g in grades)
                         {
-                            <i class="bi bi-sun"></i>
+                            <option value="@g.Id" selected="@(g.Id == selectedGradeId)">@g.Name</option>
                         }
-                        else
-                        {
-                            <i class="bi bi-sun-fill"></i>
-                        }
-                        <label class="switch">
-                            <input type="checkbox" id="dark-mode-toggle" aria-label="Přepnout tmavý režim">
-                            <span class="slider round"></span>
-                        </label>
-                        @if (IsDarkMode)
-                        {
-                            <i class="bi bi-moon-fill"></i>
-                        }
-                        else
-                        {
-                            <i class="bi bi-moon"></i>
-                        }
-                    </div>
-                </li>
-            </ul>
+                    </select>
+                }
+            </div>
+            <div class="version-info">3.4</div>
+            </div>
         </div>
-        <div class="version-info">3.4</div>
-    </div>
-</nav>
+    </nav>
 
 @code {
     [Parameter]
@@ -399,7 +436,22 @@
     private bool isMobileMenuOpen = false;
     private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
     private void CloseMobileMenu() => isMobileMenuOpen = false;
-    
+    private bool isSidebarExpanded = false;
+
+    private async Task ToggleSidebar()
+    {
+        isSidebarExpanded = !isSidebarExpanded;
+        // persist preference in localStorage
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "sidebar-expanded", isSidebarExpanded.ToString().ToLower());
+        }
+        catch
+        {
+            // ignore JS errors
+        }
+    }
+
     private void OpenGraph()
     {
         CloseMobileMenu();
@@ -425,6 +477,23 @@
         catch
         {
             // ignore
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var saved = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "sidebar-expanded");
+                isSidebarExpanded = saved == "true";
+                StateHasChanged();
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 
