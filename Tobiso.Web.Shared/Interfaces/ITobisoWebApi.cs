@@ -44,6 +44,18 @@ public interface ITobisoWebApi
     [Get("/api/Grades")]
     Task<IList<GradeResponse>> GetGrades();
 
+    [Get("/api/Grades/{id}")]
+    Task<GradeResponse> GetGradeById(int id);
+
+    [Post("/api/Grades")]
+    Task<GradeResponse> CreateGrade([Body] CreateGradeRequest req);
+
+    [Put("/api/Grades/{id}")]
+    Task UpdateGrade(int id, [Body] UpdateGradeRequest req);
+
+    [Delete("/api/Grades/{id}")]
+    Task DeleteGrade(int id);
+
     [Post("/api/Grades/seed")]
     Task SeedGrades();
 

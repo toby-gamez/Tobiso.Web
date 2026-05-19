@@ -1,6 +1,7 @@
 @page "/grades"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
+@using Refit
 @inject ITobisoWebApi Api
 
 <PageTitle>Grades</PageTitle>
@@ -17,6 +18,25 @@
     <span class="ms-2 text-muted">(only inserts when no grades exist)</span>
 </div>
 
+<div class="card mb-3 p-3">
+    <h5>Create Grade</h5>
+    <div class="row g-2">
+        <div class="col-auto">
+            <input class="form-control form-control-sm" placeholder="Name" @bind="newName" />
+        </div>
+        <div class="col-auto">
+            <input class="form-control form-control-sm" type="number" placeholder="Level" @bind="newLevel" />
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-sm btn-success" @onclick="CreateGrade">Create</button>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(createError))
+    {
+        <div class="text-danger mt-1">@createError</div>
+    }
+</div>
+
 <table class="table table-sm">
     <thead>
         <tr>
@@ -30,8 +50,38 @@
         {
             <tr>
                 <td>@g.Id</td>
-                <td>@g.Name</td>
-                <td>@g.Level</td>
+                <td>
+                    @if (editId == g.Id)
+                    {
+                        <input class="form-control form-control-sm" @bind="editName" />
+                    }
+                    else
+                    {
+                        @g.Name
+                    }
+                </td>
+                <td style="width:120px;">
+                    @if (editId == g.Id)
+                    {
+                        <input class="form-control form-control-sm" type="number" @bind="editLevel" />
+                    }
+                    else
+                    {
+                        @g.Level
+                    }
+                </td>
+                <td style="width:160px;">
+                    @if (editId == g.Id)
+                    {
+                        <button class="btn btn-sm btn-primary me-1" @onclick="() => SaveEdit(g.Id)">Save</button>
+                        <button class="btn btn-sm btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(g)">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteGrade(g.Id)">Delete</button>
+                    }
+                </td>
             </tr>
         }
     </tbody>
@@ -40,6 +90,13 @@
 @code {
     private List<GradeResponse> grades = new();
     private string? errorMessage;
+    private string newName = string.Empty;
+    private int newLevel = 6;
+    private string? createError;
+
+    private int editId = -1;
+    private string editName = string.Empty;
+    private int editLevel;
 
     protected override async Task OnInitializedAsync()
     {
@@ -64,6 +121,95 @@
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+    }
+
+    private async Task CreateGrade()
+    {
+        try
+        {
+            createError = null;
+            var created = await Api.CreateGrade(new CreateGradeRequest { Name = newName, Level = newLevel });
+            grades = (await Api.GetGrades()).ToList();
+            newName = string.Empty;
+            newLevel = 6;
+        }
+        catch (ApiException ex)
+        {
+            createError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            createError = ex.Message;
+        }
+    }
+
+    private void StartEdit(GradeResponse g)
+    {
+        editId = g.Id;
+        editName = g.Name;
+        editLevel = g.Level;
+    }
+
+    private void CancelEdit()
+    {
+        editId = -1;
+        editName = string.Empty;
+        editLevel = 0;
+    }
+
+    private async Task SaveEdit(int id)
+    {
+        try
+        {
+            await Api.UpdateGrade(id, new UpdateGradeRequest { Name = editName, Level = editLevel });
+            grades = (await Api.GetGrades()).ToList();
+            CancelEdit();
+            errorMessage = null;
+        }
+        catch (ApiException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task DeleteGrade(int id)
+    {
+        if (!await JsConfirm($"Delete grade #{id}? This cannot be undone.")) return;
+        try
+        {
+            await Api.DeleteGrade(id);
+            grades = (await Api.GetGrades()).ToList();
+            errorMessage = null;
+        }
+        catch (ApiException ex)
+        {
+            // try to parse conflict message
+            errorMessage = ex.Content ?? ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    // simple JS confirm via interop, fall back to C# confirm if not available
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    private async Task<bool> JsConfirm(string message)
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("confirm", message);
+        }
+        catch
+        {
+            return false;
         }
     }
 }
