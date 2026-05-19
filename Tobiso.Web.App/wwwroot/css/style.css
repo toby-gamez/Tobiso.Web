@@ -1080,6 +1080,10 @@ body:has(#MyNavBar.collapsed) .cookie-consent-div {
     margin-left: 60px !important;
 }
 
+body:has(#MyNavBar.collapsed) .nav-link-content span {
+    display: none;
+}
+
 body:has(#MyNavBar.expanded) main,
 body:has(#MyNavBar.expanded) .loading-bar-container,
 body:has(#MyNavBar.expanded) .cookie-consent-div {
@@ -3770,6 +3774,11 @@ body.dark-mode .post {
 
 body.dark-mode .post:hover {
     background-color: var(--hover-bg-dark);
+}
+
+body.dark-mode .nav-link-content span,
+body.dark-mode .sidebar-toggle-btn {
+    color: var(--color-text-dark);
 }
 
 body.dark-mode .category {

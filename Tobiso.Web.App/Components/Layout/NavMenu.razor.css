@@ -371,6 +371,98 @@ body:has(#MyNavBar.collapsed) .nav-link:hover {
     transform: translateY(-1px);
 }
 
+/* Desktop essentials grid (Zen-style) */
+.nav-essentials-container {
+    list-style: none;
+    padding: 0;
+    width: 100%;
+}
+
+.nav-essentials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem; /* tighter grid gap for smaller tiles */
+    /* Remove large right padding so tiles fill the available sidebar width */
+    padding: 0.35rem 0.35rem;
+    width: 100%;
+}
+
+.nav-essential-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0.25rem;
+    background-color: var(--color-accent-5);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    min-height: 44px; /* smaller tiles */
+    text-align: center;
+    width: 100%; /* ensure tile stretches to fill the grid cell */
+    position: relative; /* ensure tooltip positioning anchors to the tile */
+    z-index: 1;
+}
+
+.nav-essential-item i {
+    font-size: 1.05rem; /* slightly smaller icons */
+}
+
+.nav-essential-item span {
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.nav-essential-item:hover {
+    transform: translateY(-3px);
+    background-color: var(--color-light-accent);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+}
+
+/* Only show icon by default on desktop; reveal text on hover as a small tooltip-like label */
+.nav-essentials-grid .nav-essential-item span {
+    display: none;
+}
+
+/* Tooltip-like label shown above the tile to avoid being covered by the lower row */
+.nav-essentials-grid .nav-essential-item:hover span {
+    display: block;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: -1.4rem; /* closer above the smaller tile */
+    background: var(--color-accent-5);
+    color: var(--color-text);
+    padding: 0.18rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    z-index: 3000; /* ensure it floats above neighboring tiles */
+}
+
+/* Collapsed sidebar adjustments: show icons only in a single column */
+#MyNavBar.collapsed .nav-essentials-grid {
+    grid-template-columns: 1fr;
+    padding: 0.25rem 0;
+    gap: 0.25rem;
+}
+
+#MyNavBar.collapsed .nav-essential-item {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    min-height: 40px;
+    border-radius: 8px;
+    justify-content: center;
+}
+
+#MyNavBar.collapsed .nav-essential-item span {
+    display: none;
+}
+
 /* For Webkit browsers (Chrome, Safari) */
 .mobile-menu::-webkit-scrollbar {
     width: 12px;
