@@ -55,7 +55,7 @@ else
             @foreach (var post in posts)
             {
                 <div class="post">
-                    <a href="@($"/post/{post.Id}?returnUrl={Uri.EscapeDataString(Navigation.Uri)}")">
+                    <a href="@($"/post/{SlugFromFilePath(post.FilePath)}")">
                         <h5 style="margin: 0">@post.Title</h5>
                         <div class="latest-muted">
                             <small>@DisplayDate(post)</small>
@@ -230,5 +230,11 @@ else
         {
             return null;
         }
+    }
+
+    private static string SlugFromFilePath(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        return System.IO.Path.GetFileNameWithoutExtension(filePath);
     }
 }

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Tobiso.Web.Shared.DTOs;
 
 /// <summary>
@@ -26,10 +28,21 @@ public class CreateInteractiveExerciseRequest
 {
     public List<int>? PostIds { get; set; }
     public List<int>? CategoryIds { get; set; }
+
+    [Required(ErrorMessage = "Název cvičení je povinný.")]
+    [MaxLength(200, ErrorMessage = "Název cvičení smí mít nejvýše 200 znaků.")]
     public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Typ cvičení je povinný.")]
+    [MaxLength(50, ErrorMessage = "Typ cvičení smí mít nejvýše 50 znaků.")]
     public string Type { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Konfigurace cvičení (ConfigJson) je povinná.")]
     public string ConfigJson { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Řešení cvičení (SolutionJson) je povinné.")]
     public string SolutionJson { get; set; } = string.Empty;
+
     public string? InstructionsMarkdown { get; set; }
     public int OrderIndex { get; set; } = 0;
     public bool IsActive { get; set; } = true;
@@ -43,10 +56,21 @@ public class UpdateInteractiveExerciseRequest
     public int Id { get; set; }
     public List<int>? PostIds { get; set; }
     public List<int>? CategoryIds { get; set; }
+
+    [Required(ErrorMessage = "Název cvičení je povinný.")]
+    [MaxLength(200, ErrorMessage = "Název cvičení smí mít nejvýše 200 znaků.")]
     public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Typ cvičení je povinný.")]
+    [MaxLength(50, ErrorMessage = "Typ cvičení smí mít nejvýše 50 znaků.")]
     public string Type { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Konfigurace cvičení (ConfigJson) je povinná.")]
     public string ConfigJson { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Řešení cvičení (SolutionJson) je povinné.")]
     public string SolutionJson { get; set; } = string.Empty;
+
     public string? InstructionsMarkdown { get; set; }
     public int OrderIndex { get; set; }
     public bool IsActive { get; set; }
@@ -57,6 +81,7 @@ public class UpdateInteractiveExerciseRequest
 /// </summary>
 public class ValidateSolutionRequest
 {
+    [Required(ErrorMessage = "Odpověď uživatele (UserSolutionJson) je povinná.")]
     public string UserSolutionJson { get; set; } = string.Empty;
 }
 

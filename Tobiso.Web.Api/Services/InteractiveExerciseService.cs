@@ -168,7 +168,6 @@ public class InteractiveExerciseService : IInteractiveExerciseService
 
             var exercise = new InteractiveExercise
             {
-                PostId = request.PostIds?.FirstOrDefault(),
                 Title = request.Title,
                 Type = request.Type,
                 ConfigJson = request.ConfigJson,
@@ -301,14 +300,174 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             .FirstOrDefaultAsync(e => e.Id == exerciseId)
             ?? throw new InvalidOperationException("Exercise not found");
 
-        var user = JsonDocument.Parse(request.UserSolutionJson);
-        var correct = JsonDocument.Parse(exercise.SolutionJson);
+        using var userDoc    = JsonDocument.Parse(request.UserSolutionJson);
+        using var solutionDoc = JsonDocument.Parse(exercise.SolutionJson);
+
+        var userRoot     = userDoc.RootElement;
+        var solutionRoot = solutionDoc.RootElement;
+
+        // Pull the shared optional explanation out of the solution JSON once.
+        var explanation = solutionRoot.TryGetProperty("explanation", out var expProp)
+            ? expProp.GetString()
+            : null;
+
+        return exercise.Type switch
+        {
+            ExerciseTypeConstants.Timeline => ValidateTimeline(userRoot, solutionRoot, explanation),
+            ExerciseTypeConstants.DragDrop => ValidateDragDrop(userRoot, solutionRoot, explanation),
+            ExerciseTypeConstants.Matching => ValidateMatching(userRoot, solutionRoot, explanation),
+            // Circuit / Molecule / unknown: fall back to raw-JSON equality.
+            _ => ValidateFallback(userRoot, solutionRoot, explanation)
+        };
+    }
+
+    // ── Timeline ─────────────────────────────────────────────────────────────
+    // User    : { "order": ["event-1", "event-2", ...] }
+    // Solution: { "correctOrder": ["event-1", "event-2", ...], "explanation": "..." }
+    private static ExerciseValidationResult ValidateTimeline(
+        JsonElement user, JsonElement solution, string? explanation)
+    {
+        if (!user.TryGetProperty("order", out var userOrderEl)
+            || !solution.TryGetProperty("correctOrder", out var correctOrderEl))
+        {
+            return new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score     = 0,
+                Feedback  = "Chybný formát odpovědi.",
+                Explanation = explanation
+            };
+        }
+
+        var userOrder    = userOrderEl.EnumerateArray().Select(e => e.GetString()).ToList();
+        var correctOrder = correctOrderEl.EnumerateArray().Select(e => e.GetString()).ToList();
+
+        bool isCorrect = userOrder.SequenceEqual(correctOrder);
+        return new ExerciseValidationResult
+        {
+            IsCorrect   = isCorrect,
+            Score       = isCorrect ? 100 : 0,
+            Feedback    = isCorrect ? "Správně! Pořadí událostí je přesné." : "Pořadí událostí není správné. Zkuste to znovu.",
+            Explanation = explanation
+        };
+    }
+
+    // ── Drag-drop ─────────────────────────────────────────────────────────────
+    // User    : { "placements": { "itemId": "categoryId", ... } }
+    // Solution: { "correctPlacements": { "itemId": "categoryId", ... }, "explanation": "..." }
+    private static ExerciseValidationResult ValidateDragDrop(
+        JsonElement user, JsonElement solution, string? explanation)
+    {
+        if (!user.TryGetProperty("placements", out var userPlacementsEl)
+            || !solution.TryGetProperty("correctPlacements", out var correctPlacementsEl))
+        {
+            return new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score     = 0,
+                Feedback  = "Chybný formát odpovědi.",
+                Explanation = explanation
+            };
+        }
+
+        var correct = correctPlacementsEl.EnumerateObject()
+            .ToDictionary(p => p.Name, p => p.Value.GetString() ?? string.Empty);
+
+        var detailed = new Dictionary<string, bool>();
+        int correctCount = 0;
+
+        foreach (var prop in userPlacementsEl.EnumerateObject())
+        {
+            var userVal    = prop.Value.GetString() ?? string.Empty;
+            bool itemOk    = correct.TryGetValue(prop.Name, out var expected) && expected == userVal;
+            detailed[prop.Name] = itemOk;
+            if (itemOk) correctCount++;
+        }
+
+        int total     = correct.Count;
+        int score     = total == 0 ? 0 : (int)Math.Round(correctCount * 100.0 / total);
+        bool isCorrect = score == 100;
+
+        string feedback = isCorrect
+            ? "Výborně! Vše správně umístěno."
+            : $"Správně jste umístil(a) {correctCount} z {total} položek. Zkuste to znovu.";
 
         return new ExerciseValidationResult
         {
-            IsCorrect = user.RootElement.GetRawText() == correct.RootElement.GetRawText(),
-            Score = 100,
-            Feedback = "OK"
+            IsCorrect       = isCorrect,
+            Score           = score,
+            Feedback        = feedback,
+            Explanation     = explanation,
+            DetailedResults = detailed
+        };
+    }
+
+    // ── Matching ─────────────────────────────────────────────────────────────
+    // User    : { "pairs": [{ "leftId": "l-1", "rightId": "r-1" }, ...] }
+    // Solution: { "pairs": [{ "id": "pair-1", "leftId": "l-1", "rightId": "r-1" }, ...], "explanation": "..." }
+    private static ExerciseValidationResult ValidateMatching(
+        JsonElement user, JsonElement solution, string? explanation)
+    {
+        if (!user.TryGetProperty("pairs", out var userPairsEl)
+            || !solution.TryGetProperty("pairs", out var solutionPairsEl))
+        {
+            return new ExerciseValidationResult
+            {
+                IsCorrect = false,
+                Score     = 0,
+                Feedback  = "Chybný formát odpovědi.",
+                Explanation = explanation
+            };
+        }
+
+        // Build a lookup: leftId → correct rightId
+        var correctMap = solutionPairsEl.EnumerateArray()
+            .ToDictionary(
+                p => p.GetProperty("leftId").GetString() ?? string.Empty,
+                p => p.GetProperty("rightId").GetString() ?? string.Empty);
+
+        var detailed = new Dictionary<string, bool>();
+        int correctCount = 0;
+
+        foreach (var pair in userPairsEl.EnumerateArray())
+        {
+            var leftId  = pair.TryGetProperty("leftId",  out var lProp) ? lProp.GetString() ?? string.Empty : string.Empty;
+            var rightId = pair.TryGetProperty("rightId", out var rProp) ? rProp.GetString() ?? string.Empty : string.Empty;
+
+            bool pairOk = correctMap.TryGetValue(leftId, out var expectedRight) && expectedRight == rightId;
+            detailed[leftId] = pairOk;
+            if (pairOk) correctCount++;
+        }
+
+        int total      = correctMap.Count;
+        int score      = total == 0 ? 0 : (int)Math.Round(correctCount * 100.0 / total);
+        bool isCorrect = score == 100;
+
+        string feedback = isCorrect
+            ? "Výborně! Všechny páry jsou správně spojeny."
+            : $"Správně jste spojil(a) {correctCount} z {total} párů. Zkuste to znovu.";
+
+        return new ExerciseValidationResult
+        {
+            IsCorrect       = isCorrect,
+            Score           = score,
+            Feedback        = feedback,
+            Explanation     = explanation,
+            DetailedResults = detailed
+        };
+    }
+
+    // ── Fallback (circuit / molecule / unknown) ────────────────────────────────
+    private static ExerciseValidationResult ValidateFallback(
+        JsonElement user, JsonElement solution, string? explanation)
+    {
+        bool isCorrect = user.GetRawText() == solution.GetRawText();
+        return new ExerciseValidationResult
+        {
+            IsCorrect   = isCorrect,
+            Score       = isCorrect ? 100 : 0,
+            Feedback    = isCorrect ? "Správně!" : "Řešení není správné. Zkuste to znovu.",
+            Explanation = explanation
         };
     }
 

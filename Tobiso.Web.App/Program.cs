@@ -23,7 +23,6 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .CreateLogger();
 
-builder.Services.AddControllers();
 builder.Host.UseSerilog();
 
 QuestPDF.Settings.License = LicenseType.Community;
@@ -50,9 +49,9 @@ services.AddRazorComponents().AddInteractiveServerComponents();
 
 // Register API services from Tobiso.Web.Api.Services
 services.AddScoped<ICategoryService, CategoryService>();
-            services.AddScoped<IPostService, PostService>();
-            services.AddScoped<IPostVersionService, PostVersionService>();
-            services.AddScoped<IGradeService, GradeService>();
+services.AddScoped<IPostService, PostService>();
+services.AddScoped<IPostVersionService, PostVersionService>();
+services.AddScoped<IGradeService, GradeService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
@@ -60,8 +59,7 @@ services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
-    // Person modal service (persons are now AI-generated on demand)
-    services.AddScoped<PersonModalService>();
+services.AddScoped<PersonModalService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
@@ -198,14 +196,16 @@ services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-//if (!app.Environment.IsDevelopment())
-//{
-  //  app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    //app.UseHsts();
-//}
-
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
 

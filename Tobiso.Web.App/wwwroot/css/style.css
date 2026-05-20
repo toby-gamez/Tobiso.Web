@@ -1351,6 +1351,27 @@ main {
     display: block;
 }
 
+/* ── Callout blocks: Tips and Side facts ─────────────────────────────────── */
+.callout-block {
+    background-color: var(--intro-bg);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.callout-label {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: var(--font-family-sans);
+    padding: 2px 10px;
+    border-radius: 999px;
+    background-color: var(--intro-light-bg);
+    color: var(--color-text);
+    margin-bottom: 10px;
+}
+
 .question-container {
     margin-bottom: 2rem;
     border-radius: 0.375rem;
@@ -3409,6 +3430,16 @@ body.dark-mode .intro {
     color: var(--color-text-dark);
 }
 
+body.dark-mode .callout-block {
+    background-color: var(--intro-bg-dark);
+    color: var(--color-text-dark);
+}
+
+body.dark-mode .callout-label {
+    background-color: var(--intro-light-bg-dark);
+    color: var(--color-text-dark);
+}
+
 body.dark-mode a:has(.navImg) {
     border-bottom: 3px solid var(--color-accent-dark);
 }
@@ -3728,7 +3759,9 @@ body.dark-mode .post-item .question-count {
     color: var(--good);
 }
 
-body.dark-mode .post-item.selected .question-count {
+body.dark-mode .post-item.selected .question-count,
+body.dark-mode .tool span,
+body.dark-mode .math-inline *{
     color: var(--color-white);
 }
 

@@ -151,18 +151,18 @@
                             {
                                 @switch (_model.Type)
                                 {
-                                    case "circuit":
+                                    case ExerciseTypeConstants.Circuit:
                                         <CircuitEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged" />
                                         break;
-                                    case "timeline":
+                                    case ExerciseTypeConstants.Timeline:
                                         <TimelineEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                                 SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
                                         break;
-                                    case "drag-drop":
+                                    case ExerciseTypeConstants.DragDrop:
                                         <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                                 SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
                                         break;
-                                    case "matching":
+                                    case ExerciseTypeConstants.Matching:
                                         <MatchingEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                                 SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
                                         break;
@@ -238,27 +238,27 @@
                             {
                                 @switch (_model.Type)
                                 {
-                                    case "circuit":
+                                    case ExerciseTypeConstants.Circuit:
                                         <h6>Fyzikální obvod</h6>
                                         <p><strong>Příklad ConfigJson:</strong></p>
                                         <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetCircuitExample()</pre>
                                         break;
-                                    case "timeline":
+                                    case ExerciseTypeConstants.Timeline:
                                         <h6>Časová osa</h6>
                                         <p><strong>Příklad ConfigJson:</strong></p>
                                         <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetTimelineExample()</pre>
                                         break;
-                                    case "drag-drop":
+                                    case ExerciseTypeConstants.DragDrop:
                                         <h6>Přetahování</h6>
                                         <p><strong>Příklad ConfigJson:</strong></p>
                                         <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetDragDropExample()</pre>
                                         break;
-                                    case "molecule":
+                                    case ExerciseTypeConstants.Molecule:
                                         <h6>Molekula</h6>
                                         <p><strong>Příklad ConfigJson:</strong></p>
                                         <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetMoleculeExample()</pre>
                                         break;
-                                    case "matching":
+                                    case ExerciseTypeConstants.Matching:
                                         <h6>Párování</h6>
                                         <p>Podobné jako drag-drop, ale pro spojování prvků.</p>
                                         break;
@@ -571,11 +571,11 @@
     {
         _model.ConfigJson = _model.Type switch
         {
-            "circuit" => GetCircuitConfigExample(),
-            "timeline" => GetTimelineConfigExample(),
-            "drag-drop" => GetDragDropConfigExample(),
-            "molecule" => GetMoleculeConfigExample(),
-            "matching" => GetMatchingConfigExample(),
+            ExerciseTypeConstants.Circuit  => GetCircuitConfigExample(),
+            ExerciseTypeConstants.Timeline => GetTimelineConfigExample(),
+            ExerciseTypeConstants.DragDrop => GetDragDropConfigExample(),
+            ExerciseTypeConstants.Molecule => GetMoleculeConfigExample(),
+            ExerciseTypeConstants.Matching => GetMatchingConfigExample(),
             _ => "{}"
         };
     }
@@ -584,11 +584,11 @@
     {
         _model.SolutionJson = _model.Type switch
         {
-            "circuit" => GetCircuitSolutionExample(),
-            "timeline" => GetTimelineSolutionExample(),
-            "drag-drop" => GetDragDropSolutionExample(),
-            "molecule" => GetMoleculeSolutionExample(),
-            "matching" => GetMatchingSolutionExample(),
+            ExerciseTypeConstants.Circuit  => GetCircuitSolutionExample(),
+            ExerciseTypeConstants.Timeline => GetTimelineSolutionExample(),
+            ExerciseTypeConstants.DragDrop => GetDragDropSolutionExample(),
+            ExerciseTypeConstants.Molecule => GetMoleculeSolutionExample(),
+            ExerciseTypeConstants.Matching => GetMatchingSolutionExample(),
             _ => "{}"
         };
     }

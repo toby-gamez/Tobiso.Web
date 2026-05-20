@@ -274,8 +274,71 @@ namespace Tobiso.Web.App.Services
             }
         }
 
-        public async Task<GrammarCheckResponse> CheckGrammarAsync(string content)
+        public async Task<string> GenerateCheatSheetAsync(string title, string content, string ratio = "1x1")
         {
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+
+            // Adjust bullet count and token budget based on page ratio
+            bool isTall = ratio == "1x2";
+            var bulletRange = isTall ? "25–40" : "15–25";
+            var sizeSuffix = isTall ? "10×20 cm" : "10×10 cm";
+            var maxTokens = isTall ? 900 : 600;
+
+            var systemPrompt = _configuration["OpenAI:CheatSheetSystemPrompt"] is { Length: > 0 } sp
+                ? sp.Replace("15–25", bulletRange).Replace("10×10 cm", sizeSuffix)
+                : $"Jsi asistent pro tvorbu tahákú. Dostaneš obsah vzdělávacího článku a tvým úkolem je vytvořit maximálně stručný tahák. Pravidla: Piš POUZE krátké odrážkové body (•), žádný úvod ani závěr. Každý bod max. 10 slov. Vyber pouze {bulletRange} nejdůležitějších faktů, pojmů, vzorců nebo dat. Vzorce piš v textové formě (např. a/b, a^2). Odpovídej výhradně v češtině. Buď maximálně úsporný – tahák musí být čitelný na ploše {sizeSuffix}.";
+
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var trimmed = PrepareArticleContext(content);
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma: {title}\n\nObsah článku:\n{trimmed}" }
+            };
+
+            var payload = new
+            {
+                model = model,
+                messages = messages,
+                max_tokens = maxTokens,
+                temperature = 0.3
+            };
+
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI cheat sheet request failed for title={Title}", title);
+                throw;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+            {
+                var first = choices[0];
+                if (first.TryGetProperty("message", out var msg) && msg.TryGetProperty("content", out var cnt))
+                    return cnt.GetString()?.Trim() ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        public async Task<GrammarCheckResponse> CheckGrammarAsync(string content)        {
             if (string.IsNullOrWhiteSpace(content)) return new GrammarCheckResponse();
 
             var apiKey = _configuration["OpenAI:ApiKey"];

@@ -1,4 +1,5 @@
 @page "/post/{Id:int}"
+@page "/post/{Slug}"
 @using System.Text.RegularExpressions
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
@@ -12,6 +13,7 @@
 @inject System.Net.Http.HttpClient Http
 @inject AddendumModalService ModalService
 @inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
+@inject ILogger<PostDetail> Logger
 @rendermode InteractiveServer
 @implements IDisposable
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
@@ -181,6 +183,55 @@ body.dark-mode .grade-badge {
         text-decoration-thickness: 2px;
         text-underline-offset: 6px;
     }
+
+    /* ── Cheat-sheet ratio picker modal ── */
+    .cs-modal-backdrop {
+        position: fixed; inset: 0; z-index: 1100;
+        background: rgba(0,0,0,.45);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .cs-modal-dialog {
+        background: var(--color-bg, #fff);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,.28);
+        padding: 1.4rem 1.6rem 1.2rem;
+        min-width: 320px;
+        max-width: 96vw;
+    }
+    .cs-modal-header {
+        display: flex; justify-content: space-between; align-items: center;
+        font-weight: 600; font-size: 1rem; margin-bottom: 1.1rem;
+    }
+    .cs-modal-close {
+        background: none; border: none; font-size: 1.4rem; line-height: 1;
+        cursor: pointer; color: inherit; padding: 0 .2rem;
+    }
+    .cs-modal-body {
+        display: flex; gap: 1.2rem; justify-content: center;
+    }
+    .cs-ratio-card {
+        display: flex; flex-direction: column; align-items: center;
+        gap: .55rem; padding: .8rem .9rem 1rem;
+        border: 2px solid var(--color-border, #ddd);
+        border-radius: 10px; background: none; cursor: pointer;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .cs-ratio-card:hover:not(:disabled) {
+        border-color: var(--color-accent-strong, #4f8ef7);
+        box-shadow: 0 2px 10px rgba(79,142,247,.18);
+    }
+    .cs-ratio-card:disabled { opacity: .55; cursor: default; }
+    /* Square preview */
+    .cs-preview { display: flex; flex-direction: column; gap: 5px; padding: 7px 8px; border-radius: 5px; border: 1.5px solid var(--color-border, #ccc); background: var(--color-bg-alt, #f8f8f8); }
+    .cs-preview-1x1 { width: 72px; height: 72px; }
+    .cs-preview-1x2 { width: 60px; height: 120px; }
+    .cs-preview-line { height: 4px; border-radius: 2px; background: var(--color-text-muted, #bbb); }
+    .cs-card-label { font-weight: 600; font-size: .92rem; }
+    .cs-card-sub { font-size: .75rem; color: var(--color-text-muted, #888); }
+    .cs-modal-footer {
+        margin-top: .9rem; text-align: center;
+        font-size: .88rem; color: var(--color-text-muted, #888);
+    }
 </style>
 @if (_post == null)
 {
@@ -258,6 +309,10 @@ else
                     <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
                 </button>
                 <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
+                <button class="tool-btn" aria-label="Stáhnout tahák (PDF)" @onclick="OpenCheatSheetModal">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span class="tool-label">Tahák (PDF)</span>
+                </button>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -336,6 +391,10 @@ else
                 <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
             </button>
             <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
+            <button class="tool-btn" aria-label="Stáhnout tahák (PDF)" @onclick="OpenCheatSheetModal">
+                <i class="bi bi-file-earmark-text"></i>
+                <span class="tool-label">Tahák (PDF)</span>
+            </button>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -396,19 +455,19 @@ else
                         <div class="exercise-content bg-light p-4 rounded">
                             @switch (exercise.Type)
                             {
-                                case "circuit":
+                                case ExerciseTypeConstants.Circuit:
                                     <CircuitSimulator Exercise="exercise" />
                                     break;
-                                case "timeline":
+                                case ExerciseTypeConstants.Timeline:
                                     <TimelineExercise Exercise="exercise" />
                                     break;
-                                case "drag-drop":
+                                case ExerciseTypeConstants.DragDrop:
                                     <DragDropExercise Exercise="exercise" />
                                     break;
-                                case "matching":
+                                case ExerciseTypeConstants.Matching:
                                     <MatchingExercise Exercise="exercise" />
                                     break;
-                                case "molecule":
+                                case ExerciseTypeConstants.Molecule:
                                 default:
                                     <div class="alert alert-warning">
                                         <i class="bi bi-tools"></i>
@@ -467,10 +526,60 @@ else
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
 <PersonModal IsVisible="@_showPersonModal" IsVisibleChanged="@OnPersonModalClose" PersonName="@_personNameForModal" />
 
+@if (_showCheatSheetModal)
+{
+    <div class="cs-modal-backdrop" @onclick="CloseCheatSheetModal">
+        <div class="cs-modal-dialog" @onclick:stopPropagation>
+            <div class="cs-modal-header">
+                <span>Vyberte formát tahák&uacute;</span>
+                <button class="cs-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
+            </div>
+            <div class="cs-modal-body">
+                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x1")' disabled="@_isGeneratingCheatSheet">
+                    <div class="cs-preview cs-preview-1x1">
+                        <div class="cs-preview-line" style="width:80%"></div>
+                        <div class="cs-preview-line" style="width:65%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                    </div>
+                    <div class="cs-card-label">Čtvercový</div>
+                    <div class="cs-card-sub">10 &times; 10 cm &nbsp;&bull;&nbsp; ~20 bodů</div>
+                </button>
+                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x2")' disabled="@_isGeneratingCheatSheet">
+                    <div class="cs-preview cs-preview-1x2">
+                        <div class="cs-preview-line" style="width:80%"></div>
+                        <div class="cs-preview-line" style="width:65%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                        <div class="cs-preview-line" style="width:75%"></div>
+                        <div class="cs-preview-line" style="width:50%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:62%"></div>
+                    </div>
+                    <div class="cs-card-label">Na výšku</div>
+                    <div class="cs-card-sub">10 &times; 20 cm &nbsp;&bull;&nbsp; ~35 bodů</div>
+                </button>
+            </div>
+            @if (_isGeneratingCheatSheet)
+            {
+                <div class="cs-modal-footer">
+                    <i class="bi bi-hourglass-split"></i> Generuji PDF&hellip;
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @using Tobiso.Web.App.Components.Shared
 @code {
     [Parameter]
     public int Id { get; set; }
+    [Parameter]
+    public string? Slug { get; set; }
     private PostResponse? _post;
     /// <summary>The version selected by the server (Versions[0] when gradeId was passed, or highest grade otherwise).</summary>
     private PostVersionResponse? ActiveVersion => _post?.Versions?.FirstOrDefault();
@@ -478,7 +587,7 @@ else
     private List<PersonSummaryResponse>? _allPeople;
     private List<RelatedPostResponse>? _relatedPosts;
     private List<CategoryResponse>? _breadcrumbCategories;
-    private string? _returnUrl;
+
     private string? _fileSuffix;
     private bool _hasQuestions = false;
     private bool _isShared = false;
@@ -509,10 +618,21 @@ else
     protected override async Task OnInitializedAsync()
     {
         var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
-        // Pass gradeId to API so server picks best matching version (BestMatch logic).
-        // No client-side version selection needed.
-        _post = await Api.GetPostById(Id, preferredGrade);
-        _allPosts = (await Api.GetPostSummaries()).ToList();
+        if (!string.IsNullOrEmpty(Slug))
+        {
+            // Route: /post/{slug} — resolve by filename, then load by id
+            _allPosts = (await Api.GetPostSummaries()).ToList();
+            var matched = _allPosts.FirstOrDefault(p =>
+                SlugFromFilePath(p.FilePath).Equals(Slug, StringComparison.OrdinalIgnoreCase));
+            if (matched != null)
+                _post = await Api.GetPostById(matched.Id, preferredGrade);
+        }
+        else
+        {
+            // Route: /post/{id:int}
+            _post = await Api.GetPostById(Id, preferredGrade);
+            _allPosts = (await Api.GetPostSummaries()).ToList();
+        }
 
         // Check AI availability (runs against App's /api/ai/diag endpoint)
             try
@@ -527,8 +647,9 @@ else
                         var names = await Http.GetFromJsonAsync<List<string>>(new Uri(Navigation.BaseUri + $"api/ai/detect-persons/{Id}"));
                         _allPeople = (names ?? new List<string>()).Select(n => new PersonSummaryResponse { Id = 0, Name = n, Slug = null, Aliases = null }).ToList();
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Logger.LogWarning(ex, "AI person detection failed for post {PostId}", Id);
                         _allPeople = new List<PersonSummaryResponse>();
                     }
                 }
@@ -556,13 +677,23 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        var uri = new Uri(Navigation.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-        _returnUrl = query.TryGetValue("returnUrl", out var val) ? val.ToString() : null;
         var preferredGrade2 = await PreferenceService.GetPreferredGradeIdAsync();
-        // Pass gradeId to API so server picks best matching version.
-        _post = await Api.GetPostById(Id, preferredGrade2);
-        _allPosts = (await Api.GetPostSummaries()).ToList();
+        if (!string.IsNullOrEmpty(Slug))
+        {
+            // Route: /post/{slug} — resolve by filename
+            if (_allPosts == null || _allPosts.Count == 0)
+                _allPosts = (await Api.GetPostSummaries()).ToList();
+            var matched = _allPosts.FirstOrDefault(p =>
+                SlugFromFilePath(p.FilePath).Equals(Slug, StringComparison.OrdinalIgnoreCase));
+            if (matched != null)
+                _post = await Api.GetPostById(matched.Id, preferredGrade2);
+        }
+        else
+        {
+            // Route: /post/{id:int}
+            _post = await Api.GetPostById(Id, preferredGrade2);
+            _allPosts = (await Api.GetPostSummaries()).ToList();
+        }
         await LoadBreadcrumb();
         SetFileSuffix();
         await CheckForQuestions();
@@ -572,74 +703,37 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Ensure the JS module is loaded before any interop calls.
+        if (_jsModule == null)
+        {
+            try
+            {
+                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=11");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to import blazor-utils.js module");
+            }
+        }
+
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            await Js.InvokeVoidAsync("eval", @"
-                window.requestAddendum = function(addendumId) {
-                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerAddendum', addendumId);
-                };
-                window.openPersonCard = function(personId) {
-                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPerson', personId);
-                };
-                window.openPersonByName = function(name){
-                    DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name);
-                };
-                // Delegated click handler for person links (a[data-person-name]) so clicks on
-                // dynamically rendered content trigger the Blazor modal. Uses closest() to
-                // handle clicks on inner <i> elements.
-                document.addEventListener('click', function(e){
-                    try {
-                        var tgt = e.target;
-                        if (!tgt || !tgt.closest) return;
-                        var a = tgt.closest('a[data-person-name]');
-                        if (!a) return;
-                        e.preventDefault();
-                        var name = a.getAttribute('data-person-name') || (a.dataset && a.dataset.personName) || '';
-                        if (!name) return;
-                        if (window.openPersonByName) {
-                            window.openPersonByName(name);
-                        } else if (window.__postDetailRef) {
-                            window.__postDetailRef.invokeMethodAsync('TriggerPersonByName', name);
-                        } else {
-                            try { DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name); } catch(_){}
-                        }
-                    } catch (err) { /* ignore */ }
-                }, false);
-                // Initialize instance bridge and fullscreen listener
-                window.__initPostDetail = function(dotnet){
-                    window.__postDetailRef = dotnet;
-                    document.addEventListener('fullscreenchange', function(){
-                        if (!document.fullscreenElement && window.__postDetailRef) {
-                            // Ensure our custom focus styles are also removed
-                            try{ document.body.classList.remove('focus-mode'); }catch(e){}
-                            window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit');
-                        }
-                    });
-                    // Also react to ESC directly to clear our styles
-                    document.addEventListener('keydown', function(e){
-                        if (e && (e.key === 'Escape' || e.code === 'Escape')) {
-                            if (document.body.classList.contains('focus-mode')) {
-                                try{ document.body.classList.remove('focus-mode'); }catch(_){}
-                                if (window.__postDetailRef) {
-                                    window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit');
-                                }
-                            }
-                        }
-                    });
-                };
-            ");
-            // Pass DotNet object reference to JS to enable instance callbacks
-            await Js.InvokeVoidAsync("__initPostDetail", _dotNetRef);
-            // Import our JS module and initialize delegated handlers (person links, lightbox).
-            try
+
+            if (_jsModule != null)
             {
-                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=10");
-                try { await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef); } catch { }
-                try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); } catch { }
+                // Set up global window callbacks and event listeners for this component instance.
+                try { await _jsModule.InvokeVoidAsync("initPostDetail", _dotNetRef); }
+                catch (Exception ex) { Logger.LogWarning(ex, "initPostDetail failed"); }
+
+                try { await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef); }
+                catch (Exception ex) { Logger.LogWarning(ex, "initPersonLinkHandler failed"); }
+
+                try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); }
+                catch (Exception ex) { Logger.LogWarning(ex, "initImageLightbox failed"); }
             }
-            catch { /* ignore */ }
-            // Load persisted reading preferences from localStorage (if present)
+
+            // Load persisted reading preferences from localStorage.
             try
             {
                 var font = await Js.InvokeAsync<string>("localStorage.getItem", "readingFont");
@@ -648,71 +742,86 @@ else
                 if (int.TryParse(sz, out var s)) _readingFontSizeStep = Math.Clamp(s, 0, _fontSizes.Length - 1);
                 var lw = await Js.InvokeAsync<string>("localStorage.getItem", "readingLineWidthStep");
                 if (int.TryParse(lw, out var w)) _readingLineWidthStep = Math.Clamp(w, 0, _lineWidths.Length - 1);
-                // Always apply reading styles so default font (set in OnInitialized)
-                // takes effect even when no persisted preferences exist.
                 await ApplyReadingStylesAsync();
                 StateHasChanged();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load reading preferences from localStorage");
+            }
+
+            // If navigated by numeric ID, silently update address bar to the slug URL.
+            if (string.IsNullOrEmpty(Slug) && _post?.FilePath != null && _jsModule != null)
+            {
+                var slugForUrl = SlugFromFilePath(_post.FilePath);
+                if (!string.IsNullOrEmpty(slugForUrl))
+                {
+                    try { await _jsModule.InvokeVoidAsync("replaceUrl", $"/post/{slugForUrl}"); }
+                    catch (Exception ex) { Logger.LogWarning(ex, "replaceUrl failed"); }
+                }
+            }
         }
 
-            // Re-run module initialization in case module wasn't available earlier; keep non-fatal.
+        // Re-run module initialization on every render to keep handlers and lightbox fresh.
+        if (_jsModule != null)
+        {
             try
             {
-            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=10");
                 await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef);
                 await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
-                // If markdown content, extract headings and initialize TOC observer
-                try
+
+                if (_fileSuffix == ".md")
                 {
-                    if (_fileSuffix == ".md")
+                    var headings = await _jsModule.InvokeAsync<object[]>("extractHeadings", "content");
+                    var newTocs = new List<TocItem>();
+                    if (headings != null)
                     {
-                        var headings = await _jsModule.InvokeAsync<object[]>("extractHeadings", "content");
-                        var newTocs = new List<TocItem>();
-                        if (headings != null)
+                        foreach (var h in headings)
                         {
-                            foreach (var h in headings)
+                            try
                             {
-                                // h is a JsonElement-ish object; deserialize via System.Text.Json
-                                try
+                                var json = System.Text.Json.JsonSerializer.Serialize(h);
+                                var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                                if (parsed != null && parsed.ContainsKey("id") && parsed.ContainsKey("text") && parsed.ContainsKey("level"))
                                 {
-                                    var json = System.Text.Json.JsonSerializer.Serialize(h);
-                                    var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-                                    if (parsed != null && parsed.ContainsKey("id") && parsed.ContainsKey("text") && parsed.ContainsKey("level"))
-                                    {
-                                        var id = parsed["id"]?.ToString() ?? string.Empty;
-                                        var text = parsed["text"]?.ToString() ?? string.Empty;
-                                        var level = int.TryParse(parsed["level"]?.ToString(), out var lv) ? lv : 2;
-                                        newTocs.Add(new TocItem(id, text, level));
-                                    }
+                                    var id = parsed["id"]?.ToString() ?? string.Empty;
+                                    var text = parsed["text"]?.ToString() ?? string.Empty;
+                                    var level = int.TryParse(parsed["level"]?.ToString(), out var lv) ? lv : 2;
+                                    newTocs.Add(new TocItem(id, text, level));
                                 }
-                                catch { }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogDebug(ex, "Failed to parse a TOC heading entry");
                             }
                         }
+                    }
 
-                        // compute a simple hash to detect content changes (avoid reinit loop)
-                        var hash = string.Join("|", newTocs.Select(t => t.Id + ":" + t.Text));
-                        if (hash != _lastExtractedContentHash)
-                        {
-                            _tocItems = newTocs;
-                            _lastExtractedContentHash = hash;
-                            StateHasChanged();
-                        }
+                    var hash = string.Join("|", newTocs.Select(t => t.Id + ":" + t.Text));
+                    if (hash != _lastExtractedContentHash)
+                    {
+                        _tocItems = newTocs;
+                        _lastExtractedContentHash = hash;
+                        StateHasChanged();
+                    }
 
-                        // Initialize observer with ids
-                        try
-                        {
-                            var ids = _tocItems.Select(t => t.Id).ToArray();
-                            await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, ids);
-                            // Also ask JS to emit headings back to this DotNet instance after any delayed DOM changes
-                            await _jsModule.InvokeVoidAsync("emitHeadingsToDotNet", "content", _dotNetRef);
-                        }
-                        catch { }
+                    try
+                    {
+                        var ids = _tocItems.Select(t => t.Id).ToArray();
+                        await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, ids);
+                        await _jsModule.InvokeVoidAsync("emitHeadingsToDotNet", "content", _dotNetRef);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to initialize TOC observer");
                     }
                 }
-                catch { }
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Post-render JS module initialization failed");
+            }
+        }
     }
 
     [JSInvokable("TriggerAddendum")]
@@ -805,7 +914,11 @@ else
             }
             return sb.ToString();
         }
-        catch { return string.Empty; }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "GetContentStyle failed, returning empty style");
+            return string.Empty;
+        }
     }
 
     private Task ToggleReadingPanel()
@@ -818,7 +931,8 @@ else
     private async Task SetReadingFont(string font)
     {
         _readingFont = font ?? string.Empty;
-        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFont", _readingFont); } catch { }
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFont", _readingFont); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Failed to persist readingFont to localStorage"); }
         await ApplyReadingStylesAsync();
         StateHasChanged();
     }
@@ -826,7 +940,8 @@ else
     private async Task ChangeFontSize(int delta)
     {
         _readingFontSizeStep = Math.Clamp(_readingFontSizeStep + delta, 0, _fontSizes.Length - 1);
-        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFontSizeStep", _readingFontSizeStep.ToString()); } catch { }
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingFontSizeStep", _readingFontSizeStep.ToString()); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Failed to persist readingFontSizeStep to localStorage"); }
         await ApplyReadingStylesAsync();
         StateHasChanged();
     }
@@ -834,44 +949,36 @@ else
     private async Task SetLineWidth(int step)
     {
         _readingLineWidthStep = Math.Clamp(step, 0, _lineWidths.Length - 1);
-        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingLineWidthStep", _readingLineWidthStep.ToString()); } catch { }
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "readingLineWidthStep", _readingLineWidthStep.ToString()); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Failed to persist readingLineWidthStep to localStorage"); }
         await ApplyReadingStylesAsync();
         StateHasChanged();
     }
 
     private async Task ApplyReadingStylesAsync()
     {
+        if (_jsModule == null) return;
         try
         {
             var font = _readingFont ?? string.Empty;
             var size = _fontSizes[Math.Clamp(_readingFontSizeStep, 0, _fontSizes.Length - 1)];
             var width = _lineWidths[Math.Clamp(_readingLineWidthStep, 0, _lineWidths.Length - 1)];
-            var fontJs = System.Text.Json.JsonSerializer.Serialize(font);
-            var widthJs = System.Text.Json.JsonSerializer.Serialize(width);
-            // Simpler script: only set inline styles on the container element (#content).
-            // We rely on CSS `inherit` for descendant font-size/family so this is robust
-            // and avoids complex brace-escaping in interpolated verbatim strings.
-            var script = $@"(function(){{
-                var el = document.getElementById('content');
-                if(!el) return;
-                try {{
-                    if({fontJs} !== "") el.style.setProperty('font-family', {fontJs}, 'important'); else el.style.setProperty('font-family', getComputedStyle(document.documentElement).getPropertyValue('--font-family-serif'), 'important');
-                    el.style.setProperty('font-size', '{size}px', 'important');
-                    if({widthJs} !== "") {{ el.style.setProperty('max-width', {widthJs}, 'important'); el.style.setProperty('margin-left', 'auto', 'important'); el.style.setProperty('margin-right', 'auto', 'important'); }} else {{ el.style.removeProperty('max-width'); el.style.removeProperty('margin-left'); el.style.removeProperty('margin-right'); }}
-                }} catch(e) {{ console && console.log && console.log(e); }}
-            }})();";
-            await Js.InvokeVoidAsync("eval", script);
+            await _jsModule.InvokeVoidAsync("applyReadingStyles", font, size, width);
         }
-        catch { /* ignore */ }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply reading styles");
+        }
     }
 
     private async Task ToggleFocusMode()
     {
         _isFocusMode = !_isFocusMode;
-        var script = _isFocusMode
-            ? "document.body.classList.add('focus-mode'); try{ if(!document.fullscreenElement && document.documentElement.requestFullscreen){ document.documentElement.requestFullscreen(); } }catch(e){}"
-            : "document.body.classList.remove('focus-mode'); try{ if(document.fullscreenElement && document.exitFullscreen){ document.exitFullscreen(); } }catch(e){}";
-        await Js.InvokeVoidAsync("eval", script);
+        if (_jsModule != null)
+        {
+            try { await _jsModule.InvokeVoidAsync("setFocusMode", _isFocusMode); }
+            catch (Exception ex) { Logger.LogWarning(ex, "setFocusMode JS call failed"); }
+        }
         StateHasChanged();
     }
 
@@ -913,8 +1020,9 @@ else
                 _hasQuestions = questions?.Any() == true;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to check for questions for post {PostId}", _post?.Id);
             _hasQuestions = false;
         }
     }
@@ -949,8 +1057,9 @@ else
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load related posts for post {PostId}", _post?.Id);
             _relatedPosts = new List<RelatedPostResponse>();
         }
     }
@@ -972,14 +1081,7 @@ else
 
     private async Task BackHistory()
     {
-        if (!string.IsNullOrEmpty(_returnUrl))
-        {
-            await Js.InvokeVoidAsync("eval", $"window.location.href='{_returnUrl}'");
-        }
-        else
-        {
-            Navigation.NavigateTo("/categories", forceLoad: true);
-        }
+        await Js.InvokeVoidAsync("eval", "if(history.length > 1) history.back(); else window.location.href='/categories'");
     }
     private void ToQuestions()
     {
@@ -990,7 +1092,10 @@ else
     {
         if (_post == null) return;
 
-        var url = $"https://www.tobiso.com/post/{_post.Id}";
+        var slug = SlugFromFilePath(_post.FilePath);
+        var url = !string.IsNullOrEmpty(slug)
+            ? $"https://www.tobiso.com/post/{slug}"
+            : $"https://www.tobiso.com/post/{_post.Id}";
         await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
         _isShared = true;
         StateHasChanged();
@@ -1018,19 +1123,59 @@ else
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"PDF generation failed: {ex.Message}");
+            Logger.LogError(ex, "PDF generation navigation failed for post {PostId}", _post?.Id);
+        }
+    }
+
+    private bool _showCheatSheetModal = false;
+    private bool _isGeneratingCheatSheet = false;
+
+    private void OpenCheatSheetModal()
+    {
+        _showCheatSheetModal = true;
+    }
+
+    private void CloseCheatSheetModal()
+    {
+        if (!_isGeneratingCheatSheet)
+            _showCheatSheetModal = false;
+    }
+
+    private async Task GenerateCheatSheet(string ratio)
+    {
+        if (_post == null || _isGeneratingCheatSheet) return;
+
+        _isGeneratingCheatSheet = true;
+        StateHasChanged();
+
+        try
+        {
+            var url = $"/api/pdf/cheatsheet/{_post.Id}?ratio={ratio}";
+            Navigation.NavigateTo(url, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Cheat sheet generation navigation failed for post {PostId}", _post?.Id);
+        }
+        finally
+        {
+            await Task.Delay(3000);
+            _isGeneratingCheatSheet = false;
+            _showCheatSheetModal = false;
+            StateHasChanged();
         }
     }
 
     private async Task ScrollToExercises()
     {
+        if (_jsModule == null) return;
         try
         {
-            await Js.InvokeVoidAsync("eval", "document.getElementById('interaktivni-cviceni')?.scrollIntoView({behavior:'smooth', block:'start'})");
+            await _jsModule.InvokeVoidAsync("scrollToElementById", "interaktivni-cviceni");
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            Logger.LogWarning(ex, "ScrollToExercises failed");
         }
     }
 
@@ -1068,8 +1213,9 @@ else
                 _breadcrumbCategories = ancestors ?? new List<CategoryResponse>();
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load breadcrumb for category {CategoryId}", _post?.CategoryId);
             _breadcrumbCategories = new List<CategoryResponse>();
         }
     }
@@ -1083,8 +1229,9 @@ else
                 _exercises = await ExerciseService.GetByPostIdAsync(_post.Id, includeInactive: false);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Failed to load exercises for post {PostId}", _post?.Id);
             _exercises = new List<InteractiveExerciseResponse>();
         }
     }
@@ -1157,18 +1304,21 @@ else
 
     private async Task ScrollToHeading(string id)
     {
-        if (string.IsNullOrEmpty(id)) return;
+        if (string.IsNullOrEmpty(id) || _jsModule == null) return;
         try
         {
-            if (_jsModule != null)
-            {
-                await _jsModule.InvokeVoidAsync("scrollToElementById", id);
-            }
-            else
-            {
-                await Js.InvokeVoidAsync("eval", $"document.getElementById('{id}')?.scrollIntoView({{behavior:'smooth', block:'start'}})");
-            }
+            await _jsModule.InvokeVoidAsync("scrollToElementById", id);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ScrollToHeading failed for id {HeadingId}", id);
+        }
+    }
+
+    /// <summary>Returns the URL slug derived from a post FilePath by stripping the file extension.</summary>
+    private static string SlugFromFilePath(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        return System.IO.Path.GetFileNameWithoutExtension(filePath);
     }
 }

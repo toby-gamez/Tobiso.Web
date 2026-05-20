@@ -64,7 +64,7 @@ else
         @foreach (var p in posts)
         {
             <div class="post">
-                <a href="post/@p.Id">
+                <a href="post/@SlugFromFilePath(p.FilePath)">
                     <h5 style="margin: 0">@p.Title</h5>
                     <div class="latest-muted">
                         @if (GetCategoryNameById(p.CategoryId) is string cat && !string.IsNullOrEmpty(cat))
@@ -192,5 +192,11 @@ else
         if (p.LastEdit.HasValue) return p.LastEdit.Value.ToString("dd.MM.yyyy HH:mm");
         if (p.LastFix.HasValue) return p.LastFix.Value.ToString("dd.MM.yyyy HH:mm");
         return "-";
+    }
+
+    private static string SlugFromFilePath(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        return System.IO.Path.GetFileNameWithoutExtension(filePath);
     }
 }

@@ -13,5 +13,9 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt);
         // Check grammar and return identified issues (multilingual)
         Task<GrammarCheckResponse> CheckGrammarAsync(string content);
+        // Generate a compact cheat-sheet summary for the given article content.
+        // Returns plain text with bullet points (one per line, prefixed with •).
+        // ratio: "1x1" → ~20 bullets, "1x2" → ~35 bullets.
+        Task<string> GenerateCheatSheetAsync(string title, string content, string ratio = "1x1");
     }
 }

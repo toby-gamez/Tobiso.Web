@@ -7,6 +7,7 @@
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IConfiguration Configuration
 
 <PageTitle>Editace článku</PageTitle>
 
@@ -70,10 +71,55 @@ else
         <button type="submit" class="btn btn-primary">Uložit změny</button>
         <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
         <button type="button" class="btn btn-danger ms-2" @onclick="OnDeletePost">Smazat</button>
+        <button type="button" class="btn btn-outline-info ms-2" title="Vygenerovat tahák (PDF) pomocí AI" @onclick="OpenCheatSheetModal">
+            <i class="bi bi-file-earmark-text"></i> Tahák
+        </button>
     </EditForm>
 
     <!-- Přidání komponenty pro správu otázek -->
     <QuestionsManager PostId="@Id" />
+}
+
+@if (_showCheatSheetModal)
+{
+    <div class="cs-modal-backdrop" @onclick="CloseCheatSheetModal">
+        <div class="cs-modal-dialog" @onclick:stopPropagation>
+            <div class="cs-modal-header">
+                <span>Vyberte formát tahák&uacute;</span>
+                <button class="cs-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
+            </div>
+            <div class="cs-modal-body">
+                <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=1x1")" target="_blank" @onclick="CloseCheatSheetModal">
+                    <div class="cs-preview cs-preview-1x1">
+                        <div class="cs-preview-line" style="width:80%"></div>
+                        <div class="cs-preview-line" style="width:65%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                    </div>
+                    <div class="cs-card-label">Čtvercový</div>
+                    <div class="cs-card-sub">10 &times; 10 cm &nbsp;&bull;&nbsp; ~20 bodů</div>
+                </a>
+                <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=1x2")" target="_blank" @onclick="CloseCheatSheetModal">
+                    <div class="cs-preview cs-preview-1x2">
+                        <div class="cs-preview-line" style="width:80%"></div>
+                        <div class="cs-preview-line" style="width:65%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                        <div class="cs-preview-line" style="width:75%"></div>
+                        <div class="cs-preview-line" style="width:50%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:62%"></div>
+                    </div>
+                    <div class="cs-card-label">Na výšku</div>
+                    <div class="cs-card-sub">10 &times; 20 cm &nbsp;&bull;&nbsp; ~35 bodů</div>
+                </a>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -298,6 +344,10 @@ else
         }
     }
 
+    private bool _showCheatSheetModal = false;
+    private void OpenCheatSheetModal() => _showCheatSheetModal = true;
+    private void CloseCheatSheetModal() => _showCheatSheetModal = false;
+
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
     private async Task<bool> JsConfirm(string message)
@@ -305,3 +355,19 @@ else
         return await JS.InvokeAsync<bool>("confirm", message);
     }
 }
+
+<style>
+    .cs-modal-backdrop { position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center; }
+    .cs-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;min-width:320px;max-width:96vw; }
+    .cs-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1rem;margin-bottom:1.1rem; }
+    .cs-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
+    .cs-modal-body { display:flex;gap:1.2rem;justify-content:center; }
+    .cs-ratio-card { display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.8rem .9rem 1rem;border:2px solid #ddd;border-radius:10px;background:none;cursor:pointer;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s; }
+    .cs-ratio-card:hover { border-color:#4f8ef7;box-shadow:0 2px 10px rgba(79,142,247,.18); }
+    .cs-preview { display:flex;flex-direction:column;gap:5px;padding:7px 8px;border-radius:5px;border:1.5px solid #ccc;background:#f8f8f8; }
+    .cs-preview-1x1 { width:72px;height:72px; }
+    .cs-preview-1x2 { width:60px;height:120px; }
+    .cs-preview-line { height:4px;border-radius:2px;background:#bbb; }
+    .cs-card-label { font-weight:600;font-size:.92rem; }
+    .cs-card-sub { font-size:.75rem;color:#888; }
+</style>

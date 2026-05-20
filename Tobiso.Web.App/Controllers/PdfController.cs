@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.DTOs;
+using Tobiso.Web.Shared.Interfaces;
 
 namespace Tobiso.Web.App.Controllers;
 
@@ -11,11 +12,13 @@ public class PdfController : ControllerBase
 {
     private readonly IPdfService _pdfService;
     private readonly IPostService _postService;
+    private readonly IAiService _aiService;
 
-    public PdfController(IPdfService pdfService, IPostService postService)
+    public PdfController(IPdfService pdfService, IPostService postService, IAiService aiService)
     {
         _pdfService = pdfService;
         _postService = postService;
+        _aiService = aiService;
     }
 
     [HttpPost("generate")]
@@ -78,8 +81,62 @@ public class PdfController : ControllerBase
         return new FileContentResult(bytes, "application/pdf") { FileDownloadName = outputName };
     }
 
-    private async Task<string> TransformMarkdownContent(string? content)
+    // Generate a compact cheat-sheet PDF for a post using AI summarization
+    [HttpGet("cheatsheet/{id}")]
+    public async Task<IActionResult> GenerateCheatSheet(int id, [FromQuery] string ratio = "1x1")
     {
+        // Sanitise ratio to avoid injection; only allow known values
+        if (ratio != "1x1" && ratio != "1x2") ratio = "1x1";
+
+        var post = await _postService.GetById(id);
+        if (post == null) return NotFound();
+
+        // Use best version content
+        var versionContent = post.Versions
+            .OrderByDescending(v => v.GradeLevel ?? int.MinValue)
+            .FirstOrDefault()?.Content ?? string.Empty;
+
+        // Strip Markdown/HTML down to plain text for AI consumption
+        string plainText;
+        if (!string.IsNullOrEmpty(post.FilePath) && post.FilePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+        {
+            var html = Markdig.Markdown.ToHtml(versionContent);
+            plainText = Regex.Replace(html, "<[^>]+>", " ");
+            plainText = Regex.Replace(plainText, @"\s{2,}", " ").Trim();
+        }
+        else
+        {
+            plainText = Regex.Replace(versionContent, "<[^>]+>", " ");
+            plainText = Regex.Replace(plainText, @"\s{2,}", " ").Trim();
+        }
+
+        string bulletText;
+        try
+        {
+            bulletText = await _aiService.GenerateCheatSheetAsync(post.Title ?? string.Empty, plainText, ratio);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PdfController] Cheat sheet AI failed: {ex.Message}");
+            return StatusCode(500, "Cheat sheet generation failed.");
+        }
+
+        if (string.IsNullOrWhiteSpace(bulletText))
+            return BadRequest("AI returned empty cheat sheet content.");
+
+        var bytes = _pdfService.GenerateCheatSheetPdf(post.Title ?? string.Empty, bulletText, ratio);
+        if (bytes == null || bytes.Length == 0)
+            return BadRequest("Failed to generate cheat sheet PDF.");
+
+        var safeTitle = string.IsNullOrWhiteSpace(post.Title)
+            ? "tahak"
+            : string.Join("_", post.Title.Split(Path.GetInvalidFileNameChars()).Select(s => s.Trim()).Where(s => s.Length > 0));
+        var fileName = $"tahak_{safeTitle}_{ratio}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+
+        return new FileContentResult(bytes, "application/pdf") { FileDownloadName = fileName };
+    }
+
+    private async Task<string> TransformMarkdownContent(string? content)    {
         if (string.IsNullOrEmpty(content)) return string.Empty;
 
         // Replace markdown mailto links before processing

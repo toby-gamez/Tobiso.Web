@@ -1138,3 +1138,113 @@ function getCookieConsent() {
   // Tato hodnota by měla být předána z Blazoru při inicializaci
   return document.documentElement.dataset.cookieConsent;
 }
+
+// ── PostDetail helpers ──
+
+/**
+ * Initialize the PostDetail Blazor component bridge.
+ * Sets up global window callbacks used by markdown-generated HTML, the fullscreen
+ * change listener, and the ESC key handler for focus mode.
+ * Call once on firstRender with the DotNetObjectReference of the PostDetail component.
+ */
+export function initPostDetail(dotnetRef) {
+  try {
+    window.__postDetailRef = dotnetRef;
+
+    // Global callbacks required by onclick="window.requestAddendum(id)" inside rendered Markdown.
+    window.requestAddendum = function (addendumId) {
+      try { DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerAddendum', addendumId); } catch (e) { }
+    };
+    window.openPersonCard = function (personId) {
+      try { DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPerson', personId); } catch (e) { }
+    };
+    window.openPersonByName = function (name) {
+      try { DotNet.invokeMethodAsync('Tobiso.Web.App', 'TriggerPersonByName', name); } catch (e) { }
+    };
+
+    // Fullscreen exit — also remove focus-mode body class
+    document.addEventListener('fullscreenchange', function () {
+      if (!document.fullscreenElement && window.__postDetailRef) {
+        try { document.body.classList.remove('focus-mode'); } catch (e) { }
+        try { window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit'); } catch (e) { }
+      }
+    });
+
+    // ESC key — exit focus mode regardless of native fullscreen support
+    document.addEventListener('keydown', function (e) {
+      if (e && (e.key === 'Escape' || e.code === 'Escape')) {
+        if (document.body.classList.contains('focus-mode')) {
+          try { document.body.classList.remove('focus-mode'); } catch (_) { }
+          if (window.__postDetailRef) {
+            try { window.__postDetailRef.invokeMethodAsync('OnExternalFullscreenExit'); } catch (e) { }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    console && console.warn && console.warn('[blazor-utils] initPostDetail failed', e);
+  }
+}
+
+/**
+ * Replace the current browser URL without triggering navigation.
+ */
+export function replaceUrl(url) {
+  try { history.replaceState(null, '', url); } catch (e) {
+    console && console.warn && console.warn('[blazor-utils] replaceUrl failed', e);
+  }
+}
+
+/**
+ * Apply reading-preferences inline styles to the #content element.
+ * @param {string} font     - CSS font-family value, or empty string for default
+ * @param {number} size     - Font size in pixels
+ * @param {string} width    - CSS max-width value (e.g. "75ch"), or empty string for none
+ */
+export function applyReadingStyles(font, size, width) {
+  try {
+    var el = document.getElementById('content');
+    if (!el) return;
+    if (font && font.length > 0) {
+      el.style.setProperty('font-family', font, 'important');
+    } else {
+      el.style.setProperty('font-family',
+        getComputedStyle(document.documentElement).getPropertyValue('--font-family-serif') || 'serif',
+        'important');
+    }
+    el.style.setProperty('font-size', size + 'px', 'important');
+    if (width && width.length > 0) {
+      el.style.setProperty('max-width', width, 'important');
+      el.style.setProperty('margin-left', 'auto', 'important');
+      el.style.setProperty('margin-right', 'auto', 'important');
+    } else {
+      el.style.removeProperty('max-width');
+      el.style.removeProperty('margin-left');
+      el.style.removeProperty('margin-right');
+    }
+  } catch (e) {
+    console && console.warn && console.warn('[blazor-utils] applyReadingStyles failed', e);
+  }
+}
+
+/**
+ * Enable or disable focus/reading mode.
+ * Adds/removes the 'focus-mode' body class and requests/exits native fullscreen.
+ */
+export function setFocusMode(enable) {
+  try {
+    if (enable) {
+      document.body.classList.add('focus-mode');
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(function () { });
+      }
+    } else {
+      document.body.classList.remove('focus-mode');
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(function () { });
+      }
+    }
+  } catch (e) {
+    console && console.warn && console.warn('[blazor-utils] setFocusMode failed', e);
+  }
+}

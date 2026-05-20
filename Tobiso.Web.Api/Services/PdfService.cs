@@ -14,6 +14,8 @@ namespace Tobiso.Web.Api.Services
     public interface IPdfService
     {
         byte[] GeneratePdf(Tobiso.Web.Shared.DTOs.PdfRequestDto request);
+        /// <param name="ratio">"1x1" for square 10×10 cm, "1x2" for portrait 10×20 cm.</param>
+        byte[] GenerateCheatSheetPdf(string title, string bulletText, string ratio = "1x1");
     }
 
     public class PdfService : IPdfService
@@ -969,5 +971,117 @@ namespace Tobiso.Web.Api.Services
 
         // Note: Node-based KaTeX rendering was removed (Plan B). Math rendering
         // now uses textual curly-brace fallbacks produced in ProcessNodeContent.
+
+        // ── Cheat Sheet PDF ───────────────────────────────────────────────────────
+        // Generates a tiny PDF (1:1 → 10×10 cm square, 1:2 → 10×20 cm portrait)
+        // with compact bullet-point content and a barely-visible "Tobiso" watermark.
+
+        private const float CheatSheetWidthCm  = 10f;
+        private const float CheatSheetMarginMm = 4f;
+        private const float CheatSheetFontSize  = 6.5f;
+        private const float CheatSheetTitleSize = 8f;
+
+        public byte[] GenerateCheatSheetPdf(string title, string bulletText, string ratio = "1x1")
+        {
+            if (string.IsNullOrWhiteSpace(bulletText)) return Array.Empty<byte>();
+
+            // Parse lines, keep only non-empty ones
+            var lines = (bulletText ?? string.Empty)
+                .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToList();
+
+            // ── Calculate page height to fit content exactly (no trailing whitespace) ──
+            // QuestPDF default length unit (without explicit Unit.*) is points (1pt = 25.4/72 mm)
+            const float ptToMm = 25.4f / 72f;
+
+            bool hasTitle = !string.IsNullOrWhiteSpace(title);
+
+            // Content height in points
+            float contentPt = 0f;
+            if (hasTitle)
+                contentPt += CheatSheetTitleSize * 1.25f   // title line
+                           + 1f;                            // PaddingBottom(1)
+
+            contentPt += 2f;  // Height(2) gap after title
+
+            contentPt += lines.Count * (CheatSheetFontSize * 1.25f); // bullet lines
+
+            // col.Spacing(1) → (N-1) gaps between all column items
+            int colItems = (hasTitle ? 1 : 0) + 1 + lines.Count;
+            contentPt += Math.Max(0, colItems - 1) * 1f;
+
+            // Convert to mm and add margins + footer allowance + 2 mm safety buffer
+            float footerMm = 4.5f * ptToMm + 1f;
+            float heightMm = CheatSheetMarginMm               // top margin
+                           + contentPt * ptToMm               // content
+                           + CheatSheetMarginMm               // bottom margin
+                           + footerMm                         // watermark row
+                           + 2f;                              // buffer
+
+            float heightCm = Math.Max(heightMm / 10f, 2f);   // at least 2 cm
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(CheatSheetWidthCm, heightCm, Unit.Centimetre);
+                    page.Margin(CheatSheetMarginMm, Unit.Millimetre);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(CheatSheetFontSize).LineHeight(1.25f));
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(1);
+
+                        // Title
+                        if (!string.IsNullOrWhiteSpace(title))
+                        {
+                            col.Item()
+                               .BorderBottom(0.4f)
+                               .BorderColor(Colors.Grey.Lighten2)
+                               .PaddingBottom(1)
+                               .Text(title.Trim())
+                               .FontSize(CheatSheetTitleSize)
+                               .Bold();
+                        }
+
+                        col.Item().Height(2); // small gap after title
+
+                        // Bullet lines
+                        foreach (var line in lines)
+                        {
+                            // Strip leading bullet markers from AI output (•, -, *, etc.)
+                            var text = System.Text.RegularExpressions.Regex.Replace(line, @"^[•\-\*]\s*", "").Trim();
+                            if (string.IsNullOrWhiteSpace(text)) continue;
+
+                            col.Item().Row(row =>
+                            {
+                                row.AutoItem()
+                                   .Text("•")
+                                   .FontSize(CheatSheetFontSize);
+
+                                row.RelativeItem()
+                                   .PaddingLeft(2)
+                                   .Text(text)
+                                   .FontSize(CheatSheetFontSize);
+                            });
+                        }
+                    });
+
+                    // Tiny, barely-visible watermark in the bottom-right corner
+                    page.Footer()
+                        .AlignRight()
+                        .Text("Tobiso")
+                        .FontSize(4.5f)
+                        .FontColor("#DDDDDD");
+                });
+            });
+
+            using var ms = new MemoryStream();
+            document.GeneratePdf(ms);
+            return ms.ToArray();
+        }
     }
 }

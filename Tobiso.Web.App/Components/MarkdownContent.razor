@@ -210,7 +210,10 @@
             if (!file.StartsWith("/")) file = "/" + file;
             var postMatch = AllPosts?.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
             if (postMatch != null)
-                return $"<a href=\"/post/{postMatch.Id}\"{attrs}>{linkText}</a>";
+            {
+                var slug = System.IO.Path.GetFileNameWithoutExtension(postMatch.FilePath);
+                return $"<a href=\"/post/{slug}\"{attrs}>{linkText}</a>";
+            }
 
             return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
         });
@@ -221,6 +224,21 @@
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
         html = html.Replace("...", "");
+
+        // Callout blocks: !!!tip ... !!! and !!!sidefact ... !!!
+        // These are regex-matched on the rendered HTML (similar to the intro pattern above).
+        // Authors write !!!tip some tip content !!! in the markdown source.
+        var tipRegex = new Regex(@"!!!tip\s+(.*?)\s*!!!", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        html = tipRegex.Replace(html, m =>
+            $"<div class=\"callout-block callout-tip\"><div class=\"callout-label\"><i class=\"bi bi-lightbulb\"></i> Tip</div>{m.Groups[1].Value}</div>");
+        // Clean up empty <p> tags that may wrap the opening/closing markers
+        html = Regex.Replace(html, @"<p>\s*!!!tip\s*</p>", "", RegexOptions.IgnoreCase);
+        html = Regex.Replace(html, @"<p>\s*!!!\s*</p>", "");
+
+        var sidefactRegex = new Regex(@"!!!sidefact\s+(.*?)\s*!!!", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        html = sidefactRegex.Replace(html, m =>
+            $"<div class=\"callout-block callout-sidefact\"><div class=\"callout-label\"><i class=\"bi bi-info-circle\"></i> Zajímavost</div>{m.Groups[1].Value}</div>");
+        html = Regex.Replace(html, @"<p>\s*!!!sidefact\s*</p>", "", RegexOptions.IgnoreCase);
 
         // Unescape math placeholders inside HTML-escaped <code> blocks
         try
