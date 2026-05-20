@@ -98,6 +98,21 @@ h5 {
     text-shadow: 2px 2px 10px var(--shadow-sm);
 }
 
+.related-posts h3,
+.related-posts-div h5,
+.tool span,
+.ai-box h3 {
+    font-family: var(--font-family-sans) !important;
+}
+
+.assistant-markdown p {
+    font-family: var(--font-family-serif) !important;
+}
+
+.attached-chip {
+    text-decoration: none !important;
+}
+
 h1 {
     color: var(--color-text);
 }
@@ -1075,6 +1090,8 @@ body.scroll-lock {
 /* Sidebar collapsed/expanded responsive layout adjustments */
 /* Default collapsed handled by adding .collapsed class to #MyNavBar */
 body:has(#MyNavBar.collapsed) main,
+body:has(#MyNavBar.collapsed) footer p,
+body:has(#MyNavBar.collapsed) .footer-content,
 body:has(#MyNavBar.collapsed) .loading-bar-container,
 body:has(#MyNavBar.collapsed) .cookie-consent-div {
     margin-left: 60px !important;

@@ -228,7 +228,7 @@ else
             </div>
         </div>
     }
-    <div class="mb-4">
+    <div class="content">
         @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
         <div id="content" class="content" style="@GetContentStyle()">
             @if (_fileSuffix == ".md")
@@ -363,9 +363,11 @@ else
         </section>
     }
 
-    <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
+    <div class="ai-box">
+        <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
 
-    <AiChatBox PostId="@Id" ShowEmptyPrompt="false" PostTitle="@(_post?.Title ?? string.Empty)" />
+        <AiChatBox PostId="@Id" ShowEmptyPrompt="false" PostTitle="@(_post?.Title ?? string.Empty)" />
+    </div>
 
     @if (_relatedPosts != null && _relatedPosts.Any())
     {
