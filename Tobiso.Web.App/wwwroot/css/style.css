@@ -35,15 +35,19 @@ span,
 .content h2 {
     font-size: 1.8em;
 }
+
 .content h3 {
     font-size: 1.4em;
 }
+
 .content h4 {
     font-size: 1.15em;
 }
+
 .content h5 {
     font-size: 1em;
 }
+
 .content h6 {
     font-size: 0.95em;
 }
@@ -101,13 +105,97 @@ h5 {
 .related-posts h3,
 .related-posts-div h5,
 .breadcrumb-nav a,
+#interaktivni-cviceni div h2,
+.card-header h4,
 .tool span,
+.card-body *,
+.wiki-toc-title,
+h5.modal-event-title,
+.calendar-container *,
 .ai-box h3 {
     font-family: var(--font-family-sans) !important;
 }
 
-.assistant-markdown p {
+.wiki-toc-title {
+    font-size: 25px;
+}
+
+.assistant-markdown p,
+.alert p,
+.wiki-toc-item,
+.event-details p,
+.modal-body small {
     font-family: var(--font-family-serif) !important;
+}
+
+/* Wiki-style Table of Contents (TOC) */
+.wiki-toc {
+    position: fixed;
+    left: calc(285px + 20px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 210px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 20px;
+    border: 2px solid black;
+}
+
+/* Adjust when left nav collapsed */
+body:has(#MyNavBar.collapsed) .wiki-toc {
+    left: calc(60px + 30px);
+}
+
+@media (max-width: 1200px) {
+    .wiki-toc {
+        display: none;
+    }
+}
+
+body.focus-mode .wiki-toc {
+    display: none;
+}
+
+.wiki-toc-title {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.wiki-toc-item {
+    display: block;
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+    padding: 4px 0;
+    font-weight: normal;
+}
+
+.wiki-toc-item.level-2 {
+    padding-left: 0;
+}
+
+.wiki-toc-item.level-3 {
+    padding-left: 10px;
+}
+
+.wiki-toc-item.level-4 {
+    padding-left: 18px;
+}
+
+.wiki-toc-item.level-5 {
+    padding-left: 26px;
+}
+
+.wiki-toc-item.level-6 {
+    padding-left: 34px;
+}
+
+.wiki-toc-item.active {
+    font-weight: 700;
 }
 
 .attached-chip {
@@ -169,6 +257,7 @@ h4 {
 body.dark-mode .verybig {
     text-decoration-color: var(--color-accent-3-dark);
 }
+
 a body {
     font-family: var(--font-family-sans);
     background-color: var(--color-bg);
@@ -363,6 +452,7 @@ body.dark-mode .intro a:hover {
     z-index: 1030;
     overflow: hidden;
 }
+
 @media (min-width: 769px) {
     .page.has-right-sidebar-open .loading-bar-container {
         margin-right: 285px;
@@ -398,6 +488,7 @@ body.dark-mode .intro a:hover {
     .page.has-right-sidebar-open {
         padding-right: 285px;
     }
+
     /* Ensure the main content visually transitions as the page padding changes */
     .page .content {
         transition:
@@ -427,9 +518,11 @@ body.dark-mode .intro a:hover {
         transition: transform 0.25s ease-in-out;
         overflow: auto;
     }
+
     .right-sidebar.open {
         transform: translateX(0);
     }
+
     .right-sidebar.closed {
         transform: translateX(100%);
     }
@@ -448,6 +541,7 @@ body.dark-mode .intro a:hover {
         aspect-ratio: 1 / 1;
         padding: 3px 10px;
     }
+
     .right-sidebar-toggle .chev {
         font-size: 30px;
         line-height: 1;
@@ -463,6 +557,7 @@ body.dark-mode .intro a:hover {
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     background: var(--color-accent-4);
 }
+
 .right-sidebar .sidebar-title {
     margin: 0 0 6px 0;
     font-size: 30px;
@@ -510,6 +605,7 @@ body.dark-mode .intro a:hover {
 }
 
 @media only screen and (max-width: 600px) {
+
     .blog-image,
     .blog-image p,
     .blog-image img {
@@ -576,6 +672,7 @@ button:disabled {
 }
 
 @media only screen and (max-width: 600px) {
+
     .nav-button,
     .opennav-button {
         font-size: 50px;
@@ -697,6 +794,7 @@ textarea:focus {
 }
 
 @media only screen and (max-width: 600px) {
+
     .scroll-to-top,
     .static-text {
         visibility: hidden;
@@ -1095,20 +1193,24 @@ body:has(#MyNavBar.collapsed) footer p,
 body:has(#MyNavBar.collapsed) .footer-content,
 body:has(#MyNavBar.collapsed) .loading-bar-container,
 body:has(#MyNavBar.collapsed) .cookie-consent-div {
-    margin-left: 60px !important;
+    margin-left: 60px;
 }
 
 body:has(#MyNavBar.collapsed) .nav-link-content span {
     display: none;
 }
 
-body:has(#MyNavBar.expanded) main,
+@media only screen and (min-width: 600px) {
+    body:has(#MyNavBar.expanded) main,
 body:has(#MyNavBar.expanded) .loading-bar-container,
 body:has(#MyNavBar.expanded) .cookie-consent-div {
-    margin-left: 285px !important;
+    margin-left: 285px;
+}
 }
 
-main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+main {
+    transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 
 #cookie-consent {
     position: fixed;
@@ -1328,11 +1430,9 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(
-        90deg,
-        var(--color-light-accent),
-        var(--color-accent)
-    );
+    background: linear-gradient(90deg,
+            var(--color-light-accent),
+            var(--color-accent));
     transition: width 0.3s ease;
     border-radius: 10px;
 }
@@ -1742,14 +1842,17 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 /* Make tables horizontally scrollable on small screens without breaking layout */
 .table-scroll-wrapper {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* smooth scrolling on iOS */
     width: 100%;
     margin: 8px 0;
 }
 
 .table-scroll-wrapper table {
-    margin: 0; /* wrapper handles outer spacing */
-    min-width: max-content; /* keep table width matching content so horizontal scroll appears when needed */
+    margin: 0;
+    /* wrapper handles outer spacing */
+    min-width: max-content;
+    /* keep table width matching content so horizontal scroll appears when needed */
 }
 
 .detail-section {
@@ -1878,7 +1981,7 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 }
 
 /* Selected: pill highlight on the row only */
-.category-item.selected > .category-header {
+.category-item.selected>.category-header {
     background: var(--color-accent-2);
     font-weight: 600;
     color: var(--color-button-text);
@@ -1935,9 +2038,11 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 }
 
 .category-children.open {
-    max-height: 2000px; /* large enough to show content */
+    max-height: 2000px;
+    /* large enough to show content */
     opacity: 1;
 }
+
 .category-children.closed {
     max-height: 0;
     opacity: 0;
@@ -1958,16 +2063,15 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
     border: none;
     height: 1px;
     margin: 8px 6px;
-    background: linear-gradient(
-        90deg,
-        rgba(0, 0, 0, 0.04),
-        rgba(0, 0, 0, 0.02)
-    );
+    background: linear-gradient(90deg,
+            rgba(0, 0, 0, 0.04),
+            rgba(0, 0, 0, 0.02));
 }
 
 .sidebar-search-wrapper {
     padding-top: 8px;
 }
+
 .sidebar-search {
     box-sizing: border-box;
     display: block;
@@ -1981,6 +2085,7 @@ main { transition: margin-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
         box-shadow 0.15s ease,
         border-color 0.15s ease;
 }
+
 .sidebar-search:focus {
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
     border-color: rgba(0, 0, 0, 0.12);
@@ -2695,6 +2800,7 @@ strong::after {
         justify-content: center;
         gap: 0.5rem;
     }
+
     .reading-section {
         width: 100%;
         justify-content: center;
@@ -2747,7 +2853,8 @@ strong::after {
     pointer-events: none;
     z-index: 9999;
     overflow: hidden;
-    display: none; /* shown only when .show is added by JS */
+    display: none;
+    /* shown only when .show is added by JS */
 }
 
 .snowflake {
@@ -2760,6 +2867,7 @@ strong::after {
 }
 
 @media only screen and (max-width: 600px) {
+
     /* Hide snowflakes on small screens entirely */
     .snowflakes {
         display: none !important;
@@ -2773,6 +2881,7 @@ strong::after {
     animation-delay: 0s;
     font-size: 2.2em;
 }
+
 .snowflake:nth-child(2) {
     left: 20%;
     top: -30%;
@@ -2780,6 +2889,7 @@ strong::after {
     animation-delay: 1.2s;
     font-size: 2.6em;
 }
+
 .snowflake:nth-child(3) {
     left: 40%;
     top: -15%;
@@ -2787,6 +2897,7 @@ strong::after {
     animation-delay: 0.7s;
     font-size: 2.1em;
 }
+
 .snowflake:nth-child(4) {
     left: 60%;
     top: -35%;
@@ -2794,6 +2905,7 @@ strong::after {
     animation-delay: 2.4s;
     font-size: 2.5em;
 }
+
 .snowflake:nth-child(5) {
     left: 80%;
     top: -25%;
@@ -2801,6 +2913,7 @@ strong::after {
     animation-delay: 1.8s;
     font-size: 2.3em;
 }
+
 .snowflake:nth-child(6) {
     left: 92%;
     top: -28%;
@@ -2863,6 +2976,7 @@ strong::after {
 }
 
 @media only screen and (max-width: 600px) {
+
     .posts-list,
     .categories-list {
         min-width: 300px;
@@ -2889,7 +3003,7 @@ strong::after {
     background-color: var(--hover-bg);
 }
 
-.category + .category {
+.category+.category {
     border-top: 1px solid var(--hover-bg);
 }
 
@@ -3361,11 +3475,9 @@ body.dark-mode .progress-bar {
 
 body.dark-mode .progress-fill {
     height: 100%;
-    background: linear-gradient(
-        90deg,
-        var(--color-accent-2-dark),
-        var(--color-accent-dark)
-    );
+    background: linear-gradient(90deg,
+            var(--color-accent-2-dark),
+            var(--color-accent-dark));
     transition: width 0.3s ease;
     border-radius: 10px;
 }
@@ -3546,7 +3658,7 @@ body.dark-mode .category-header:hover {
     background: var(--color-accent-dark);
 }
 
-body.dark-mode .category-item.selected > .category-header {
+body.dark-mode .category-item.selected>.category-header {
     background: var(--color-accent-2-dark);
     color: var(--color-text-dark);
 }
@@ -3731,7 +3843,8 @@ body.dark-mode .section-title {
 }
 
 .grade-picker select:focus {
-    outline: none; /* visible focus handled via focus-accessibility.css */
+    outline: none;
+    /* visible focus handled via focus-accessibility.css */
     border-color: var(--color-text);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
 }
@@ -3779,7 +3892,10 @@ body.dark-mode .grade-picker select {
         gap: 8px;
         margin: 8px;
     }
-    .grade-picker label { font-size: 14px; }
+
+    .grade-picker label {
+        font-size: 14px;
+    }
 }
 
 body.dark-mode .text-muted {
@@ -3807,7 +3923,7 @@ body.dark-mode .category:hover {
     background-color: var(--hover-bg-dark);
 }
 
-body.dark-mode .category + .category {
+body.dark-mode .category+.category {
     border-top-color: var(--hover-bg-dark);
 }
 
@@ -3832,6 +3948,7 @@ body.dark-mode code {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -3885,6 +4002,7 @@ body.dark-mode code {
     from {
         transform: scale(0.88);
     }
+
     to {
         transform: scale(1);
     }
@@ -3917,6 +4035,7 @@ body.dark-mode code {
     border-bottom: 1px solid var(--color-accent);
     cursor: default;
 }
+
 .person-mention .person-link {
     color: inherit;
     text-decoration: none;
@@ -3925,31 +4044,37 @@ body.dark-mode code {
 .person-mention:hover {
     cursor: pointer;
 }
+
 .person-modal-header {
     display: flex;
     align-items: center;
     gap: 12px;
     margin-bottom: 10px;
 }
+
 .person-modal-photo {
     width: 72px;
     height: 72px;
     border-radius: 50%;
     object-fit: cover;
 }
+
 .person-modal-years {
     color: var(--color-text-muted);
     font-size: 0.9rem;
     display: block;
     margin-top: 2px;
 }
+
 .person-modal-role {
     color: var(--color-accent);
     font-size: 0.95rem;
 }
+
 .person-modal-bio {
     margin-top: 8px;
 }
+
 .person-modal-disclaimer {
     font-size: 0.75rem;
     color: var(--color-text-muted);
@@ -3969,9 +4094,11 @@ body.dark-mode code {
 .blog-image img:hover {
     opacity: 0.88;
 }
+
 body.dark-mode .toggle-btn {
     background-color: transparent;
 }
+
 body.dark-mode .toggle-btn:hover {
     background-color: #7a2853;
 }
@@ -4035,4 +4162,25 @@ body.dark-mode .reading-panel {
 
 body.dark-mode .reading-option.active {
     background-color: var(--color-accent-dark);
+}
+
+body.dark-mode .wiki-toc {
+    border-color: white;
+}
+
+body.dark-mode a.wiki-toc-item {
+    color: var(--color-text-dark);
+}
+
+body.dark-mode a.wiki-toc-item:hover {
+    color: var(--color-text-muted-dark);
+}
+
+
+@media only screen and (max-width: 600px) {
+    body:has(#MyNavBar.collapsed) main,
+    body:has(#MyNavBar.collapsed) .loading-bar-container,
+    body:has(#MyNavBar.collapsed) .cookie-consent-div {
+        margin: 0 !important;
+    }
 }

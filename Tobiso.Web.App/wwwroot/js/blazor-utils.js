@@ -136,20 +136,63 @@ export function initTocObserver(dotNetRef, headingIds) {
     const els = ids.map(id => document.getElementById(id)).filter(Boolean);
     if (!els || els.length === 0) return;
 
-    __tocObserver = new IntersectionObserver(entries => {
-      // find entry nearest to top that is intersecting
+    // Helper to choose active heading based on element positions
+    function chooseActive() {
+      if (!els || els.length === 0) return null;
+      // Choose a reference point a bit below the top so headings just scrolled past still count.
+      // Use 15% of viewport height or 120px, whichever is larger.
+      const refY = Math.max(120, window.innerHeight * 0.15);
       let best = null;
-      entries.forEach(e => {
-        if (!e.isIntersecting) return;
-        // prioritize by boundingClientRect.top (smaller = higher on page)
-        if (!best || e.boundingClientRect.top < best.boundingClientRect.top) best = e;
+      let bestDist = Infinity;
+      els.forEach(el => {
+        try {
+          const r = el.getBoundingClientRect();
+          if (r.height === 0 && r.width === 0) return;
+          // distance between heading top and reference point
+          const dist = Math.abs(r.top - refY);
+          if (dist < bestDist) { bestDist = dist; best = el; }
+        } catch(e) { }
       });
-      if (best && best.target && dotNetRef) {
-        try { dotNetRef.invokeMethodAsync('SetActiveTocId', best.target.id); } catch(_){}
-      }
-    }, { root: null, rootMargin: '-20% 0px -70% 0px', threshold: 0.1 });
+      return best || els[0];
+    }
+
+    function setActiveByElement(el) {
+      try {
+        if (!el) return;
+        const id = el.id;
+        // Toggle class on headings for in-article bolding
+        els.forEach(x => { try { x.classList.toggle('toc-active-heading', x === el); } catch(_){} });
+        if (dotNetRef) {
+          try { dotNetRef.invokeMethodAsync('SetActiveTocId', id); } catch(_){}
+        }
+      } catch(e) { console && console.log && console.log('[blazor-utils] setActiveByElement failed', e); }
+    }
+
+    __tocObserver = new IntersectionObserver(entries => {
+      try {
+        // When observer triggers, determine best active element using chooseActive
+        const active = chooseActive();
+        if (active) setActiveByElement(active);
+      } catch(e) { console && console.log && console.log('[blazor-utils] toc observer callback failed', e); }
+    }, { root: null, rootMargin: '0px 0px -60% 0px', threshold: [0, 0.01, 0.1, 0.5] });
 
     els.forEach(el => { try { __tocObserver.observe(el); } catch(_){} });
+
+    // Also attach a throttled scroll handler as a fallback for more precise activation
+    let pending = null;
+    function onScroll() {
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = null;
+        try {
+          const active = chooseActive();
+          if (active) setActiveByElement(active);
+        } catch(e) { }
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // expose for cleanup: observer has been created; return a cleanup function reference
+    __tocObserver._onScroll = onScroll;
   } catch (e) { console && console.log && console.log('[blazor-utils] initTocObserver failed', e); }
 }
 
