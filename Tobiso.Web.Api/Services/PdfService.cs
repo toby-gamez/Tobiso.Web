@@ -973,13 +973,16 @@ namespace Tobiso.Web.Api.Services
         // now uses textual curly-brace fallbacks produced in ProcessNodeContent.
 
         // ── Cheat Sheet PDF ───────────────────────────────────────────────────────
-        // Generates a tiny PDF (1:1 → 10×10 cm square, 1:2 → 10×20 cm portrait)
-        // with compact bullet-point content and a barely-visible "Tobiso" watermark.
+        // Ratio codes: 1x* → 10 cm wide, 2x* → 18 cm wide.
+        // Both width and height auto-fit to content (no trailing whitespace).
 
-        private const float CheatSheetWidthCm  = 10f;
         private const float CheatSheetMarginMm = 4f;
         private const float CheatSheetFontSize  = 6.5f;
         private const float CheatSheetTitleSize = 8f;
+
+        // Width in cm by ratio prefix
+        private static float CheatSheetWidth(string ratio) =>
+            ratio.StartsWith("2x", StringComparison.OrdinalIgnoreCase) ? 18f : 10f;
 
         public byte[] GenerateCheatSheetPdf(string title, string bulletText, string ratio = "1x1")
         {
@@ -1021,12 +1024,13 @@ namespace Tobiso.Web.Api.Services
                            + 2f;                              // buffer
 
             float heightCm = Math.Max(heightMm / 10f, 2f);   // at least 2 cm
+            float widthCm  = CheatSheetWidth(ratio);
 
             var document = Document.Create(container =>
             {
                 container.Page(page =>
                 {
-                    page.Size(CheatSheetWidthCm, heightCm, Unit.Centimetre);
+                    page.Size(widthCm, heightCm, Unit.Centimetre);
                     page.Margin(CheatSheetMarginMm, Unit.Millimetre);
                     page.PageColor(Colors.White);
                     page.DefaultTextStyle(x => x.FontSize(CheatSheetFontSize).LineHeight(1.25f));

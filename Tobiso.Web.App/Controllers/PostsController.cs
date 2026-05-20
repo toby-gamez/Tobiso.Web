@@ -7,7 +7,7 @@ using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.Api.Controllers;
 
-[Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class PostsController : ControllerBase

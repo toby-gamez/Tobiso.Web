@@ -97,7 +97,7 @@ public class InteractiveExercisesController : ControllerBase
     /// <summary>
     /// Vytvoří nové cvičení (pouze Admin - vyžaduje autentizaci)
     /// </summary>
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateInteractiveExerciseRequest request)
     {
@@ -134,7 +134,7 @@ public class InteractiveExercisesController : ControllerBase
     /// <summary>
     /// Aktualizuje existující cvičení (pouze Admin - vyžaduje autentizaci)
     /// </summary>
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateInteractiveExerciseRequest request)
     {
@@ -167,7 +167,7 @@ public class InteractiveExercisesController : ControllerBase
     /// <summary>
     /// Smaže cvičení (pouze Admin - vyžaduje autentizaci)
     /// </summary>
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -191,7 +191,7 @@ public class InteractiveExercisesController : ControllerBase
     /// <summary>
     /// Získá správné řešení cvičení (pouze Admin - vyžaduje autentizaci)
     /// </summary>
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpGet("{id}/solution")]
     public async Task<IActionResult> GetSolution(int id)
     {
@@ -215,7 +215,7 @@ public class InteractiveExercisesController : ControllerBase
     /// <summary>
     /// Získá všechna cvičení pro daný článek včetně neaktivních (pouze Admin)
     /// </summary>
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpGet("post/{postId}/all")]
     public async Task<IActionResult> GetAllByPostId(int postId)
     {

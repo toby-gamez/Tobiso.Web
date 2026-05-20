@@ -91,31 +91,53 @@ else
             <div class="cs-modal-body">
                 <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=1x1")" target="_blank" @onclick="CloseCheatSheetModal">
                     <div class="cs-preview cs-preview-1x1">
-                        <div class="cs-preview-line" style="width:80%"></div>
-                        <div class="cs-preview-line" style="width:65%"></div>
-                        <div class="cs-preview-line" style="width:72%"></div>
-                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:78%"></div>
+                        <div class="cs-preview-line" style="width:62%"></div>
                         <div class="cs-preview-line" style="width:70%"></div>
-                        <div class="cs-preview-line" style="width:60%"></div>
+                        <div class="cs-preview-line" style="width:55%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
                     </div>
-                    <div class="cs-card-label">Čtvercový</div>
-                    <div class="cs-card-sub">10 &times; 10 cm &nbsp;&bull;&nbsp; ~20 bodů</div>
+                    <div class="cs-card-label">Kompaktní</div>
+                    <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~18 bodů</div>
+                </a>
+                <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=2x1")" target="_blank" @onclick="CloseCheatSheetModal">
+                    <div class="cs-preview cs-preview-2x1">
+                        <div class="cs-preview-line" style="width:82%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:75%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                    </div>
+                    <div class="cs-card-label">Široký</div>
+                    <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~27 bodů</div>
                 </a>
                 <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=1x2")" target="_blank" @onclick="CloseCheatSheetModal">
                     <div class="cs-preview cs-preview-1x2">
-                        <div class="cs-preview-line" style="width:80%"></div>
-                        <div class="cs-preview-line" style="width:65%"></div>
-                        <div class="cs-preview-line" style="width:72%"></div>
-                        <div class="cs-preview-line" style="width:58%"></div>
-                        <div class="cs-preview-line" style="width:70%"></div>
-                        <div class="cs-preview-line" style="width:60%"></div>
-                        <div class="cs-preview-line" style="width:75%"></div>
-                        <div class="cs-preview-line" style="width:50%"></div>
-                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:78%"></div>
                         <div class="cs-preview-line" style="width:62%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                        <div class="cs-preview-line" style="width:55%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:74%"></div>
+                        <div class="cs-preview-line" style="width:58%"></div>
+                        <div class="cs-preview-line" style="width:66%"></div>
                     </div>
-                    <div class="cs-card-label">Na výšku</div>
-                    <div class="cs-card-sub">10 &times; 20 cm &nbsp;&bull;&nbsp; ~35 bodů</div>
+                    <div class="cs-card-label">Úzký plný</div>
+                    <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~34 bodů</div>
+                </a>
+                <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=2x2")" target="_blank" @onclick="CloseCheatSheetModal">
+                    <div class="cs-preview cs-preview-2x2">
+                        <div class="cs-preview-line" style="width:82%"></div>
+                        <div class="cs-preview-line" style="width:68%"></div>
+                        <div class="cs-preview-line" style="width:75%"></div>
+                        <div class="cs-preview-line" style="width:60%"></div>
+                        <div class="cs-preview-line" style="width:72%"></div>
+                        <div class="cs-preview-line" style="width:79%"></div>
+                        <div class="cs-preview-line" style="width:63%"></div>
+                        <div class="cs-preview-line" style="width:70%"></div>
+                    </div>
+                    <div class="cs-card-label">Široký plný</div>
+                    <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~51 bodů</div>
                 </a>
             </div>
         </div>
@@ -361,13 +383,15 @@ else
     .cs-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;min-width:320px;max-width:96vw; }
     .cs-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1rem;margin-bottom:1.1rem; }
     .cs-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
-    .cs-modal-body { display:flex;gap:1.2rem;justify-content:center; }
-    .cs-ratio-card { display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.8rem .9rem 1rem;border:2px solid #ddd;border-radius:10px;background:none;cursor:pointer;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s; }
-    .cs-ratio-card:hover { border-color:#4f8ef7;box-shadow:0 2px 10px rgba(79,142,247,.18); }
-    .cs-preview { display:flex;flex-direction:column;gap:5px;padding:7px 8px;border-radius:5px;border:1.5px solid #ccc;background:#f8f8f8; }
-    .cs-preview-1x1 { width:72px;height:72px; }
-    .cs-preview-1x2 { width:60px;height:120px; }
-    .cs-preview-line { height:4px;border-radius:2px;background:#bbb; }
-    .cs-card-label { font-weight:600;font-size:.92rem; }
+    .cs-modal-body { display:grid;grid-template-columns:1fr 1fr;gap:.9rem; }
+    .cs-ratio-card { display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.7rem .8rem .9rem;border:2px solid #d89dbd;border-radius:10px;background:none;cursor:pointer;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s,background .15s; }
+    .cs-ratio-card:hover { border-color:#c36f9a;background:#f3d6e5;box-shadow:0 2px 10px rgba(195,111,154,.2); }
+    .cs-preview { display:flex;flex-direction:column;gap:4px;padding:6px 7px;border-radius:5px;border:1.5px solid #d89dbd;background:#f3d6e5; }
+    .cs-preview-1x1 { width:54px;height:54px; }
+    .cs-preview-1x2 { width:54px;height:90px; }
+    .cs-preview-2x1 { width:90px;height:54px; }
+    .cs-preview-2x2 { width:90px;height:90px; }
+    .cs-preview-line { height:4px;border-radius:2px;background:#c36f9a;opacity:.55; }
+    .cs-card-label { font-weight:600;font-size:.92rem;color:#c36f9a; }
     .cs-card-sub { font-size:.75rem;color:#888; }
 </style>

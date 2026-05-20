@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.ComponentModel.DataAnnotations
 @using System.Net.Http.Headers
+@using System.Text.Json
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @inject Tobiso.Web.App.Authentication.CredentialStore CredentialStore
@@ -30,9 +31,6 @@
 
                         <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
                             <DataAnnotationsValidator />
-                            
-                            @* Removed ValidationSummary to prevent duplicate messages and simplify the UI. *@
-                            @* <ValidationSummary class="text-danger" /> *@
 
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
@@ -74,16 +72,15 @@
 
     public class LoginModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Username is required")]
+        [Required(ErrorMessage = "Username is required")]
         public string Username { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
+        [Required(ErrorMessage = "Password is required")]
         public string Password { get; set; } = string.Empty;
     }
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if already authenticated
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated == true)
         {
@@ -98,29 +95,23 @@
 
         try
         {
-            Console.WriteLine($"Attempting login for user: {loginModel.Username}");
             Logger.LogInformation("Attempting login for user: {Username}", loginModel.Username);
 
-            // Verify credentials by making a test API call
-            if (!await VerifyCredentialsAsync(loginModel.Username, loginModel.Password))
+            var token = await RequestJwtTokenAsync(loginModel.Username, loginModel.Password);
+            if (token == null)
             {
                 errorMessage = "Invalid username or password.";
-                Logger.LogWarning("Login failed - invalid credentials for user: {Username}", loginModel.Username);
+                Logger.LogWarning("Login failed — invalid credentials for user: {Username}", loginModel.Username);
                 return;
             }
 
-            // Store credentials using the correct method
-            await CredentialStore.SetAsync(loginModel.Username, loginModel.Password, JSRuntime);
-            
-            Console.WriteLine("Login successful, redirecting to home");
+            await CredentialStore.SetAsync(token, JSRuntime);
             Logger.LogInformation("Login successful for user: {Username}", loginModel.Username);
-            
             Navigation.NavigateTo("/");
         }
         catch (Exception ex)
         {
-            errorMessage = "Login failed. Please check your credentials.";
-            Console.WriteLine($"Login failed: {ex.Message}");
+            errorMessage = "Login failed. Please check your credentials and try again.";
             Logger.LogError(ex, "Login failed for user: {Username}", loginModel.Username);
         }
         finally
@@ -129,52 +120,49 @@
         }
     }
 
-    private async Task<bool> VerifyCredentialsAsync(string username, string password)
+    /// <summary>
+    /// Calls POST /api/auth/login to obtain a JWT token.
+    /// Returns the token string on success, or null on invalid credentials.
+    /// Throws on unexpected errors.
+    /// </summary>
+    private async Task<string?> RequestJwtTokenAsync(string username, string password)
     {
-        try
+        var handler = new HttpClientHandler
         {
-            // Create HttpClientHandler with SSL bypass for development
-            var handler = new HttpClientHandler();
-            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-            
-            using var httpClient = new HttpClient(handler);
-            
-            // Get API base address from configuration
-            var baseAddress = Configuration["Api:BaseAddress"];
-            if (string.IsNullOrEmpty(baseAddress))
-            {
-                Logger.LogError("API base address is not configured");
-                return false;
-            }
-            
-            httpClient.BaseAddress = new Uri(baseAddress);
-            
-            // Add Basic Auth header
-            var credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
-            
-            Logger.LogInformation("Attempting auth verification for {Username} against {BaseAddress}", username, baseAddress);
-            
-            // Make authenticated request to verify credentials
-            // Use PUT /api/categories/{nonExistentId} which requires authentication on both local and production
-            // This will return 401 for bad auth, or 404/500 for good auth (since category doesn't exist)
-            var testData = new { Id = 999999, Name = "__auth_test__", Description = "temp", ParentCategoryId = (int?)null };
-            var json = System.Text.Json.JsonSerializer.Serialize(testData);
-            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            
-            var response = await httpClient.PutAsync("/api/categories/999999", content);
-            
-            Logger.LogInformation("Auth verification for {Username}: {StatusCode} from {BaseAddress}", 
-                username, response.StatusCode, baseAddress);
-            
-            // 401 = Unauthorized (bad credentials)
-            // Anything else (404, 500, etc.) = credentials are valid, but request failed for other reasons
-            return response.StatusCode != System.Net.HttpStatusCode.Unauthorized;
-        }
-        catch (Exception ex)
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        };
+
+        using var httpClient = new HttpClient(handler);
+
+        var baseAddress = Configuration["Api:BaseAddress"];
+        if (string.IsNullOrEmpty(baseAddress))
         {
-            Logger.LogError(ex, "Failed to verify credentials for user: {Username}: {Message}", username, ex.Message);
-            return false;
+            Logger.LogError("Api:BaseAddress is not configured");
+            throw new InvalidOperationException("API base address is not configured.");
         }
+
+        httpClient.BaseAddress = new Uri(baseAddress);
+
+        var payload = JsonSerializer.Serialize(new { username, password });
+        var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+
+        Logger.LogInformation("Calling POST /api/auth/login for user {Username}", username);
+        var response = await httpClient.PostAsync("/api/auth/login", content);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+            || response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.TryGetProperty("token", out var tokenProp))
+            return tokenProp.GetString();
+
+        Logger.LogError("POST /api/auth/login returned 200 but no 'token' field in body");
+        return null;
     }
 }

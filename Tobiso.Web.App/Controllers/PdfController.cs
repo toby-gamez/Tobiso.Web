@@ -86,7 +86,7 @@ public class PdfController : ControllerBase
     public async Task<IActionResult> GenerateCheatSheet(int id, [FromQuery] string ratio = "1x1")
     {
         // Sanitise ratio to avoid injection; only allow known values
-        if (ratio != "1x1" && ratio != "1x2") ratio = "1x1";
+        if (ratio != "1x1" && ratio != "1x2" && ratio != "2x1" && ratio != "2x2") ratio = "1x1";
 
         var post = await _postService.GetById(id);
         if (post == null) return NotFound();

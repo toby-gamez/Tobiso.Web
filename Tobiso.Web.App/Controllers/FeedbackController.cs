@@ -30,7 +30,7 @@ public class FeedbackController : ControllerBase
     }
 
     // Admin only - get all feedbacks
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAllFeedbacks()
     {
@@ -39,7 +39,7 @@ public class FeedbackController : ControllerBase
     }
 
     // Admin only - get specific feedback
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetFeedback(int id)
     {
@@ -50,7 +50,7 @@ public class FeedbackController : ControllerBase
     }
 
     // Admin only - mark as read
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpPut("{id}/mark-read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
@@ -61,7 +61,7 @@ public class FeedbackController : ControllerBase
     }
 
     // Admin only - delete feedback
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteFeedback(int id)
     {

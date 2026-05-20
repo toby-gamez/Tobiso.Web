@@ -23,7 +23,7 @@ public class PostVersionsController : ControllerBase
         return Ok(await _versionService.GetByPost(postId));
     }
 
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateVersionRequest req)
     {
@@ -33,7 +33,7 @@ public class PostVersionsController : ControllerBase
         return CreatedAtAction(nameof(GetByPost), new { postId = req.PostId }, created);
     }
 
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateVersionRequest req)
     {
@@ -42,7 +42,7 @@ public class PostVersionsController : ControllerBase
         return NoContent();
     }
 
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

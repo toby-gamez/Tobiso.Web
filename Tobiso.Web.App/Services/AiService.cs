@@ -281,11 +281,15 @@ namespace Tobiso.Web.App.Services
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
 
-            // Adjust bullet count and token budget based on page ratio
-            bool isTall = ratio == "1x2";
-            var bulletRange = isTall ? "25–40" : "15–25";
-            var sizeSuffix = isTall ? "10×20 cm" : "10×10 cm";
-            var maxTokens = isTall ? 900 : 600;
+            // Bullet count, size label and token budget per ratio
+            // 1x* = 10 cm wide, 2x* = 18 cm wide; x1 = compact, x2 = full content
+            var (bulletRange, sizeSuffix, maxTokens) = ratio switch
+            {
+                "2x1" => ("22–32", "18×10 cm", 700),
+                "2x2" => ("42–60", "18×20 cm", 1300),
+                "1x2" => ("28–40", "10×20 cm", 900),
+                _     => ("15–22", "10×10 cm", 550),  // 1x1 default
+            };
 
             var systemPrompt = _configuration["OpenAI:CheatSheetSystemPrompt"] is { Length: > 0 } sp
                 ? sp.Replace("15–25", bulletRange).Replace("10×10 cm", sizeSuffix)

@@ -5,7 +5,11 @@ namespace Tobiso.Web.App.Authentication;
 
 public class CredentialStore
 {
-    private (string Username, string Password)? _credentials;
+    private const string TokenStorageKey = "tobiso_jwt";
+    private const string LegacyUsernameKey = "blinked_username";
+    private const string LegacyPasswordKey  = "blinked_password";
+
+    private string? _token;
     private readonly ILogger<CredentialStore> _logger;
     private readonly IServiceProvider _serviceProvider;
 
@@ -19,74 +23,63 @@ public class CredentialStore
     {
         try
         {
-            var username = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", "blinked_username");
-            var password = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", "blinked_password");
-            
-            if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+            var token = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", TokenStorageKey);
+            if (!string.IsNullOrEmpty(token))
             {
-                _credentials = (username, password);
-                _logger.LogDebug("Restored credentials from localStorage for user {Username}", username);
-                
-                // Notify authentication state provider
+                _token = token;
+                _logger.LogDebug("Restored JWT token from localStorage");
                 NotifyAuthenticationStateChanged();
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to restore credentials from localStorage");
+            _logger.LogWarning(ex, "Failed to restore JWT token from localStorage");
         }
     }
 
-    public async Task SetAsync(string username, string password, IJSRuntime jsRuntime)
+    public async Task SetAsync(string token, IJSRuntime jsRuntime)
     {
-        _credentials = (username, password);
-        
+        _token = token;
         try
         {
-            await jsRuntime.InvokeVoidAsync("localStorage.setItem", "blinked_username", username);
-            await jsRuntime.InvokeVoidAsync("localStorage.setItem", "blinked_password", password);
-            _logger.LogDebug("Stored credentials in localStorage for user {Username}", username);
+            await jsRuntime.InvokeVoidAsync("localStorage.setItem", TokenStorageKey, token);
+            _logger.LogDebug("Stored JWT token in localStorage");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to store credentials in localStorage");
+            _logger.LogWarning(ex, "Failed to store JWT token in localStorage");
         }
-        
         NotifyAuthenticationStateChanged();
     }
 
-    public void Set(string username, string password)
+    public void Set(string token)
     {
-        _credentials = (username, password);
+        _token = token;
         NotifyAuthenticationStateChanged();
     }
 
-    public (string Username, string Password)? Get()
-    {
-        return _credentials;
-    }
+    public string? GetToken() => _token;
 
     public async Task ClearAsync(IJSRuntime jsRuntime)
     {
-        _credentials = null;
-        
+        _token = null;
         try
         {
-            await jsRuntime.InvokeVoidAsync("localStorage.removeItem", "blinked_username");
-            await jsRuntime.InvokeVoidAsync("localStorage.removeItem", "blinked_password");
-            _logger.LogDebug("Cleared credentials from localStorage");
+            await jsRuntime.InvokeVoidAsync("localStorage.removeItem", TokenStorageKey);
+            await jsRuntime.InvokeVoidAsync("localStorage.removeItem", LegacyUsernameKey);
+            await jsRuntime.InvokeVoidAsync("localStorage.removeItem", LegacyPasswordKey);
+            _logger.LogDebug("Cleared JWT token from localStorage");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to clear credentials from localStorage");
+            _logger.LogWarning(ex, "Failed to clear JWT token from localStorage");
         }
-        
         NotifyAuthenticationStateChanged();
     }
 
     public void Clear()
     {
-        _credentials = null;
+        _token = null;
         NotifyAuthenticationStateChanged();
     }
 
@@ -94,7 +87,8 @@ public class CredentialStore
     {
         try
         {
-            var authStateProvider = _serviceProvider.GetService<AuthenticationStateProvider>() as BasicAuthenticationStateProvider;
+            var authStateProvider = _serviceProvider.GetService<AuthenticationStateProvider>()
+                as TokenAuthenticationStateProvider;
             authStateProvider?.NotifyAuthenticationStateChanged();
         }
         catch (Exception ex)

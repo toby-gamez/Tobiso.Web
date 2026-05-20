@@ -514,13 +514,9 @@
     {
         try
         {
-            var creds = CredentialStore.Get();
-            if (creds is (var username, var password))
-            {
-                var bytes = Encoding.ASCII.GetBytes($"{username}:{password}");
-                var value = Convert.ToBase64String(bytes);
-                return new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", value);
-            }
+            var token = CredentialStore.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                return new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         }
         catch (Exception ex)
         {

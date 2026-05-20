@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Refit;
 using Serilog;
+using System.Text;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
@@ -47,15 +50,39 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
 services
-    .AddAuthentication(BasicAuthConstants.Scheme)
+    .AddAuthentication("SmartAuth")
+    .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
+    {
+        options.ForwardDefaultSelector = ctx =>
+        {
+            var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
+            return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+                ? JwtBearerDefaults.AuthenticationScheme
+                : BasicAuthConstants.Scheme;
+        };
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = builder.Configuration["Auth:Jwt:Issuer"]   ?? "tobiso",
+            ValidAudience            = builder.Configuration["Auth:Jwt:Audience"] ?? "tobiso",
+            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        };
+    })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
 
 services.AddAuthorization();
 
 // Add Blazor authentication
 services.AddCascadingAuthenticationState();
-services.AddScoped<AuthenticationStateProvider, BasicAuthenticationStateProvider>();
+services.AddScoped<AuthenticationStateProvider, TokenAuthenticationStateProvider>();
 
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddScoped<ICategoryService, CategoryService>();

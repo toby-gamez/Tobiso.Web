@@ -1,8 +1,10 @@
 ﻿using System.Net.Http.Headers;
-using System.Text;
 
 namespace Tobiso.Web.App.Authentication;
 
+/// <summary>
+/// Injects the JWT Bearer token from <see cref="CredentialStore"/> into every outgoing Refit request.
+/// </summary>
 public class AuthenticationHeaderHandler : DelegatingHandler
 {
     private readonly CredentialStore _credentialStore;
@@ -16,17 +18,15 @@ public class AuthenticationHeaderHandler : DelegatingHandler
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        (string Username, string Password)? credentials = _credentialStore.Get();
-        if (credentials is (var username, var password))
+        var token = _credentialStore.GetToken();
+        if (!string.IsNullOrEmpty(token))
         {
-            var byteArray = Encoding.ASCII.GetBytes($"{username}:{password}");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
-
-            _logger.LogDebug("[AuthHandler] Injected Basic Auth for user {Username}", username);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            _logger.LogDebug("[AuthHandler] Injected Bearer token");
         }
         else
         {
-            _logger.LogWarning("[AuthHandler] No credentials present");
+            _logger.LogWarning("[AuthHandler] No JWT token present — request will be unauthenticated");
         }
 
         return base.SendAsync(request, cancellationToken);

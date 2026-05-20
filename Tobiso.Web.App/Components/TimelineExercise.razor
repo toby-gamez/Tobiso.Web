@@ -21,54 +21,54 @@
                         <h6 class="mb-0"><i class="bi bi-card-text"></i> Časová osa</h6>
                     </div>
                     <div class="card-body">
-                        <div class="timeline-axis timeline-axis-bg position-relative" style="min-height: 120px; height: 160px;">
-                            @{
-                                var minYear = _timeRangeStart;
-                                var maxYear = _timeRangeEnd;
-                                var range = maxYear - minYear == 0 ? 1 : maxYear - minYear;
-                                var slotCount = _events.Count;
-                            }
-                            @{ 
-                                var sortedEvents = _events.OrderBy(ev => ev.Year).ToList();
-                                for (int i = 0; i < slotCount; i++)
-                                {
-                                    var correctEvent = sortedEvents.Count > i ? sortedEvents[i] : null;
-                                    var correctYear = correctEvent?.Year ?? (minYear + (int)Math.Round((maxYear - minYear) * (i / (double)(slotCount - 1))));
-                                    var left = ((correctYear - minYear) / (double)range) * 100.0;
-                                    int? eventYear = null;
-                                    var evtId = (_userOrder.Count > i) ? _userOrder[i] : null;
-                                    var evt = evtId != null ? _events.FirstOrDefault(ev => ev.Id == evtId) : null;
-                                    if (evt != null) eventYear = evt.Year;
-                            <text>
-                                <div class="timeline-slot-wrapper d-flex align-items-center" style="left:@(left)% ; top:50%; transform:translate(-50%,-50%); gap:8px;">
-                                    <span class="timeline-year-label me-2">@correctYear</span>
-                                    <div class="timeline-slot p-2 border rounded bg-light text-start @(i == _dragOverSlot ? "drag-over" : "")"
-                                         @ondrop="(e) => OnDrop(e, i)"
-                                         @ondrop:preventDefault="true"
-                                         @ondragover="OnDragOver"
-                                         @ondragover:preventDefault="true"
-                                         style="min-width: 140px; min-height: 60px;">
-                                        @if (evt != null)
-                                        {
-                                            <div class="draggable-item timeline-item @(evt.Id == _draggedEventId ? "dragging" : "")"
-                                                 draggable="true"
-                                                 @ondragstart="() => OnDragStart(evt.Id)"
-                                                 @ondragend="OnDragEnd"
-                                                  @onclick="(() => RemoveEventById(evt.Id))"
-                                                  aria-label="Klikni pro odebrání zpět dolů">
-                                                <i class="bi bi-grip-vertical drag-handle"></i>
-                                                <span class="item-text">@evt.Label <span class="event-year">(@evt.Year)</span></span>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">(prázdné)</span>
-                                        }
-                                    </div>
-                                </div>
-                            </text>
+                        <div class="timeline-scroll-outer">
+                            <div class="timeline-axis timeline-axis-bg position-relative" style="min-height: 120px; height: 180px; min-width: @(Math.Max(_events.Count * 220, 400))px;">
+                                @{
+                                    var minYear = _timeRangeStart;
+                                    var maxYear = _timeRangeEnd;
+                                    var slotCount = _events.Count;
                                 }
-                            }
+                                @{ 
+                                    var sortedEvents = _events.OrderBy(ev => ev.Year).ToList();
+                                    for (int i = 0; i < slotCount; i++)
+                                    {
+                                        var correctEvent = sortedEvents.Count > i ? sortedEvents[i] : null;
+                                        var correctYear = correctEvent?.Year ?? (minYear + (int)Math.Round((maxYear - minYear) * (i / (double)(Math.Max(slotCount - 1, 1)))));
+                                        // Equidistant positioning prevents slots from overlapping when years are close together
+                                        var leftPct = slotCount <= 1 ? 50.0 : 5.0 + (i / (double)(slotCount - 1)) * 90.0;
+                                        var evtId = (_userOrder.Count > i) ? _userOrder[i] : null;
+                                        var evt = evtId != null ? _events.FirstOrDefault(ev => ev.Id == evtId) : null;
+                                <text>
+                                    <div class="timeline-slot-wrapper d-flex flex-column align-items-center" style="left:@(leftPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%; top:50%; transform:translate(-50%,-50%);">
+                                        <div class="timeline-slot p-2 border rounded bg-light text-start @(i == _dragOverSlot ? "drag-over" : "")"
+                                             @ondrop="(e) => OnDrop(e, i)"
+                                             @ondrop:preventDefault="true"
+                                             @ondragover="OnDragOver"
+                                             @ondragover:preventDefault="true"
+                                             style="min-width: 140px; min-height: 60px;">
+                                            @if (evt != null)
+                                            {
+                                                <div class="draggable-item timeline-item @(evt.Id == _draggedEventId ? "dragging" : "")"
+                                                     draggable="true"
+                                                     @ondragstart="() => OnDragStart(evt.Id)"
+                                                     @ondragend="OnDragEnd"
+                                                     @onclick="(() => RemoveEventById(evt.Id))"
+                                                     aria-label="Klikni pro odebrání zpět dolů">
+                                                    <i class="bi bi-grip-vertical drag-handle"></i>
+                                                    <span class="item-text">@evt.Label</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">(prázdné)</span>
+                                            }
+                                        </div>
+                                        <span class="timeline-year-label mt-1">@correctYear</span>
+                                    </div>
+                                </text>
+                                    }
+                                }
+                            </div>
                         </div>
                         <div class="d-flex justify-content-between mt-2">
                             <span class="fw-bold">@_timeRangeStart</span>
@@ -100,7 +100,7 @@
                                 {
                                     <div class="draggable-item source-item @(evt.Id == _draggedEventId ? "dragging" : "")" draggable="true" @ondragstart="() => OnDragStart(evt.Id)" @ondragend="OnDragEnd" aria-label="Přetáhni na osu">
                                         <i class="bi bi-grip-vertical drag-handle"></i>
-                                        <span class="item-text">@evt.Label</span>
+                                        <span class="item-text">@evt.Label@(_showingYear ? $" ({evt.Year})" : "")</span>
                                     </div>
                                 }
                             </div>
@@ -318,10 +318,15 @@
         background: var(--color-accent-2-dark);
         border-color: var(--color-accent-strong-dark);
     }
+    .timeline-scroll-outer {
+        overflow-x: auto;
+        overflow-y: visible;
+        padding-bottom: 4px;
+    }
     .timeline-slot-wrapper {
-        min-width: 120px;
         pointer-events: auto;
         position: absolute;
+        
     }
     .timeline-slot-row {
         display: flex;
@@ -581,6 +586,7 @@
     private int _timeRangeEnd = 1700;
     private bool _checking = false;
     private ExerciseValidationResult? _validationResult;
+    private bool _showingYear = false;
 
     protected override void OnParametersSet()
     {
@@ -697,6 +703,7 @@
     {
         _userOrder.Clear();
         _validationResult = null;
+        _showingYear = false;
         LoadConfig(); // Znovu zamíchat
     }
 
@@ -731,6 +738,7 @@
         finally
         {
             _checking = false;
+            _showingYear = true;
         }
     }
 

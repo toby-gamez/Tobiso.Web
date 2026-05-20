@@ -9,7 +9,7 @@ namespace Tobiso.Web.Api.Controllers;
 /// <summary>
 /// Controller pro interaktivní cvičení - používá se v Tobiso.Web.App.Admin (admin verze)
 /// </summary>
-[Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class InteractiveExercisesController : ControllerBase

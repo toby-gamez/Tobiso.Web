@@ -8,7 +8,7 @@ using Tobiso.Api.Authentication;
 
 namespace Tobiso.Web.App.Admin.Controllers;
 
-[Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class RelatedPostsController : ControllerBase

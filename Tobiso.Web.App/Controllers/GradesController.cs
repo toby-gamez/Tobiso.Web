@@ -34,7 +34,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateGradeRequest req)
     {
         var created = await _gradeService.Create(req);
@@ -43,7 +43,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateGradeRequest req)
     {
         var ok = await _gradeService.Update(id, req);
@@ -52,7 +52,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         try
