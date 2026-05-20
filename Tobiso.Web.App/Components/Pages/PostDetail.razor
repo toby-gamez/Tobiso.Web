@@ -15,7 +15,7 @@
 @rendermode InteractiveServer
 @implements IDisposable
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
-<style>
+    <style>
     section img {
         max-width: 16rem;
         max-height: 20rem;
@@ -92,6 +92,28 @@
         margin: 0 4px;
         cursor: pointer;
     }
+    .tool-btn {
+        position: relative;
+    }
+    .tool-btn span.tool-label {
+        display: none;
+    }
+    .tool-btn:hover span.tool-label {
+        display: block;
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--color-accent-5, #eee);
+        color: var(--color-text);
+        padding: 0.14rem 0.35rem;
+        border-radius: 6px;
+        font-size: 0.68rem;
+        white-space: nowrap;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+        z-index: 3000;
+        pointer-events: none;
+    }
 
 /* Dark mode variant for headings */
 body.dark-mode h1,
@@ -130,7 +152,7 @@ body.focus-mode section {
     margin-top: 2px;
     margin-bottom: 2px;
 }
-.grade-badge {
+    .grade-badge {
     display: inline-block;
     font-size: 0.78rem;
     font-weight: 600;
@@ -142,6 +164,35 @@ body.focus-mode section {
     margin-bottom: 0.75rem;
     vertical-align: middle;
 }
+
+    /* Wiki-style Table of Contents (TOC) */
+    .wiki-toc {
+        position: fixed;
+        left: calc(285px + 16px);
+        top: 80px;
+        width: 210px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        font-size: 13px;
+        line-height: 1.4;
+        padding: 8px 10px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 6px;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    /* Adjust when left nav collapsed */
+    body:has(#MyNavBar.collapsed) .wiki-toc { left: calc(60px + 16px); }
+    @@media (max-width: 1200px) { .wiki-toc { display: none; } }
+    body.focus-mode .wiki-toc { display: none; }
+
+    .wiki-toc-title { font-weight: 700; margin-bottom: 8px; }
+    .wiki-toc-item { display: block; cursor: pointer; color: inherit; text-decoration: none; padding: 4px 0; }
+    .wiki-toc-item.level-2 { padding-left: 0; }
+    .wiki-toc-item.level-3 { padding-left: 10px; }
+    .wiki-toc-item.level-4 { padding-left: 18px; }
+    .wiki-toc-item.level-5 { padding-left: 26px; }
+    .wiki-toc-item.level-6 { padding-left: 34px; }
+    .wiki-toc-item.active { font-weight: 700; }
 body.dark-mode .grade-badge {
     background: var(--color-accent-dark, #2d6db5);
 }
@@ -170,6 +221,31 @@ else
         </nav>
     }
 
+    @* Wiki-style Table of Contents for Markdown posts *@
+    @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any())
+    {
+        <nav class="wiki-toc" aria-label="Obsah">
+            <div class="wiki-toc-title">Obsah</div>
+            @foreach (var item in _tocItems)
+            {
+                <a href="#@item.Id" class="wiki-toc-item level-@item.Level @( _activeTocId == item.Id ? "active" : "")" @onclick="() => ScrollToHeading(item.Id)" @onclick:preventDefault="true">@item.Text</a>
+            }
+        </nav>
+    }
+    else
+    {
+        // debug aid: if URL contains ?tocdebug=1, show placeholder so we can see placement
+        var uri = new Uri(Navigation.Uri);
+        var dbg = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tocdebug", out var _dbg) && _dbg == "1";
+        if (dbg)
+        {
+            <nav class="wiki-toc" aria-label="Obsah (debug)">
+                <div class="wiki-toc-title">Obsah (debug)</div>
+                <div style="opacity:0.6">No headings found or not a markdown post.</div>
+            </nav>
+        }
+    }
+
     <div class="tools">
         <div class="tool">
             @if (GetLatestEditDate() != null)
@@ -178,25 +254,25 @@ else
             }
         </div>
             <div class="tool">
-                <button class="btn btn-secondary mb-3" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
                 @if (_hasQuestions)
                 {
-                    <button class="btn btn-secondary mb-3" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i><span class="tool-label">Prověrka</span></button>
                 }
-                <button class="btn btn-secondary mb-3" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
-                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
+                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
                 </button>
-                <button class="btn btn-secondary mb-3" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i><span class="tool-label">Nastavení čtení</span></button>
                 @if (_exercises != null && _exercises.Any())
                 {
-                    <button class="btn btn-secondary mb-3" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
-                        <i class="bi bi-puzzle"></i>
+                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
+                        <i class="bi bi-puzzle"></i><span class="tool-label">Interaktivní cvičení</span>
                     </button>
                 }
-                <button class="btn btn-secondary mb-3" aria-label="Sdílet článek" @onclick="SharePost">
-                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Sdílet článek" @onclick="SharePost">
+                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
                 </button>
-                <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+                <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -256,25 +332,25 @@ else
             }
         </div>
         <div class="tool">
-            <button class="btn btn-secondary mb-3" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
             @if (_hasQuestions)
             {
-                <button class="btn btn-secondary mb-3" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i></button>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i><span class="tool-label">Prověrka</span></button>
             }
-            <button class="btn btn-secondary mb-3" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
-                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i>
+            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
+                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
             </button>
-            <button class="btn btn-secondary mb-3" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i></button>
+            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i><span class="tool-label">Nastavení čtení</span></button>
             @if (_exercises != null && _exercises.Any())
             {
-                <button class="btn btn-secondary mb-3" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
-                    <i class="bi bi-puzzle"></i>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
+                    <i class="bi bi-puzzle"></i><span class="tool-label">Interaktivní cvičení</span>
                 </button>
             }
-            <button class="btn btn-secondary mb-3" aria-label="Sdílet článek" @onclick="SharePost">
-                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i>
+            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Sdílet článek" @onclick="SharePost">
+                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
             </button>
-            <button aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i></button>
+            <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -439,6 +515,11 @@ else
     private IJSObjectReference? _jsModule;
     private bool _aiAvailable = true;
     private string? _aiDiagError = null;
+    // Table of Contents state
+    private record TocItem(string Id, string Text, int Level);
+    private List<TocItem> _tocItems = new();
+    private string? _activeTocId = null;
+    private string? _lastExtractedContentHash = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -568,7 +649,7 @@ else
             // Import our JS module and initialize delegated handlers (person links, lightbox).
             try
             {
-                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=9");
+                _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=10");
                 try { await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef); } catch { }
                 try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); } catch { }
             }
@@ -590,14 +671,63 @@ else
             catch { }
         }
 
-        // Re-run module initialization in case module wasn't available earlier; keep non-fatal.
-        try
-        {
-            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=9");
-            await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef);
-            await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
-        }
-        catch { /* ignore */ }
+            // Re-run module initialization in case module wasn't available earlier; keep non-fatal.
+            try
+            {
+            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=10");
+                await _jsModule.InvokeVoidAsync("initPersonLinkHandler", _dotNetRef);
+                await _jsModule.InvokeVoidAsync("initImageLightbox", "content");
+                // If markdown content, extract headings and initialize TOC observer
+                try
+                {
+                    if (_fileSuffix == ".md")
+                    {
+                        var headings = await _jsModule.InvokeAsync<object[]>("extractHeadings", "content");
+                        var newTocs = new List<TocItem>();
+                        if (headings != null)
+                        {
+                            foreach (var h in headings)
+                            {
+                                // h is a JsonElement-ish object; deserialize via System.Text.Json
+                                try
+                                {
+                                    var json = System.Text.Json.JsonSerializer.Serialize(h);
+                                    var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                                    if (parsed != null && parsed.ContainsKey("id") && parsed.ContainsKey("text") && parsed.ContainsKey("level"))
+                                    {
+                                        var id = parsed["id"]?.ToString() ?? string.Empty;
+                                        var text = parsed["text"]?.ToString() ?? string.Empty;
+                                        var level = int.TryParse(parsed["level"]?.ToString(), out var lv) ? lv : 2;
+                                        newTocs.Add(new TocItem(id, text, level));
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+
+                        // compute a simple hash to detect content changes (avoid reinit loop)
+                        var hash = string.Join("|", newTocs.Select(t => t.Id + ":" + t.Text));
+                        if (hash != _lastExtractedContentHash)
+                        {
+                            _tocItems = newTocs;
+                            _lastExtractedContentHash = hash;
+                            StateHasChanged();
+                        }
+
+                        // Initialize observer with ids
+                        try
+                        {
+                            var ids = _tocItems.Select(t => t.Id).ToArray();
+                            await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, ids);
+                            // Also ask JS to emit headings back to this DotNet instance after any delayed DOM changes
+                            await _jsModule.InvokeVoidAsync("emitHeadingsToDotNet", "content", _dotNetRef);
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+            }
+            catch { /* ignore */ }
     }
 
     [JSInvokable("TriggerAddendum")]
@@ -998,5 +1128,62 @@ else
             "matching" => "Párování",
             _ => type
         };
+    }
+
+    [JSInvokable]
+    public Task SetActiveTocId(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return Task.CompletedTask;
+        if (_activeTocId != id)
+        {
+            _activeTocId = id;
+            InvokeAsync(StateHasChanged);
+        }
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task ReceiveTocItems(object headings)
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(headings);
+            var arr = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(json);
+            if (arr == null) return Task.CompletedTask;
+            var newTocs = arr.Select(d => new TocItem(d.TryGetValue("id", out var i) ? i?.ToString() ?? string.Empty : string.Empty,
+                                                    d.TryGetValue("text", out var t) ? t?.ToString() ?? string.Empty : string.Empty,
+                                                    d.TryGetValue("level", out var l) && int.TryParse(l?.ToString(), out var lv) ? lv : 2)).ToList();
+            var hash = string.Join("|", newTocs.Select(t => t.Id + ":" + t.Text));
+            if (hash != _lastExtractedContentHash)
+            {
+                _tocItems = newTocs;
+                _lastExtractedContentHash = hash;
+                InvokeAsync(StateHasChanged);
+                // re-init observer
+                _ = Task.Run(async () =>
+                {
+                    try { if (_jsModule != null) await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, _tocItems.Select(t => t.Id).ToArray()); } catch { }
+                });
+            }
+        }
+        catch { }
+        return Task.CompletedTask;
+    }
+
+    private async Task ScrollToHeading(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        try
+        {
+            if (_jsModule != null)
+            {
+                await _jsModule.InvokeVoidAsync("scrollToElementById", id);
+            }
+            else
+            {
+                await Js.InvokeVoidAsync("eval", $"document.getElementById('{id}')?.scrollIntoView({{behavior:'smooth', block:'start'}})");
+            }
+        }
+        catch { }
     }
 }

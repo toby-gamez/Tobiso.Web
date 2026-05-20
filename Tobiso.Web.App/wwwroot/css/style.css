@@ -100,6 +100,7 @@ h5 {
 
 .related-posts h3,
 .related-posts-div h5,
+.breadcrumb-nav a,
 .tool span,
 .ai-box h3 {
     font-family: var(--font-family-sans) !important;

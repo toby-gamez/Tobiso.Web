@@ -90,6 +90,92 @@ export function initReadingFallback() {
   } catch (e) { console.log('[reading] init failed', e); }
 }
 
+// --- Table Of Contents helpers ---
+let __tocObserver = null;
+
+export async function extractHeadings(containerId) {
+  try {
+    const container = document.getElementById(containerId || 'content');
+    if (!container) return [];
+    const nodes = container.querySelectorAll('h2,h3,h4,h5,h6');
+    const out = [];
+    const used = new Map();
+    nodes.forEach(n => {
+      try {
+        const text = (n.textContent || '').trim();
+        if (!text) return;
+        // create slug id
+        let slug = text.toLowerCase().replace(/[^a-z0-9\u00C0-\u024F\s-]/g, '').replace(/\s+/g,'-');
+        // ensure unique
+        const base = slug || 'heading';
+        let idx = used.get(base) || 0;
+        if (idx > 0) slug = `${base}-${idx}`; else slug = base;
+        used.set(base, idx + 1);
+        // set id attribute if not present
+        if (!n.id) n.id = slug;
+        out.push({ id: n.id, text: text, level: parseInt(n.tagName.substring(1)) });
+      } catch (e) { /* ignore per-node errors */ }
+    });
+    try { console && console.log && console.log('[blazor-utils] extractHeadings found', out.length, 'headings'); } catch(_){}
+    return out;
+  } catch (e) {
+    console && console.log && console.log('[blazor-utils] extractHeadings failed', e);
+    return [];
+  }
+}
+
+export function initTocObserver(dotNetRef, headingIds) {
+  try {
+    // disconnect previous observer
+    if (__tocObserver) {
+      try { __tocObserver.disconnect(); } catch(_){}
+      __tocObserver = null;
+    }
+
+    const ids = headingIds || [];
+    const els = ids.map(id => document.getElementById(id)).filter(Boolean);
+    if (!els || els.length === 0) return;
+
+    __tocObserver = new IntersectionObserver(entries => {
+      // find entry nearest to top that is intersecting
+      let best = null;
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        // prioritize by boundingClientRect.top (smaller = higher on page)
+        if (!best || e.boundingClientRect.top < best.boundingClientRect.top) best = e;
+      });
+      if (best && best.target && dotNetRef) {
+        try { dotNetRef.invokeMethodAsync('SetActiveTocId', best.target.id); } catch(_){}
+      }
+    }, { root: null, rootMargin: '-20% 0px -70% 0px', threshold: 0.1 });
+
+    els.forEach(el => { try { __tocObserver.observe(el); } catch(_){} });
+  } catch (e) { console && console.log && console.log('[blazor-utils] initTocObserver failed', e); }
+}
+
+export function scrollToElementById(id) {
+  try {
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { console && console.log && console.log('[blazor-utils] scrollToElementById failed', e); }
+}
+
+// Extract headings and send them to a DotNet instance. Runs twice (immediate + delayed)
+export function emitHeadingsToDotNet(containerId, dotNetRef) {
+  try {
+    const run = () => {
+      const headings = extractHeadings(containerId || 'content');
+      try { console && console.log && console.log('[blazor-utils] emitHeadingsToDotNet emitting', headings.length || 0); } catch(_){}
+      // send to DotNet instance (instance invoke)
+      try { if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') dotNetRef.invokeMethodAsync('ReceiveTocItems', headings); } catch(e){ console && console.log && console.log('[blazor-utils] emitHeadingsToDotNet invoke failed', e); }
+    };
+    run();
+    // second pass after rendering/finalization
+    setTimeout(run, 250);
+  } catch (e) { console && console.log && console.log('[blazor-utils] emitHeadingsToDotNet failed', e); }
+}
+
 // Dark mode funkcionalita
 function initDarkMode() {
   const toggleButton = document.getElementById("dark-mode-toggle");
