@@ -147,6 +147,101 @@ h5.modal-event-title,
     border: 2px solid black;
 }
 
+/* ── Cheat-sheet ratio picker modal ── */
+.cs-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem;
+}
+
+.cs-ratio-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .55rem;
+    padding: .7rem .8rem .9rem;
+    border: 2px solid var(--color-accent-4, );
+    border-radius: 10px;
+    background: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cs-ratio-card:hover:not(:disabled) {
+    border-color: var(--color-accent-strong, );
+    background: var(--color-light-accent, );
+}
+
+.cs-ratio-card:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+/* Square preview */
+.cs-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 7px;
+    border-radius: 5px;
+    border: 1.5px solid var(--color-accent-4, #d89dbd);
+    background: var(--color-light-accent, #f3d6e5);
+}
+
+.cs-preview-1x1 {
+    width: 54px;
+    height: 54px;
+}
+
+.cs-preview-1x2 {
+    width: 54px;
+    height: 90px;
+}
+
+.cs-preview-2x1 {
+    width: 90px;
+    height: 54px;
+}
+
+.cs-preview-2x2 {
+    width: 90px;
+    height: 90px;
+}
+
+.cs-preview-line {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-accent-strong);
+    opacity: .55;
+}
+
+.cs-card-label {
+    font-weight: 600;
+    font-size: .92rem;
+    color: var(--color-accent-strong);
+}
+
+.cs-card-sub {
+    font-size: .75rem;
+    color: var(--color-text-muted, );
+}
+
+.cs-modal-footer {
+    margin-top: .9rem;
+    text-align: center;
+    font-size: .88rem;
+    color: var(--color-text-muted);
+}
 /* Adjust when left nav collapsed */
 body:has(#MyNavBar.collapsed) .wiki-toc {
     left: calc(60px + 30px);
@@ -1204,11 +1299,12 @@ body:has(#MyNavBar.collapsed) .nav-link-content span {
 }
 
 @media only screen and (min-width: 600px) {
+
     body:has(#MyNavBar.expanded) main,
-body:has(#MyNavBar.expanded) .loading-bar-container,
-body:has(#MyNavBar.expanded) .cookie-consent-div {
-    margin-left: 285px;
-}
+    body:has(#MyNavBar.expanded) .loading-bar-container,
+    body:has(#MyNavBar.expanded) .cookie-consent-div {
+        margin-left: 285px;
+    }
 }
 
 main {
@@ -3766,7 +3862,7 @@ body.dark-mode .post-item .question-count {
 
 body.dark-mode .post-item.selected .question-count,
 body.dark-mode .tool span,
-body.dark-mode .math-inline *{
+body.dark-mode .math-inline * {
     color: var(--color-white);
 }
 
@@ -4238,11 +4334,92 @@ body.dark-mode .timeline-year-label {
     color: var(--color-text-muted-dark);
 }
 
+/* ── Tooltips ── */
+.tool-btn {
+    position: relative;
+}
+
+.tool-btn span.tool-label {
+    display: none;
+}
+
+.tool-btn:hover span.tool-label {
+    display: block;
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent-5);
+    color: var(--color-text);
+    padding: 0.14rem 0.35rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+    z-index: 3000;
+    pointer-events: none;
+}
+
+.nav-essentials-grid .nav-essential-item span {
+    display: none;
+}
+
+.nav-essentials-grid .nav-essential-item:hover span {
+    display: block;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: -1.1rem;
+    background: var(--color-accent-5);
+    color: var(--color-text);
+    padding: 0.14rem 0.35rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+    z-index: 3000;
+}
+
+body.dark-mode .cs-preview-line {
+    background: var(--color-accent-strong-dark);
+}
+
+body.dark-mode .cs-card-label {
+    color: var(--color-text-dark);
+}
+
+body.dark-mode .cs-card-sub,
+body.dark-mode .cs-modal-footer {
+    color: var(--color-text-muted-dark);
+}
+
+body.dark-mode .cs-ratio-card:hover:not(:disabled) {
+    border-color: var(--color-accent-strong-dark);
+    background: var(--color-light-accent-dark);
+}
+
+body.dark-mode .cs-preview {
+    border-color: var(--color-accent-4-dark);
+    background: var(--color-light-accent-dark);
+}
+
+body.dark-mode .cs-ratio-card {
+    border-color: var(--color-accent-4-dark);
+}
+
+
+body.dark-mode .nav-essentials-grid .nav-essential-item:hover span,
+body.dark-mode .tool-btn:hover span.tool-label {
+    background: var(--color-accent-3-dark);
+    color: var(--color-white);
+}
+
 body:has(#MyNavBar.collapsed) .loading-bar-container {
     width: calc(100% - 60px);
 }
 
 @media only screen and (max-width: 600px) {
+
     body:has(#MyNavBar.collapsed) main,
     body:has(#MyNavBar.collapsed) .loading-bar-container,
     body:has(#MyNavBar.collapsed) .cookie-consent-div {

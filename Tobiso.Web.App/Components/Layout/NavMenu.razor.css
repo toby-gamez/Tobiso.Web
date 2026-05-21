@@ -445,28 +445,6 @@ body:has(#MyNavBar.collapsed) .nav-link:hover {
     background-color: var(--color-accent);
 }
 
-/* Only show icon by default on desktop; reveal text on hover as a small tooltip-like label */
-.nav-essentials-grid .nav-essential-item span {
-    display: none;
-}
-
-/* Tooltip-like label shown above the tile to avoid being covered by the lower row */
-.nav-essentials-grid .nav-essential-item:hover span {
-    display: block;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    top: -1.1rem; /* closer above the smaller tile */
-    background: var(--color-accent-5);
-    color: var(--color-text);
-    padding: 0.14rem 0.35rem;
-    border-radius: 6px;
-    font-size: 0.68rem;
-    white-space: nowrap;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
-    z-index: 3000; /* ensure it floats above neighboring tiles */
-}
-
 /* Collapsed sidebar adjustments: show icons only in a single column */
 #MyNavBar.collapsed .nav-essentials-grid {
     grid-template-columns: 1fr;

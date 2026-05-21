@@ -94,30 +94,8 @@
         margin: 0 4px;
         cursor: pointer;
     }
-    .tool-btn {
-        position: relative;
-    }
-    .tool-btn span.tool-label {
-        display: none;
-    }
-    .tool-btn:hover span.tool-label {
-        display: block;
-        position: absolute;
-        bottom: calc(100% + 4px);
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--color-accent-5, #eee);
-        color: var(--color-text);
-        padding: 0.14rem 0.35rem;
-        border-radius: 6px;
-        font-size: 0.68rem;
-        white-space: nowrap;
-        box-shadow: 0 6px 14px rgba(0,0,0,0.08);
-        z-index: 3000;
-        pointer-events: none;
-    }
-
-/* Dark mode variant for headings */
+    
+        /* Dark mode variant for headings */
 body.dark-mode h1,
 body.dark-mode h2,
 body.dark-mode h3,
@@ -182,60 +160,6 @@ body.dark-mode .grade-badge {
         text-decoration: underline;
         text-decoration-thickness: 2px;
         text-underline-offset: 6px;
-    }
-
-    /* ── Cheat-sheet ratio picker modal ── */
-    .cs-modal-backdrop {
-        position: fixed; inset: 0; z-index: 1100;
-        background: rgba(0,0,0,.45);
-        display: flex; align-items: center; justify-content: center;
-    }
-    .cs-modal-dialog {
-        background: var(--color-bg, #fff);
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,.28);
-        padding: 1.4rem 1.6rem 1.2rem;
-        min-width: 320px;
-        max-width: 96vw;
-    }
-    .cs-modal-header {
-        display: flex; justify-content: space-between; align-items: center;
-        font-weight: 600; font-size: 1rem; margin-bottom: 1.1rem;
-    }
-    .cs-modal-close {
-        background: none; border: none; font-size: 1.4rem; line-height: 1;
-        cursor: pointer; color: inherit; padding: 0 .2rem;
-    }
-    .cs-modal-body {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: .9rem;
-    }
-    .cs-ratio-card {
-        display: flex; flex-direction: column; align-items: center;
-        gap: .55rem; padding: .7rem .8rem .9rem;
-        border: 2px solid var(--color-accent-4, #d89dbd);
-        border-radius: 10px; background: none; cursor: pointer;
-        transition: border-color .15s, box-shadow .15s, background .15s;
-    }
-    .cs-ratio-card:hover:not(:disabled) {
-        border-color: var(--color-accent-strong, #c36f9a);
-        background: var(--color-light-accent, #f3d6e5);
-        box-shadow: 0 2px 10px rgba(195,111,154,.2);
-    }
-    .cs-ratio-card:disabled { opacity: .55; cursor: default; }
-    /* Square preview */
-    .cs-preview { display: flex; flex-direction: column; gap: 4px; padding: 6px 7px; border-radius: 5px; border: 1.5px solid var(--color-accent-4, #d89dbd); background: var(--color-light-accent, #f3d6e5); }
-    .cs-preview-1x1 { width: 54px; height: 54px; }
-    .cs-preview-1x2 { width: 54px; height: 90px; }
-    .cs-preview-2x1 { width: 90px; height: 54px; }
-    .cs-preview-2x2 { width: 90px; height: 90px; }
-    .cs-preview-line { height: 4px; border-radius: 2px; background: var(--color-accent-strong, #c36f9a); opacity: .55; }
-    .cs-card-label { font-weight: 600; font-size: .92rem; color: var(--color-accent-strong, #c36f9a); }
-    .cs-card-sub { font-size: .75rem; color: var(--color-text-muted, #888); }
-    .cs-modal-footer {
-        margin-top: .9rem; text-align: center;
-        font-size: .88rem; color: var(--color-text-muted, #888);
     }
 </style>
 @if (_post == null)
