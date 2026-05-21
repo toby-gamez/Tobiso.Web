@@ -263,7 +263,7 @@ else
     }
 
     @* Wiki-style Table of Contents for Markdown posts *@
-    @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any())
+    @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any() && !(Layout?.NavMenuExpanded == true && Layout?.RightSidebarVisible == true))
     {
         <nav class="wiki-toc" aria-label="Obsah">
             <div class="wiki-toc-title">Obsah</div>
@@ -534,75 +534,80 @@ else
 @if (_showCheatSheetModal)
 {
     <div class="cs-modal-backdrop" @onclick="CloseCheatSheetModal">
-        <div class="cs-modal-dialog" @onclick:stopPropagation>
-            <div class="cs-modal-header">
-                <span>Vyberte formát tahák&uacute;</span>
-                <button class="cs-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
-            </div>
-            <div class="cs-modal-body">
-                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x1")' disabled="@_isGeneratingCheatSheet">
-                    <div class="cs-preview cs-preview-1x1">
-                        <div class="cs-preview-line" style="width:78%"></div>
-                        <div class="cs-preview-line" style="width:62%"></div>
-                        <div class="cs-preview-line" style="width:70%"></div>
-                        <div class="cs-preview-line" style="width:55%"></div>
-                        <div class="cs-preview-line" style="width:68%"></div>
-                    </div>
-                    <div class="cs-card-label">Kompaktní</div>
-                    <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~18 bodů</div>
-                </button>
-                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("2x1")' disabled="@_isGeneratingCheatSheet">
-                    <div class="cs-preview cs-preview-2x1">
-                        <div class="cs-preview-line" style="width:82%"></div>
-                        <div class="cs-preview-line" style="width:68%"></div>
-                        <div class="cs-preview-line" style="width:75%"></div>
-                        <div class="cs-preview-line" style="width:60%"></div>
-                        <div class="cs-preview-line" style="width:72%"></div>
-                    </div>
-                    <div class="cs-card-label">Široký</div>
-                    <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~27 bodů</div>
-                </button>
-                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x2")' disabled="@_isGeneratingCheatSheet">
-                    <div class="cs-preview cs-preview-1x2">
-                        <div class="cs-preview-line" style="width:78%"></div>
-                        <div class="cs-preview-line" style="width:62%"></div>
-                        <div class="cs-preview-line" style="width:70%"></div>
-                        <div class="cs-preview-line" style="width:55%"></div>
-                        <div class="cs-preview-line" style="width:68%"></div>
-                        <div class="cs-preview-line" style="width:74%"></div>
-                        <div class="cs-preview-line" style="width:58%"></div>
-                        <div class="cs-preview-line" style="width:66%"></div>
-                    </div>
-                    <div class="cs-card-label">Úzký plný</div>
-                    <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~34 bodů</div>
-                </button>
-                <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("2x2")' disabled="@_isGeneratingCheatSheet">
-                    <div class="cs-preview cs-preview-2x2">
-                        <div class="cs-preview-line" style="width:82%"></div>
-                        <div class="cs-preview-line" style="width:68%"></div>
-                        <div class="cs-preview-line" style="width:75%"></div>
-                        <div class="cs-preview-line" style="width:60%"></div>
-                        <div class="cs-preview-line" style="width:72%"></div>
-                        <div class="cs-preview-line" style="width:79%"></div>
-                        <div class="cs-preview-line" style="width:63%"></div>
-                        <div class="cs-preview-line" style="width:70%"></div>
-                    </div>
-                    <div class="cs-card-label">Široký plný</div>
-                    <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~51 bodů</div>
-                </button>
-            </div>
-            @if (_isGeneratingCheatSheet)
-            {
-                <div class="cs-modal-footer">
-                    <i class="bi bi-hourglass-split"></i> Generuji PDF&hellip;
+        <div class="modal">
+            <div class="event-modal-content" @onclick:stopPropagation>
+                <div class="event-title-section">
+                    <h5 class="modal-event-title">Vyberte formát taháku</h5>
+                    <button class="event-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
                 </div>
-            }
+                <div class="cs-modal-body modal-body event-modal-body">
+                    <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x1")' disabled="@_isGeneratingCheatSheet">
+                        <div class="cs-preview cs-preview-1x1">
+                            <div class="cs-preview-line" style="width:78%"></div>
+                            <div class="cs-preview-line" style="width:62%"></div>
+                            <div class="cs-preview-line" style="width:70%"></div>
+                            <div class="cs-preview-line" style="width:55%"></div>
+                            <div class="cs-preview-line" style="width:68%"></div>
+                        </div>
+                        <div class="cs-card-label">Kompaktní</div>
+                        <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~18 bodů</div>
+                    </button>
+                    <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("2x1")' disabled="@_isGeneratingCheatSheet">
+                        <div class="cs-preview cs-preview-2x1">
+                            <div class="cs-preview-line" style="width:82%"></div>
+                            <div class="cs-preview-line" style="width:68%"></div>
+                            <div class="cs-preview-line" style="width:75%"></div>
+                            <div class="cs-preview-line" style="width:60%"></div>
+                            <div class="cs-preview-line" style="width:72%"></div>
+                        </div>
+                        <div class="cs-card-label">Široký</div>
+                        <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~27 bodů</div>
+                    </button>
+                    <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("1x2")' disabled="@_isGeneratingCheatSheet">
+                        <div class="cs-preview cs-preview-1x2">
+                            <div class="cs-preview-line" style="width:78%"></div>
+                            <div class="cs-preview-line" style="width:62%"></div>
+                            <div class="cs-preview-line" style="width:70%"></div>
+                            <div class="cs-preview-line" style="width:55%"></div>
+                            <div class="cs-preview-line" style="width:68%"></div>
+                            <div class="cs-preview-line" style="width:74%"></div>
+                            <div class="cs-preview-line" style="width:58%"></div>
+                            <div class="cs-preview-line" style="width:66%"></div>
+                        </div>
+                        <div class="cs-card-label">Úzký plný</div>
+                        <div class="cs-card-sub">10 cm &nbsp;&bull;&nbsp; ~34 bodů</div>
+                    </button>
+                    <button class="cs-ratio-card" @onclick='() => GenerateCheatSheet("2x2")' disabled="@_isGeneratingCheatSheet">
+                        <div class="cs-preview cs-preview-2x2">
+                            <div class="cs-preview-line" style="width:82%"></div>
+                            <div class="cs-preview-line" style="width:68%"></div>
+                            <div class="cs-preview-line" style="width:75%"></div>
+                            <div class="cs-preview-line" style="width:60%"></div>
+                            <div class="cs-preview-line" style="width:72%"></div>
+                            <div class="cs-preview-line" style="width:79%"></div>
+                            <div class="cs-preview-line" style="width:63%"></div>
+                            <div class="cs-preview-line" style="width:70%"></div>
+                        </div>
+                        <div class="cs-card-label">Široký plný</div>
+                        <div class="cs-card-sub">18 cm &nbsp;&bull;&nbsp; ~51 bodů</div>
+                    </button>
+                </div>
+                @if (_isGeneratingCheatSheet)
+                {
+                    <div class="cs-modal-footer">
+                        <i class="bi bi-hourglass-split"></i> Generuji PDF&hellip;
+                    </div>
+                }
+            </div>
         </div>
     </div>
 }
 
 @using Tobiso.Web.App.Components.Shared
 @code {
+    [CascadingParameter]
+    private MainLayout? Layout { get; set; }
+
     [Parameter]
     public int Id { get; set; }
     [Parameter]

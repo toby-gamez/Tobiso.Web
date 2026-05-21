@@ -136,7 +136,7 @@ h5.modal-event-title,
     left: calc(285px + 20px);
     top: 50%;
     transform: translateY(-50%);
-    width: 210px;
+    width: 170px;
     max-height: calc(100vh - 120px);
     overflow-y: auto;
     font-size: 13px;
@@ -4206,11 +4206,35 @@ body.dark-mode .wiki-toc {
     border-color: white;
 }
 
-body.dark-mode a.wiki-toc-item {
+body.dark-mode a.wiki-toc-item,
+body.dark-mode .attached-chip span {
     color: var(--color-text-dark);
 }
 
-body.dark-mode a.wiki-toc-item:hover {
+body.dark-mode a.wiki-toc-item:hover,
+body.dark-mode .related-posts-text {
+    color: var(--color-text-muted-dark);
+}
+
+body.dark-mode .grade-badge-sm {
+    background-color: var(--color-accent-dark);
+}
+
+body.dark-mode .dragdrop-card {
+    background: var(--intro-bg-dark);
+}
+
+body.dark-mode .dragdrop-info-banner {
+    background-color: var(--intro-light-bg-dark);
+}
+
+body.dark-mode .dragdrop-info-banner div strong,
+body.dark-mode .dragdrop-info-banner div span,
+body.dark-mode .timeline-range * {
+    color: var(--color-text-dark);
+}
+
+body.dark-mode .timeline-year-label {
     color: var(--color-text-muted-dark);
 }
 

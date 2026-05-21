@@ -82,6 +82,9 @@
 @* Styles moved to wwwroot/css/style.css *@
 
 @code {
+    [CascadingParameter]
+    private MainLayout? Layout { get; set; }
+
     private bool IsOpen = false;
     private bool loading = true;
     private string activeTab = "ucivo";
@@ -124,7 +127,7 @@
         {
             IsOpen = false;
         }
-        // Load category tree and recent posts for sidebar
+        Layout?.SetRightSidebarVisible(IsOpen);
         _ = LoadTree();
         UpdateSelectionFromUri();
         Navigation.LocationChanged += HandleLocationChanged;
@@ -193,7 +196,8 @@
     private async Task Toggle()
     {
         IsOpen = !IsOpen;
-        try { await Js.InvokeVoidAsync("localStorage.setItem", "rightSidebarOpen", IsOpen ? "true" : "false"); } catch {}
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "rightSidebarOpen", IsOpen ? "true" : "false"); } catch { }
+        Layout?.SetRightSidebarVisible(IsOpen);
         await ApplyPageClass(IsOpen);
         if (IsOpen && activeTab == "chaty")
             await LoadChatsAsync();

@@ -403,6 +403,9 @@
     [Parameter]
     public bool IsDarkMode { get; set; }
 
+    [CascadingParameter]
+    private MainLayout? Layout { get; set; }
+
     private bool isMobileMenuOpen = false;
     private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
     private void CloseMobileMenu() => isMobileMenuOpen = false;
@@ -411,15 +414,12 @@
     private async Task ToggleSidebar()
     {
         isSidebarExpanded = !isSidebarExpanded;
-        // persist preference in localStorage
         try
         {
             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "sidebar-expanded", isSidebarExpanded.ToString().ToLower());
         }
-        catch
-        {
-            // ignore JS errors
-        }
+        catch { }
+        Layout?.SetNavMenuExpanded(isSidebarExpanded);
     }
 
     private void OpenGraph()
@@ -458,12 +458,10 @@
             {
                 var saved = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "sidebar-expanded");
                 isSidebarExpanded = saved == "true";
+                Layout?.SetNavMenuExpanded(isSidebarExpanded);
                 StateHasChanged();
             }
-            catch
-            {
-                // ignore
-            }
+            catch { }
         }
     }
 

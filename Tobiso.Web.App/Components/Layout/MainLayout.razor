@@ -37,26 +37,28 @@
     <span class="sr-only">Dekorativní sníh</span>
 </div>
 
-<div class="page" xmlns="http://www.w3.org/1999/html">
-    <div class="sidebar">
-        <NavMenu IsDarkMode="@isDarkMode" />
+<CascadingValue Value="this">
+    <div class="page" xmlns="http://www.w3.org/1999/html">
+        <div class="sidebar">
+            <NavMenu IsDarkMode="@isDarkMode" />
+        </div>
+        <div class="loading-bar-container">
+            <div class="loading-bar"></div>
+        </div>
+        <main>
+            <section>
+                <article class="content px-4">
+                    <CascadingValue Value="isDarkMode" Name="IsDarkMode">
+                        @Body
+                    </CascadingValue>
+                </article>
+            </section>
+            <Ribbons/>
+        </main>
     </div>
-    <div class="loading-bar-container">
-        <div class="loading-bar"></div>
-    </div>
-    <main>
-        <section>
-            <article class="content px-4">
-                <CascadingValue Value="isDarkMode" Name="IsDarkMode">
-                    @Body
-                </CascadingValue>
-            </article>
-        </section>
-        <Ribbons/>
-    </main>
-</div>
-@* Global right sidebar toggle and panel (desktop only) *@
-<RightSidebar />
+    @* Global right sidebar toggle and panel (desktop only) *@
+    <RightSidebar />
+</CascadingValue>
 <Footer />
 @* Search Modal *@
 <SearchModal />
@@ -135,6 +137,21 @@
     public bool isDarkMode = false;
     private string? cookieConsent = null;
     private bool _isGraphModalOpen = false;
+
+    public bool NavMenuExpanded { get; private set; }
+    public bool RightSidebarVisible { get; private set; }
+
+    public void SetNavMenuExpanded(bool expanded)
+    {
+        NavMenuExpanded = expanded;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void SetRightSidebarVisible(bool visible)
+    {
+        RightSidebarVisible = visible;
+        InvokeAsync(StateHasChanged);
+    }
 
     protected override async Task OnInitializedAsync()
     {
