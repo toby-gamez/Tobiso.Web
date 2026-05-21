@@ -112,7 +112,8 @@ h5 {
 .wiki-toc-title,
 h5.modal-event-title,
 .calendar-container *,
-.ai-box h3 {
+.ai-box h3,
+.latest-selected-div * {
     font-family: var(--font-family-sans) !important;
 }
 
@@ -124,7 +125,8 @@ h5.modal-event-title,
 .alert p,
 .wiki-toc-item,
 .event-details p,
-.modal-body small {
+.modal-body small,
+.latest-selected-div {
     font-family: var(--font-family-serif) !important;
 }
 
@@ -459,6 +461,7 @@ body.dark-mode .intro a:hover {
         width: calc(100% - 570px);
     }
 }
+
 
 .loading-bar {
     height: 5px;
@@ -2943,6 +2946,8 @@ strong::after {
     font-size: 2.4em;
 }
 
+
+
 @keyframes fall {
     0% {
         transform: translateX(0) translateY(0) rotate(0deg);
@@ -4209,6 +4214,9 @@ body.dark-mode a.wiki-toc-item:hover {
     color: var(--color-text-muted-dark);
 }
 
+body:has(#MyNavBar.collapsed) .loading-bar-container {
+    width: calc(100% - 60px);
+}
 
 @media only screen and (max-width: 600px) {
     body:has(#MyNavBar.collapsed) main,

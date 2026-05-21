@@ -56,7 +56,7 @@ else
     <div class="posts-list">
         @if (selectedCategoryId != null)
         {
-            <div class="mb-2">
+            <div class="latest-selected-div">
                 <strong>Filtrované podle předmětu:</strong> @GetCategoryNameById(selectedCategoryId)
                 <button class="btn btn-link" @onclick="ClearSelection">Zrušit filtr</button>
             </div>
