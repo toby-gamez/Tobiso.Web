@@ -17,6 +17,13 @@
 {
     <div class="alert alert-danger">@errorMessage</div>
 }
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
 
 @if (post == null)
 {
@@ -75,6 +82,56 @@ else
             <i class="bi bi-file-earmark-text"></i> Tahák
         </button>
     </EditForm>
+
+    <div class="card mt-4">
+        <div class="card-header"><h5>Verze článku</h5></div>
+        <div class="card-body">
+            @if (_versions.Count == 0)
+            {
+                <p class="text-muted mb-0">Žádné verze</p>
+            }
+            else
+            {
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Ročník</th>
+                            <th>Obsah</th>
+                            <th>Poslední editace</th>
+                            <th>Poslední oprava</th>
+                            <th>Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var v in _versions.OrderBy(v => v.GradeLevel ?? 0))
+                        {
+                            var version = v;
+                            var isActive = version.GradeId == _selectedGradeId;
+                            <tr class="@(isActive ? "table-primary" : "")">
+                                <td>@version.GradeName</td>
+                                <td class="text-muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@Truncate(version.Content, 80)</td>
+                                <td>@(version.LastEdit?.ToString("g") ?? "—")</td>
+                                <td>@(version.LastFix?.ToString("g") ?? "—")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                            @onclick="() => SelectVersion(version.GradeId)"
+                                            title="Upravit tuto verzi">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteVersion(version.Id)"
+                                            disabled="@(_versions.Count <= 1)"
+                                            title="@(_versions.Count <= 1 ? "Nelze smazat poslední verzi" : "Smazat tuto verzi")">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
 
     <!-- Přidání komponenty pro správu otázek -->
     <QuestionsManager PostId="@Id" />
@@ -162,6 +219,8 @@ else
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
+    private string? _successMessage;
+    private List<PostVersionResponse> _versions = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,6 +256,7 @@ else
                     }
                 }
                 _isFixSelected = _editLastFix.HasValue && (_editLastEdit == null || _editLastFix > _editLastEdit);
+                _versions = post.Versions?.ToList() ?? new List<PostVersionResponse>();
             }
         }
         catch (Refit.ApiException rex) when (rex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -295,7 +355,8 @@ else
             }
 
             errorMessage = null;
-            Navigation.NavigateTo("/");
+            _successMessage = "Změny uloženy.";
+            await LoadVersionsAsync();
         }
         catch (Exception ex)
         {
@@ -315,6 +376,7 @@ else
         try
         {
             var versions = await Api.GetVersionsByPost(Id);
+            _versions = versions?.ToList() ?? new List<PostVersionResponse>();
             var version = versions?.FirstOrDefault(v => v.GradeId == gradeId.Value);
             if (version != null)
             {
@@ -369,6 +431,59 @@ else
     private bool _showCheatSheetModal = false;
     private void OpenCheatSheetModal() => _showCheatSheetModal = true;
     private void CloseCheatSheetModal() => _showCheatSheetModal = false;
+
+    private async Task LoadVersionsAsync()
+    {
+        try
+        {
+            _versions = (await Api.GetVersionsByPost(Id))?.ToList() ?? new List<PostVersionResponse>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading versions: {ex.Message}");
+        }
+    }
+
+    private async Task SelectVersion(int gradeId)
+    {
+        _selectedGradeId = gradeId;
+        await OnGradeChanged(gradeId);
+    }
+
+    private async Task DeleteVersion(int versionId)
+    {
+        if (!await JsConfirm("Opravdu chcete smazat tuto verzi?")) return;
+        try
+        {
+            await Api.DeleteVersion(versionId);
+            _successMessage = "Verze smazána.";
+            await LoadVersionsAsync();
+            var versionWasSelected = _versions.Any(v => v.GradeId == _selectedGradeId);
+            if (!versionWasSelected)
+            {
+                _selectedGradeId = null;
+                _editContent = string.Empty;
+                _editLastEdit = null;
+                _editLastFix = null;
+                _isFixSelected = false;
+                if (markdownEditor != null)
+                {
+                    await markdownEditor.SetValue(string.Empty);
+                    await markdownEditor.ClearHighlights();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při mazání verze: {ex.Message}";
+        }
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Length <= maxLength ? value : value[..maxLength] + "…";
+    }
 
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
