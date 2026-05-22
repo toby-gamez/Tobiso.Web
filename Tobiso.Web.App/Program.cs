@@ -56,18 +56,14 @@ services
                 : BasicAuthConstants.Scheme;
         };
     })
-    .AddJwtBearer(options =>
+    .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>(JwtBearerDefaults.AuthenticationScheme, options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer           = true,
-            ValidateAudience         = true,
-            ValidateLifetime         = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer              = builder.Configuration["Auth:Jwt:Issuer"]   ?? "tobiso",
-            ValidAudience            = builder.Configuration["Auth:Jwt:Audience"] ?? "tobiso",
-            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-        };
+        options.Secret           = jwtSecret;
+        options.ValidIssuer      = builder.Configuration["Auth:Jwt:Issuer"]   ?? "tobiso";
+        options.ValidAudience    = builder.Configuration["Auth:Jwt:Audience"] ?? "tobiso";
+        options.ValidateIssuer   = true;
+        options.ValidateAudience = true;
+        options.ValidateLifetime = true;
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
 
@@ -236,7 +232,11 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// HTTPS redirection is handled by the reverse proxy in production
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 app.UseRouting();

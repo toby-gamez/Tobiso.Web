@@ -1,7 +1,7 @@
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace Tobiso.Web.App.Authentication;
 
@@ -35,29 +35,48 @@ public class JwtTokenService
             throw new InvalidOperationException("JWT secret is not configured.");
         }
 
-        var key    = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-        var creds  = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expiry = DateTime.UtcNow.AddHours(
+        var issuer   = _config["Auth:Jwt:Issuer"]   ?? "tobiso";
+        var audience = _config["Auth:Jwt:Audience"] ?? "tobiso";
+        var expiry   = DateTime.UtcNow.AddHours(
             int.TryParse(_config["Auth:Jwt:ExpiryHours"], out var h) ? h : 24);
 
-        var claims = new[]
+        return CreateToken(secret, userId, username, issuer, audience, expiry);
+    }
+
+    private string CreateToken(string secret, string userId, string username,
+        string issuer, string audience, DateTime expiry)
+    {
+        var header = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
+        var payload = JsonSerializer.Serialize(new
         {
-            new Claim(JwtRegisteredClaimNames.Sub,        userId),
-            new Claim(JwtRegisteredClaimNames.UniqueName, username),
-            new Claim(ClaimTypes.Name,                    username),
-            new Claim(ClaimTypes.NameIdentifier,          userId),
-            new Claim(JwtRegisteredClaimNames.Jti,        Guid.NewGuid().ToString()),
-        };
+            sub              = userId,
+            unique_name      = username,
+            name             = username,
+            nameidentifier   = userId,
+            jti              = Guid.NewGuid().ToString(),
+            exp              = new DateTimeOffset(expiry).ToUnixTimeSeconds(),
+            iss              = issuer,
+            aud              = audience
+        });
 
-        var token = new JwtSecurityToken(
-            issuer:             _config["Auth:Jwt:Issuer"]   ?? "tobiso",
-            audience:           _config["Auth:Jwt:Audience"] ?? "tobiso",
-            claims:             claims,
-            expires:            expiry,
-            signingCredentials: creds);
+        var headerBase64   = Base64UrlEncode(Encoding.UTF8.GetBytes(header));
+        var payloadBase64  = Base64UrlEncode(Encoding.UTF8.GetBytes(payload));
+        var signingInput   = $"{headerBase64}.{payloadBase64}";
+        var keyBytes       = Encoding.UTF8.GetBytes(secret);
+        var signature      = HMACSHA256.HashData(keyBytes, Encoding.UTF8.GetBytes(signingInput));
+        var signatureBase64 = Base64UrlEncode(signature);
 
+        var token = $"{headerBase64}.{payloadBase64}.{signatureBase64}";
         _logger.LogInformation("JWT token issued for user {Username}, expires {Expiry:u}", username, expiry);
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return token;
+    }
+
+    private static string Base64UrlEncode(byte[] data)
+    {
+        return Convert.ToBase64String(data)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }
 

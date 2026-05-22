@@ -111,7 +111,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = "Login failed. Please check your credentials and try again.";
+            errorMessage = ex.Message;
             Logger.LogError(ex, "Login failed for user: {Username}", loginModel.Username);
         }
         finally
@@ -129,6 +129,7 @@
     {
         var handler = new HttpClientHandler
         {
+            AllowAutoRedirect = false,
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true
         };
 
@@ -149,13 +150,42 @@
         Logger.LogInformation("Calling POST /api/auth/login for user {Username}", username);
         var response = await httpClient.PostAsync("/api/auth/login", content);
 
+        // Follow redirects manually to preserve POST method
+        if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400)
+        {
+            var redirectUrl = response.Headers.Location;
+            if (redirectUrl != null)
+            {
+                if (!redirectUrl.IsAbsoluteUri)
+                {
+                    redirectUrl = new Uri(httpClient.BaseAddress!, redirectUrl);
+                }
+                Logger.LogInformation("Following redirect to {Url}", redirectUrl);
+                var redirectContent = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+                response = await httpClient.PostAsync(redirectUrl, redirectContent);
+            }
+        }
+
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
             || response.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
             return null;
         }
 
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            try
+            {
+                using var errorDoc = JsonDocument.Parse(errorBody);
+                if (errorDoc.RootElement.TryGetProperty("message", out var msgProp))
+                {
+                    throw new InvalidOperationException(msgProp.GetString() ?? "Login failed.");
+                }
+            }
+            catch (JsonException) { }
+            response.EnsureSuccessStatusCode();
+        }
 
         var body = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(body);
