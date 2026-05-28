@@ -56,7 +56,6 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         var payloadJson = Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
         var signature   = Base64UrlDecode(parts[2]);
 
-        // Verify signature
         var signingInput = $"{parts[0]}.{parts[1]}";
         var keyBytes     = Encoding.UTF8.GetBytes(Options.Secret);
         var expectedSig  = HMACSHA256.HashData(keyBytes, Encoding.UTF8.GetBytes(signingInput));
@@ -67,21 +66,18 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         using var doc = JsonDocument.Parse(payloadJson);
         var root = doc.RootElement;
 
-        // Validate issuer
         if (Options.ValidateIssuer && root.TryGetProperty("iss", out var issElem))
         {
             if (issElem.GetString() != Options.ValidIssuer)
                 throw new InvalidOperationException($"Invalid issuer: {issElem.GetString()}");
         }
 
-        // Validate audience
         if (Options.ValidateAudience && root.TryGetProperty("aud", out var audElem))
         {
             if (audElem.GetString() != Options.ValidAudience)
                 throw new InvalidOperationException($"Invalid audience: {audElem.GetString()}");
         }
 
-        // Validate expiration
         if (Options.ValidateLifetime && root.TryGetProperty("exp", out var expElem))
         {
             var expUnix = expElem.GetInt64();
@@ -105,7 +101,10 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
                     claims.Add(new Claim(ClaimTypes.NameIdentifier, prop.Value.GetString() ?? ""));
                     break;
                 default:
-                    claims.Add(new Claim(prop.Name, prop.Value.GetString() ?? ""));
+                    if (prop.Value.ValueKind == JsonValueKind.String)
+                        claims.Add(new Claim(prop.Name, prop.Value.GetString() ?? ""));
+                    else if (prop.Value.ValueKind == JsonValueKind.Number)
+                        claims.Add(new Claim(prop.Name, prop.Value.GetRawText()));
                     break;
             }
         }

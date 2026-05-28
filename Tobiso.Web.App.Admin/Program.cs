@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Refit;
 using Serilog;
@@ -51,6 +49,11 @@ services.AddDbContext<TobisoDbContext>(options =>
 });
 
 var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    throw new InvalidOperationException(
+        $"Auth:Jwt:Secret must be at least 32 characters (got {jwtSecret.Length}). " +
+        "Set the AUTH__JWT__SECRET environment variable to a longer value.");
+
 services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
@@ -59,11 +62,11 @@ services
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
             return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? JwtBearerDefaults.AuthenticationScheme
+                ? "Bearer"
                 : BasicAuthConstants.Scheme;
         };
     })
-    .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>(JwtBearerDefaults.AuthenticationScheme, options =>
+    .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
     {
         options.Secret           = jwtSecret;
         options.ValidIssuer      = builder.Configuration["Auth:Jwt:Issuer"]   ?? "tobiso";
@@ -188,10 +191,10 @@ if (!app.Environment.IsProduction())
 
 app.UseStaticFiles();
 app.UseRouting();
-app.UseAntiforgery();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 
 // Redirect 401 to login page
 app.Use(async (context, next) =>

@@ -327,8 +327,8 @@ else
             // 2. Save version content for the selected grade
             if (_selectedGradeId.HasValue)
             {
-                var lastFix = _isFixSelected ? DateTime.UtcNow : (DateTime?)null;
-                var lastEdit = _isFixSelected ? (DateTime?)null : DateTime.UtcNow;
+                var lastFix = _isFixSelected ? DateTime.UtcNow : _editLastFix;
+                var lastEdit = _isFixSelected ? _editLastEdit : DateTime.UtcNow;
 
                 var versions = (await Api.GetVersionsByPost(Id))?.ToList() ?? new List<PostVersionResponse>();
                 var existing = versions.FirstOrDefault(v => v.GradeId == _selectedGradeId.Value);

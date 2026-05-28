@@ -10,10 +10,12 @@ namespace Tobiso.Web.App.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly JwtTokenService _jwtService;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(JwtTokenService jwtService)
+    public AuthController(JwtTokenService jwtService, ILogger<AuthController> logger)
     {
         _jwtService = jwtService;
+        _logger = logger;
     }
 
     [HttpGet("verify")]
@@ -40,7 +42,13 @@ public class AuthController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogError(ex, "Login failed — configuration error");
             return StatusCode(503, new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Login failed — unexpected error");
+            return StatusCode(500, new { message = ex.Message });
         }
     }
 }

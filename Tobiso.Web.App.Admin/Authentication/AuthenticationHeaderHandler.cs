@@ -2,33 +2,30 @@
 
 namespace Tobiso.Web.App.Authentication;
 
-/// <summary>
-/// Injects the JWT Bearer token from <see cref="CredentialStore"/> into every outgoing Refit request.
-/// </summary>
 public class AuthenticationHeaderHandler : DelegatingHandler
 {
-    private readonly CredentialStore _credentialStore;
     private readonly ILogger<AuthenticationHeaderHandler> _logger;
 
-    public AuthenticationHeaderHandler(CredentialStore credentialStore, ILogger<AuthenticationHeaderHandler> logger)
+    public AuthenticationHeaderHandler(ILogger<AuthenticationHeaderHandler> logger)
     {
-        _credentialStore = credentialStore;
         _logger = logger;
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var token = _credentialStore.GetToken();
-        if (!string.IsNullOrEmpty(token))
+        var token = CredentialStore.DirectToken;
+        var hasToken = !string.IsNullOrEmpty(token);
+        _logger.LogInformation("[AuthHandler] Request to {Url}, token found: {HasToken}, len: {Len}",
+            request.RequestUri?.PathAndQuery, hasToken, token?.Length ?? 0);
+        if (hasToken)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            _logger.LogDebug("[AuthHandler] Injected Bearer token");
         }
         else
         {
             _logger.LogWarning("[AuthHandler] No JWT token present — request will be unauthenticated");
         }
 
-        return base.SendAsync(request, cancellationToken);
+        return await base.SendAsync(request, cancellationToken);
     }
 }

@@ -404,3 +404,5 @@ cert-00
 cert-01
 cert-02
 chain.pem
+.opencode/*
+.claude/*

@@ -5,6 +5,8 @@ using System.Text.Json;
 using Tobiso.Web.App.Services;
 using Tobiso.Web.Api.Services;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Tobiso.Web.App.Controllers
 {
@@ -57,55 +59,91 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
-        [HttpPost("ask")] 
+        [HttpPost("ask")]
         [AllowAnonymous]
         public async Task<IActionResult> Ask([FromBody] AiChatRequest request)
         {
-            // identify caller: prefer X-Client-Id header (for trusted apps), fallback to IP
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            // Per-device rate key using X-Device-Id; fall back to IP
+            string deviceId = null;
+            if (Request.Headers.TryGetValue("X-Device-Id", out var dvVals))
+                deviceId = dvVals.FirstOrDefault();
+
+            var rateKey = !string.IsNullOrEmpty(deviceId) ? $"device:{deviceId}" : ip;
+
+            // Determine base limit from X-Client-Id config override
             string clientId = null;
             if (Request.Headers.TryGetValue("X-Client-Id", out var vals))
-            {
                 clientId = vals.FirstOrDefault();
-            }
 
-            var rateKey = string.IsNullOrEmpty(clientId) ? ip : $"client:{clientId}";
-
-            // determine limit: per-client override in config -> OpenAI:ClientLimits:{clientId}
-            int limit;
+            int baseLimit;
             if (!string.IsNullOrEmpty(clientId))
             {
                 var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
-                if (!string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var clientLimit))
-                {
-                    limit = clientLimit;
-                }
-                else
-                {
-                    limit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-                }
+                baseLimit = !string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var cl) ? cl
+                    : int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
             }
             else
             {
-                limit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+                baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
             }
 
-            var remainingBefore = _rateLimitService.GetRemaining(rateKey, limit);
+            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(rateKey);
+
+            var remainingBefore = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
             if (remainingBefore <= 0)
-            {
                 return StatusCode(429, new { message = "Daily limit reached" });
-            }
 
-            // consume
-            var allowed = _rateLimitService.TryConsume(rateKey, limit);
+            var allowed = _rateLimitService.TryConsume(rateKey, effectiveLimit);
             if (!allowed)
-            {
                 return StatusCode(429, new { message = "Daily limit reached" });
-            }
 
             var resp = await _aiService.AskAsync(request, rateKey);
-            resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, limit);
+            resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
             return Ok(resp);
+        }
+
+        [HttpPost("credits")]
+        [AllowAnonymous]
+        public IActionResult AddCredits([FromBody] AddAiCreditsRequest request)
+        {
+            if (string.IsNullOrEmpty(request.DeviceId))
+                return BadRequest(new { message = "DeviceId required" });
+
+            int[] allowedCounts = { 5, 10 };
+            if (!allowedCounts.Contains(request.Count))
+                return BadRequest(new { message = "Invalid credit count" });
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (request.ValidUntilUtc > now + 25 * 3600 || request.ValidUntilUtc < now)
+                return BadRequest(new { message = "Invalid expiry" });
+
+            var secret = _configuration["OpenAI:CreditsSigningSecret"] ?? string.Empty;
+            if (!string.IsNullOrEmpty(secret))
+            {
+                var payload = $"{request.DeviceId}:{request.Count}:{request.ValidUntilUtc}";
+                using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+                var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+                if (!string.Equals(expected, request.Signature, StringComparison.OrdinalIgnoreCase))
+                    return StatusCode(403, new { message = "Invalid signature" });
+            }
+
+            var rateKey = $"device:{request.DeviceId}";
+            var validUntil = DateTimeOffset.FromUnixTimeSeconds(request.ValidUntilUtc).UtcDateTime;
+            _rateLimitService.AddBonusQuestions(rateKey, request.Count, validUntil);
+
+            var clientId = "tobiso-android";
+            var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
+            var baseLimit = !string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var cl) ? cl
+                : int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(rateKey);
+
+            return Ok(new AddAiCreditsResponse
+            {
+                Success = true,
+                TotalRemainingToday = _rateLimitService.GetRemaining(rateKey, effectiveLimit)
+            });
         }
 
         [HttpGet("detect-persons/{postId}")]

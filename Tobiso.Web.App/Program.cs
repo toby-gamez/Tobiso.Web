@@ -1,9 +1,7 @@
 using Tobiso.Web.Shared.Interfaces;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using QuestPDF;
 using QuestPDF.Infrastructure;
@@ -44,6 +42,11 @@ services.AddDbContext<TobisoDbContext>(options =>
 
 // Add Authentication and Authorization
 var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    throw new InvalidOperationException(
+        $"Auth:Jwt:Secret must be at least 32 characters (got {jwtSecret.Length}). " +
+        "Set the AUTH__JWT__SECRET environment variable to a longer value.");
+
 services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
@@ -52,11 +55,11 @@ services
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
             return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? JwtBearerDefaults.AuthenticationScheme
+                ? "Bearer"
                 : BasicAuthConstants.Scheme;
         };
     })
-    .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>(JwtBearerDefaults.AuthenticationScheme, options =>
+    .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
     {
         options.Secret           = jwtSecret;
         options.ValidIssuer      = builder.Configuration["Auth:Jwt:Issuer"]   ?? "tobiso";
@@ -133,7 +136,6 @@ services.AddControllers()
     });
 services.AddEndpointsApiExplorer();
 
-services.AddSingleton<CredentialStore>();
 services.AddScoped<JwtTokenService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls
@@ -221,12 +223,10 @@ services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
-else
+    
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();

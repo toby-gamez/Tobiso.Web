@@ -79,8 +79,22 @@
         public string Password { get; set; } = string.Empty;
     }
 
-    protected override async Task OnInitializedAsync()
+    private bool _tokenChecked;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_tokenChecked) return;
+        try
+        {
+            await CredentialStore.InitializeAsync(JSRuntime);
+        }
+        catch (InvalidOperationException)
+        {
+            return; // Prerendering — will retry after circuit connects
+        }
+
+        _tokenChecked = true;
+
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated == true)
         {
@@ -106,6 +120,8 @@
             }
 
             await CredentialStore.SetAsync(token, JSRuntime);
+            await JSRuntime.InvokeVoidAsync("console.log", "[Login] Token:", token);
+            await JSRuntime.InvokeVoidAsync("console.log", "[Login] DirectToken:", Tobiso.Web.App.Authentication.CredentialStore.DirectToken);
             Logger.LogInformation("Login successful for user: {Username}", loginModel.Username);
             Navigation.NavigateTo("/");
         }

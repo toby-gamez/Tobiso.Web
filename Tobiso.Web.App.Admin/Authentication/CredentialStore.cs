@@ -1,17 +1,12 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 
 namespace Tobiso.Web.App.Authentication;
 
 /// <summary>
-/// Stores the current user's JWT token in memory and in browser localStorage.
-/// Registered as Singleton; the token in localStorage is restored per-circuit via
-/// <see cref="InitializeAsync"/> called from the root App component.
-///
-/// NOTE: Singleton lifetime means a server restart or a second concurrent admin login
-/// will overwrite the in-memory token. The per-browser localStorage copy ensures
-/// each browser session restores its own token independently. This is acceptable for
-/// a single-admin deployment — revisit if multi-admin support is added.
+/// Stores the current user's JWT token.
+/// Uses AsyncLocal internally so each Blazor circuit sees its own token.
+/// Registered as Singleton so AuthenticationHeaderHandler (resolved from root scope)
+/// can inject it directly without scope-mismatch issues.
 /// </summary>
 public class CredentialStore
 {
@@ -20,14 +15,16 @@ public class CredentialStore
     private const string LegacyUsernameKey = "blinked_username";
     private const string LegacyPasswordKey  = "blinked_password";
 
-    private string? _token;
+    private static readonly AsyncLocal<string?> _asyncToken = new();
+    private static string? _directToken;
     private readonly ILogger<CredentialStore> _logger;
-    private readonly IServiceProvider _serviceProvider;
 
-    public CredentialStore(ILogger<CredentialStore> logger, IServiceProvider serviceProvider)
+    /// <summary>Direct static access for AuthenticationHeaderHandler (bypasses AsyncLocal/ExecutionContext).</summary>
+    internal static string? DirectToken => _directToken;
+
+    public CredentialStore(ILogger<CredentialStore> logger)
     {
         _logger = logger;
-        _serviceProvider = serviceProvider;
     }
 
     /// <summary>Restores a previously stored JWT token from browser localStorage.</summary>
@@ -38,9 +35,9 @@ public class CredentialStore
             var token = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", TokenStorageKey);
             if (!string.IsNullOrEmpty(token))
             {
-                _token = token;
+                _asyncToken.Value = token;
+                _directToken = token;
                 _logger.LogDebug("Restored JWT token from localStorage");
-                NotifyAuthenticationStateChanged();
             }
         }
         catch (Exception ex)
@@ -52,7 +49,8 @@ public class CredentialStore
     /// <summary>Stores the JWT token in memory and persists it to localStorage.</summary>
     public async Task SetAsync(string token, IJSRuntime jsRuntime)
     {
-        _token = token;
+        _asyncToken.Value = token;
+        _directToken = token;
         try
         {
             await jsRuntime.InvokeVoidAsync("localStorage.setItem", TokenStorageKey, token);
@@ -62,23 +60,26 @@ public class CredentialStore
         {
             _logger.LogWarning(ex, "Failed to store JWT token in localStorage");
         }
-        NotifyAuthenticationStateChanged();
     }
 
     /// <summary>Sets the token in memory only (no async localStorage write).</summary>
     public void Set(string token)
     {
-        _token = token;
-        NotifyAuthenticationStateChanged();
+        _asyncToken.Value = token;
+        _directToken = token;
     }
 
     /// <summary>Returns the current JWT token, or null if not authenticated.</summary>
-    public string? GetToken() => _token;
+    public string? GetToken() => _asyncToken.Value ?? _directToken;
+
+    /// <summary>Static accessor for AuthenticationHeaderHandler — reads the per-circuit token without DI.</summary>
+    public static string? CurrentToken => _asyncToken.Value;
 
     /// <summary>Clears the token from memory and localStorage, and removes legacy Basic-auth keys.</summary>
     public async Task ClearAsync(IJSRuntime jsRuntime)
     {
-        _token = null;
+        _asyncToken.Value = null;
+        _directToken = null;
         try
         {
             await jsRuntime.InvokeVoidAsync("localStorage.removeItem", TokenStorageKey);
@@ -91,27 +92,12 @@ public class CredentialStore
         {
             _logger.LogWarning(ex, "Failed to clear JWT token from localStorage");
         }
-        NotifyAuthenticationStateChanged();
     }
 
     /// <summary>Clears the token from memory only (no async localStorage write).</summary>
     public void Clear()
     {
-        _token = null;
-        NotifyAuthenticationStateChanged();
-    }
-
-    private void NotifyAuthenticationStateChanged()
-    {
-        try
-        {
-            var authStateProvider = _serviceProvider.GetService<AuthenticationStateProvider>()
-                as TokenAuthenticationStateProvider;
-            authStateProvider?.NotifyAuthenticationStateChanged();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to notify authentication state changed");
-        }
+        _asyncToken.Value = null;
+        _directToken = null;
     }
 }
