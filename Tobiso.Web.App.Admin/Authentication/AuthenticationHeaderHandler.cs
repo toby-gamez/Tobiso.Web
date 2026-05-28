@@ -15,8 +15,9 @@ public class AuthenticationHeaderHandler : DelegatingHandler
     {
         var token = CredentialStore.DirectToken;
         var hasToken = !string.IsNullOrEmpty(token);
-        _logger.LogInformation("[AuthHandler] Request to {Url}, token found: {HasToken}, len: {Len}",
-            request.RequestUri?.PathAndQuery, hasToken, token?.Length ?? 0);
+        // Log only whether a token is present; avoid logging token length or value.
+        _logger.LogInformation("[AuthHandler] Request to {Url}, token present: {HasToken}",
+            request.RequestUri?.PathAndQuery, hasToken);
         if (hasToken)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

@@ -75,7 +75,7 @@ public class TokenAuthenticationStateProvider : AuthenticationStateProvider
             }
         }
 
-        claims.Add(new Claim("jwt", token));
+        // Do NOT store the raw JWT as a claim to avoid accidental leakage in logs or UI.
 
         var identity = new ClaimsIdentity(claims, "jwt");
         return new ClaimsPrincipal(identity);

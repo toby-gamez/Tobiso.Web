@@ -223,10 +223,12 @@ services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI();
-    
-if (!app.Environment.IsDevelopment())
+}   
+else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();

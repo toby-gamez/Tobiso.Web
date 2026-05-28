@@ -37,7 +37,6 @@ public class CredentialStore
             {
                 _asyncToken.Value = token;
                 _directToken = token;
-                _logger.LogDebug("Restored JWT token from localStorage");
             }
         }
         catch (Exception ex)
@@ -54,7 +53,6 @@ public class CredentialStore
         try
         {
             await jsRuntime.InvokeVoidAsync("localStorage.setItem", TokenStorageKey, token);
-            _logger.LogDebug("Stored JWT token in localStorage");
         }
         catch (Exception ex)
         {
@@ -86,7 +84,7 @@ public class CredentialStore
             // Remove legacy plaintext keys if they still exist
             await jsRuntime.InvokeVoidAsync("localStorage.removeItem", LegacyUsernameKey);
             await jsRuntime.InvokeVoidAsync("localStorage.removeItem", LegacyPasswordKey);
-            _logger.LogDebug("Cleared JWT token from localStorage");
+            // Token cleared from storage. Avoid logging token contents or metadata.
         }
         catch (Exception ex)
         {
