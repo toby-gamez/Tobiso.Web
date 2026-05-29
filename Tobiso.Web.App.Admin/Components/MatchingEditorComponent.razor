@@ -278,7 +278,7 @@
         ConfigJsonChanged.InvokeAsync(configJson);
         var solution = new
         {
-            correctPairs = _pairs.Select(p => new { id = p.Id, leftId = p.LeftId, rightId = p.RightId }),
+            pairs = _pairs.Select(p => new { id = p.Id, leftId = p.LeftId, rightId = p.RightId }),
             explanation = "Správné páry levá-pravá"
         };
         var solutionJson = JsonSerializer.Serialize(solution, new JsonSerializerOptions { WriteIndented = true });
