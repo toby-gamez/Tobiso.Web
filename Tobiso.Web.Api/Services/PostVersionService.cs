@@ -10,6 +10,7 @@ public interface IPostVersionService
     Task<List<PostVersionResponse>> GetByPost(int postId);
     Task<PostVersionResponse?> Create(CreateVersionRequest req);
     Task<bool> Update(int id, UpdateVersionRequest req);
+    Task<bool> UpdateGrade(int id, int gradeId);
     Task<bool> Delete(int id);
 }
 
@@ -85,6 +86,23 @@ public class PostVersionService : IPostVersionService
         entity.Content = req.Content;
         entity.LastFix = req.LastFix;
         entity.LastEdit = req.LastEdit;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UpdateGrade(int id, int gradeId)
+    {
+        var entity = await _context.PostVersions.FindAsync(id);
+        if (entity == null) return false;
+
+        var grade = await _context.Grades.FindAsync(gradeId);
+        if (grade == null) return false;
+
+        var conflict = await _context.PostVersions
+            .AnyAsync(v => v.PostId == entity.PostId && v.GradeId == gradeId && v.Id != id);
+        if (conflict) return false;
+
+        entity.GradeId = gradeId;
         await _context.SaveChangesAsync();
         return true;
     }

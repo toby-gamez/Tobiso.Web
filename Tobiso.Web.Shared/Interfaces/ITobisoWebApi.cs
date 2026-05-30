@@ -37,6 +37,9 @@ public interface ITobisoWebApi
     [Put("/api/PostVersions/{id}")]
     Task UpdateVersion(int id, [Body] UpdateVersionRequest req);
 
+    [Patch("/api/PostVersions/{id}/grade")]
+    Task PatchVersionGrade(int id, [Body] UpdateVersionGradeRequest req);
+
     [Delete("/api/PostVersions/{id}")]
     Task DeleteVersion(int id);
 

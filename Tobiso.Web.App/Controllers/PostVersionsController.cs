@@ -43,6 +43,15 @@ public class PostVersionsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPatch("{id}/grade")]
+    public async Task<IActionResult> UpdateGrade(int id, [FromBody] UpdateVersionGradeRequest req)
+    {
+        var updated = await _versionService.UpdateGrade(id, req.GradeId);
+        if (!updated) return BadRequest("Grade not found or already used by another version of this post.");
+        return NoContent();
+    }
+
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

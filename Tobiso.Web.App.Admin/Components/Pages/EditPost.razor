@@ -108,7 +108,28 @@ else
                             var version = v;
                             var isActive = version.GradeId == _selectedGradeId;
                             <tr class="@(isActive ? "table-primary" : "")">
-                                <td>@version.GradeName</td>
+                                <td>
+                                    @if (_editingGradeVersionId == version.Id)
+                                    {
+                                        <select class="form-select form-select-sm d-inline-block w-auto" @bind="_editingNewGradeId">
+                                            @foreach (var g in grades)
+                                            {
+                                                <option value="@g.Id">@g.Name</option>
+                                            }
+                                        </select>
+                                        <button class="btn btn-sm btn-success ms-1" @onclick="() => SaveVersionGrade(version.Id)">Uložit</button>
+                                        <button class="btn btn-sm btn-secondary ms-1" @onclick="CancelVersionGradeEdit">Zrušit</button>
+                                    }
+                                    else
+                                    {
+                                        @version.GradeName
+                                        <button class="btn btn-sm btn-outline-secondary ms-2"
+                                                @onclick="() => StartVersionGradeEdit(version)"
+                                                title="Změnit ročník">
+                                            <i class="bi bi-tag"></i>
+                                        </button>
+                                    }
+                                </td>
                                 <td class="text-muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@Truncate(version.Content, 80)</td>
                                 <td>@(version.LastEdit?.ToString("g") ?? "—")</td>
                                 <td>@(version.LastFix?.ToString("g") ?? "—")</td>
@@ -221,6 +242,8 @@ else
     private bool isChecking = false;
     private string? _successMessage;
     private List<PostVersionResponse> _versions = new();
+    private int? _editingGradeVersionId;
+    private int _editingNewGradeId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -476,6 +499,34 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Chyba při mazání verze: {ex.Message}";
+        }
+    }
+
+    private void StartVersionGradeEdit(PostVersionResponse version)
+    {
+        _editingGradeVersionId = version.Id;
+        _editingNewGradeId = version.GradeId;
+    }
+
+    private void CancelVersionGradeEdit()
+    {
+        _editingGradeVersionId = null;
+    }
+
+    private async Task SaveVersionGrade(int versionId)
+    {
+        try
+        {
+            await Api.PatchVersionGrade(versionId, new UpdateVersionGradeRequest { GradeId = _editingNewGradeId });
+            _editingGradeVersionId = null;
+            _successMessage = "Ročník verze změněn.";
+            await LoadVersionsAsync();
+            if (_selectedGradeId == _versions.FirstOrDefault(v => v.Id == versionId)?.GradeId)
+                await OnGradeChanged(_editingNewGradeId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při změně ročníku: {ex.Message}";
         }
     }
 

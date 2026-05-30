@@ -10,3 +10,8 @@ public class UpdateVersionRequest
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
 }
+
+public class UpdateVersionGradeRequest
+{
+    public int GradeId { get; set; }
+}
