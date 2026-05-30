@@ -406,3 +406,6 @@ cert-02
 chain.pem
 .opencode/*
 .claude/*
+build/.config/dotnet-tools.json
+build/C:/*
+CLAUDE.md
