@@ -106,12 +106,8 @@ else
             categories = (categoriesTask.Result) ?? new List<CategoryResponse>();
             categoryNames = categories.ToDictionary(c => c.Id, c => c.Name);
 
-            // Posts with LastEdit first (ordered by LastEdit desc), then posts with LastFix only (ordered by LastFix desc), then the rest
-            var withEdit = allPosts.Where(p => p.LastEdit.HasValue).OrderByDescending(p => p.LastEdit);
-            var withFixOnly = allPosts.Where(p => !p.LastEdit.HasValue && p.LastFix.HasValue).OrderByDescending(p => p.LastFix);
-            var others = allPosts.Where(p => !p.LastEdit.HasValue && !p.LastFix.HasValue);
-
-            orderedPosts = withEdit.Concat(withFixOnly).Concat(others).ToList();
+            // Order by newest LastEdit, then for posts without LastEdit order by LastFix
+            orderedPosts = allPosts.OrderByDescending(p => p.LastEdit).ThenByDescending(p => p.LastFix).ToList();
 
             // Exclude posts without a category and posts whose category name is "More"
             orderedPosts = orderedPosts.Where(p => p.CategoryId.HasValue

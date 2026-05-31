@@ -392,34 +392,40 @@ namespace Tobiso.Web.App.Services
             var body = await response.Content.ReadAsStringAsync();
             try
             {
-                // Extract first JSON object substring from the response body
-                var start = body.IndexOf('{');
-                var end = body.LastIndexOf('}');
-                if (start >= 0 && end > start)
-                {
-                    var jsonObj = body.Substring(start, end - start + 1);
-                    using var doc = JsonDocument.Parse(jsonObj);
-                    if (doc.RootElement.TryGetProperty("issues", out var issuesEl) && issuesEl.ValueKind == JsonValueKind.Array)
-                    {
-                        var issues = new List<GrammarIssue>();
-                        foreach (var it in issuesEl.EnumerateArray())
-                        {
-                            var original = it.TryGetProperty("originalText", out var o) && o.ValueKind != JsonValueKind.Null ? o.GetString() ?? string.Empty : string.Empty;
-                            var correction = it.TryGetProperty("correction", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? string.Empty : string.Empty;
-                            var explanation = it.TryGetProperty("explanation", out var e) && e.ValueKind != JsonValueKind.Null ? e.GetString() ?? string.Empty : string.Empty;
-                            // offsets are optional
-                            int startIdx = -1;
-                            int endIdx = -1;
-                            if (it.TryGetProperty("start", out var s) && s.ValueKind == JsonValueKind.Number && s.TryGetInt32(out var sv)) startIdx = sv;
-                            if (it.TryGetProperty("end", out var en) && en.ValueKind == JsonValueKind.Number && en.TryGetInt32(out var ev)) endIdx = ev;
+                using var wrapperDoc = JsonDocument.Parse(body);
+                var root = wrapperDoc.RootElement;
 
-                            if (!string.IsNullOrWhiteSpace(original))
+                if (root.TryGetProperty("choices", out var choices) &&
+                    choices.ValueKind == JsonValueKind.Array &&
+                    choices.GetArrayLength() > 0)
+                {
+                    var choice = choices[0];
+                    if (choice.TryGetProperty("message", out var message) &&
+                        message.TryGetProperty("content", out var contentEl) &&
+                        contentEl.ValueKind == JsonValueKind.String)
+                    {
+                        var contentJson = contentEl.GetString();
+                        if (!string.IsNullOrWhiteSpace(contentJson))
+                        {
+                            using var issuesDoc = JsonDocument.Parse(contentJson);
+                            if (issuesDoc.RootElement.TryGetProperty("issues", out var issuesEl) && issuesEl.ValueKind == JsonValueKind.Array)
                             {
-                                issues.Add(new GrammarIssue { OriginalText = original, Correction = correction, Explanation = explanation });
+                                var issues = new List<GrammarIssue>();
+                                foreach (var it in issuesEl.EnumerateArray())
+                                {
+                                    var original = it.TryGetProperty("originalText", out var o) && o.ValueKind != JsonValueKind.Null ? o.GetString() ?? string.Empty : string.Empty;
+                                    var correction = it.TryGetProperty("correction", out var c) && c.ValueKind != JsonValueKind.Null ? c.GetString() ?? string.Empty : string.Empty;
+                                    var explanation = it.TryGetProperty("explanation", out var e) && e.ValueKind != JsonValueKind.Null ? e.GetString() ?? string.Empty : string.Empty;
+
+                                    if (!string.IsNullOrWhiteSpace(original))
+                                    {
+                                        issues.Add(new GrammarIssue { OriginalText = original, Correction = correction, Explanation = explanation });
+                                    }
+                                }
+
+                                return new GrammarCheckResponse { Issues = issues };
                             }
                         }
-
-                        return new GrammarCheckResponse { Issues = issues };
                     }
                 }
             }
