@@ -52,7 +52,7 @@
     {
         <div class="limit-reached-bar">
             <span>Limit dotazů byl vyčerpán.</span>
-            <a href="#" class="limit-app-link" target="_blank" rel="noopener noreferrer">
+            <a href="post/240" class="limit-app-link" target="_blank" rel="noopener noreferrer">
                 <i class="bi bi-phone"></i> Stáhněte naši aplikaci a pokračujte!
             </a>
         </div>
@@ -384,7 +384,6 @@ body.dark-mode .ai-notice a {
     .limit-reached-bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 10px;
         background: var(--color-accent-strong);
         color: var(--color-white);
@@ -393,6 +392,7 @@ body.dark-mode .ai-notice a {
         margin-bottom: 8px;
         font-size: 0.88rem;
         line-height: 1.4;
+        flex-direction: column;
     }
 
     .limit-app-link {
