@@ -152,4 +152,12 @@ public interface ITobisoWebApi
     // Grammar check
     [Post("/api/ai/grammar-check")]
     Task<GrammarCheckResponse> CheckGrammar([Body] GrammarCheckRequest request);
+
+    // AI question generation
+    [Post("/api/ai/generate-question")]
+    Task<List<CreateQuestionRequest>> GenerateQuestions([Body] GenerateQuestionRequest request);
+
+    // Questions
+    [Post("/api/Questions")]
+    Task<QuestionResponse> CreateQuestion([Body] CreateQuestionRequest request);
 }

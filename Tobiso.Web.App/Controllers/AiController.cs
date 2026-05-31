@@ -182,6 +182,48 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        [HttpPost("generate-question")]
+        [Authorize]
+        public async Task<IActionResult> GenerateQuestion([FromBody] GenerateQuestionRequest request)
+        {
+            if (request == null)
+                return BadRequest("Missing request body.");
+
+            string content;
+            if (request.PostId > 0)
+            {
+                var post = await _postService.GetById(request.PostId);
+                if (post == null) return NotFound();
+                content = post.Versions?
+                    .OrderByDescending(v => v.GradeLevel ?? int.MinValue)
+                    .FirstOrDefault()?.Content ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(content))
+                    return BadRequest("Post has no content.");
+            }
+            else if (!string.IsNullOrWhiteSpace(request.Content))
+            {
+                content = request.Content;
+            }
+            else
+            {
+                return BadRequest("Either PostId or Content must be provided.");
+            }
+
+            try
+            {
+                var count = request.Count > 0 ? request.Count : 1;
+                var results = await _aiService.GenerateQuestionsAsync(content, count, request.ExistingQuestions ?? new List<string>());
+                foreach (var r in results)
+                    r.PostId = request.PostId;
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Question generation failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
         [HttpGet("person")]
         [AllowAnonymous]
         public async Task<IActionResult> GetPerson([FromQuery] string name)

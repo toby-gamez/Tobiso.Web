@@ -9,17 +9,6 @@
 
 <PageTitle>Prověrka - Tobiso</PageTitle>
 
-<style>
-    .container {
-        width: 800px;
-    }
-    @@media (max-width: 600px) {
-        .container {
-            width: auto;
-        }
-    }
-</style>
-
 @if (_questions == null)
 {
     <div class="text-center">
@@ -31,7 +20,7 @@
 }
 else if (!_questions.Any())
 {
-    <div class="text-center">
+    <div class="intro text-center">
         <h2>Žádné otázky</h2>
         <p>Pro tento článek nejsou k dispozici žádné otázky.</p>
         <button @onclick="BackToPost">Zpět na článek</button>
@@ -39,202 +28,202 @@ else if (!_questions.Any())
 }
 else
 {
-    <div class="container">
-        <h1 class="verybig">Prověrka</h1>
+    <h1 class="verybig">Prověrka</h1>
+    
+    @if (!_testCompleted)
+    {
+        <div class="question-counter">
+            Otázka @(_currentQuestionIndex + 1) z @_questions.Count
+        </div>
         
-        @if (!_testCompleted)
+        @if (_questions.Count > 0)
         {
-            <div class="question-counter">
-                Otázka @(_currentQuestionIndex + 1) z @_questions.Count
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: @(Math.Round((_currentQuestionIndex + 1) / (double)_questions.Count * 100, 2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture))%"></div>
             </div>
-            
-            @if (_questions.Count > 0)
-            {
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: @(Math.Round((_currentQuestionIndex + 1) / (double)_questions.Count * 100, 2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture))%"></div>
-                </div>
-            }
         }
+    }
 
-        @if (_testCompleted)
+    @if (_testCompleted)
+    {
+        <div class="test-summary @GetSummaryClass()">
+            <h2>Výsledky</h2>
+            <p class="fs-4">
+                <strong>@_correctAnswers</strong> ze <strong>@_questions.Count</strong> správných odpovědí
+            </p>
+            <p class="fs-5">
+                Úspěšnost: <strong>@(Math.Round(_successRate, 1))%</strong>
+            </p>
+            @GetSummaryMessage()
+        </div>
+
+        <h3 class="mt-4">Přehled otázek</h3>
+        
+        @for (int i = 0; i < _questions.Count; i++)
         {
-            <!-- Zobrazení výsledků -->
-            <div class="test-summary @GetSummaryClass()">
-                <h2>Výsledky</h2>
-                <p class="fs-4">
-                    <strong>@_correctAnswers</strong> ze <strong>@_questions.Count</strong> správných odpovědí
-                </p>
-                <p class="fs-5">
-                    Úspěšnost: <strong>@(Math.Round(_successRate, 1))%</strong>
-                </p>
-                @GetSummaryMessage()
-            </div>
-
-            <!-- Přehled všech otázek s odpověďmi -->
-            <h3 class="mt-4">Přehled otázek</h3>
+            var question = _questions[i];
+            bool isCorrect = false;
             
-            @for (int i = 0; i < _questions.Count; i++)
+            if (IsTextQuestion(question))
             {
-                var question = _questions[i];
-                bool isCorrect = false;
-                
-                if (IsTextQuestion(question))
+                if (_userTextAnswers.ContainsKey(question.Id))
                 {
-                    if (_userTextAnswers.ContainsKey(question.Id))
-                    {
-                        var userText = _userTextAnswers[question.Id].Trim();
-                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                        isCorrect = correctAnswer != null && 
-                                   string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase);
-                    }
+                    var userText = _userTextAnswers[question.Id].Trim();
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    isCorrect = correctAnswer != null && 
+                               string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase);
                 }
-                else
-                {
-                    isCorrect = _userAnswers.ContainsKey(question.Id) && 
-                               question.Answers.Any(a => a.Id == _userAnswers[question.Id] && a.Correct == 1);
-                }
-                
-                <div class="question-container">
-                    <div class="question-title">
-                        @(i + 1). @question.QuestionText
-                        @if (isCorrect)
-                        {
-                              <i class="bi bi-check-circle-fill text-success ms-2"></i> 
-                        }
-                        else
-                        {
-                              <i class="bi bi-x-circle-fill text-danger ms-2"></i> 
-                        }
-                    </div>
-                    
-                    @if (IsTextQuestion(question))
+            }
+            else
+            {
+                isCorrect = _userAnswers.ContainsKey(question.Id) && 
+                           IsAnswerCorrect(question, _userAnswers[question.Id]);
+            }
+            
+            <div class="question-container intro">
+                <div class="question-title">
+                    @(i + 1). @question.QuestionText
+                    @if (isCorrect)
                     {
-                        var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                        var userText = _userTextAnswers.ContainsKey(question.Id) ? _userTextAnswers[question.Id] : "";
-                        
-                        <div class="text-answer-review">
-                            <div class="user-text-answer @(isCorrect ? "correct" : "incorrect")">
-                                <i class="bi bi-arrow-right-circle-fill me-2"></i>
-                                <strong>Vaše odpověď:</strong> @userText
-                            </div>
-                            @if (!isCorrect && correctAnswer != null)
-                            {
-                                <div class="correct-text-answer">
-                                    <i class="bi bi-check-circle-fill me-2"></i>
-                                    <strong>Správná odpověď:</strong> @correctAnswer.AnswerText
-                                </div>
-                            }
-                        </div>
+                          <i class="bi bi-check-circle-fill text-success ms-2"></i> 
                     }
                     else
                     {
-                        @foreach (var answer in question.Answers)
-                        {
-                            var isUserAnswer = _userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id] == answer.Id;
-                            var isCorrectAnswer = answer.Correct == 1;
-                            var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
-                            
-                            <div class="answer-option @cssClass">
-                                @if (isUserAnswer)
-                                {
-                                    <i class="bi bi-arrow-right-circle-fill me-2"></i>  
-                                }
-                                @if (isCorrectAnswer)
-                                {
-                                    <i class="bi bi-check-circle-fill me-2"></i>  
-                                }
-                                @answer.AnswerText
-                            </div>
-                        }
+                          <i class="bi bi-x-circle-fill text-danger ms-2"></i> 
                     }
-                    
-                    @* Zobrazení vysvětlení pro chybně zodpověděné otázky *@
-                    @if (!isCorrect && question.Explanations.Any())
-                    {
-                        <div class="explanations-section intro">
-                            <span class="text-muted" style="font-size: 1.1em;">
-                                <i class="bi bi-lightbulb"></i> Vysvětlení:
-                            </span>
-                            @foreach (var explanation in question.Explanations)
-                            {
-                                <div class="alert alert-info explanation-box">
-                                    @explanation.Text
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-            <div class="mt-4">
-                <button class="btn btn-outline-secondary" @onclick="BackToPost">
-                    <i class="bi bi-arrow-left"></i> Zpět na článek
-                </button>
-            </div>
-        }
-        else
-        {
-            <!-- Aktuální otázka -->
-            var currentQuestion = _questions[_currentQuestionIndex];
-            
-            <div class="question-container">
-                <div class="question-title">
-                    @currentQuestion.QuestionText
                 </div>
                 
-                @if (IsTextQuestion(currentQuestion))
+                @if (IsTextQuestion(question))
                 {
-                    <!-- Textové pole pro textové otázky -->
-                    <div class="text-input-container">
-                        <input type="text" 
-                               class="form-control text-answer-input"
-                               placeholder="Zadejte vaši odpověď..."
-                               value="@(_textAnswers.ContainsKey(currentQuestion.Id) ? _textAnswers[currentQuestion.Id] : "")"
-                               @oninput="@((ChangeEventArgs e) => SetTextAnswer(currentQuestion.Id, e.Value?.ToString() ?? ""))" />
+                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
+                    var userText = _userTextAnswers.ContainsKey(question.Id) ? _userTextAnswers[question.Id] : "";
+                    
+                    <div class="text-answer-review">
+                        <div class="user-text-answer @(isCorrect ? "correct" : "incorrect")">
+                            <i class="bi bi-arrow-right-circle-fill me-2"></i>
+                            <strong>Vaše odpověď:</strong> @userText
+                        </div>
+                        @if (!isCorrect && correctAnswer != null)
+                        {
+                            <div class="correct-text-answer">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <strong>Správná odpověď:</strong> @correctAnswer.AnswerText
+                            </div>
+                        }
                     </div>
                 }
                 else
                 {
-                    <!-- Výběr z možností pro běžné otázky -->
-                    @foreach (var answer in currentQuestion.Answers)
+                    @foreach (var answer in question.Answers)
                     {
-                        var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
-                                       _selectedAnswers[currentQuestion.Id] == answer.Id;
+                        var isUserAnswer = _userAnswers.ContainsKey(question.Id) && 
+                                          _userAnswers[question.Id].Contains(answer.Id);
+                        var isCorrectAnswer = answer.Correct == 1;
+                        var cssClass = isCorrectAnswer ? "correct" : (isUserAnswer ? "incorrect" : "");
                         
-                        <div class="answer-option @(isSelected ? "selected" : "")" 
-                             @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
-                            <i class="bi @(isSelected ? "bi-circle-fill" : "bi-circle") me-2"></i>
+                        <div class="answer-option @cssClass">
+                            @if (isUserAnswer)
+                            {
+                                <i class="bi bi-arrow-right-circle-fill me-2"></i>  
+                            }
+                            @if (isCorrectAnswer)
+                            {
+                                <i class="bi bi-check-circle-fill me-2"></i>  
+                            }
                             @answer.AnswerText
                         </div>
                     }
                 }
-            </div>
-            
-            <div class="d-flex justify-content-between mt-3">
-                <button
-                        @onclick="PreviousQuestion"
-                        disabled="@(_currentQuestionIndex == 0)">
-                    <i class="bi bi-arrow-left"></i> Předchozí
-                </button>
                 
-                @if (_currentQuestionIndex == _questions.Count - 1)
+                @if (!isCorrect && question.Explanations.Any())
                 {
-                    <button class="btn btn-success" 
-                            @onclick="FinishTest"
-                            disabled="@(!AllQuestionsAnswered())">
-                        <i class="bi bi-check-circle"></i> Dokončit test
-                    </button>
-                }
-                else
-                {
-                    <button 
-                            @onclick="NextQuestion"
-                            disabled="@(_currentQuestionIndex >= _questions.Count - 1)">
-                        Další <i class="bi bi-arrow-right"></i>
-                    </button>
+                    <div class="explanations-section callout-block">
+                        <span class="callout-label">
+                            <i class="bi bi-lightbulb"></i> Vysvětlení
+                        </span>
+                        @foreach (var explanation in question.Explanations)
+                        {
+                            <p>@explanation.Text</p>
+                        }
+                    </div>
                 }
             </div>
         }
-    </div>
+        <div class="mt-4">
+            <button @onclick="BackToPost">
+                <i class="bi bi-arrow-left"></i> Zpět na článek
+            </button>
+        </div>
+    }
+    else
+    {
+        var currentQuestion = _questions[_currentQuestionIndex];
+        var isMulti = IsMultiSelectQuestion(currentQuestion);
+        
+        <div class="question-container intro">
+            <div class="question-title">
+                @currentQuestion.QuestionText
+            </div>
+            
+            @if (isMulti)
+            {
+                <p class="text-muted mb-3">
+                    <i class="bi bi-info-circle"></i> Vyberte všechny správné odpovědi
+                </p>
+            }
+            
+            @if (IsTextQuestion(currentQuestion))
+            {
+                <div class="text-input-container">
+                    <input type="text" 
+                           class="text-answer-input"
+                           placeholder="Zadejte vaši odpověď..."
+                           value="@(_textAnswers.ContainsKey(currentQuestion.Id) ? _textAnswers[currentQuestion.Id] : "")"
+                           @oninput="@((ChangeEventArgs e) => SetTextAnswer(currentQuestion.Id, e.Value?.ToString() ?? ""))" />
+                </div>
+            }
+            else
+            {
+                @foreach (var answer in currentQuestion.Answers)
+                {
+                    var isSelected = _selectedAnswers.ContainsKey(currentQuestion.Id) && 
+                                   _selectedAnswers[currentQuestion.Id].Contains(answer.Id);
+                    
+                    <div class="answer-option @(isSelected ? "selected" : "")" 
+                         @onclick="() => SelectAnswer(currentQuestion.Id, answer.Id)">
+                        @if (isMulti)
+                        {
+                            <i class="bi @(isSelected ? "bi-check-square-fill" : "bi-square") me-2"></i>
+                        }
+                        else
+                        {
+                            <i class="bi @(isSelected ? "bi-check-circle-fill" : "bi-circle") me-2"></i>
+                        }
+                        @answer.AnswerText
+                    </div>
+                }
+            }
+        </div>
+        
+        <div class="d-flex justify-content-between mt-3">
+            <button @onclick="PreviousQuestion" disabled="@(_currentQuestionIndex == 0)">
+                <i class="bi bi-arrow-left"></i> Předchozí
+            </button>
+            
+            @if (_currentQuestionIndex == _questions.Count - 1)
+            {
+                <button class="btn-success" @onclick="FinishTest" disabled="@(!AllQuestionsAnswered())">
+                    <i class="bi bi-check-circle"></i> Dokončit test
+                </button>
+            }
+            else
+            {
+                <button @onclick="NextQuestion" disabled="@(_currentQuestionIndex >= _questions.Count - 1)">
+                    Další <i class="bi bi-arrow-right"></i>
+                </button>
+            }
+        </div>
+    }
 }
 
 @code {
@@ -243,8 +232,8 @@ else
 
     private List<QuestionResponse>? _questions;
     private List<QuestionResponse>? _originalQuestions;
-    private Dictionary<int, int> _selectedAnswers = new();
-    private Dictionary<int, int> _userAnswers = new();
+    private Dictionary<int, HashSet<int>> _selectedAnswers = new();
+    private Dictionary<int, HashSet<int>> _userAnswers = new();
     private Dictionary<int, string> _textAnswers = new();
     private Dictionary<int, string> _userTextAnswers = new();
     private int _currentQuestionIndex = 0;
@@ -268,18 +257,23 @@ else
         {
             _originalQuestions = await Api.GetQuestionsByPostId(PostId);
             
-            // Zamíchání otázek do náhodného pořadí
             if (_originalQuestions != null && _originalQuestions.Any())
             {
                 var random = new Random();
-                _questions = _originalQuestions.OrderBy(x => random.Next()).ToList();
+                _questions = _originalQuestions
+                    .OrderBy(x => random.Next())
+                    .Select(q =>
+                    {
+                        q.Answers = q.Answers.OrderBy(a => random.Next()).ToList();
+                        return q;
+                    })
+                    .ToList();
             }
             else
             {
                 _questions = _originalQuestions;
             }
             
-            // Reset stavu při načtení nových otázek
             _selectedAnswers.Clear();
             _userAnswers.Clear();
             _textAnswers.Clear();
@@ -303,9 +297,44 @@ else
         return question.Answers.Count == 1 && question.Answers.First().Correct == 1;
     }
 
+    private bool IsMultiSelectQuestion(QuestionResponse question)
+    {
+        return question.Answers.Count(a => a.Correct == 1) > 1;
+    }
+
+    private HashSet<int> GetCorrectAnswerIds(QuestionResponse question)
+    {
+        return question.Answers.Where(a => a.Correct == 1).Select(a => a.Id).ToHashSet();
+    }
+
+    private bool IsAnswerCorrect(QuestionResponse question, HashSet<int> selectedIds)
+    {
+        var correctIds = GetCorrectAnswerIds(question);
+        return correctIds.SetEquals(selectedIds);
+    }
+
     private void SelectAnswer(int questionId, int answerId)
     {
-        _selectedAnswers[questionId] = answerId;
+        var question = _questions?.FirstOrDefault(q => q.Id == questionId);
+        if (question == null) return;
+
+        if (!_selectedAnswers.ContainsKey(questionId))
+        {
+            _selectedAnswers[questionId] = new HashSet<int>();
+        }
+
+        if (IsMultiSelectQuestion(question))
+        {
+            if (!_selectedAnswers[questionId].Remove(answerId))
+            {
+                _selectedAnswers[questionId].Add(answerId);
+            }
+        }
+        else
+        {
+            _selectedAnswers[questionId].Clear();
+            _selectedAnswers[questionId].Add(answerId);
+        }
         StateHasChanged();
     }
 
@@ -333,26 +362,36 @@ else
         }
     }
 
+    private bool IsQuestionAnswered(QuestionResponse q)
+    {
+        if (IsTextQuestion(q))
+        {
+            return _textAnswers.ContainsKey(q.Id) && !string.IsNullOrWhiteSpace(_textAnswers[q.Id]);
+        }
+
+        if (!_selectedAnswers.ContainsKey(q.Id) || _selectedAnswers[q.Id].Count == 0)
+        {
+            return false;
+        }
+
+        if (IsMultiSelectQuestion(q))
+        {
+            var correctIds = GetCorrectAnswerIds(q);
+            return _selectedAnswers[q.Id].Count >= correctIds.Count;
+        }
+
+        return true;
+    }
+
     private bool AllQuestionsAnswered()
     {
         if (_questions == null) return false;
-        
-        return _questions.All(q => 
-        {
-            if (IsTextQuestion(q))
-            {
-                return _textAnswers.ContainsKey(q.Id) && !string.IsNullOrWhiteSpace(_textAnswers[q.Id]);
-            }
-            else
-            {
-                return _selectedAnswers.ContainsKey(q.Id);
-            }
-        });
+        return _questions.All(IsQuestionAnswered);
     }
 
     private void FinishTest()
     {
-        _userAnswers = new Dictionary<int, int>(_selectedAnswers);
+        _userAnswers = _selectedAnswers.ToDictionary(kv => kv.Key, kv => new HashSet<int>(kv.Value));
         _userTextAnswers = new Dictionary<int, string>(_textAnswers);
         _correctAnswers = 0;
 
@@ -374,12 +413,9 @@ else
             }
             else
             {
-                if (_userAnswers.ContainsKey(question.Id))
+                if (_userAnswers.ContainsKey(question.Id) && _userAnswers[question.Id].Count > 0)
                 {
-                    var userAnswerId = _userAnswers[question.Id];
-                    var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                    
-                    if (correctAnswer != null && userAnswerId == correctAnswer.Id)
+                    if (IsAnswerCorrect(question, _userAnswers[question.Id]))
                     {
                         _correctAnswers++;
                     }

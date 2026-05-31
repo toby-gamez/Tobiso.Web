@@ -342,6 +342,145 @@ namespace Tobiso.Web.App.Services
             return string.Empty;
         }
 
+        public async Task<List<CreateQuestionRequest>> GenerateQuestionsAsync(string content, int count, List<string> existingQuestions)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                throw new InvalidOperationException("Content is empty.");
+
+            count = Math.Max(1, Math.Min(count, 10));
+
+            var avoidSection = existingQuestions.Count > 0
+                ? $"- Negeneruj otázky podobné těmto již existujícím:\n{string.Join("\n", existingQuestions.Select(q => $"  • {q}"))}\n"
+                : string.Empty;
+
+            var systemPrompt =
+                $"Jsi tvůrce testových otázek pro český vzdělávací web Tobiso.cz. Na základě obsahu článku vygeneruj PŘESNĚ {count} různých otázek v češtině.\n\n" +
+                "Pro každou otázku zvol JEDEN z těchto typů:\n" +
+                "- FACTUAL (faktická): jednoznačná odpověď (jméno, datum, vzorec, číslo) → PŘESNĚ 1 odpověď s correct=1\n" +
+                "- SINGLE (jedna správná): koncepční otázka → 3–4 odpovědi, PŘESNĚ 1 s correct=1, ostatní correct=0\n" +
+                "- MULTI (více správných): otázka kde platí více tvrzení → 3–5 odpovědí, 2–3 s correct=1, ostatní correct=0\n\n" +
+                "Další pravidla:\n" +
+                "- Každá odpověď max. 15 slov.\n" +
+                "- Vysvětlení: přesně 1 prvek, max. 3 věty, vysvětluje správné odpovědi.\n" +
+                "- Otázky musí pokrývat různá témata z textu.\n" +
+                avoidSection +
+                "\nVrať POUZE platný JSON objekt (bez markdown, bez komentářů):\n" +
+                "{\"questions\":[{\"questionText\":\"...\",\"answers\":[{\"answerText\":\"...\",\"correct\":1}],\"explanations\":[{\"text\":\"...\"}]}]}";
+
+            var userPrompt = $"Obsah článku:\n{PrepareArticleContext(content)}";
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user",   content = userPrompt   }
+            };
+
+            var maxTokens = count * 400 + 200;
+
+            var payload = new
+            {
+                model,
+                messages,
+                max_tokens = maxTokens,
+                response_format = new { type = "json_object" }
+            };
+
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI question generation request failed");
+                throw;
+            }
+
+            var raw = string.Empty;
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    raw = contentEl.GetString()?.Trim() ?? string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to read OpenAI question generation response");
+                throw;
+            }
+
+            if (string.IsNullOrWhiteSpace(raw))
+                throw new InvalidOperationException("AI returned an empty response.");
+
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                var rootEl = doc.RootElement;
+
+                JsonElement questionsEl;
+                if (!rootEl.TryGetProperty("questions", out questionsEl) || questionsEl.ValueKind != JsonValueKind.Array)
+                    throw new InvalidOperationException("AI response missing 'questions' array.");
+
+                var result = new List<CreateQuestionRequest>();
+                foreach (var q in questionsEl.EnumerateArray())
+                {
+                    var questionText = q.TryGetProperty("questionText", out var qtEl) ? qtEl.GetString() ?? string.Empty : string.Empty;
+                    if (string.IsNullOrWhiteSpace(questionText)) continue;
+
+                    var answers = new List<CreateAnswerRequest>();
+                    if (q.TryGetProperty("answers", out var answersEl) && answersEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var a in answersEl.EnumerateArray())
+                        {
+                            var text = a.TryGetProperty("answerText", out var at) ? at.GetString() ?? string.Empty : string.Empty;
+                            var correct = a.TryGetProperty("correct", out var cv) && cv.ValueKind == JsonValueKind.Number ? cv.GetInt32() : 0;
+                            if (!string.IsNullOrWhiteSpace(text))
+                                answers.Add(new CreateAnswerRequest { AnswerText = text, Correct = correct });
+                        }
+                    }
+                    if (answers.Count == 0) continue;
+
+                    var explanations = new List<CreateExplanationRequest>();
+                    if (q.TryGetProperty("explanations", out var explEl) && explEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var e in explEl.EnumerateArray())
+                        {
+                            var text = e.TryGetProperty("text", out var et) ? et.GetString() ?? string.Empty : string.Empty;
+                            if (!string.IsNullOrWhiteSpace(text))
+                                explanations.Add(new CreateExplanationRequest { Text = text });
+                        }
+                    }
+
+                    result.Add(new CreateQuestionRequest { QuestionText = questionText, Answers = answers, Explanations = explanations });
+                }
+
+                if (result.Count == 0)
+                    throw new InvalidOperationException("AI response contained no valid questions.");
+
+                return result;
+            }
+            catch (JsonException ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse AI question generation response. Raw: {Raw}", raw);
+                throw new InvalidOperationException("AI response was not valid JSON.", ex);
+            }
+        }
+
         public async Task<GrammarCheckResponse> CheckGrammarAsync(string content)        {
             if (string.IsNullOrWhiteSpace(content)) return new GrammarCheckResponse();
 

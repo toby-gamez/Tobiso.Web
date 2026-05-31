@@ -59,6 +59,16 @@
     <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
 </EditForm>
 
+<QuestionsManager PostId="0"
+                  ContentOverride="@request.Content"
+                  OnQuestionGenerated="HandleQuestionGenerated" />
+@if (pendingQuestions.Any())
+{
+    <div class="alert alert-info mt-2">
+        @pendingQuestions.Count otázka(y) čekají na uložení článku.
+    </div>
+}
+
 @code {
     private CreatePostRequest request = new();
     private List<CategoryResponse> categories = new();
@@ -67,6 +77,9 @@
     private Tobiso.Web.App.Admin.Components.MarkdownEditor? markdownEditor;
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
+    private List<CreateQuestionRequest> pendingQuestions = new();
+
+    private void HandleQuestionGenerated(CreateQuestionRequest q) => pendingQuestions.Add(q);
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,6 +147,13 @@
         {
             var created = await Api.CreatePost(request);
             errorMessage = null;
+
+            foreach (var q in pendingQuestions)
+            {
+                q.PostId = created.Id;
+                await Api.CreateQuestion(q);
+            }
+
             Navigation.NavigateTo($"/posts/edit/{created.Id}");
         }
         catch (Exception ex)

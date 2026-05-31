@@ -1,5 +1,7 @@
 @using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Api.Services
+@inject ITobisoWebApi Api
 
 <div class="card mt-4">
     <div class="card-header">
@@ -12,14 +14,28 @@
         }
 
         <!-- Seznam existujících otázek -->
-        @if (questions.Any())
+        @if (PostId > 0 && questions.Any())
         {
             <h6>Existující otázky:</h6>
             @foreach (var question in questions)
             {
                 <div class="card mb-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>@question.QuestionText</span>
+                        <span>
+                            @question.QuestionText
+                            @{
+                                var correctCount = question.Answers.Count(a => a.Correct == 1);
+                                var totalCount = question.Answers.Count;
+                            }
+                            @if (totalCount == 1 && correctCount == 1)
+                            {
+                                <span class="badge bg-secondary ms-2">text</span>
+                            }
+                            else if (correctCount > 1)
+                            {
+                                <span class="badge bg-primary ms-2">multi</span>
+                            }
+                        </span>
                         <div>
                             <button class="btn btn-sm btn-primary me-2" @onclick="() => StartEditQuestion(question)">
                                 Editovat
@@ -121,6 +137,37 @@
             }
         }
 
+        <!-- AI generování otázky -->
+        <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small fw-semibold">AI: Vygenerovat</span>
+            <div class="btn-group">
+                @foreach (var n in new[] { 1, 3, 5, 10 })
+                {
+                    var count = n;
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            @onclick="() => GenerateAiQuestions(count)"
+                            disabled="@(isGenerating || (PostId == 0 && string.IsNullOrWhiteSpace(ContentOverride)))">
+                        @if (isGenerating && generatingCount == count)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        }
+                        else
+                        {
+                            @(count == 1 ? "1 otázku" : $"{count} otázky")
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(aiSuccessMessage))
+        {
+            <div class="alert alert-success py-1">@aiSuccessMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(aiErrorMessage))
+        {
+            <div class="alert alert-warning py-1">@aiErrorMessage</div>
+        }
+
         <!-- Formulář pro novou otázku -->
         <h6>Přidat novou otázku:</h6>
         <div class="mb-3">
@@ -186,6 +233,8 @@
 
 @code {
     [Parameter] public int PostId { get; set; }
+    [Parameter] public string? ContentOverride { get; set; }
+    [Parameter] public EventCallback<CreateQuestionRequest> OnQuestionGenerated { get; set; }
     [Inject] private IQuestionService QuestionService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -194,10 +243,17 @@
     private UpdateQuestionRequest editQuestion = new();
     private int? editingQuestionId = null;
     private string? errorMessage;
+    private bool isGenerating = false;
+    private int generatingCount = 0;
+    private string? aiErrorMessage;
+    private string? aiSuccessMessage;
+    // question texts generated/saved this session — passed to AI to avoid duplicates
+    private readonly HashSet<string> _sessionQuestionTexts = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadQuestions();
+        if (PostId > 0)
+            await LoadQuestions();
         ResetNewQuestion();
     }
 
@@ -252,6 +308,74 @@
         }
     }
 
+    private List<string> BuildExistingQuestionTexts() =>
+        questions.Select(q => q.QuestionText)
+            .Concat(_sessionQuestionTexts)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private async Task GenerateAiQuestions(int count)
+    {
+        isGenerating = true;
+        generatingCount = count;
+        aiErrorMessage = null;
+        aiSuccessMessage = null;
+        try
+        {
+            var req = new GenerateQuestionRequest
+            {
+                PostId = PostId,
+                Content = PostId == 0 ? ContentOverride : null,
+                Count = count,
+                ExistingQuestions = BuildExistingQuestionTexts()
+            };
+            var generated = await Api.GenerateQuestions(req);
+
+            if (count == 1 && generated.Count > 0)
+            {
+                // Pre-fill the form for review
+                var q = generated[0];
+                newQuestion.QuestionText = q.QuestionText;
+                newQuestion.Answers = q.Answers.Any() ? q.Answers : new List<CreateAnswerRequest> { new() };
+                newQuestion.Explanations = q.Explanations.Any() ? q.Explanations : new List<CreateExplanationRequest> { new() { Text = "" } };
+                newQuestion.PostId = PostId;
+            }
+            else
+            {
+                // Auto-save all generated questions
+                var saved = 0;
+                foreach (var q in generated)
+                {
+                    q.PostId = PostId;
+                    if (PostId == 0)
+                    {
+                        if (OnQuestionGenerated.HasDelegate)
+                            await OnQuestionGenerated.InvokeAsync(q);
+                    }
+                    else
+                    {
+                        await QuestionService.Create(q);
+                    }
+                    _sessionQuestionTexts.Add(q.QuestionText);
+                    saved++;
+                }
+                if (PostId > 0)
+                    await LoadQuestions();
+                aiSuccessMessage = $"Vygenerováno a uloženo {saved} otázek.";
+            }
+        }
+        catch (Exception ex)
+        {
+            aiErrorMessage = $"Chyba při generování otázek: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+            generatingCount = 0;
+        }
+    }
+
     private async Task SaveQuestion()
     {
         try
@@ -269,6 +393,17 @@
             if (!newQuestion.Answers.Any())
             {
                 errorMessage = "Otázka musí mít alespoň jednu odpověď.";
+                return;
+            }
+
+            _sessionQuestionTexts.Add(newQuestion.QuestionText);
+
+            if (PostId == 0)
+            {
+                if (OnQuestionGenerated.HasDelegate)
+                    await OnQuestionGenerated.InvokeAsync(newQuestion);
+                ResetNewQuestion();
+                errorMessage = null;
                 return;
             }
 
