@@ -111,10 +111,15 @@ h5 {
 .card-body *,
 .wiki-toc-title,
 h5.modal-event-title,
+.question-title,
 .calendar-container *,
 .ai-box h3,
 .latest-selected-div * {
     font-family: var(--font-family-sans) !important;
+}
+
+.answer-option i {
+    padding-right: 5px;
 }
 
 .wiki-toc-title {
@@ -126,7 +131,8 @@ h5.modal-event-title,
 .wiki-toc-item,
 .event-details p,
 .modal-body small,
-.latest-selected-div {
+.latest-selected-div,
+.answer-option {
     font-family: var(--font-family-serif) !important;
 }
 

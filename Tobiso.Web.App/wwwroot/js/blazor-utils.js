@@ -419,12 +419,30 @@ async function loadSearchIndex() {
     });
 
     // Transformace dat pro vyhledávání
-    pages = data.map(post => ({
-      url: `/post/${post.id}`,
-      title: post.title,
-      content: post.content,
-      categoryName: post.categoryId != null ? (categoryMap[post.categoryId]?.name ?? "") : ""
-    }));
+    pages = data.map(post => {
+      const cat = post.categoryId != null ? categoryMap[post.categoryId] : null;
+      // Build root category: walk up to the topmost ancestor
+      function getRootCategory(c) {
+        if (!c) return null;
+        let current = c;
+        let depth = 0;
+        while (current.parentId != null && depth < 10) {
+          current = categoryMap[current.parentId];
+          if (!current) break;
+          depth++;
+        }
+        return current;
+      }
+      const rootCat = getRootCategory(cat);
+      return {
+        url: `/post/${post.id}`,
+        title: post.title,
+        content: post.versions?.map(v => v.content).filter(Boolean).join(' ') ?? '',
+        categoryName: cat?.name ?? "",
+        categoryFullPath: cat ? buildCategoryPath(cat) : "",
+        topCategoryName: rootCat?.name ?? ""
+      };
+    });
 
     console.log(`[blazor-utils] Loaded ${pages.length} pages and ${categories.length} categories for search - v3 SUCCESS`);
   } catch (error) {
@@ -659,7 +677,9 @@ function searchPages(query) {
         highlightedTerm: highlightedTerm,
         foundInTitle: foundInTitle,
         foundInContent: foundInContent,
-        categoryName: page.categoryName
+        categoryName: page.categoryName,
+        categoryFullPath: page.categoryFullPath,
+        topCategoryName: page.topCategoryName
       });
     }
   });
@@ -700,8 +720,9 @@ function displaySearchResults(categoryResults, pageResults) {
       snippetText = "Bez náhledu obsahu";
     }
 
-    const categoryBadge = result.categoryName
-      ? `<span class="search-category">${escapeHtml(result.categoryName)}</span>`
+    const categoryLabel = result.categoryFullPath || result.categoryName;
+    const categoryBadge = categoryLabel
+      ? `<span class="search-category">${escapeHtml(categoryLabel)}</span>`
       : "";
     const typeBadge = result.isCategory
       ? `<span class="search-category search-category--type"><i class="bi bi-folder"></i> Kategorie</span>`
@@ -875,24 +896,45 @@ function findAndHighlightTerm(content, query) {
   if (!content) return "";
 
   const normalizedQuery = normalizeText(query);
-  const terms = content.split(",").map((term) => term.trim());
+  const normalizedContent = normalizeText(content);
+  const matchIndex = normalizedContent.indexOf(normalizedQuery);
+  if (matchIndex === -1) return "";
 
-  for (let term of terms) {
-    if (normalizeText(term).includes(normalizedQuery)) {
-      const normalizedTerm = normalizeText(term);
-      const queryIndex = normalizedTerm.indexOf(normalizedQuery);
+  // Extract the raw line containing the match
+  const lineStart = content.lastIndexOf('\n', matchIndex - 1) + 1;
+  const lineEndRaw = content.indexOf('\n', matchIndex);
+  const lineEnd = lineEndRaw === -1 ? content.length : lineEndRaw;
+  const rawLine = content.slice(lineStart, lineEnd).trim();
 
-      if (queryIndex !== -1) {
-        const prefix = term.substring(0, queryIndex);
-        const match = term.substring(queryIndex, queryIndex + query.length);
-        const suffix = term.substring(queryIndex + query.length);
+  // Strip markdown formatting — show plain text only
+  const line = stripMarkdown(rawLine);
+  if (!line) return "";
 
-        return prefix + "<strong>" + match + "</strong>" + suffix;
-      }
-      return term;
-    }
+  // Find match position within the stripped line
+  const normalizedLine = normalizeText(line);
+  const hi = normalizedLine.indexOf(normalizedQuery);
+
+  if (hi === -1) {
+    // Match was inside markdown syntax that got stripped; show start of line
+    const excerpt = line.length > 120 ? line.slice(0, 120) + "…" : line;
+    return escapeHtml(excerpt);
   }
-  return "";
+
+  // Clamp to ±60 chars centered on the match
+  const pad = 60;
+  const start = Math.max(0, hi - pad);
+  const end = Math.min(line.length, hi + query.length + pad);
+  const excerpt = (start > 0 ? "…" : "") + line.slice(start, end) + (end < line.length ? "…" : "");
+
+  // Re-find the match in the excerpt and highlight it
+  const normalizedExcerpt = normalizeText(excerpt);
+  const hiEx = normalizedExcerpt.indexOf(normalizedQuery);
+  if (hiEx === -1) return escapeHtml(excerpt);
+
+  const before = escapeHtml(excerpt.slice(0, hiEx));
+  const match = escapeHtml(excerpt.slice(hiEx, hiEx + query.length));
+  const after = escapeHtml(excerpt.slice(hiEx + query.length));
+  return before + "<strong>" + match + "</strong>" + after;
 }
 
 function toggleScrollLock(lock) {
@@ -1115,20 +1157,38 @@ function closeLightbox() {
   }
 }
 
-// Strip markdown syntax to plain text for lightbox labels
+// Strip markdown syntax to plain text
 function stripMarkdown(text) {
   if (!text) return '';
   return text
-    // [label](url) → label
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    // ![alt](url) → alt
+    // Setext / ATX headings: remove leading # chars and trailing #
+    .replace(/^#{1,6}\s+/, '').replace(/\s+#+$/, '')
+    // Blockquote markers
+    .replace(/^>\s?/, '')
+    // Unordered list markers
+    .replace(/^[-*+]\s+/, '')
+    // Ordered list markers
+    .replace(/^\d+\.\s+/, '')
+    // Horizontal rules (whole line)
+    .replace(/^[-*_]{3,}$/, '')
+    // Fenced code block markers
+    .replace(/^`{3,}.*$/, '')
+    // Images before links so the outer [] isn't consumed by link rule
     .replace(/!\[([^\]]*?)\]\([^)]*\)/g, '$1')
-    // **bold** or __bold__
-    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')
-    // `code`
+    // Links
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    // Bold+italic ***text***
+    .replace(/\*{3}([^*]+)\*{3}/g, '$1')
+    // Bold **text** or __text__
+    .replace(/\*{2}([^*]+)\*{2}/g, '$1')
+    .replace(/_{2}([^_]+)_{2}/g, '$1')
+    // Italic *text* or _text_
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Strikethrough ~~text~~
+    .replace(/~~([^~]+)~~/g, '$1')
+    // Inline code
     .replace(/`([^`]+)`/g, '$1')
-    // leading markup like Zdroj: Autor:
     .trim();
 }
 
