@@ -1,5 +1,11 @@
 @page "/"
+@using Tobiso.Web.App.Services
 @inject NavigationManager NavigationManager
+@inject Tobiso.Web.Shared.Interfaces.ITobisoAnonymApi AnonymApi
+@inject IPreferenceService PreferenceService
+
+
+
 <PageTitle>Hlavní stránka - Tobiso</PageTitle>
 <link rel="stylesheet" href="css/index-style.css" />
 <style>
@@ -110,6 +116,23 @@
             <div class="hero-buttons">
                 <button @onclick="Learn"><i class="bi bi-book"></i> Chci se učit!</button>
                 <button class="secondary" id="openSearch"><i class="bi bi-search"></i> Hledat</button>
+                <div class="grade-picker" style="max-width: 203px; max-height: 45px">
+                    <label>Ročník:</label>
+                    @if (grades == null)
+                    {
+                        <span>načítám...</span>
+                    }
+                    else
+                    {
+                        <select @onchange="OnGradeChanged">
+                            <option value="">--Vše--</option>
+                            @foreach (var g in grades)
+                            {
+                                <option value="@g.Id" selected="@(g.Id == selectedGradeId)">@g.Name</option>
+                            }
+                        </select>
+                    }
+                </div>
             </div>
         </div>
         <div class="hero-item">
@@ -214,4 +237,37 @@
     private void Fyzika() => NavigationManager.NavigateTo("categories/8");
     private void Chemie() => NavigationManager.NavigateTo("categories/7");
     private void Zemepis() => NavigationManager.NavigateTo("categories/10");
+    
+    private List<Tobiso.Web.Shared.DTOs.GradeResponse>? grades;
+    private int? selectedGradeId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            grades = (await AnonymApi.GetGrades()).ToList();
+            selectedGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+    
+    private async Task OnGradeChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (int.TryParse(val, out var id))
+        {
+            selectedGradeId = id;
+            await PreferenceService.SetPreferredGradeIdAsync(id);
+        }
+        else
+        {
+            selectedGradeId = null;
+            await PreferenceService.RemovePreferenceAsync("preferredGradeId");
+        }
+        // reload page to apply filter
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: false);
+    }
 }

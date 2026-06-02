@@ -25,6 +25,12 @@
     gap: 80px;
 }
 
+.hero-buttons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
 .hero-item {
     flex-direction: row;
 }
