@@ -90,10 +90,85 @@
     .ribbon-6 {
         display: none;
     }
-    .version-picker {
+    .version-badge-wrap {
         display: inline-flex;
         align-items: center;
+        gap: 4px;
         margin-bottom: 0.75rem;
+        position: relative;
+    }
+    .version-badge-wrap .grade-badge {
+        margin-bottom: 0;
+    }
+    .version-switch-btn {
+        background: none;
+        box-shadow: none;
+        border: none;
+        padding: 2px 7px;
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.2;
+        color: var(--color-text);
+        border-radius: 999px;
+        transition: all 0.2s ease;
+    }
+    .version-switch-btn:hover {
+        background: var(--color-accent);
+        transform: none;
+    }
+    .version-picker-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 200;
+        background: var(--color-accent-5);
+        border-radius: 10px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 130px;
+        box-shadow: 2px 2px 10px var(--shadow-sm);
+        font-family: var(--font-family-sans);
+    }
+    body.dark-mode .version-picker-dropdown {
+        background: var(--color-accent-4-dark);
+    }
+    .version-option {
+        text-align: left;
+        padding: 6px 12px;
+        margin: 0;
+        font-size: 14px;
+        font-family: var(--font-family-sans);
+        border-radius: 8px;
+        background: none;
+        box-shadow: none;
+        border: 2px solid transparent;
+        color: var(--color-text);
+        white-space: nowrap;
+        transition: all 0.2s ease;
+    }
+    .version-option:hover {
+        border-color: var(--color-text);
+        background: none;
+        transform: none;
+    }
+    .version-option.active {
+        font-weight: 700;
+        background: var(--color-accent);
+        color: var(--color-button-text);
+        border-color: transparent;
+    }
+    body.dark-mode .version-option {
+        color: var(--color-text-dark);
+    }
+    body.dark-mode .version-option:hover {
+        border-color: var(--color-text-dark);
+        background: none;
+    }
+    body.dark-mode .version-option.active {
+        background: var(--color-accent-dark);
+        color: var(--color-text-dark);
     }
     .addendum-btn {
         margin: 0 4px;
@@ -174,21 +249,29 @@ body.dark-mode .grade-badge {
 else
 {
     <h1 class="verybig">@_post.Title</h1>
-    @if (_post?.Versions?.Count > 1)
+    @if (ActiveVersion != null)
     {
-        <div class="grade-picker version-picker">
-            <label>Verze:</label>
-            <select @onchange="OnVersionGradeChanged">
-                @foreach (var v in _post.Versions)
+        <span class="version-badge-wrap">
+            <span class="grade-badge">@(ActiveVersion.GradeName ?? $"Ročník {ActiveVersion.GradeLevel}")</span>
+            @if (_allVersions?.Count > 1)
+            {
+                <button class="version-switch-btn" @onclick="ToggleVersionPicker" aria-label="Přepnout verzi">
+                    <i class="bi bi-chevron-@(_showVersionPicker ? "up" : "down")"></i>
+                </button>
+                @if (_showVersionPicker)
                 {
-                    <option value="@v.GradeId" selected="@(v.GradeId == ActiveVersion?.GradeId)">@(v.GradeName ?? $"Ročník {v.GradeLevel}")</option>
+                    <div class="version-picker-dropdown">
+                        @foreach (var v in _allVersions)
+                        {
+                            <button class="version-option @(v.GradeId == ActiveVersion?.GradeId ? "active" : "")"
+                                    @onclick="() => SelectVersion(v.GradeId)">
+                                @(v.GradeName ?? $"Ročník {v.GradeLevel}")
+                            </button>
+                        }
+                    </div>
                 }
-            </select>
-        </div>
-    }
-    else if (ActiveVersion != null)
-    {
-        <span class="grade-badge">@(ActiveVersion.GradeName ?? $"Ročník {ActiveVersion.GradeLevel}")</span>
+            }
+        </span>
     }
 
     @if (_breadcrumbCategories != null && _breadcrumbCategories.Any())
@@ -555,9 +638,10 @@ else
     public string? Slug { get; set; }
     private PostResponse? _post;
     private int? _selectedVersionGradeId = null;
+    private List<PostVersionResponse>? _allVersions;
     private PostVersionResponse? ActiveVersion =>
         _selectedVersionGradeId.HasValue
-            ? (_post?.Versions?.FirstOrDefault(v => v.GradeId == _selectedVersionGradeId) ?? _post?.Versions?.FirstOrDefault())
+            ? (_allVersions?.FirstOrDefault(v => v.GradeId == _selectedVersionGradeId) ?? _post?.Versions?.FirstOrDefault())
             : _post?.Versions?.FirstOrDefault();
     private List<PostSummaryResponse>? _allPosts;
     private List<PersonSummaryResponse>? _allPeople;
@@ -601,13 +685,17 @@ else
             var matched = _allPosts.FirstOrDefault(p =>
                 SlugFromFilePath(p.FilePath).Equals(Slug, StringComparison.OrdinalIgnoreCase));
             if (matched != null)
+            {
                 _post = await Api.GetPostById(matched.Id, preferredGrade);
+                await LoadAllVersions(matched.Id);
+            }
         }
         else
         {
             // Route: /post/{id:int}
             _post = await Api.GetPostById(Id, preferredGrade);
             _allPosts = (await Api.GetPostSummaries()).ToList();
+            await LoadAllVersions(Id);
         }
 
         // Check AI availability (runs against App's /api/ai/diag endpoint)
@@ -662,13 +750,19 @@ else
             var matched = _allPosts.FirstOrDefault(p =>
                 SlugFromFilePath(p.FilePath).Equals(Slug, StringComparison.OrdinalIgnoreCase));
             if (matched != null)
+            {
                 _post = await Api.GetPostById(matched.Id, preferredGrade2);
+                _selectedVersionGradeId = null;
+                await LoadAllVersions(matched.Id);
+            }
         }
         else
         {
             // Route: /post/{id:int}
             _post = await Api.GetPostById(Id, preferredGrade2);
             _allPosts = (await Api.GetPostSummaries()).ToList();
+            _selectedVersionGradeId = null;
+            await LoadAllVersions(Id);
         }
         await LoadBreadcrumb();
         SetFileSuffix();
@@ -867,10 +961,28 @@ else
         if (_jsModule != null) _ = _jsModule.DisposeAsync().AsTask();
     }
 
-    private void OnVersionGradeChanged(ChangeEventArgs e)
+    private async Task LoadAllVersions(int postId)
     {
-        if (int.TryParse(e.Value?.ToString(), out var gradeId))
-            _selectedVersionGradeId = gradeId;
+        try
+        {
+            var all = await Api.GetPostById(postId);
+            _allVersions = all?.Versions;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load all versions for post {PostId}", postId);
+            _allVersions = _post?.Versions;
+        }
+    }
+
+    private bool _showVersionPicker = false;
+
+    private void ToggleVersionPicker() => _showVersionPicker = !_showVersionPicker;
+
+    private void SelectVersion(int gradeId)
+    {
+        _selectedVersionGradeId = gradeId;
+        _showVersionPicker = false;
     }
 
     // --- Reading preferences handlers ---
