@@ -254,6 +254,92 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        [HttpPost("practice-problems")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GeneratePracticeProblems([FromBody] PracticeProblemRequest request)
+        {
+            if (request == null || request.PostId <= 0)
+                return BadRequest("Missing postId");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.GeneratePracticeProblemsAsync(request.PostId, request.Count);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Practice problem generation failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("rewrite-grade")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RewriteForGrade([FromBody] RewriteGradeRequest request)
+        {
+            if (request == null || request.PostId <= 0)
+                return BadRequest("Missing postId");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.RewriteForGradeAsync(request.PostId, request.TargetGrade);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Grade rewrite failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("real-world/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRealWorldApplications(int postId)
+        {
+            if (postId <= 0) return BadRequest("Invalid postId");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.GetRealWorldApplicationsAsync(postId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Real-world applications failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("suggest-related/{postId:int}")]
+        [Authorize]
+        public async Task<IActionResult> SuggestRelatedPosts(int postId)
+        {
+            if (postId <= 0) return BadRequest("Invalid postId");
+
+            try
+            {
+                var result = await _aiService.SuggestRelatedPostsAsync(postId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Suggest related failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
         private string GetRateKey()
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -427,6 +513,51 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Person generation failed for {Name}", name);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("what-if/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetWhatIfScenario(int postId)
+        {
+            if (postId <= 0) return BadRequest("Invalid postId");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.GetWhatIfScenarioAsync(postId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "What-if scenario failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("evaluate-comprehension")]
+        [AllowAnonymous]
+        public async Task<IActionResult> EvaluateComprehension([FromBody] EvaluateComprehensionRequest request)
+        {
+            if (request == null || request.PostId <= 0) return BadRequest("Invalid request");
+            if (string.IsNullOrWhiteSpace(request.StudentExplanation)) return BadRequest("Explanation is required");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.EvaluateComprehensionAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Comprehension evaluation failed for PostId={PostId}", request.PostId);
                 return StatusCode(502, new { message = ex.Message });
             }
         }

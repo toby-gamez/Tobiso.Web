@@ -4,30 +4,30 @@
 
 @if (Visible)
 {
-    <div class="fc-backdrop" @onclick="Close">
-        <div class="fc-modal" @onclick:stopPropagation>
-            <div class="fc-header">
-                <span class="fc-title"><i class="bi bi-card-text"></i> Kartičky</span>
-                <button class="fc-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card fc-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-card-text"></i> Kartičky</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
             </div>
 
             @if (_loading)
             {
-                <div class="fc-body fc-center">
+                <div class="tobiso-modal-body tobiso-modal-center">
                     <div class="loading-circle"></div>
                     <p class="fc-hint">Generuji kartičky…</p>
                 </div>
             }
             else if (_error != null)
             {
-                <div class="fc-body fc-center">
+                <div class="tobiso-modal-body tobiso-modal-center">
                     <p class="fc-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
                     <button @onclick="Load">Zkusit znovu</button>
                 </div>
             }
             else if (!_cards.Any())
             {
-                <div class="fc-body fc-center">
+                <div class="tobiso-modal-body tobiso-modal-center">
                     <p>Kartičky nebyly vygenerovány.</p>
                     <button @onclick="Load">Zkusit znovu</button>
                 </div>
@@ -37,7 +37,7 @@
                 var activeCards = _cards.Where((_, i) => !_known.Contains(i)).ToList();
                 var globalIndex = _cards.IndexOf(activeCards.ElementAtOrDefault(_deckIndex) ?? _cards[0]);
 
-                <div class="fc-body">
+                <div class="tobiso-modal-body">
                     <div class="fc-progress-bar">
                         @for (int i = 0; i < _cards.Count; i++)
                         {
@@ -105,83 +105,7 @@
 }
 
 <style>
-.fc-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.45);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-}
-
-.fc-modal {
-    background: var(--color-bg);
-    border-radius: 20px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
-    width: 100%;
-    max-width: 480px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-family-sans);
-}
-
-body.dark-mode .fc-modal {
-    background: var(--color-bg-dark);
-}
-
-.fc-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--color-accent-2);
-}
-
-body.dark-mode .fc-header {
-    border-bottom-color: var(--color-accent-2-dark);
-}
-
-.fc-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--color-text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-body.dark-mode .fc-title { color: var(--color-text-dark); }
-
-.fc-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    line-height: 1;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    padding: 0 4px;
-    box-shadow: none;
-    transition: color 0.15s;
-}
-
-.fc-close:hover { color: var(--color-accent); }
-
-.fc-body {
-    padding: 20px 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 300px;
-}
-
-.fc-center {
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
+.fc-modal { max-width: 480px; }
 
 .fc-error {
     color: var(--color-danger, #c0392b);

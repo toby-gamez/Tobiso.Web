@@ -1,0 +1,295 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card pp-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-pencil-square"></i> Procvičovací úlohy</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <p class="pp-hint">Generuji úlohy…</p>
+                </div>
+            }
+            else if (_error != null)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="pp-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else if (!_problems.Any())
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p>Úlohy nebyly vygenerovány.</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else
+            {
+                <div class="tobiso-modal-body">
+                    <div class="pp-count-row">
+                        <span class="pp-count">@_problems.Count úloh &middot; <span class="pp-solved-count">@_revealed.Count odhaleno</span></span>
+                        <button class="pp-regenerate" @onclick="Load" title="Vygenerovat nové úlohy"><i class="bi bi-arrow-clockwise"></i></button>
+                    </div>
+
+                    @for (int i = 0; i < _problems.Count; i++)
+                    {
+                        var idx = i;
+                        var problem = _problems[i];
+                        var diffClass = problem.Difficulty?.ToLower() switch
+                        {
+                            "lehká" or "easy" => "diff-easy",
+                            "těžká" or "hard" => "diff-hard",
+                            _ => "diff-medium"
+                        };
+                        var diffLabel = problem.Difficulty switch
+                        {
+                            { } d when d.Length > 0 => d,
+                            _ => "střední"
+                        };
+
+                        <div class="pp-problem-card">
+                            <div class="pp-problem-header">
+                                <span class="pp-index">@(idx + 1).</span>
+                                <span class="pp-difficulty @diffClass">@diffLabel</span>
+                            </div>
+                            <div class="pp-problem-text">@problem.ProblemText</div>
+
+                            @if (_revealed.Contains(idx))
+                            {
+                                <div class="pp-solution">
+                                    <div class="pp-solution-label"><i class="bi bi-lightbulb-fill"></i> Řešení</div>
+                                    <div class="pp-solution-text">@problem.Solution</div>
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="pp-reveal-btn" @onclick="() => Reveal(idx)">
+                                    <i class="bi bi-eye"></i> Zobrazit řešení
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+.pp-modal { max-width: 600px; }
+
+.pp-error { color: var(--color-danger, #c0392b); font-size: 0.9rem; }
+.pp-hint { font-size: 0.82rem; color: var(--color-text-muted); }
+body.dark-mode .pp-hint { color: var(--color-text-muted-dark); }
+
+.pp-count-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pp-count {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+body.dark-mode .pp-count { color: var(--color-text-muted-dark); }
+
+.pp-solved-count { color: var(--color-accent); font-weight: 600; }
+
+.pp-regenerate {
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 4px;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+.pp-regenerate:hover { opacity: 1; color: var(--color-accent); }
+
+.pp-problem-card {
+    border: 2px solid var(--color-accent-2);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--color-accent-5, #f7f0f4);
+}
+
+body.dark-mode .pp-problem-card {
+    border-color: var(--color-accent-2-dark);
+    background: var(--color-accent-4-dark, #1e1420);
+}
+
+.pp-problem-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pp-index {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-accent);
+}
+
+.pp-difficulty {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 9px;
+    border-radius: 20px;
+}
+
+.diff-easy { background: #d4edda; color: #1a6130; }
+.diff-medium { background: #fff3cd; color: #856404; }
+.diff-hard { background: #f8d7da; color: #842029; }
+
+body.dark-mode .diff-easy { background: #1a3d26; color: #7edda3; }
+body.dark-mode .diff-medium { background: #3d3000; color: #f5d778; }
+body.dark-mode .diff-hard { background: #3d0f12; color: #f09ea4; }
+
+.pp-problem-text {
+    font-size: 0.95rem;
+    color: var(--color-text);
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+body.dark-mode .pp-problem-text { color: var(--color-text-dark); }
+
+.pp-reveal-btn {
+    align-self: flex-start;
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 2px solid var(--color-accent-2);
+    background: transparent;
+    color: var(--color-accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    box-shadow: none;
+}
+
+.pp-reveal-btn:hover { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+body.dark-mode .pp-reveal-btn { border-color: var(--color-accent-2-dark); }
+
+.pp-solution {
+    background: rgba(255,255,255,0.55);
+    border-left: 3px solid var(--color-accent);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: ppSlideIn 0.25s ease;
+}
+
+body.dark-mode .pp-solution { background: rgba(0,0,0,0.25); }
+
+@@keyframes ppSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.pp-solution-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pp-solution-text {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    line-height: 1.65;
+    white-space: pre-wrap;
+}
+
+body.dark-mode .pp-solution-text { color: var(--color-text-dark); }
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public int Count { get; set; } = 3;
+
+    private List<PracticeProblem> _problems = new();
+    private HashSet<int> _revealed = new();
+    private bool _loading = false;
+    private string? _error;
+    private int _loadedPostId = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _problems.Count == 0 && !_loading && PostId > 0 && PostId != _loadedPostId)
+            await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        _problems = new();
+        _revealed = new();
+        StateHasChanged();
+
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/practice-problems");
+            var resp = await Http.PostAsJsonAsync(url, new PracticeProblemRequest { PostId = PostId, Count = Count });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<PracticeProblemResponse>();
+                _problems = data?.Problems ?? new();
+                _loadedPostId = PostId;
+            }
+            else if ((int)resp.StatusCode == 429)
+            {
+                _error = "Denní limit dotazů byl vyčerpán.";
+            }
+            else
+            {
+                _error = "Úlohy se nepodařilo vygenerovat. Zkuste to znovu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Reveal(int index) => _revealed.Add(index);
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

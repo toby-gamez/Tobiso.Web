@@ -736,6 +736,281 @@ namespace Tobiso.Web.App.Services
             return new FlashcardResponse();
         }
 
+        public async Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            count = Math.Clamp(count, 1, 10);
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new PracticeProblemResponse();
+
+            var systemPrompt =
+                $"Jsi tvůrce cvičných úloh pro výuku. Na základě obsahu článku vygeneruj PŘESNĚ {count} cvičných úloh. " +
+                "Pro každou úlohu urči obtížnost (lehká/střední/těžká) a napiš podrobné řešení krok za krokem. " +
+                "Úlohy musí být výpočetní nebo analytické – nevytvářej jen faktické otázky. " +
+                "Vrať POUZE platný JSON (bez markdown): {\"problems\":[{\"problemText\":\"...\",\"solution\":\"...\",\"difficulty\":\"lehká|střední|těžká\"}]}";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma: {title}\n\nObsah článku:\n{articleContext}" }
+            };
+
+            var payload = new { model, messages, max_tokens = count * 400 + 200, temperature = 0.5, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI practice-problems request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    var raw = contentEl.GetString() ?? "{}";
+                    using var innerDoc = JsonDocument.Parse(raw);
+                    var inner = innerDoc.RootElement;
+                    if (inner.TryGetProperty("problems", out var problemsEl) && problemsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        var problems = new List<PracticeProblem>();
+                        foreach (var p in problemsEl.EnumerateArray())
+                        {
+                            var problemText = p.TryGetProperty("problemText", out var pt) ? pt.GetString() ?? string.Empty : string.Empty;
+                            var solution = p.TryGetProperty("solution", out var sl) ? sl.GetString() ?? string.Empty : string.Empty;
+                            var difficulty = p.TryGetProperty("difficulty", out var df) ? df.GetString() ?? string.Empty : string.Empty;
+                            if (!string.IsNullOrWhiteSpace(problemText))
+                                problems.Add(new PracticeProblem { ProblemText = problemText, Solution = solution, Difficulty = difficulty });
+                        }
+                        return new PracticeProblemResponse { Problems = problems };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse practice-problems response for postId={PostId}", postId);
+                throw;
+            }
+
+            return new PracticeProblemResponse();
+        }
+
+        public async Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new RewriteGradeResponse();
+
+            var systemPrompt = $"Jsi pedagog. Přepiš následující vzdělávací text tak, aby byl srozumitelný pro žáka {targetGrade}. ročníku základní školy. " +
+                "Přizpůsob slovní zásobu, délku vět a hloubku vysvětlení věkové skupině. Zachovej klíčové informace a fakta. " +
+                "Odpovídej čistým textem v češtině, bez markdown formátování a bez úvodní věty jako 'Přepsaný text:'.";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma: {title}\n\n{articleContext}" }
+            };
+
+            var payload = new { model, messages, max_tokens = 1200, temperature = 0.4 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI rewrite-grade request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            using var respStream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(respStream);
+            var docRoot = doc.RootElement;
+            if (docRoot.TryGetProperty("choices", out var ch) && ch.GetArrayLength() > 0
+                && ch[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c))
+            {
+                return new RewriteGradeResponse { Content = c.GetString()?.Trim() ?? string.Empty };
+            }
+
+            return new RewriteGradeResponse();
+        }
+
+        public async Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new RealWorldResponse();
+
+            var systemPrompt = "Jsi vzdělávací poradce. Na základě obsahu článku vyjmenuj 3 konkrétní příklady reálného využití daného tématu v každodenním životě nebo v praxi. " +
+                "Každý příklad musí být stručný (max 2 věty), konkrétní a motivující pro žáky. " +
+                "Vrať POUZE platný JSON (bez markdown): {\"applications\":[\"...\",\"...\",\"...\"]}";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma: {title}\n\n{articleContext.Substring(0, Math.Min(articleContext.Length, 4000))}" }
+            };
+
+            var payload = new { model, messages, max_tokens = 400, temperature = 0.4, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI real-world request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    var raw = contentEl.GetString() ?? "{}";
+                    using var innerDoc = JsonDocument.Parse(raw);
+                    if (innerDoc.RootElement.TryGetProperty("applications", out var appsEl) && appsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        var apps = appsEl.EnumerateArray()
+                            .Select(a => a.GetString() ?? string.Empty)
+                            .Where(s => !string.IsNullOrWhiteSpace(s))
+                            .ToList();
+                        return new RealWorldResponse { Applications = apps };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse real-world response for postId={PostId}", postId);
+            }
+
+            return new RealWorldResponse();
+        }
+
+        public async Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            var allPosts = await _postService.GetAll();
+            var otherPosts = allPosts.Where(p => p.Id != postId).ToList();
+
+            if (!otherPosts.Any()) return new SuggestRelatedResponse();
+
+            var postList = string.Join("\n", otherPosts.Select(p => $"ID:{p.Id} – {p.Title}"));
+
+            var systemPrompt = "You are a content curator for a Czech educational platform. Given a source article and a list of articles, select the 5 IDs that are most conceptually related — by topic overlap, prerequisites, or complementary knowledge. Return ONLY valid JSON: {\"ids\":[1,2,3,4,5]}. Use integer IDs from the list.";
+            var userPrompt = $"Source article: \"{title}\"\n\nExcerpt:\n{articleContext.Substring(0, Math.Min(articleContext.Length, 2000))}\n\nAll articles:\n{postList}";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = userPrompt }
+            };
+
+            var payload = new { model, messages, max_tokens = 120, temperature = 0, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI suggest-related request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    var raw = contentEl.GetString() ?? "{}";
+                    using var innerDoc = JsonDocument.Parse(raw);
+                    if (innerDoc.RootElement.TryGetProperty("ids", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        var ids = idsEl.EnumerateArray()
+                            .Where(e => e.ValueKind == JsonValueKind.Number)
+                            .Select(e => e.GetInt32())
+                            .Where(id => otherPosts.Any(p => p.Id == id))
+                            .Take(5)
+                            .ToList();
+                        return new SuggestRelatedResponse { PostIds = ids };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse suggest-related response for postId={PostId}", postId);
+            }
+
+            return new SuggestRelatedResponse();
+        }
+
         public async Task<GrammarCheckResponse> CheckGrammarAsync(string content)        {
             if (string.IsNullOrWhiteSpace(content)) return new GrammarCheckResponse();
 
@@ -829,6 +1104,141 @@ namespace Tobiso.Web.App.Services
             }
 
             return new GrammarCheckResponse();
+        }
+
+        public async Task<WhatIfResponse> GetWhatIfScenarioAsync(int postId)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new WhatIfResponse { Scenario = "Článek nemá obsah.", Explanation = string.Empty };
+
+            var systemPrompt = "Jsi kreativní vědecký myslitel. Vygeneruj jeden fascinující myšlenkový experiment 'Co kdyby?' na základě tématu článku. " +
+                "Scénář musí být konkrétní, vědecky zajímavý a vhodný pro žáky základní školy. " +
+                "Vrať POUZE platný JSON (bez markdown): {\"scenario\":\"Co kdyby [konkrétní podmínka]?\",\"explanation\":\"[2-3 věty vysvětlení dopadů, fascinující a motivující]\"}";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma článku: {title}\n\n{articleContext.Substring(0, Math.Min(articleContext.Length, 3000))}" }
+            };
+
+            var payload = new { model, messages, max_tokens = 350, temperature = 0.85, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI what-if request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    var raw = contentEl.GetString() ?? "{}";
+                    using var innerDoc = JsonDocument.Parse(raw);
+                    var scenario = innerDoc.RootElement.TryGetProperty("scenario", out var sc) ? sc.GetString() ?? string.Empty : string.Empty;
+                    var explanation = innerDoc.RootElement.TryGetProperty("explanation", out var ex2) ? ex2.GetString() ?? string.Empty : string.Empty;
+                    return new WhatIfResponse { Scenario = scenario, Explanation = explanation };
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse what-if response for postId={PostId}", postId);
+            }
+
+            return new WhatIfResponse();
+        }
+
+        public async Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(request.PostId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new EvaluateComprehensionResponse { Feedback = "Nelze vyhodnotit – článek nemá obsah." };
+
+            var systemPrompt = "Jsi přátelský vzdělávací hodnotitel. Žák se pokusil vlastními slovy vysvětlit obsah článku (Feynmanova metoda). " +
+                "Zhodnoť jeho porozumění, ale buď povzbudivý a konstruktivní – žák teprve studuje. " +
+                "Vrať POUZE platný JSON (bez markdown): {\"score\":8,\"feedback\":\"[1-2 věty celkového hodnocení]\",\"strongPoints\":[\"...\",\"...\"],\"missingPoints\":[\"...\",\"...\"]}. " +
+                "score je celé číslo 0-10. strongPoints a missingPoints jsou max 3 položky každá.";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma článku: {title}\n\nObsah článku:\n{articleContext.Substring(0, Math.Min(articleContext.Length, 4000))}\n\nVysvětlení žáka:\n{request.StudentExplanation}" }
+            };
+
+            var payload = new { model, messages, max_tokens = 500, temperature = 0.3, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI comprehension evaluation failed for postId={PostId}", request.PostId);
+                throw;
+            }
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                    && choices[0].TryGetProperty("message", out var msg)
+                    && msg.TryGetProperty("content", out var contentEl))
+                {
+                    var raw = contentEl.GetString() ?? "{}";
+                    using var innerDoc = JsonDocument.Parse(raw);
+                    var score = innerDoc.RootElement.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
+                    var feedback = innerDoc.RootElement.TryGetProperty("feedback", out var fb) ? fb.GetString() ?? string.Empty : string.Empty;
+                    var strong = innerDoc.RootElement.TryGetProperty("strongPoints", out var sp) && sp.ValueKind == JsonValueKind.Array
+                        ? sp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
+                        : new List<string>();
+                    var missing = innerDoc.RootElement.TryGetProperty("missingPoints", out var mp) && mp.ValueKind == JsonValueKind.Array
+                        ? mp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
+                        : new List<string>();
+                    return new EvaluateComprehensionResponse { Score = score, Feedback = feedback, StrongPoints = strong, MissingPoints = missing };
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse comprehension response for postId={PostId}", request.PostId);
+            }
+
+            return new EvaluateComprehensionResponse();
         }
     }
 }

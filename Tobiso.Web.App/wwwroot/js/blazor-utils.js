@@ -1430,3 +1430,68 @@ export function hideSentenceTooltip() {
   if (_sentenceBtn) _sentenceBtn.style.display = 'none';
   _sentenceBtnTarget = null;
 }
+
+// --- Text-to-Speech (TTS) ---
+let __ttsUtterance = null;
+let __ttsDotNetRef = null;
+
+export function ttsGetContentText(contentId) {
+  try {
+    const el = document.getElementById(contentId || 'content');
+    if (!el) return '';
+    // Get text, but skip code blocks and math which sound terrible
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('code, pre, .katex, math, script, style').forEach(n => n.remove());
+    return (clone.innerText || clone.textContent || '').trim();
+  } catch (e) { return ''; }
+}
+
+export function ttsStart(text, dotNetRef) {
+  try {
+    if (!window.speechSynthesis) return false;
+    ttsStop();
+    __ttsDotNetRef = dotNetRef;
+    __ttsUtterance = new SpeechSynthesisUtterance(text);
+    __ttsUtterance.lang = 'cs-CZ';
+    __ttsUtterance.rate = 0.92;
+    __ttsUtterance.pitch = 1.0;
+
+    // Prefer Czech voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const czVoice = voices.find(v => v.lang && v.lang.startsWith('cs'));
+    if (czVoice) __ttsUtterance.voice = czVoice;
+
+    __ttsUtterance.onend = () => {
+      try { if (__ttsDotNetRef) __ttsDotNetRef.invokeMethodAsync('OnTtsEnded'); } catch (e) {}
+    };
+    __ttsUtterance.onerror = () => {
+      try { if (__ttsDotNetRef) __ttsDotNetRef.invokeMethodAsync('OnTtsEnded'); } catch (e) {}
+    };
+
+    window.speechSynthesis.speak(__ttsUtterance);
+    return true;
+  } catch (e) {
+    console && console.warn && console.warn('[blazor-utils] ttsStart failed', e);
+    return false;
+  }
+}
+
+export function ttsPause() {
+  try { if (window.speechSynthesis) window.speechSynthesis.pause(); } catch (e) {}
+}
+
+export function ttsResume() {
+  try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
+}
+
+export function ttsStop() {
+  try {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    __ttsUtterance = null;
+    __ttsDotNetRef = null;
+  } catch (e) {}
+}
+
+export function ttsIsSupported() {
+  return !!(window.speechSynthesis);
+}

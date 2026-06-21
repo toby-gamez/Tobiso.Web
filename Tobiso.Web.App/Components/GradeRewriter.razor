@@ -1,0 +1,184 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card gr-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-person-lines-fill"></i> Přepsat pro ročník</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+
+            <div class="gr-grade-row">
+                @foreach (var grade in new[] { 4, 5, 6, 7, 8, 9 })
+                {
+                    var g = grade;
+                    <button class="gr-grade-btn @(_selectedGrade == g ? "active" : "")" @onclick="() => SelectGrade(g)">
+                        @g. tř.
+                    </button>
+                }
+            </div>
+
+            @if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <p class="gr-hint">Přepisuji text pro @_selectedGrade. ročník…</p>
+                </div>
+            }
+            else if (_error != null)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="gr-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
+                    <button @onclick="() => Rewrite(_selectedGrade)">Zkusit znovu</button>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_content))
+            {
+                <div class="tobiso-modal-body">
+                    <div class="gr-grade-label">Verze pro @_loadedGrade. ročník</div>
+                    <div class="gr-content">@_content</div>
+                </div>
+            }
+            else
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="gr-placeholder"><i class="bi bi-arrow-up"></i> Vyber ročník a článek se přepíše.</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+.gr-modal { max-width: 640px; }
+
+.gr-grade-row {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-accent-2);
+    flex-wrap: wrap;
+}
+
+body.dark-mode .gr-grade-row { border-bottom-color: var(--color-accent-2-dark); }
+
+.gr-grade-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 2px solid var(--color-accent-2);
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: none;
+}
+
+body.dark-mode .gr-grade-btn {
+    border-color: var(--color-accent-2-dark);
+    color: var(--color-text-dark);
+}
+
+.gr-grade-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.gr-grade-btn.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+.gr-error { color: var(--color-danger, #c0392b); font-size: 0.9rem; }
+.gr-hint { font-size: 0.82rem; color: var(--color-text-muted); }
+body.dark-mode .gr-hint { color: var(--color-text-muted-dark); }
+
+.gr-placeholder {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+body.dark-mode .gr-placeholder { color: var(--color-text-muted-dark); }
+
+.gr-grade-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-accent);
+}
+
+.gr-content {
+    font-size: 0.96rem;
+    color: var(--color-text);
+    line-height: 1.72;
+    white-space: pre-wrap;
+}
+
+body.dark-mode .gr-content { color: var(--color-text-dark); }
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private int _selectedGrade = 0;
+    private int _loadedGrade = 0;
+    private string _content = string.Empty;
+    private bool _loading = false;
+    private string? _error;
+
+    private async Task SelectGrade(int grade)
+    {
+        if (_loading) return;
+        _selectedGrade = grade;
+        await Rewrite(grade);
+    }
+
+    private async Task Rewrite(int grade)
+    {
+        if (PostId <= 0) return;
+        _loading = true;
+        _error = null;
+        _content = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/rewrite-grade");
+            var resp = await Http.PostAsJsonAsync(url, new RewriteGradeRequest { PostId = PostId, TargetGrade = grade });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RewriteGradeResponse>();
+                _content = data?.Content ?? string.Empty;
+                _loadedGrade = grade;
+            }
+            else if ((int)resp.StatusCode == 429)
+            {
+                _error = "Denní limit dotazů byl vyčerpán.";
+            }
+            else
+            {
+                _error = "Text se nepodařilo přepsat. Zkuste to znovu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Close()
+    {
+        _content = string.Empty;
+        _selectedGrade = 0;
+        _error = null;
+        await OnClose.InvokeAsync();
+    }
+}

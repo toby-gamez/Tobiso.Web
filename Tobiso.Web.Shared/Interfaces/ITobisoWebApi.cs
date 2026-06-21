@@ -157,6 +157,10 @@ public interface ITobisoWebApi
     [Post("/api/ai/generate-question")]
     Task<List<CreateQuestionRequest>> GenerateQuestions([Body] GenerateQuestionRequest request);
 
+    // AI suggest related posts (admin)
+    [Get("/api/ai/suggest-related/{postId}")]
+    Task<SuggestRelatedResponse> SuggestRelatedPosts(int postId);
+
     // Questions
     [Post("/api/Questions")]
     Task<QuestionResponse> CreateQuestion([Body] CreateQuestionRequest request);

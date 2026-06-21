@@ -1,0 +1,288 @@
+@using Tobiso.Web.Shared.DTOs
+@using Microsoft.JSInterop
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<FeynmanMode> Logger
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="HandleBackdropClick">
+        <div class="tobiso-modal-card" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-lightbulb"></i> Zkus to vysvětlit</span>
+                <button class="tobiso-modal-close" @onclick="Close" aria-label="Zavřít">&times;</button>
+            </div>
+
+            @if (_result == null && !_loading)
+            {
+                <div class="tobiso-modal-body">
+                    <p class="feynman-hint">
+                        Představ si, že vysvětluješ toto téma kamarádovi, který o tom nic neví.
+                        Napiš, co víš vlastními slovy – bez opisování z článku.
+                    </p>
+                    <textarea class="feynman-textarea"
+                              @bind="_explanation"
+                              @bind:event="oninput"
+                              placeholder="Napiš své vysvětlení zde..."
+                              rows="7"
+                              disabled="@_loading"></textarea>
+                    <div class="feynman-footer">
+                        <span class="feynman-charcount @(_explanation.Length < 50 ? "feynman-charcount-warn" : "")">
+                            @_explanation.Length znaků @(_explanation.Length < 50 ? "(příliš krátké)" : "")
+                        </span>
+                        <button class="feynman-submit" @onclick="Submit" disabled="@(_loading || _explanation.Length < 50)">
+                            <i class="bi bi-send"></i> Vyhodnotit
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <span>AI hodnotí tvoje porozumění…</span>
+                </div>
+            }
+            else if (_result != null)
+            {
+                <div class="tobiso-modal-body feynman-result">
+                    <div class="feynman-score-row">
+                        <div class="feynman-score-circle @GetScoreClass(_result.Score)">
+                            @_result.Score<span style="font-size:0.55em">/10</span>
+                        </div>
+                        <p class="feynman-feedback">@_result.Feedback</p>
+                    </div>
+
+                    @if (_result.StrongPoints.Any())
+                    {
+                        <div class="feynman-section feynman-strong">
+                            <div class="feynman-section-title"><i class="bi bi-check-circle-fill"></i> Co jsi pochopil dobře</div>
+                            <ul>
+                                @foreach (var p in _result.StrongPoints)
+                                {
+                                    <li>@p</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (_result.MissingPoints.Any())
+                    {
+                        <div class="feynman-section feynman-missing">
+                            <div class="feynman-section-title"><i class="bi bi-arrow-right-circle-fill"></i> Co ještě procvičit</div>
+                            <ul>
+                                @foreach (var p in _result.MissingPoints)
+                                {
+                                    <li>@p</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    <button class="feynman-retry" @onclick="Reset">
+                        <i class="bi bi-arrow-counterclockwise"></i> Zkus znovu
+                    </button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="feynman-error">@_error</div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+    .feynman-hint {
+        font-size: 0.92rem;
+        opacity: 0.75;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .feynman-textarea {
+        width: 100%;
+        border: 2px solid var(--color-accent-2);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.97rem;
+        font-family: inherit;
+        resize: vertical;
+        background: var(--color-accent-5);
+        color: var(--color-text);
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+    .feynman-textarea:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+    body.dark-mode .feynman-textarea {
+        background: var(--color-accent-4-dark);
+        color: var(--color-text-dark);
+        border-color: var(--color-accent-3-dark);
+    }
+    .feynman-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .feynman-charcount {
+        font-size: 0.82rem;
+        opacity: 0.6;
+    }
+    .feynman-charcount-warn {
+        color: var(--color-danger);
+        opacity: 1;
+    }
+    .feynman-submit {
+        background: var(--color-accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.2rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: none;
+    }
+    .feynman-submit:hover:not(:disabled) { filter: brightness(1.1); transform: none; }
+    .feynman-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+    .feynman-result { gap: 1rem; }
+    .feynman-score-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .feynman-score-circle {
+        min-width: 64px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 800;
+        flex-shrink: 0;
+        color: white;
+    }
+    .score-great { background: var(--color-good); }
+    .score-ok { background: var(--color-warning, #f0a500); }
+    .score-low { background: var(--color-danger); }
+    .feynman-feedback {
+        font-size: 0.97rem;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .feynman-section {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+    }
+    .feynman-strong { background: color-mix(in srgb, var(--color-good) 12%, transparent); }
+    .feynman-missing { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+    .feynman-section-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .feynman-strong .feynman-section-title { color: var(--color-good); }
+    .feynman-missing .feynman-section-title { color: var(--color-accent-strong); }
+    .feynman-section ul {
+        margin: 0;
+        padding-left: 1.2rem;
+    }
+    .feynman-section li { font-size: 0.93rem; line-height: 1.5; }
+    .feynman-retry {
+        align-self: flex-start;
+        background: none;
+        border: 2px solid var(--color-accent-2);
+        border-radius: 8px;
+        padding: 0.4rem 1rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: none;
+        color: var(--color-text);
+    }
+    .feynman-retry:hover { border-color: var(--color-accent); background: none; transform: none; }
+    .feynman-error {
+        padding: 0.6rem 1.5rem 1rem;
+        color: var(--color-danger);
+        font-size: 0.9rem;
+    }
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _explanation = string.Empty;
+    private bool _loading = false;
+    private EvaluateComprehensionResponse? _result = null;
+    private string? _error = null;
+
+    private async Task Submit()
+    {
+        if (_explanation.Length < 50 || _loading) return;
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var req = new EvaluateComprehensionRequest { PostId = PostId, StudentExplanation = _explanation };
+            var resp = await Http.PostAsJsonAsync(new Uri(Navigation.BaseUri + "api/ai/evaluate-comprehension"), req);
+            if (resp.IsSuccessStatusCode)
+            {
+                _result = await resp.Content.ReadFromJsonAsync<EvaluateComprehensionResponse>();
+            }
+            else if ((int)resp.StatusCode == 429)
+            {
+                _error = "Denní limit AI byl vyčerpán. Zkus to zítra.";
+            }
+            else
+            {
+                _error = "Chyba při vyhodnocení. Zkus to prosím znovu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "EvaluateComprehension failed");
+            _error = "Nepodařilo se spojit se serverem.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        _result = null;
+        _explanation = string.Empty;
+        _error = null;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        Reset();
+        OnClose.InvokeAsync();
+    }
+
+    private void HandleBackdropClick() => Close();
+
+    private string GetScoreClass(int score) => score >= 7 ? "score-great" : score >= 4 ? "score-ok" : "score-low";
+}

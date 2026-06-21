@@ -15,5 +15,11 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<string> ExplainSentenceAsync(string sentence, string articleContext);
         Task<EvaluateAnswerResponse> EvaluateAnswerAsync(EvaluateAnswerRequest request);
         Task<FlashcardResponse> GenerateFlashcardsAsync(int postId);
+        Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count);
+        Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade);
+        Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
+        Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId);
+        Task<WhatIfResponse> GetWhatIfScenarioAsync(int postId);
+        Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
     }
 }

@@ -105,6 +105,83 @@ else
     </div>
 }
 
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-stars"></i>
+        <strong>AI návrhy souvisejících článků</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-auto">
+                <label class="form-label mb-1">Zdrojový článek</label>
+                <select class="form-select" @bind="_aiSourcePostId">
+                    <option value="0">— vyberte článek —</option>
+                    @foreach (var kv in postTitles.OrderBy(p => p.Value))
+                    {
+                        <option value="@kv.Key">@kv.Value</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-outline-primary" @onclick="SuggestRelated" disabled="@(_aiSourcePostId == 0 || _aiLoading)">
+                    @if (_aiLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        <span>Generuji…</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-magic me-1"></i>
+                        <span>Navrhnout</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_aiError))
+        {
+            <div class="alert alert-danger">@_aiError</div>
+        }
+
+        @if (_aiSuggestions.Count > 0)
+        {
+            <p class="text-muted small mb-2">AI navrhuje tyto články jako příbuzné k <strong>@(postTitles.TryGetValue(_aiSourcePostId, out var srcTitle) ? srcTitle : _aiSourcePostId.ToString())</strong>:</p>
+            <ul class="list-group mb-3">
+                @foreach (var postId in _aiSuggestions)
+                {
+                    var pid = postId;
+                    var pTitle = postTitles.TryGetValue(pid, out var t) ? t : $"ID: {pid}";
+                    var alreadyLinked = relatedPosts?.Any(r =>
+                        (r.PostId == _aiSourcePostId && r.RelatedPostId == pid) ||
+                        (r.PostId == pid && r.RelatedPostId == _aiSourcePostId)) == true;
+
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>@pTitle <small class="text-muted ms-1">(ID: @pid)</small></span>
+                        @if (alreadyLinked)
+                        {
+                            <span class="badge bg-secondary">Již propojeno</span>
+                        }
+                        else
+                        {
+                            <button class="btn btn-success btn-sm" @onclick="() => AddSuggestion(pid)" disabled="@_aiAdding.Contains(pid)">
+                                @if (_aiAdding.Contains(pid))
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-circle me-1"></i>
+                                }
+                                Přidat
+                            </button>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
 @code {
     private IList<RelatedPostResponse>? relatedPosts;
     private Dictionary<int, string> postTitles = new();
@@ -231,5 +308,63 @@ else
     private async Task LogErrorToConsole(string message, string? detail)
     {
         await JS.InvokeVoidAsync("console.error", $"{message}\n{detail}");
+    }
+
+    // AI suggest related posts
+    private int _aiSourcePostId = 0;
+    private bool _aiLoading = false;
+    private string? _aiError;
+    private List<int> _aiSuggestions = new();
+    private HashSet<int> _aiAdding = new();
+
+    private async Task SuggestRelated()
+    {
+        if (_aiSourcePostId == 0 || _aiLoading) return;
+        _aiLoading = true;
+        _aiError = null;
+        _aiSuggestions.Clear();
+        StateHasChanged();
+        try
+        {
+            var result = await Api.SuggestRelatedPosts(_aiSourcePostId);
+            _aiSuggestions = result.PostIds;
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            _aiError = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            _aiLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddSuggestion(int relatedPostId)
+    {
+        _aiAdding.Add(relatedPostId);
+        StateHasChanged();
+        try
+        {
+            await Api.CreateRelatedPost(new CreateRelatedPostRequest
+            {
+                PostId = _aiSourcePostId,
+                RelatedPostId = relatedPostId
+            });
+            await LoadRelatedPosts();
+        }
+        catch (Exception ex)
+        {
+            _aiError = $"Chyba při přidávání: {ex.Message}";
+        }
+        finally
+        {
+            _aiAdding.Remove(relatedPostId);
+            StateHasChanged();
+        }
     }
 }

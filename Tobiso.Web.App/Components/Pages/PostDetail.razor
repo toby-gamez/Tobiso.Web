@@ -337,20 +337,72 @@ else
                 <button class="btn btn-secondary mb-3 tool-btn" aria-label="Sdílet článek" @onclick="SharePost">
                     <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
                 </button>
-                <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
-                <button class="tool-btn" aria-label="Stáhnout tahák (PDF)" @onclick="OpenCheatSheetModal">
-                    <i class="bi bi-file-earmark-text"></i>
-                    <span class="tool-label">Tahák (PDF)</span>
-                </button>
-                <button class="tool-btn" aria-label="Kartičky" @onclick="() => _showFlashcards = true">
-                    <i class="bi bi-card-text"></i>
-                    <span class="tool-label">Kartičky</span>
-                </button>
+                @if (_ttsSpeaking && !_ttsPaused)
+                {
+                    <button class="tool-btn tool-btn-active" aria-label="Pozastavit čtení" @onclick="TtsPause">
+                        <i class="bi bi-pause-fill"></i><span class="tool-label">Pauza</span>
+                    </button>
+                    <button class="tool-btn" aria-label="Zastavit čtení" @onclick="TtsStop">
+                        <i class="bi bi-stop-fill"></i><span class="tool-label">Stop</span>
+                    </button>
+                }
+                else if (_ttsSpeaking && _ttsPaused)
+                {
+                    <button class="tool-btn tool-btn-active" aria-label="Pokračovat v čtení" @onclick="TtsResume">
+                        <i class="bi bi-play-fill"></i><span class="tool-label">Pokračovat</span>
+                    </button>
+                    <button class="tool-btn" aria-label="Zastavit čtení" @onclick="TtsStop">
+                        <i class="bi bi-stop-fill"></i><span class="tool-label">Stop</span>
+                    </button>
+                }
+                <div class="tools-dropdown-wrap">
+                    <button class="tool-btn @(_showToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleToolsDropdown">
+                        <i class="bi bi-three-dots"></i><span class="tool-label">Více</span>
+                    </button>
+                    @if (_showToolsDropdown)
+                    {
+                        <div class="tools-dropdown" @onclick:stopPropagation>
+                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showToolsDropdown = false; }">
+                                <i class="bi bi-printer"></i> Vytisknout (PDF)
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showToolsDropdown = false; }">
+                                <i class="bi bi-file-earmark-text"></i> Tahák (PDF)
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-card-text"></i> Kartičky
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-pencil-square"></i> Procvičovací úlohy
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
+                            </button>
+                            <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item @(_loadingRealWorld ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadRealWorldApplications(); _showToolsDropdown = false; }" disabled="@_loadingRealWorld">
+                                <i class="bi bi-globe2"></i> Reálné využití
+                            </button>
+                            <button class="tools-dropdown-item @(_loadingWhatIf ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadWhatIf(); _showToolsDropdown = false; }" disabled="@_loadingWhatIf">
+                                <i class="bi bi-stars"></i> Co kdyby?
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-pencil"></i> Zkus to vysvětlit
+                            </button>
+                            <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
+                                <i class="bi bi-volume-up"></i> Poslech
+                            </button>
+                        </div>
+                    }
+                </div>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
         </div>
     </div>
+    @if (_showToolsDropdown)
+    {
+        <div class="tools-dropdown-backdrop" @onclick="() => _showToolsDropdown = false"></div>
+    }
     @if (_showReadingPanel)
     {
         <div class="reading-panel" role="region" aria-label="Nastavení čtení">
@@ -405,33 +457,81 @@ else
             }
         </div>
         <div class="tool">
-            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
-            @if (_hasQuestions)
-            {
-                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-file-check"></i><span class="tool-label">Prověrka</span></button>
-            }
-            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
-                <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
-            </button>
-            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i><span class="tool-label">Nastavení čtení</span></button>
-            @if (_exercises != null && _exercises.Any())
-            {
-                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
-                    <i class="bi bi-puzzle"></i><span class="tool-label">Interaktivní cvičení</span>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
+                @if (_hasQuestions)
+                {
+                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-file-check"></i><span class="tool-label">Prověrka</span></button>
+                }
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
+                    <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
                 </button>
-            }
-            <button class="btn btn-secondary mb-3 tool-btn" aria-label="Sdílet článek" @onclick="SharePost">
-                <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
-            </button>
-            <button class="tool-btn" aria-label="Vytisknout článek (PDF)" @onclick="GeneratePdf"><i class="bi bi-printer"></i><span class="tool-label">Vytisknout (PDF)</span></button>
-            <button class="tool-btn" aria-label="Stáhnout tahák (PDF)" @onclick="OpenCheatSheetModal">
-                <i class="bi bi-file-earmark-text"></i>
-                <span class="tool-label">Tahák (PDF)</span>
-            </button>
-            <button class="tool-btn" aria-label="Kartičky" @onclick="() => _showFlashcards = true">
-                <i class="bi bi-card-text"></i>
-                <span class="tool-label">Kartičky</span>
-            </button>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Nastavení čtení" @onclick="ToggleReadingPanel"><i class="bi bi-type"></i><span class="tool-label">Nastavení čtení</span></button>
+                @if (_exercises != null && _exercises.Any())
+                {
+                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Interaktivní cvičení" @onclick="ScrollToExercises">
+                        <i class="bi bi-puzzle"></i><span class="tool-label">Interaktivní cvičení</span>
+                    </button>
+                }
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Sdílet článek" @onclick="SharePost">
+                    <i class="bi @(_isShared ? "bi-check-lg" : "bi-share")"></i><span class="tool-label">Sdílet článek</span>
+                </button>
+                @if (_ttsSpeaking && !_ttsPaused)
+                {
+                    <button class="tool-btn tool-btn-active" aria-label="Pozastavit čtení" @onclick="TtsPause">
+                        <i class="bi bi-pause-fill"></i><span class="tool-label">Pauza</span>
+                    </button>
+                    <button class="tool-btn" aria-label="Zastavit čtení" @onclick="TtsStop">
+                        <i class="bi bi-stop-fill"></i><span class="tool-label">Stop</span>
+                    </button>
+                }
+                else if (_ttsSpeaking && _ttsPaused)
+                {
+                    <button class="tool-btn tool-btn-active" aria-label="Pokračovat v čtení" @onclick="TtsResume">
+                        <i class="bi bi-play-fill"></i><span class="tool-label">Pokračovat</span>
+                    </button>
+                    <button class="tool-btn" aria-label="Zastavit čtení" @onclick="TtsStop">
+                        <i class="bi bi-stop-fill"></i><span class="tool-label">Stop</span>
+                    </button>
+                }
+                <div class="tools-dropdown-wrap">
+                    <button class="tool-btn @(_showToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleToolsDropdown">
+                        <i class="bi bi-three-dots"></i><span class="tool-label">Více</span>
+                    </button>
+                    @if (_showToolsDropdown)
+                    {
+                        <div class="tools-dropdown" @onclick:stopPropagation>
+                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showToolsDropdown = false; }">
+                                <i class="bi bi-printer"></i> Vytisknout (PDF)
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showToolsDropdown = false; }">
+                                <i class="bi bi-file-earmark-text"></i> Tahák (PDF)
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-card-text"></i> Kartičky
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-pencil-square"></i> Procvičovací úlohy
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
+                            </button>
+                            <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item @(_loadingRealWorld ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadRealWorldApplications(); _showToolsDropdown = false; }" disabled="@_loadingRealWorld">
+                                <i class="bi bi-globe2"></i> Reálné využití
+                            </button>
+                            <button class="tools-dropdown-item @(_loadingWhatIf ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadWhatIf(); _showToolsDropdown = false; }" disabled="@_loadingWhatIf">
+                                <i class="bi bi-stars"></i> Co kdyby?
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-pencil"></i> Zkus to vysvětlit
+                            </button>
+                            <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
+                                <i class="bi bi-volume-up"></i> Poslech
+                            </button>
+                        </div>
+                    }
+                </div>
         </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -563,6 +663,33 @@ else
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
 <PersonModal IsVisible="@_showPersonModal" IsVisibleChanged="@OnPersonModalClose" PersonName="@_personNameForModal" />
 <FlashcardDeck PostId="@(_post?.Id ?? Id)" Visible="@_showFlashcards" OnClose="@(() => _showFlashcards = false)" />
+<PracticeProblems PostId="@(_post?.Id ?? Id)" Visible="@_showPracticeProblems" OnClose="@(() => _showPracticeProblems = false)" Count="3" />
+<GradeRewriter PostId="@(_post?.Id ?? Id)" Visible="@_showGradeRewriter" OnClose="@(() => _showGradeRewriter = false)" />
+<FeynmanMode PostId="@(_post?.Id ?? Id)" Visible="@_showFeynman" OnClose="@(() => _showFeynman = false)" />
+
+@if (_realWorldApplications.Count > 0)
+{
+    <div class="rw-panel">
+        <div class="rw-panel-title"><i class="bi bi-globe2"></i> Reálné využití</div>
+        <ul class="rw-list">
+            @foreach (var app in _realWorldApplications)
+            {
+                <li>@app</li>
+            }
+        </ul>
+        <button class="rw-close-btn" @onclick="() => _realWorldApplications.Clear()" aria-label="Skrýt">&times;</button>
+    </div>
+}
+
+@if (_whatIfResult != null)
+{
+    <div class="rw-panel whatif-panel">
+        <div class="rw-panel-title"><i class="bi bi-stars"></i> Co kdyby?</div>
+        <p class="whatif-scenario">@_whatIfResult.Scenario</p>
+        <p class="whatif-explanation">@_whatIfResult.Explanation</p>
+        <button class="rw-close-btn" @onclick="() => _whatIfResult = null" aria-label="Skrýt">&times;</button>
+    </div>
+}
 
 @if (_showCheatSheetModal)
 {
@@ -679,7 +806,19 @@ else
     private IJSObjectReference? _jsModule;
     private bool _aiAvailable = true;
     private string? _aiDiagError = null;
+    private bool _showToolsDropdown = false;
     private bool _showFlashcards = false;
+    private bool _showPracticeProblems = false;
+    private bool _showGradeRewriter = false;
+    private bool _showFeynman = false;
+    private List<string> _realWorldApplications = new();
+    private bool _loadingRealWorld = false;
+    // What If state
+    private WhatIfResponse? _whatIfResult = null;
+    private bool _loadingWhatIf = false;
+    // TTS state
+    private bool _ttsSpeaking = false;
+    private bool _ttsPaused = false;
     // Table of Contents state
     private record TocItem(string Id, string Text, int Level);
     private List<TocItem> _tocItems = new();
@@ -800,7 +939,7 @@ else
         {
             try
             {
-                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=12");
+                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=13");
             }
             catch (Exception ex)
             {
@@ -966,6 +1105,33 @@ else
         }
     }
 
+    private async Task LoadRealWorldApplications()
+    {
+        if (_post == null || _loadingRealWorld) return;
+        _loadingRealWorld = true;
+        _realWorldApplications.Clear();
+        StateHasChanged();
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + $"api/ai/real-world/{_post.Id}");
+            var resp = await Http.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RealWorldResponse>();
+                _realWorldApplications = data?.Applications ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "LoadRealWorldApplications failed");
+        }
+        finally
+        {
+            _loadingRealWorld = false;
+            StateHasChanged();
+        }
+    }
+
     protected override void OnInitialized()
     {
         AddendumModalService.OnGlobalAddendumRequested += HandleAddendumRequest;
@@ -1004,8 +1170,12 @@ else
         AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
         ModalService.OnAddendumRequested -= HandleAddendumRequest;
         PersonModalService.OnGlobalPersonRequested -= HandlePersonRequestByName;
+        if (_jsModule != null)
+        {
+            _ = _jsModule.InvokeVoidAsync("ttsStop").AsTask();
+            _ = _jsModule.DisposeAsync().AsTask();
+        }
         _dotNetRef?.Dispose();
-        if (_jsModule != null) _ = _jsModule.DisposeAsync().AsTask();
     }
 
     private async Task LoadAllVersions(int postId)
@@ -1462,5 +1632,74 @@ else
     {
         if (string.IsNullOrEmpty(filePath)) return string.Empty;
         return System.IO.Path.GetFileNameWithoutExtension(filePath);
+    }
+
+    // --- Toolbar dropdown ---
+    private void ToggleToolsDropdown() => _showToolsDropdown = !_showToolsDropdown;
+
+    // --- TTS ---
+    private async Task TtsStart()
+    {
+        if (_jsModule == null) return;
+        try
+        {
+            var text = await _jsModule.InvokeAsync<string>("ttsGetContentText", "content");
+            if (string.IsNullOrWhiteSpace(text)) return;
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            var started = await _jsModule.InvokeAsync<bool>("ttsStart", text, _dotNetRef);
+            if (started) { _ttsSpeaking = true; _ttsPaused = false; StateHasChanged(); }
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "TtsStart failed"); }
+    }
+
+    private async Task TtsPause()
+    {
+        if (_jsModule == null) return;
+        try { await _jsModule.InvokeVoidAsync("ttsPause"); _ttsPaused = true; StateHasChanged(); }
+        catch (Exception ex) { Logger.LogWarning(ex, "TtsPause failed"); }
+    }
+
+    private async Task TtsResume()
+    {
+        if (_jsModule == null) return;
+        try { await _jsModule.InvokeVoidAsync("ttsResume"); _ttsPaused = false; StateHasChanged(); }
+        catch (Exception ex) { Logger.LogWarning(ex, "TtsResume failed"); }
+    }
+
+    private async Task TtsStop()
+    {
+        if (_jsModule == null) return;
+        try { await _jsModule.InvokeVoidAsync("ttsStop"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "TtsStop failed"); }
+        _ttsSpeaking = false;
+        _ttsPaused = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnTtsEnded()
+    {
+        _ttsSpeaking = false;
+        _ttsPaused = false;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    // --- What If ---
+    private async Task LoadWhatIf()
+    {
+        if (_post == null || _loadingWhatIf) return;
+        _loadingWhatIf = true;
+        _whatIfResult = null;
+        StateHasChanged();
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + $"api/ai/what-if/{_post.Id}");
+            var resp = await Http.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+                _whatIfResult = await resp.Content.ReadFromJsonAsync<WhatIfResponse>();
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "LoadWhatIf failed"); }
+        finally { _loadingWhatIf = false; StateHasChanged(); }
     }
 }
