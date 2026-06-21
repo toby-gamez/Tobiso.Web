@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Domain.Entities;
@@ -17,30 +18,32 @@ public interface IExplanationService
 public class ExplanationService : IExplanationService
 {
     private readonly TobisoDbContext _context;
+    private readonly ILogger<ExplanationService> _logger;
 
-    public ExplanationService(TobisoDbContext context)
+    public ExplanationService(TobisoDbContext context, ILogger<ExplanationService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<List<ExplanationResponse>> GetByQuestionId(int questionId)
     {
         try
         {
-            var explanations = await _context.Explanations
+            return await _context.Explanations
+                .AsNoTracking()
                 .Where(e => e.QuestionId == questionId)
+                .Select(e => new ExplanationResponse
+                {
+                    Id = e.Id,
+                    Text = e.Text,
+                    QuestionId = e.QuestionId
+                })
                 .ToListAsync();
-
-            return explanations.Select(e => new ExplanationResponse
-            {
-                Id = e.Id,
-                Text = e.Text,
-                QuestionId = e.QuestionId
-            }).ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání vysvětlení: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání vysvětlení pro otázku {QuestionId}", questionId);
             throw;
         }
     }
@@ -48,6 +51,7 @@ public class ExplanationService : IExplanationService
     public async Task<ExplanationResponse?> GetById(int id)
     {
         var explanation = await _context.Explanations
+            .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (explanation == null) return null;
@@ -77,7 +81,7 @@ public class ExplanationService : IExplanationService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při vytváření vysvětlení: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při vytváření vysvětlení");
             throw;
         }
     }
@@ -99,7 +103,7 @@ public class ExplanationService : IExplanationService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při aktualizaci vysvětlení: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při aktualizaci vysvětlení {Id}", request.Id);
             throw;
         }
     }
@@ -119,7 +123,7 @@ public class ExplanationService : IExplanationService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při mazání vysvětlení: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při mazání vysvětlení {Id}", id);
             throw;
         }
     }

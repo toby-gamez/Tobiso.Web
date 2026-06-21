@@ -120,8 +120,6 @@
             }
 
             await CredentialStore.SetAsync(token, JSRuntime);
-            await JSRuntime.InvokeVoidAsync("console.log", "[Login] Token:", token);
-            await JSRuntime.InvokeVoidAsync("console.log", "[Login] DirectToken:", Tobiso.Web.App.Authentication.CredentialStore.DirectToken);
             Logger.LogInformation("Login successful for user: {Username}", loginModel.Username);
             Navigation.NavigateTo("/");
         }

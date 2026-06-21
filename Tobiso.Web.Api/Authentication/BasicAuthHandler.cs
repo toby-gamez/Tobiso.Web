@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 
@@ -53,7 +54,13 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
             var expectedPassword = _config["Auth:Basic:Password"];
             var userId = _config["Auth:Basic:UserId"] ?? Guid.Empty.ToString();
 
-            if (username != expectedUsername || password != expectedPassword)
+            var usernameMatch = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(username ?? string.Empty),
+                Encoding.UTF8.GetBytes(expectedUsername ?? string.Empty));
+            var passwordMatch = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(password ?? string.Empty),
+                Encoding.UTF8.GetBytes(expectedPassword ?? string.Empty));
+            if (!usernameMatch || !passwordMatch)
             {
                 Logger.LogWarning("[BasicAuth] Invalid credentials for user: {User}", username);
                 return Task.FromResult(AuthenticateResult.Fail("Invalid Username or Password"));

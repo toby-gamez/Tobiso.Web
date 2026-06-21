@@ -146,10 +146,31 @@ namespace Tobiso.Web.App.Controllers
             });
         }
 
+        private string GetRateKey()
+        {
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (Request.Headers.TryGetValue("X-Device-Id", out var dv))
+            {
+                var deviceId = dv.FirstOrDefault();
+                if (!string.IsNullOrEmpty(deviceId)) return $"device:{deviceId}";
+            }
+            return ip;
+        }
+
+        private bool TryConsumeRateLimit(string rateKey)
+        {
+            var baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
+            return _rateLimitService.TryConsume(rateKey, baseLimit + _rateLimitService.GetBonusTotal(rateKey));
+        }
+
         [HttpGet("detect-persons/{postId}")]
         [AllowAnonymous]
         public async Task<IActionResult> DetectPersons(int postId)
         {
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
             var post = await _postService.GetById(postId);
             if (post == null) return NotFound();
             // Choose the most appropriate version: prefer highest grade-level if available, else first.
@@ -166,6 +187,10 @@ namespace Tobiso.Web.App.Controllers
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Content))
                 return BadRequest("Missing content");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
 
             try
             {
@@ -229,6 +254,10 @@ namespace Tobiso.Web.App.Controllers
         public async Task<IActionResult> GetPerson([FromQuery] string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return BadRequest("Missing name");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
 
             var systemPrompt = _configuration["OpenAI:PersonSystemPrompt"]
                 ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object — no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";

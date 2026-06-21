@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
@@ -18,18 +19,20 @@ public interface IRelatedPostService
 public class RelatedPostService : IRelatedPostService
 {
     private readonly TobisoDbContext _context;
+    private readonly ILogger<RelatedPostService> _logger;
 
-    public RelatedPostService(TobisoDbContext context)
+    public RelatedPostService(TobisoDbContext context, ILogger<RelatedPostService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<List<RelatedPostResponse>> GetAll()
     {
         try
         {
-            // Join to Posts table to populate PostTitle and RelatedPostTitle
-            var relatedPosts = await _context.RelatedPosts
+            return await _context.RelatedPosts
+                .AsNoTracking()
                 .Select(rp => new RelatedPostResponse
                 {
                     Id = rp.Id,
@@ -40,13 +43,10 @@ public class RelatedPostService : IRelatedPostService
                     RelatedPostTitle = rp.RelatedPostRef != null ? rp.RelatedPostRef.Title : null
                 })
                 .ToListAsync();
-
-            return relatedPosts;
         }
         catch (Exception ex)
         {
-            // Logování chyby - prozatím do konzole, případně použít logger
-            Console.WriteLine($"Chyba při načítání souvisejících postů: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání souvisejících postů");
             throw;
         }
     }
@@ -55,7 +55,8 @@ public class RelatedPostService : IRelatedPostService
     {
         try
         {
-            var relatedPosts = await _context.RelatedPosts
+            return await _context.RelatedPosts
+                .AsNoTracking()
                 .Where(rp => rp.PostId == postId)
                 .Select(rp => new RelatedPostResponse
                 {
@@ -67,21 +68,19 @@ public class RelatedPostService : IRelatedPostService
                     RelatedPostTitle = rp.RelatedPostRef != null ? rp.RelatedPostRef.Title : null
                 })
                 .ToListAsync();
-
-            return relatedPosts;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání souvisejících postů pro post {postId}: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání souvisejících postů pro post {PostId}", postId);
             throw;
         }
     }
 
     public async Task<RelatedPostResponse?> GetById(int id)
     {
-        var relatedPost = await _context.RelatedPosts.FirstOrDefaultAsync(rp => rp.Id == id);
+        var relatedPost = await _context.RelatedPosts.AsNoTracking().FirstOrDefaultAsync(rp => rp.Id == id);
         if (relatedPost == null) return null;
-        
+
         return new RelatedPostResponse
         {
             Id = relatedPost.Id,
@@ -95,25 +94,21 @@ public class RelatedPostService : IRelatedPostService
     {
         try
         {
-            // Ověř, že oba posty existují
             var postExists = await _context.Posts.AnyAsync(p => p.Id == request.PostId);
             var relatedPostExists = await _context.Posts.AnyAsync(p => p.Id == request.RelatedPostId);
 
             if (!postExists || !relatedPostExists)
                 return null;
 
-            // Ověř, že se post neodkazuje sám na sebe
             if (request.PostId == request.RelatedPostId)
                 return null;
 
-            // Ověř, že spojení už neexistuje v tomto směru
             var existingConnection = await _context.RelatedPosts
                 .AnyAsync(rp => rp.PostId == request.PostId && rp.RelatedPostId == request.RelatedPostId);
 
             if (existingConnection)
                 return null;
 
-            // Vytvoř hlavní spojení
             var entity = new RelatedPost
             {
                 PostId = request.PostId,
@@ -123,27 +118,23 @@ public class RelatedPostService : IRelatedPostService
 
             _context.RelatedPosts.Add(entity);
 
-            // Vytvoř opačné spojení pouze pokud je to požadováno
             if (request.CreateReverse)
             {
-                var reverseEntity = new RelatedPost
+                _context.RelatedPosts.Add(new RelatedPost
                 {
                     PostId = request.RelatedPostId,
                     RelatedPostId = request.PostId,
-                    Text = request.Text // Stejný text pro obě směry
-                };
-
-                _context.RelatedPosts.Add(reverseEntity);
+                    Text = request.Text
+                });
             }
 
             await _context.SaveChangesAsync();
 
-            // Načti vytvořený záznam s navigačními vlastnostmi
             return await GetById(entity.Id);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při vytváření souvisejícího postu: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při vytváření souvisejícího postu");
             throw;
         }
     }
@@ -155,14 +146,12 @@ public class RelatedPostService : IRelatedPostService
             var entity = await _context.RelatedPosts.FindAsync(id);
             if (entity == null) return false;
 
-            // Ověř, že oba posty existují
             var postExists = await _context.Posts.AnyAsync(p => p.Id == request.PostId);
             var relatedPostExists = await _context.Posts.AnyAsync(p => p.Id == request.RelatedPostId);
 
             if (!postExists || !relatedPostExists)
                 return false;
 
-            // Ověř, že se post neodkazuje sám na sebe
             if (request.PostId == request.RelatedPostId)
                 return false;
 
@@ -175,7 +164,7 @@ public class RelatedPostService : IRelatedPostService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při aktualizaci souvisejícího postu {id}: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při aktualizaci souvisejícího postu {Id}", id);
             throw;
         }
     }
@@ -193,7 +182,7 @@ public class RelatedPostService : IRelatedPostService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při mazání souvisejícího postu {id}: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při mazání souvisejícího postu {Id}", id);
             throw;
         }
     }

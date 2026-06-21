@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Domain.Entities;
@@ -18,10 +19,12 @@ public interface IQuestionService
 public class QuestionService : IQuestionService
 {
     private readonly TobisoDbContext _context;
+    private readonly ILogger<QuestionService> _logger;
 
-    public QuestionService(TobisoDbContext context)
+    public QuestionService(TobisoDbContext context, ILogger<QuestionService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<List<QuestionResponse>> GetAll()
@@ -29,6 +32,7 @@ public class QuestionService : IQuestionService
         try
         {
             var questions = await _context.Questions
+                .AsNoTracking()
                 .Include(q => q.Answers)
                 .Include(q => q.Explanations)
                 .Include(q => q.Post)
@@ -56,7 +60,7 @@ public class QuestionService : IQuestionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání všech otázek: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání všech otázek");
             throw;
         }
     }
@@ -66,6 +70,7 @@ public class QuestionService : IQuestionService
         try
         {
             var questions = await _context.Questions
+                .AsNoTracking()
                 .Include(q => q.Answers)
                 .Include(q => q.Explanations)
                 .Where(q => q.PostId == postId)
@@ -93,7 +98,7 @@ public class QuestionService : IQuestionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání otázek: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání otázek pro post {PostId}", postId);
             throw;
         }
     }
@@ -101,6 +106,7 @@ public class QuestionService : IQuestionService
     public async Task<QuestionResponse?> GetById(int id)
     {
         var question = await _context.Questions
+            .AsNoTracking()
             .Include(q => q.Answers)
             .Include(q => q.Explanations)
             .FirstOrDefaultAsync(q => q.Id == id);
@@ -135,44 +141,26 @@ public class QuestionService : IQuestionService
             var question = new Question
             {
                 QuestionText = request.QuestionText,
-                PostId = request.PostId
+                PostId = request.PostId,
+                Answers = request.Answers.Select(a => new Answer
+                {
+                    AnswerText = a.AnswerText,
+                    Correct = a.Correct
+                }).ToList(),
+                Explanations = request.Explanations.Select(e => new Explanation
+                {
+                    Text = e.Text
+                }).ToList()
             };
 
             _context.Questions.Add(question);
             await _context.SaveChangesAsync();
 
-            // Přidání odpovědí
-            if (request.Answers.Any())
-            {
-                var answers = request.Answers.Select(a => new Answer
-                {
-                    AnswerText = a.AnswerText,
-                    Correct = a.Correct,
-                    QuestionId = question.Id
-                }).ToList();
-
-                _context.Answers.AddRange(answers);
-                await _context.SaveChangesAsync();
-            }
-            
-            // Přidání vysvětlení
-            if (request.Explanations.Any())
-            {
-                var explanations = request.Explanations.Select(e => new Explanation
-                {
-                    Text = e.Text,
-                    QuestionId = question.Id
-                }).ToList();
-
-                _context.Explanations.AddRange(explanations);
-                await _context.SaveChangesAsync();
-            }
-
             return await GetById(question.Id);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při vytváření otázky: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při vytváření otázky");
             throw;
         }
     }
@@ -190,13 +178,9 @@ public class QuestionService : IQuestionService
 
             question.QuestionText = request.QuestionText;
 
-            // Odstranění starých odpovědí
             _context.Answers.RemoveRange(question.Answers);
-            
-            // Odstranění starých vysvětlení
             _context.Explanations.RemoveRange(question.Explanations);
 
-            // Přidání nových odpovědí
             if (request.Answers.Any())
             {
                 var answers = request.Answers.Select(a => new Answer
@@ -208,8 +192,7 @@ public class QuestionService : IQuestionService
 
                 _context.Answers.AddRange(answers);
             }
-            
-            // Přidání nových vysvětlení
+
             if (request.Explanations.Any())
             {
                 var explanations = request.Explanations.Select(e => new Explanation
@@ -226,7 +209,7 @@ public class QuestionService : IQuestionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při aktualizaci otázky: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při aktualizaci otázky {QuestionId}", request.Id);
             throw;
         }
     }
@@ -248,7 +231,7 @@ public class QuestionService : IQuestionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při mazání otázky: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při mazání otázky {QuestionId}", id);
             throw;
         }
     }

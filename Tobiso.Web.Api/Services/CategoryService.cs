@@ -61,22 +61,17 @@ public class CategoryService : ICategoryService
         var result = new List<CategoryResponse>();
         if (categoryId <= 0) return result;
 
-        // Walk up the parent chain. This does one DB query per level which is
-        // acceptable for typical category depths and avoids returning the full
-        // category list.
+        var allCats = await _context.Categories
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.Name, c.ParentId })
+            .ToListAsync();
+        var lookup = allCats.ToDictionary(c => c.Id);
+
         var currentId = categoryId;
-        while (currentId > 0)
+        var visited = new HashSet<int>();
+        while (lookup.TryGetValue(currentId, out var cat) && visited.Add(cat.Id))
         {
-            var cat = await _context.Categories
-                .Where(c => c.Id == currentId)
-                .Select(c => new { c.Id, c.Name, c.ParentId })
-                .FirstOrDefaultAsync();
-
-            if (cat == null) break;
-
-            // Insert at the beginning so the list is ordered from root -> leaf
             result.Insert(0, new CategoryResponse { Id = cat.Id, Name = cat.Name, ParentId = cat.ParentId });
-
             if (!cat.ParentId.HasValue) break;
             currentId = cat.ParentId.Value;
         }

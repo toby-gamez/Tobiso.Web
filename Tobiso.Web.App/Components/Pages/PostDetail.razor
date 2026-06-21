@@ -674,9 +674,16 @@ else
     private List<TocItem> _tocItems = new();
     private string? _activeTocId = null;
     private string? _lastExtractedContentHash = null;
+    private bool _isInitialized;
+    private string? _loadedSlug;
+    private int _loadedId;
 
     protected override async Task OnInitializedAsync()
     {
+        if (_isInitialized) return;
+        _isInitialized = true;
+        _loadedSlug = Slug;
+        _loadedId = Id;
         var preferredGrade = await PreferenceService.GetPreferredGradeIdAsync();
         if (!string.IsNullOrEmpty(Slug))
         {
@@ -741,6 +748,10 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (Slug == _loadedSlug && Id == _loadedId) return;
+        _loadedSlug = Slug;
+        _loadedId = Id;
+
         var preferredGrade2 = await PreferenceService.GetPreferredGradeIdAsync();
         if (!string.IsNullOrEmpty(Slug))
         {
@@ -1386,9 +1397,10 @@ else
                 _lastExtractedContentHash = hash;
                 InvokeAsync(StateHasChanged);
                 // re-init observer
-                _ = Task.Run(async () =>
+                _ = InvokeAsync(async () =>
                 {
-                    try { if (_jsModule != null) await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, _tocItems.Select(t => t.Id).ToArray()); } catch { }
+                    try { if (_jsModule != null) await _jsModule.InvokeVoidAsync("initTocObserver", _dotNetRef, _tocItems.Select(t => t.Id).ToArray()); }
+                    catch (Exception ex) { Logger.LogWarning(ex, "initTocObserver failed"); }
                 });
             }
         }

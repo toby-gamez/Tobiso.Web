@@ -166,6 +166,8 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             ValidateJson(request.ConfigJson, "ConfigJson");
             ValidateJson(request.SolutionJson, "SolutionJson");
 
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
             var exercise = new InteractiveExercise
             {
                 Title = request.Title,
@@ -206,6 +208,7 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             }
 
             await _context.SaveChangesAsync();
+            await tx.CommitAsync();
 
             return await GetByIdAsync(exercise.Id)
                    ?? throw new Exception("Failed to load created exercise");

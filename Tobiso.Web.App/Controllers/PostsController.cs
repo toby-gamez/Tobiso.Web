@@ -13,10 +13,12 @@ namespace Tobiso.Web.Api.Controllers;
 public class PostsController : ControllerBase
 {
     private readonly IPostService _postService;
+    private readonly IWebHostEnvironment _env;
 
-    public PostsController(IPostService postService)
+    public PostsController(IPostService postService, IWebHostEnvironment env)
     {
         _postService = postService;
+        _env = env;
     }
 
     [AllowAnonymous]
@@ -76,10 +78,19 @@ public class PostsController : ControllerBase
     [HttpPost("upload-md")]
     public async Task<IActionResult> UploadMdFiles([FromQuery] string directory)
     {
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        if (string.IsNullOrWhiteSpace(directory))
             return BadRequest("Neplatná cesta ke složce.");
+
+        var root = Path.GetFullPath(_env.ContentRootPath);
+        var target = Path.GetFullPath(directory);
+        if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            return BadRequest("Cesta musí být pod adresářem aplikace.");
+
+        if (!Directory.Exists(target))
+            return BadRequest("Neplatná cesta ke složce.");
+
         var uploader = new MdUploader(_postService);
-        var posts = await uploader.UploadFromDirectory(directory);
+        var posts = await uploader.UploadFromDirectory(target);
         return Ok(new { count = posts.Count, titles = posts.Select(p => p.Title).ToList() });
     }
 }

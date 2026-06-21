@@ -83,6 +83,7 @@ public class PostService : IPostService
         try
         {
             var posts = await _context.Posts
+                .AsNoTracking()
                 .Include(p => p.Versions)
                     .ThenInclude(v => v.Grade)
                 .ToListAsync();
@@ -155,6 +156,7 @@ public class PostService : IPostService
     public async Task<PostResponse?> GetById(int id, int? gradeId = null)
     {
         var post = await _context.Posts
+            .AsNoTracking()
             .Include(p => p.Versions)
                 .ThenInclude(v => v.Grade)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -218,6 +220,8 @@ public class PostService : IPostService
 
     public async Task<PostResponse?> Create(CreatePostRequest req)
     {
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
         var entity = new Post
         {
             Title = req.Title,
@@ -228,23 +232,21 @@ public class PostService : IPostService
         _context.Posts.Add(entity);
         await _context.SaveChangesAsync();
 
-        PostVersion? version = null;
         if (req.GradeId.HasValue)
         {
             var now = DateTime.UtcNow;
-            version = new PostVersion
+            _context.PostVersions.Add(new PostVersion
             {
                 PostId = entity.Id,
                 GradeId = req.GradeId.Value,
                 Content = req.Content,
                 LastFix = req.IsFix ? now : null,
                 LastEdit = req.IsFix ? null : now
-            };
-            _context.PostVersions.Add(version);
+            });
             await _context.SaveChangesAsync();
         }
 
-        // Return the full response (reload with grade navigation)
+        await tx.CommitAsync();
         return await GetById(entity.Id);
     }
 }

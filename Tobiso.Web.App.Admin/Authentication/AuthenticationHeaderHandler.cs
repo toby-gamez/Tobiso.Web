@@ -13,7 +13,7 @@ public class AuthenticationHeaderHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var token = CredentialStore.DirectToken;
+        var token = CredentialStore.CurrentToken ?? CredentialStore.DirectToken;
         var hasToken = !string.IsNullOrEmpty(token);
         // Log only whether a token is present; avoid logging token length or value.
         _logger.LogInformation("[AuthHandler] Request to {Url}, token present: {HasToken}",

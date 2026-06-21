@@ -118,7 +118,10 @@ h5.modal-event-title,
 .question-title,
 .calendar-container *,
 .ai-box h3,
-.latest-selected-div * {
+.latest-selected-div *,
+.person-modal-role,
+.btn-outline-primary,
+.person-modal-disclaimer {
     font-family: var(--font-family-sans) !important;
 }
 
@@ -137,7 +140,8 @@ h5.modal-event-title,
 .modal-body small,
 .latest-selected-div,
 .latest-muted small,
-.answer-option {
+.answer-option,
+.person-modal-bio p {
     font-family: var(--font-family-serif) !important;
 }
 

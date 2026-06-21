@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
@@ -19,10 +20,12 @@ public interface IEventService
 public class EventService : IEventService
 {
     private readonly TobisoDbContext _context;
+    private readonly ILogger<EventService> _logger;
 
-    public EventService(TobisoDbContext context)
+    public EventService(TobisoDbContext context, ILogger<EventService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<List<EventResponse>> GetAll()
@@ -30,14 +33,15 @@ public class EventService : IEventService
         try
         {
             var events = await _context.Events
+                .AsNoTracking()
                 .OrderBy(e => e.StartDate)
                 .ToListAsync();
-            
+
             return events.Select(MapToResponse).ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání událostí: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání událostí");
             throw;
         }
     }
@@ -47,43 +51,42 @@ public class EventService : IEventService
         try
         {
             var events = await _context.Events
-                .Where(e => (e.StartDate <= endDate && 
+                .AsNoTracking()
+                .Where(e => (e.StartDate <= endDate &&
                            (e.EndDate == null || e.EndDate >= startDate)) ||
-                           (e.IsRecurring && 
+                           (e.IsRecurring &&
                            (e.RecurrenceEndDate == null || e.RecurrenceEndDate >= startDate) &&
                            e.StartDate <= endDate))
                 .OrderBy(e => e.StartDate)
                 .ToListAsync();
-            
+
             var eventResponses = new List<EventResponse>();
-            
+
             foreach (var eventEntity in events)
             {
                 if (!eventEntity.IsRecurring)
                 {
-                    // Jednorázová událost
                     eventResponses.Add(MapToResponse(eventEntity));
                 }
                 else
                 {
-                    // Opakovaná událost - generuj instance
                     var instances = GenerateRecurringInstances(eventEntity, startDate, endDate);
                     eventResponses.AddRange(instances);
                 }
             }
-            
+
             return eventResponses.OrderBy(e => e.StartDate).ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při načítání událostí podle data: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při načítání událostí podle data {Start} – {End}", startDate, endDate);
             throw;
         }
     }
 
     public async Task<EventResponse?> GetById(int id)
     {
-        var eventEntity = await _context.Events.FirstOrDefaultAsync(e => e.Id == id);
+        var eventEntity = await _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
         return eventEntity == null ? null : MapToResponse(eventEntity);
     }
 
@@ -113,7 +116,7 @@ public class EventService : IEventService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při vytváření události: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při vytváření události");
             throw;
         }
     }
@@ -142,7 +145,7 @@ public class EventService : IEventService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při aktualizaci události: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při aktualizaci události {EventId}", id);
             return false;
         }
     }
@@ -160,7 +163,7 @@ public class EventService : IEventService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při mazání události: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při mazání události {EventId}", id);
             return false;
         }
     }
@@ -170,17 +173,18 @@ public class EventService : IEventService
         try
         {
             var events = await _context.Events
-                .Where(e => e.Title.Contains(searchTerm) || 
+                .AsNoTracking()
+                .Where(e => e.Title.Contains(searchTerm) ||
                            (e.Description != null && e.Description.Contains(searchTerm)) ||
                            (e.Location != null && e.Location.Contains(searchTerm)))
                 .OrderBy(e => e.StartDate)
                 .ToListAsync();
-            
+
             return events.Select(MapToResponse).ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Chyba při vyhledávání událostí: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Chyba při vyhledávání událostí: {Term}", searchTerm);
             throw;
         }
     }
@@ -206,29 +210,27 @@ public class EventService : IEventService
     private static List<EventResponse> GenerateRecurringInstances(Event eventEntity, DateTime rangeStart, DateTime rangeEnd)
     {
         var instances = new List<EventResponse>();
-        
+
         if (string.IsNullOrEmpty(eventEntity.RecurrencePattern))
             return instances;
 
         var currentDate = eventEntity.StartDate;
         var eventDuration = eventEntity.EndDate?.Subtract(eventEntity.StartDate) ?? TimeSpan.Zero;
-        
-        // Najdi první instanci v požadovaném rozsahu
-        while (currentDate < rangeStart && 
+
+        while (currentDate < rangeStart &&
                (eventEntity.RecurrenceEndDate == null || currentDate <= eventEntity.RecurrenceEndDate))
         {
             currentDate = GetNextOccurrence(currentDate, eventEntity.RecurrencePattern);
         }
-        
-        // Generuj instance v rozsahu
-        while (currentDate <= rangeEnd && 
+
+        while (currentDate <= rangeEnd &&
                (eventEntity.RecurrenceEndDate == null || currentDate <= eventEntity.RecurrenceEndDate))
         {
             var instanceEndDate = eventEntity.EndDate?.Add(currentDate.Subtract(eventEntity.StartDate));
-            
+
             instances.Add(new EventResponse
             {
-                Id = eventEntity.Id, // Zachováváme původní ID pro identifikaci
+                Id = eventEntity.Id,
                 Title = eventEntity.Title,
                 Description = eventEntity.Description,
                 StartDate = currentDate,
@@ -240,13 +242,13 @@ public class EventService : IEventService
                 RecurrencePattern = eventEntity.RecurrencePattern,
                 RecurrenceEndDate = eventEntity.RecurrenceEndDate
             });
-            
+
             currentDate = GetNextOccurrence(currentDate, eventEntity.RecurrencePattern);
         }
-        
+
         return instances;
     }
-    
+
     private static DateTime GetNextOccurrence(DateTime currentDate, string recurrencePattern)
     {
         return recurrencePattern.ToLowerInvariant() switch
@@ -255,7 +257,7 @@ public class EventService : IEventService
             "weekly" => currentDate.AddDays(7),
             "monthly" => currentDate.AddMonths(1),
             "yearly" => currentDate.AddYears(1),
-            _ => currentDate.AddDays(7) // Default to weekly
+            _ => currentDate.AddDays(7)
         };
     }
 }
