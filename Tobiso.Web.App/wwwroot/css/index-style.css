@@ -55,6 +55,8 @@ section {
     font-weight: bold;
     color: var(--color-accent);
     margin-bottom: 20px;
+    overflow: hidden;
+    outline: none;
 }
 
 .hero-image {

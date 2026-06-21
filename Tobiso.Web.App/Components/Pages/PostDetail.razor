@@ -322,7 +322,7 @@ else
                 <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
                 @if (_hasQuestions)
                 {
-                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i><span class="tool-label">Prověrka</span></button>
+                    <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-file-check"></i><span class="tool-label">Prověrka</span></button>
                 }
                 <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
                     <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
@@ -404,7 +404,7 @@ else
             <button class="btn btn-secondary mb-3 tool-btn" aria-label="Zpět" @onclick="BackHistory"><i class="bi bi-arrow-left"></i><span class="tool-label">Zpět</span></button>
             @if (_hasQuestions)
             {
-                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-person-walking"></i><span class="tool-label">Prověrka</span></button>
+                <button class="btn btn-secondary mb-3 tool-btn" aria-label="Prověrka" style="float: right" @onclick="ToQuestions"><i class="bi bi-file-check"></i><span class="tool-label">Prověrka</span></button>
             }
             <button class="btn btn-secondary mb-3 tool-btn" aria-label="Režim soustředění" @onclick="ToggleFocusMode">
                 <i class="bi @(_isFocusMode ? "bi-fullscreen-exit" : "bi-arrows-fullscreen")"></i><span class="tool-label">Režim soustředění</span>
@@ -1179,7 +1179,7 @@ else
     }
     private void ToQuestions()
     {
-        Navigation.NavigateTo($"/questions/{Id}", forceLoad: true);
+        Navigation.NavigateTo($"/questions/{_post?.Id ?? Id}", forceLoad: true);
     }
 
     private async Task SharePost()
