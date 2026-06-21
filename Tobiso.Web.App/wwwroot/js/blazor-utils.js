@@ -1308,3 +1308,125 @@ export function setFocusMode(enable) {
     console && console.warn && console.warn('[blazor-utils] setFocusMode failed', e);
   }
 }
+
+// ── Sentence Helper ──────────────────────────────────────────────────────────
+
+let _sentenceHelperRef = null;
+let _sentenceTooltipEl = null;
+let _sentenceBtn = null;
+let _sentenceBtnTarget = null;
+let _tooltipVisible = false;
+
+export function initSentenceHelper(dotNetRef) {
+  _sentenceHelperRef = dotNetRef;
+
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  // Ensure tooltip element exists
+  if (!_sentenceTooltipEl) {
+    _sentenceTooltipEl = document.createElement('div');
+    _sentenceTooltipEl.className = 'sentence-tooltip';
+    _sentenceTooltipEl.setAttribute('role', 'tooltip');
+    _sentenceTooltipEl.style.display = 'none';
+    document.body.appendChild(_sentenceTooltipEl);
+  }
+
+  // Ensure button element exists
+  if (!_sentenceBtn) {
+    _sentenceBtn = document.createElement('button');
+    _sentenceBtn.className = 'para-explain-btn';
+    _sentenceBtn.setAttribute('aria-label', 'Vysvětlit odstavec');
+    _sentenceBtn.innerHTML = '<i class="bi bi-question-circle"></i>';
+    _sentenceBtn.style.display = 'none';
+    document.body.appendChild(_sentenceBtn);
+
+    _sentenceBtn.addEventListener('click', async function (e) {
+      e.stopPropagation();
+      if (!_sentenceBtnTarget || !_sentenceHelperRef) return;
+      const text = (_sentenceBtnTarget.innerText || '').trim().slice(0, 500);
+      if (!text) return;
+
+      _sentenceBtn.disabled = true;
+      _sentenceBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+      try {
+        await _sentenceHelperRef.invokeMethodAsync('ExplainSentence', text);
+      } catch (err) {
+        console.log('[sentence-helper] invoke failed', err);
+      }
+
+      _sentenceBtn.disabled = false;
+      _sentenceBtn.innerHTML = '<i class="bi bi-question-circle"></i>';
+    });
+  }
+
+  // Delegated hover on paragraphs
+  content.addEventListener('mouseover', function (e) {
+    const p = e.target.closest('#content p');
+    if (!p || p === _sentenceBtnTarget) return;
+    _sentenceBtnTarget = p;
+    const rect = p.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    _sentenceBtn.style.display = 'block';
+    _sentenceBtn.style.position = 'absolute';
+    _sentenceBtn.style.top = (rect.top + scrollY) + 'px';
+    _sentenceBtn.style.left = (rect.right + 6) + 'px';
+  });
+
+  content.addEventListener('mouseleave', function () {
+    if (_tooltipVisible) return;
+    _sentenceBtn.style.display = 'none';
+    _sentenceBtnTarget = null;
+  });
+
+  // Dismiss tooltip on outside click or Esc
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideSentenceTooltip();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (_tooltipVisible && _sentenceTooltipEl && !_sentenceTooltipEl.contains(e.target) && e.target !== _sentenceBtn) {
+      hideSentenceTooltip();
+    }
+  });
+}
+
+export function showSentenceTooltip(text) {
+  if (!_sentenceTooltipEl) return;
+
+  _sentenceTooltipEl.textContent = text;
+
+  // Position near the button
+  let top = 0, left = 0;
+  if (_sentenceBtn && _sentenceBtn.style.display !== 'none') {
+    const rect = _sentenceBtn.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    top = rect.bottom + scrollY + 6;
+    left = Math.max(8, rect.left - 10);
+  }
+
+  _sentenceTooltipEl.style.display = 'block';
+  _sentenceTooltipEl.style.position = 'absolute';
+  _sentenceTooltipEl.style.top = top + 'px';
+  _sentenceTooltipEl.style.left = left + 'px';
+
+  // Keep within viewport
+  requestAnimationFrame(function () {
+    if (!_sentenceTooltipEl) return;
+    const vpW = window.innerWidth;
+    const r = _sentenceTooltipEl.getBoundingClientRect();
+    if (r.right > vpW - 8) {
+      _sentenceTooltipEl.style.left = Math.max(8, vpW - r.width - 16) + 'px';
+    }
+  });
+
+  _tooltipVisible = true;
+}
+
+export function hideSentenceTooltip() {
+  if (_sentenceTooltipEl) _sentenceTooltipEl.style.display = 'none';
+  _tooltipVisible = false;
+  if (_sentenceBtn) _sentenceBtn.style.display = 'none';
+  _sentenceBtnTarget = null;
+}

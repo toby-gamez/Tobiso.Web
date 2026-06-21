@@ -1635,6 +1635,35 @@ main {
     color: var(--good-text);
 }
 
+.ai-feedback-box {
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1.5px solid;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.ai-feedback-box.ai-correct {
+    border-color: var(--color-success, #27ae60);
+    background-color: rgba(39, 174, 96, 0.08);
+    color: var(--color-text);
+}
+
+.ai-feedback-box.ai-incorrect {
+    border-color: var(--color-danger, #c0392b);
+    background-color: rgba(192, 57, 43, 0.07);
+    color: var(--color-text);
+}
+
+.ai-label {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
 .calendar-container {
     width: 100%;
     margin: 0 auto;
@@ -4485,4 +4514,59 @@ section:has(.loading-circle) > article {
     body:has(#MyNavBar.collapsed) .cookie-consent-div {
         margin: 0 !important;
     }
+}
+
+/* Sentence Helper */
+.para-explain-btn {
+    position: absolute;
+    z-index: 100;
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    padding: 0;
+    opacity: 0.85;
+    transition: opacity 0.15s, transform 0.15s;
+    line-height: 1;
+}
+
+.para-explain-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.para-explain-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+}
+
+.sentence-tooltip {
+    position: absolute;
+    z-index: 3000;
+    max-width: 340px;
+    min-width: 180px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 2px solid var(--color-accent-2);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.16);
+    font-family: var(--font-family-sans);
+}
+
+body.dark-mode .sentence-tooltip {
+    background: var(--color-bg-dark);
+    color: var(--color-text-dark);
+    border-color: var(--color-accent-2-dark);
 }

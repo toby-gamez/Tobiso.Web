@@ -7,6 +7,7 @@
 @inject ITobisoAnonymApi Api
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
+@inject System.Net.Http.HttpClient Http
 @rendermode InteractiveServer
 
 <PageTitle>Procvičování - Tobiso</PageTitle>
@@ -40,6 +41,14 @@ else
                     <div class="progress-fill" style="width: @(Math.Round((_currentQuestionIndex + 1) / (double)_questions.Count * 100, 2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture))%"></div>
                 </div>
             }
+        }
+
+        @if (_evaluating)
+        {
+            <div style="text-align:center;padding:16px 0;">
+                <div class="loading-circle"></div>
+                <p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:8px;">AI hodnotí vaše odpovědi…</p>
+            </div>
         }
 
         @if (_testCompleted)
@@ -97,13 +106,21 @@ else
                     {
                         var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
                         var userText = _userTextAnswers.ContainsKey(question.Id) ? _userTextAnswers[question.Id] : "";
-                        
+                        var aiFeedback = _aiFeedback.ContainsKey(question.Id) ? _aiFeedback[question.Id] : null;
+
                         <div class="text-answer-review">
                             <div class="user-text-answer @(isCorrect ? "correct" : "incorrect")">
                                 <i class="bi bi-arrow-right-circle-fill me-2"></i>
                                 <strong>Vaše odpověď:</strong> @userText
                             </div>
-                            @if (!isCorrect && correctAnswer != null)
+                            @if (aiFeedback != null)
+                            {
+                                <div class="ai-feedback-box @(aiFeedback.IsCorrect ? "ai-correct" : "ai-incorrect")">
+                                    <i class="bi bi-stars me-1"></i><small class="ai-label">AI hodnocení</small><br />
+                                    @aiFeedback.Feedback
+                                </div>
+                            }
+                            else if (!isCorrect && correctAnswer != null)
                             {
                                 <div class="correct-text-answer">
                                     <i class="bi bi-check-circle-fill me-2"></i>
@@ -207,9 +224,9 @@ else
                 
                 @if (_currentQuestionIndex == _questions.Count - 1)
                 {
-                    <button class="btn btn-success" 
+                    <button class="btn btn-success"
                             @onclick="FinishTest"
-                            disabled="@(!AllQuestionsAnswered())">
+                            disabled="@(!AllQuestionsAnswered() || _evaluating)">
                         <i class="bi bi-check-circle"></i> Dokončit procvičování
                     </button>
                 }
@@ -232,8 +249,10 @@ else
     private Dictionary<int, int> _userAnswers = new();
     private Dictionary<int, string> _textAnswers = new();
     private Dictionary<int, string> _userTextAnswers = new();
+    private Dictionary<int, EvaluateAnswerResponse> _aiFeedback = new();
     private int _currentQuestionIndex = 0;
     private bool _testCompleted = false;
+    private bool _evaluating = false;
     private int _correctAnswers = 0;
     private double _successRate = 0;
 
@@ -290,8 +309,10 @@ else
         _userAnswers.Clear();
         _textAnswers.Clear();
         _userTextAnswers.Clear();
+        _aiFeedback.Clear();
         _currentQuestionIndex = 0;
         _testCompleted = false;
+        _evaluating = false;
         _correctAnswers = 0;
         _successRate = 0;
     }
@@ -348,11 +369,14 @@ else
         });
     }
 
-    private void FinishTest()
+    private async Task FinishTest()
     {
         _userAnswers = new Dictionary<int, int>(_selectedAnswers);
         _userTextAnswers = new Dictionary<int, string>(_textAnswers);
         _correctAnswers = 0;
+        _evaluating = true;
+        _testCompleted = true;
+        StateHasChanged();
 
         foreach (var question in _questions!)
         {
@@ -362,12 +386,40 @@ else
                 {
                     var userText = _userTextAnswers[question.Id].Trim();
                     var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                    
-                    if (correctAnswer != null && 
-                        string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase))
+
+                    // Try AI evaluation first; fall back to exact-match on failure
+                    bool isCorrect = false;
+                    if (correctAnswer != null)
                     {
-                        _correctAnswers++;
+                        try
+                        {
+                            var evalReq = new EvaluateAnswerRequest
+                            {
+                                PostId = 0,
+                                QuestionText = question.QuestionText,
+                                StudentAnswer = userText,
+                                CorrectAnswer = correctAnswer.AnswerText
+                            };
+                            var resp = await Http.PostAsJsonAsync(
+                                new Uri(Navigation.BaseUri + "api/ai/evaluate-answer"), evalReq);
+                            if (resp.IsSuccessStatusCode)
+                            {
+                                var feedback = await resp.Content.ReadFromJsonAsync<EvaluateAnswerResponse>();
+                                if (feedback != null)
+                                {
+                                    _aiFeedback[question.Id] = feedback;
+                                    isCorrect = feedback.IsCorrect;
+                                }
+                            }
+                        }
+                        catch { }
+
+                        // Fallback if AI didn't provide a result
+                        if (!_aiFeedback.ContainsKey(question.Id))
+                            isCorrect = string.Equals(userText, correctAnswer.AnswerText.Trim(), StringComparison.OrdinalIgnoreCase);
                     }
+
+                    if (isCorrect) _correctAnswers++;
                 }
             }
             else
@@ -376,17 +428,14 @@ else
                 {
                     var userAnswerId = _userAnswers[question.Id];
                     var correctAnswer = question.Answers.FirstOrDefault(a => a.Correct == 1);
-                    
                     if (correctAnswer != null && userAnswerId == correctAnswer.Id)
-                    {
                         _correctAnswers++;
-                    }
                 }
             }
         }
 
         _successRate = _questions.Count > 0 ? (_correctAnswers / (double)_questions.Count) * 100 : 0;
-        _testCompleted = true;
+        _evaluating = false;
         StateHasChanged();
     }
 

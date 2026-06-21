@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Linq;
 using Tobiso.Web.Shared.DTOs;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Tobiso.Web.App.Services;
 using Tobiso.Web.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -144,6 +145,113 @@ namespace Tobiso.Web.App.Controllers
                 Success = true,
                 TotalRemainingToday = _rateLimitService.GetRemaining(rateKey, effectiveLimit)
             });
+        }
+
+        [HttpPost("ask-stream")]
+        [AllowAnonymous]
+        public async Task AskStream([FromBody] AiChatRequest request)
+        {
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+            {
+                Response.StatusCode = 429;
+                await Response.WriteAsync("data: {\"error\":\"Daily limit reached\"}\n\n");
+                return;
+            }
+
+            Response.Headers["Content-Type"] = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            Response.Headers["Connection"] = "keep-alive";
+
+            try
+            {
+                await foreach (var chunk in _aiService.AskStreamAsync(request))
+                {
+                    var escaped = chunk.Replace("\n", "\\n").Replace("\r", "");
+                    await Response.WriteAsync($"data: {escaped}\n\n");
+                    await Response.Body.FlushAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Streaming failed for PostId={PostId}", request.PostId);
+            }
+
+            await Response.WriteAsync("data: [DONE]\n\n");
+            await Response.Body.FlushAsync();
+        }
+
+        [HttpPost("explain-sentence")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExplainSentence([FromBody] ExplainSentenceRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Sentence))
+                return BadRequest("Missing sentence");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            var post = await _postService.GetById(request.PostId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+
+            try
+            {
+                var explanation = await _aiService.ExplainSentenceAsync(request.Sentence, versionContent);
+                return Ok(new ExplainSentenceResponse { Explanation = explanation });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Explain-sentence failed");
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("evaluate-answer")]
+        [AllowAnonymous]
+        public async Task<IActionResult> EvaluateAnswer([FromBody] EvaluateAnswerRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.StudentAnswer))
+                return BadRequest("Missing student answer");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.EvaluateAnswerAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Evaluate-answer failed");
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("flashcards")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GenerateFlashcards([FromBody] FlashcardRequest request)
+        {
+            if (request == null || request.PostId <= 0)
+                return BadRequest("Missing postId");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            try
+            {
+                var result = await _aiService.GenerateFlashcardsAsync(request.PostId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Flashcard generation failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
         }
 
         private string GetRateKey()

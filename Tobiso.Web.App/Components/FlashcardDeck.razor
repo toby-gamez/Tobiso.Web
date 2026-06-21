@@ -1,0 +1,503 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="fc-backdrop" @onclick="Close">
+        <div class="fc-modal" @onclick:stopPropagation>
+            <div class="fc-header">
+                <span class="fc-title"><i class="bi bi-card-text"></i> Kartičky</span>
+                <button class="fc-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="fc-body fc-center">
+                    <div class="loading-circle"></div>
+                    <p class="fc-hint">Generuji kartičky…</p>
+                </div>
+            }
+            else if (_error != null)
+            {
+                <div class="fc-body fc-center">
+                    <p class="fc-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else if (!_cards.Any())
+            {
+                <div class="fc-body fc-center">
+                    <p>Kartičky nebyly vygenerovány.</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else
+            {
+                var activeCards = _cards.Where((_, i) => !_known.Contains(i)).ToList();
+                var globalIndex = _cards.IndexOf(activeCards.ElementAtOrDefault(_deckIndex) ?? _cards[0]);
+
+                <div class="fc-body">
+                    <div class="fc-progress-bar">
+                        @for (int i = 0; i < _cards.Count; i++)
+                        {
+                            var idx = i;
+                            <div class="fc-progress-dot @(_known.Contains(idx) ? "known" : (globalIndex == idx ? "current" : ""))"></div>
+                        }
+                    </div>
+                    <div class="fc-counter">
+                        @if (_known.Count == _cards.Count)
+                        {
+                            <span>Všechny kartičky umíš!</span>
+                        }
+                        else
+                        {
+                            <span>@(_deckIndex + 1) / @activeCards.Count &nbsp;<span class="fc-known-count">(@_known.Count umím)</span></span>
+                        }
+                    </div>
+
+                    @if (_known.Count == _cards.Count)
+                    {
+                        <div class="fc-card-wrap fc-finished">
+                            <div class="fc-finish-icon"><i class="bi bi-trophy-fill"></i></div>
+                            <p>Zvládl/a jsi všechny pojmy!</p>
+                            <button @onclick="Restart"><i class="bi bi-arrow-clockwise"></i> Začít znovu</button>
+                        </div>
+                    }
+                    else
+                    {
+                        var card = activeCards[_deckIndex];
+
+                        <div class="fc-card-wrap" @onclick="Flip">
+                            <div class="fc-card @(_flipped ? "flipped" : "")">
+                                <div class="fc-face fc-front">
+                                    <span class="fc-label">Pojem</span>
+                                    <div class="fc-term">@card.Term</div>
+                                    <span class="fc-hint">Klikni pro definici</span>
+                                </div>
+                                <div class="fc-face fc-back">
+                                    <span class="fc-label">Definice</span>
+                                    <div class="fc-definition">@card.Definition</div>
+                                    <span class="fc-hint">Klikni zpět</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="fc-actions">
+                            <button class="fc-btn fc-btn-prev" @onclick="Prev" disabled="@(_deckIndex == 0)" aria-label="Předchozí">
+                                <i class="bi bi-arrow-left"></i> Předchozí
+                            </button>
+                            <button class="fc-btn fc-btn-know" @onclick="MarkKnown" aria-label="Umím">
+                                <i class="bi bi-check-lg"></i> Umím
+                            </button>
+                            <button class="fc-btn fc-btn-next" @onclick="Next" disabled="@(_deckIndex >= activeCards.Count - 1)" aria-label="Další">
+                                Další <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                        <div class="fc-restart-row">
+                            <button class="fc-restart" @onclick="Restart"><i class="bi bi-arrow-clockwise"></i> Začít znovu</button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+.fc-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.fc-modal {
+    background: var(--color-bg);
+    border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font-family-sans);
+}
+
+body.dark-mode .fc-modal {
+    background: var(--color-bg-dark);
+}
+
+.fc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--color-accent-2);
+}
+
+body.dark-mode .fc-header {
+    border-bottom-color: var(--color-accent-2-dark);
+}
+
+.fc-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+body.dark-mode .fc-title { color: var(--color-text-dark); }
+
+.fc-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    box-shadow: none;
+    transition: color 0.15s;
+}
+
+.fc-close:hover { color: var(--color-accent); }
+
+.fc-body {
+    padding: 20px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 300px;
+}
+
+.fc-center {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.fc-error {
+    color: var(--color-danger, #c0392b);
+    font-size: 0.9rem;
+}
+
+.fc-hint {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+body.dark-mode .fc-hint { color: var(--color-text-muted-dark); }
+
+.fc-progress-bar {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.fc-progress-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-accent-2);
+    transition: background 0.2s;
+}
+
+body.dark-mode .fc-progress-dot { background: var(--color-accent-2-dark); }
+
+.fc-progress-dot.known { background: var(--color-success, #27ae60); }
+.fc-progress-dot.current { background: var(--color-accent); }
+
+.fc-counter {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+body.dark-mode .fc-counter { color: var(--color-text-muted-dark); }
+
+.fc-known-count {
+    color: var(--color-success, #27ae60);
+    font-weight: 600;
+}
+
+/* 3D flip card */
+.fc-card-wrap {
+    perspective: 900px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.fc-card {
+    position: relative;
+    width: 100%;
+    min-height: 180px;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+
+.fc-card.flipped {
+    transform: rotateY(180deg);
+}
+
+.fc-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px;
+    gap: 10px;
+    min-height: 180px;
+}
+
+.fc-front {
+    background: var(--color-accent-5, #f7e9f1);
+    border: 2px solid var(--color-accent-2);
+}
+
+body.dark-mode .fc-front {
+    background: var(--color-accent-4-dark, #2a1520);
+    border-color: var(--color-accent-2-dark);
+}
+
+.fc-back {
+    background: var(--color-accent, #c36f9a);
+    border: 2px solid var(--color-accent);
+    transform: rotateY(180deg);
+}
+
+body.dark-mode .fc-back {
+    background: var(--color-accent-dark, #8a2e5f);
+    border-color: var(--color-accent-dark);
+}
+
+.fc-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    opacity: 0.7;
+}
+
+.fc-back .fc-label { color: rgba(255,255,255,0.75); }
+
+.fc-term {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text);
+    text-align: center;
+    line-height: 1.3;
+}
+
+body.dark-mode .fc-term { color: var(--color-text-dark); }
+
+.fc-definition {
+    font-size: 1rem;
+    color: #fff;
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* Actions row */
+.fc-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.fc-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.fc-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+.fc-btn-prev, .fc-btn-next {
+    background: var(--color-accent-5, #f7e9f1);
+    color: var(--color-accent);
+    border: 2px solid var(--color-accent-2);
+}
+
+body.dark-mode .fc-btn-prev, body.dark-mode .fc-btn-next {
+    background: var(--color-accent-4-dark, #2a1520);
+    border-color: var(--color-accent-2-dark);
+    color: var(--color-accent);
+}
+
+.fc-btn-prev:hover:not([disabled]), .fc-btn-next:hover:not([disabled]) {
+    border-color: var(--color-accent);
+}
+
+.fc-btn-know {
+    background: var(--color-success, #27ae60);
+    color: #fff;
+    border: 2px solid transparent;
+}
+
+.fc-btn-know:hover:not([disabled]) { opacity: 0.88; transform: scale(1.02); }
+
+.fc-restart-row {
+    display: flex;
+    justify-content: center;
+}
+
+.fc-restart {
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 2px 8px;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.fc-restart:hover { opacity: 1; text-decoration: underline; }
+
+body.dark-mode .fc-restart { color: var(--color-text-muted-dark); }
+
+.fc-finished {
+    align-items: center;
+    gap: 16px;
+}
+
+.fc-finish-icon {
+    font-size: 3rem;
+    color: var(--color-accent);
+    text-align: center;
+}
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<FlashcardCard> _cards = new();
+    private int _deckIndex = 0;
+    private bool _flipped = false;
+    private HashSet<int> _known = new();
+    private bool _loading = false;
+    private string? _error;
+    private int _loadedPostId = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _cards.Count == 0 && !_loading && PostId > 0 && PostId != _loadedPostId)
+            await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        _cards = new();
+        _known = new();
+        _deckIndex = 0;
+        _flipped = false;
+        StateHasChanged();
+
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/flashcards");
+            var resp = await Http.PostAsJsonAsync(url, new FlashcardRequest { PostId = PostId });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<FlashcardResponse>();
+                _cards = data?.Cards ?? new();
+                _loadedPostId = PostId;
+            }
+            else if ((int)resp.StatusCode == 429)
+            {
+                _error = "Denní limit dotazů byl vyčerpán.";
+            }
+            else
+            {
+                _error = "Kartičky se nepodařilo vygenerovat. Zkuste to znovu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Flip()
+    {
+        _flipped = !_flipped;
+    }
+
+    private void Next()
+    {
+        var activeCount = _cards.Count - _known.Count;
+        if (_deckIndex < activeCount - 1)
+        {
+            _deckIndex++;
+            _flipped = false;
+        }
+    }
+
+    private void Prev()
+    {
+        if (_deckIndex > 0)
+        {
+            _deckIndex--;
+            _flipped = false;
+        }
+    }
+
+    private void MarkKnown()
+    {
+        var activeCards = _cards.Where((_, i) => !_known.Contains(i)).ToList();
+        if (_deckIndex < activeCards.Count)
+        {
+            var globalIndex = _cards.IndexOf(activeCards[_deckIndex]);
+            _known.Add(globalIndex);
+            _flipped = false;
+            var newActiveCount = _cards.Count - _known.Count;
+            if (newActiveCount > 0)
+                _deckIndex = Math.Min(_deckIndex, newActiveCount - 1);
+        }
+    }
+
+    private void Restart()
+    {
+        _known = new();
+        _deckIndex = 0;
+        _flipped = false;
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}

@@ -575,76 +575,75 @@ body.dark-mode .assistant-markdown pre {
         _remaining = 10;
     }
 
-    private async Task AnimateTypingAsync(string fullText)
-    {
-        _isTyping = true;
-        _typingText = string.Empty;
-        // Speed: cap at 8ms/char so long responses don't take forever
-        var delay = Math.Max(8, Math.Min(20, 1200 / Math.Max(fullText.Length, 1)));
-        foreach (var ch in fullText)
-        {
-            _typingText += ch;
-            StateHasChanged();
-            await Task.Delay(delay);
-        }
-        _isTyping = false;
-        StateHasChanged();
-    }
-
     private async Task Send()
     {
         if (string.IsNullOrWhiteSpace(_question)) return;
         _loading = true;
         var userMsg = new AiMessage { Role = "user", Content = _question };
         _history.Add(userMsg);
+        var questionSnapshot = _question;
+        _question = string.Empty;
+        StateHasChanged();
 
         var req = new AiChatRequest
         {
             PostId = PostId,
-            Question = _question,
+            Question = questionSnapshot,
             ConversationHistory = _history.Select(h => h).ToList()
         };
 
+        var fullAnswer = string.Empty;
         try
         {
-            var absolute = new Uri(Navigation.BaseUri + "api/ai/ask");
-            var res = await Http.PostAsJsonAsync(absolute, req);
-            if (res.IsSuccessStatusCode)
-            {
-                var aiResp = await res.Content.ReadFromJsonAsync<AiChatResponse>();
-                if (aiResp != null)
-                {
-                    _remaining = aiResp.RemainingQuestions;
-                    _loading = false;
-                    await AnimateTypingAsync(aiResp.Answer);
-                    _history.Add(new AiMessage { Role = "assistant", Content = aiResp.Answer });
-                    await SaveToLocalStorageAsync();
-                }
-                else
-                {
-                    _history.Add(new AiMessage { Role = "assistant", Content = "AI vrátila prázdnou odpověď." });
-                }
-            }
-            else
-            {
-                var body = string.Empty;
-                try
-                {
-                    body = await res.Content.ReadAsStringAsync();
-                }
-                catch { }
+            var requestMessage = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post,
+                new Uri(Navigation.BaseUri + "api/ai/ask-stream"));
+            requestMessage.Content = new System.Net.Http.StringContent(
+                System.Text.Json.JsonSerializer.Serialize(req),
+                System.Text.Encoding.UTF8, "application/json");
 
-                if ((int)res.StatusCode == 429)
-                {
-                    _history.Add(new AiMessage { Role = "assistant", Content = "Dnešní limit dotazů byl vyčerpán." });
-                    _remaining = 0;
-                }
-                else
-                {
-                    var snippet = string.IsNullOrEmpty(body) ? "(bez těla odpovědi)" : (body.Length > 300 ? body.Substring(0, 300) + "..." : body);
-                    _history.Add(new AiMessage { Role = "assistant", Content = $"Chyba při dotazu na AI: {(int)res.StatusCode} {res.ReasonPhrase}. {snippet}" });
-                }
+            var deviceId = string.Empty;
+            try { deviceId = await Js.InvokeAsync<string>("localStorage.getItem", "tobiso_device_id"); } catch { }
+            if (!string.IsNullOrEmpty(deviceId))
+                requestMessage.Headers.TryAddWithoutValidation("X-Device-Id", deviceId);
+
+            using var response = await Http.SendAsync(requestMessage, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+
+            if ((int)response.StatusCode == 429)
+            {
+                _history.Add(new AiMessage { Role = "assistant", Content = "Dnešní limit dotazů byl vyčerpán." });
+                _remaining = 0;
+                return;
             }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errBody = await response.Content.ReadAsStringAsync();
+                var snippet = errBody.Length > 200 ? errBody.Substring(0, 200) + "..." : errBody;
+                _history.Add(new AiMessage { Role = "assistant", Content = $"Chyba AI: {(int)response.StatusCode}. {snippet}" });
+                return;
+            }
+
+            _loading = false;
+            _isTyping = true;
+            _typingText = string.Empty;
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new System.IO.StreamReader(stream);
+
+            while (!reader.EndOfStream)
+            {
+                var line = await reader.ReadLineAsync();
+                if (string.IsNullOrEmpty(line) || !line.StartsWith("data: ")) continue;
+                var data = line.Substring(6);
+                if (data == "[DONE]") break;
+
+                var chunk = data.Replace("\\n", "\n");
+                fullAnswer += chunk;
+                _typingText = fullAnswer;
+                await InvokeAsync(StateHasChanged);
+            }
+
+            _remaining = Math.Max(0, _remaining - 1);
         }
         catch (Exception ex)
         {
@@ -652,13 +651,16 @@ body.dark-mode .assistant-markdown pre {
         }
         finally
         {
-            _question = string.Empty;
-            _loading = false;
             _isTyping = false;
             _typingText = string.Empty;
+            if (!string.IsNullOrEmpty(fullAnswer))
+            {
+                _history.Add(new AiMessage { Role = "assistant", Content = fullAnswer });
+                await SaveToLocalStorageAsync();
+            }
+            _loading = false;
             StateHasChanged();
-            await Js.InvokeVoidAsync("eval",
-                "var t=document.getElementById('ai-input');if(t){t.style.height='auto';}");
+            try { await Js.InvokeVoidAsync("eval", "var t=document.getElementById('ai-input');if(t){t.style.height='auto';}"); } catch { }
         }
     }
 

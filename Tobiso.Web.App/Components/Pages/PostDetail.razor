@@ -342,6 +342,10 @@ else
                     <i class="bi bi-file-earmark-text"></i>
                     <span class="tool-label">Tahák (PDF)</span>
                 </button>
+                <button class="tool-btn" aria-label="Kartičky" @onclick="() => _showFlashcards = true">
+                    <i class="bi bi-card-text"></i>
+                    <span class="tool-label">Kartičky</span>
+                </button>
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -423,6 +427,10 @@ else
             <button class="tool-btn" aria-label="Stáhnout tahák (PDF)" @onclick="OpenCheatSheetModal">
                 <i class="bi bi-file-earmark-text"></i>
                 <span class="tool-label">Tahák (PDF)</span>
+            </button>
+            <button class="tool-btn" aria-label="Kartičky" @onclick="() => _showFlashcards = true">
+                <i class="bi bi-card-text"></i>
+                <span class="tool-label">Kartičky</span>
             </button>
         </div>
         <div class="tool">
@@ -554,6 +562,7 @@ else
 
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
 <PersonModal IsVisible="@_showPersonModal" IsVisibleChanged="@OnPersonModalClose" PersonName="@_personNameForModal" />
+<FlashcardDeck PostId="@(_post?.Id ?? Id)" Visible="@_showFlashcards" OnClose="@(() => _showFlashcards = false)" />
 
 @if (_showCheatSheetModal)
 {
@@ -628,6 +637,7 @@ else
 }
 
 @using Tobiso.Web.App.Components.Shared
+@using Tobiso.Web.App.Components
 @code {
     [CascadingParameter]
     private MainLayout? Layout { get; set; }
@@ -669,6 +679,7 @@ else
     private IJSObjectReference? _jsModule;
     private bool _aiAvailable = true;
     private string? _aiDiagError = null;
+    private bool _showFlashcards = false;
     // Table of Contents state
     private record TocItem(string Id, string Text, int Level);
     private List<TocItem> _tocItems = new();
@@ -789,7 +800,7 @@ else
         {
             try
             {
-                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=11");
+                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=12");
             }
             catch (Exception ex)
             {
@@ -812,6 +823,9 @@ else
 
                 try { await _jsModule.InvokeVoidAsync("initImageLightbox", "content"); }
                 catch (Exception ex) { Logger.LogWarning(ex, "initImageLightbox failed"); }
+
+                try { await _jsModule.InvokeVoidAsync("initSentenceHelper", _dotNetRef); }
+                catch (Exception ex) { Logger.LogWarning(ex, "initSentenceHelper failed"); }
             }
 
             // Load persisted reading preferences from localStorage.
@@ -928,6 +942,28 @@ else
     public void OpenPersonByName(string name)
     {
         HandlePersonRequestByName(name);
+    }
+
+    [JSInvokable("ExplainSentence")]
+    public async Task ExplainSentence(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _post == null) return;
+        try
+        {
+            var req = new ExplainSentenceRequest { PostId = _post.Id, Sentence = text.Trim() };
+            var resp = await Http.PostAsJsonAsync(new Uri(Navigation.BaseUri + "api/ai/explain-sentence"), req);
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<ExplainSentenceResponse>();
+                var explanation = data?.Explanation ?? string.Empty;
+                if (!string.IsNullOrEmpty(explanation) && _jsModule != null)
+                    await _jsModule.InvokeVoidAsync("showSentenceTooltip", explanation);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ExplainSentence failed");
+        }
     }
 
     protected override void OnInitialized()
