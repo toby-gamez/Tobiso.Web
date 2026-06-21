@@ -23,7 +23,7 @@
         {
             @if (loading)
             {
-                <div class="p-3">Načítám...</div>
+                <div class="loading-circle"></div>
             }
             else if (filteredRootNodes == null || !filteredRootNodes.Any())
             {
@@ -49,7 +49,7 @@
             <div class="chat-list p-2">
                 @if (chatsLoading)
                 {
-                    <div class="p-3">Načítám chaty...</div>
+                    <div class="loading-circle"></div>
                 }
                 else if (savedChats == null || !savedChats.Any())
                 {

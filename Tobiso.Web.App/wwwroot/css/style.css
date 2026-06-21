@@ -4179,6 +4179,7 @@ body.dark-mode code {
     color: var(--color-accent);
     border-bottom: 1px solid var(--color-accent);
     cursor: default;
+    font-size: inherit;
 }
 
 .person-mention .person-link {
@@ -4427,6 +4428,50 @@ body.dark-mode .tool-btn:hover span.tool-label {
 
 body:has(#MyNavBar.collapsed) .loading-bar-container {
     width: calc(100% - 60px);
+}
+
+.loading-circle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 6rem;
+}
+
+.loading-circle::after {
+    content: '';
+    display: block;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid var(--color-accent-2);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: loading-circle-spin 0.75s linear infinite;
+}
+
+body.dark-mode .loading-circle::after {
+    border-color: var(--color-accent-2-dark);
+    border-top-color: var(--color-accent);
+}
+
+@keyframes loading-circle-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* When a page-level section is in loading state, fill the viewport so the
+   spinner lands in the vertical centre of the screen */
+section:has(.loading-circle) {
+    min-height: calc(100svh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+section:has(.loading-circle) > article {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 @media only screen and (max-width: 600px) {

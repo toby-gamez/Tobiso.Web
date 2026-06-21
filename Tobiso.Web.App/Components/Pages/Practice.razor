@@ -13,12 +13,7 @@
 
 @if (_questions == null)
 {
-    <div class="text-center">
-        <p>Načítám otázky pro procvičování...</p>
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <div class="loading-circle"></div>
 }
 else if (!_questions.Any())
 {
