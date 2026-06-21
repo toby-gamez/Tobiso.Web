@@ -122,7 +122,9 @@ h5.modal-event-title,
 .person-modal-role,
 .btn-outline-primary,
 .person-modal-disclaimer,
-.tools-dropdown-item {
+.tools-dropdown-item,
+.rw-panel-title,
+.whatif-scenario {
     font-family: var(--font-family-sans) !important;
 }
 
@@ -142,7 +144,9 @@ h5.modal-event-title,
 .latest-selected-div,
 .latest-muted small,
 .answer-option,
-.person-modal-bio p {
+.person-modal-bio p,
+.rw-list li,
+.whatif-explanation {
     font-family: var(--font-family-serif) !important;
 }
 
@@ -4670,6 +4674,7 @@ body.dark-mode .rw-list li { color: var(--color-text-dark); }
 
 .tobiso-modal-card {
     background: var(--modal-bg, #fff0f7);
+    color: var(--color-text);
     border-radius: 8px;
     box-shadow: 0 10px 25px var(--shadow-medium);
     width: 100%;
@@ -4683,6 +4688,7 @@ body.dark-mode .rw-list li { color: var(--color-text-dark); }
 
 body.dark-mode .tobiso-modal-card {
     background: var(--color-bg-dark);
+    color: var(--color-text-dark);
 }
 
 .tobiso-modal-header {
@@ -4758,6 +4764,20 @@ body.dark-mode .tobiso-modal-close:hover {
     justify-content: center;
     text-align: center;
     min-height: 180px;
+}
+
+.tobiso-modal-disclaimer {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    padding: 6px 1.5rem 10px;
+    border-top: 1px solid var(--color-accent-2);
+    text-align: center;
+    font-family: var(--font-family-sans);
+}
+
+body.dark-mode .tobiso-modal-disclaimer {
+    color: var(--color-text-muted-dark);
+    border-top-color: var(--color-accent-2-dark);
 }
 
 /* ============================================================

@@ -9,7 +9,7 @@
     <div class="tobiso-modal-backdrop" @onclick="HandleBackdropClick">
         <div class="tobiso-modal-card" @onclick:stopPropagation>
             <div class="tobiso-modal-header">
-                <span class="tobiso-modal-title"><i class="bi bi-lightbulb"></i> Zkus to vysvětlit</span>
+                <span class="tobiso-modal-title"><i class="bi bi-lightbulb"></i> Zkus to vysvětlit sám</span>
                 <button class="tobiso-modal-close" @onclick="Close" aria-label="Zavřít">&times;</button>
             </div>
 
@@ -24,7 +24,6 @@
                               @bind="_explanation"
                               @bind:event="oninput"
                               placeholder="Napiš své vysvětlení zde..."
-                              rows="7"
                               disabled="@_loading"></textarea>
                     <div class="feynman-footer">
                         <span class="feynman-charcount @(_explanation.Length < 50 ? "feynman-charcount-warn" : "")">
@@ -89,6 +88,7 @@
             {
                 <div class="feynman-error">@_error</div>
             }
+            <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
         </div>
     </div>
 }
@@ -102,16 +102,17 @@
     }
     .feynman-textarea {
         width: 100%;
+        box-sizing: border-box;
         border: 2px solid var(--color-accent-2);
         border-radius: 10px;
         padding: 0.75rem 1rem;
         font-size: 0.97rem;
         font-family: inherit;
-        resize: vertical;
+        resize: none;
+        height: 100px;
         background: var(--color-accent-5);
         color: var(--color-text);
         transition: border-color 0.2s;
-        box-sizing: border-box;
     }
     .feynman-textarea:focus {
         outline: none;

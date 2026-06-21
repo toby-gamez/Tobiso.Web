@@ -39,7 +39,7 @@
             {
                 <div class="tobiso-modal-body">
                     <div class="gr-grade-label">Verze pro @_loadedGrade. ročník</div>
-                    <div class="gr-content">@_content</div>
+                    <div class="gr-content"><MarkdownContent Content="@_content" ContainerId="gr-content" /></div>
                 </div>
             }
             else
@@ -48,6 +48,7 @@
                     <p class="gr-placeholder"><i class="bi bi-arrow-up"></i> Vyber ročník a článek se přepíše.</p>
                 </div>
             }
+            <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
         </div>
     </div>
 }
@@ -108,14 +109,7 @@ body.dark-mode .gr-placeholder { color: var(--color-text-muted-dark); }
     color: var(--color-accent);
 }
 
-.gr-content {
-    font-size: 0.96rem;
-    color: var(--color-text);
-    line-height: 1.72;
-    white-space: pre-wrap;
-}
-
-body.dark-mode .gr-content { color: var(--color-text-dark); }
+.gr-content { font-size: 0.95rem; }
 </style>
 
 @code {

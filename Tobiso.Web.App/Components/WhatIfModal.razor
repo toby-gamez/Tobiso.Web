@@ -1,0 +1,220 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<WhatIfModal> Logger
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card wi-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-stars"></i> Co kdyby?</span>
+                <button class="tobiso-modal-close" @onclick="Close" aria-label="Zavřít">&times;</button>
+            </div>
+
+            @if (_result == null && !_loading)
+            {
+                <div class="tobiso-modal-body">
+                    <p class="wi-hint">
+                        Napiš svou otázku „Co kdyby…" a AI vymyslí fascinující myšlenkový experiment na základě tohoto článku.
+                    </p>
+                    <textarea class="wi-textarea"
+                              @bind="_question"
+                              @bind:event="oninput"
+                              placeholder="Co kdyby gravitace fungovala obráceně?..."
+                              rows="3"
+                              disabled="@_loading"></textarea>
+                    <div class="wi-footer">
+                        @if (_question.Length < 10)
+                        {
+                            <span class="wi-charcount-warn">Napiš otázku</span>
+                        }
+                        else
+                        {
+                            <span></span>
+                        }
+                        <button class="wi-submit" @onclick="Submit" disabled="@(_loading || _question.Length < 10)">
+                            <i class="bi bi-stars"></i> Vygenerovat
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <span>AI přemýšlí nad vaší otázkou…</span>
+                </div>
+            }
+            else if (_result != null)
+            {
+                <div class="tobiso-modal-body">
+                    <div class="wi-scenario">@_result.Scenario</div>
+                    <p class="wi-explanation">@_result.Explanation</p>
+                    <button class="wi-retry" @onclick="Reset">
+                        <i class="bi bi-arrow-counterclockwise"></i> Zkusit jinou otázku
+                    </button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="wi-error">@_error</div>
+            }
+            <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
+        </div>
+    </div>
+}
+
+<style>
+.wi-modal { max-width: 520px; }
+
+.wi-hint {
+    font-size: 0.92rem;
+    opacity: 0.75;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.wi-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid var(--color-accent-2);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.97rem;
+    font-family: inherit;
+    resize: none;
+    height: 90px;
+    background: var(--color-accent-5);
+    color: var(--color-text);
+    transition: border-color 0.2s;
+}
+
+.wi-textarea:focus { outline: none; border-color: var(--color-accent); }
+
+body.dark-mode .wi-textarea {
+    background: var(--color-accent-4-dark);
+    color: var(--color-text-dark);
+    border-color: var(--color-accent-3-dark);
+}
+
+.wi-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.wi-charcount-warn { font-size: 0.82rem; color: var(--color-danger); }
+
+.wi-submit {
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: none;
+    margin: 0;
+}
+
+.wi-submit:hover:not(:disabled) { filter: brightness(1.1); transform: none; }
+.wi-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.wi-scenario {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-accent-strong);
+    line-height: 1.4;
+}
+
+.wi-explanation {
+    font-size: 0.97rem;
+    line-height: 1.65;
+    margin: 0;
+}
+
+.wi-retry {
+    align-self: flex-start;
+    background: none;
+    border: 2px solid var(--color-accent-2);
+    border-radius: 8px;
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: none;
+    margin: 0;
+}
+
+body.dark-mode .wi-retry { border-color: var(--color-accent-2-dark); }
+.wi-retry:hover { border-color: var(--color-accent); background: none; transform: none; }
+
+.wi-error {
+    padding: 0.6rem 1.5rem 1rem;
+    color: var(--color-danger);
+    font-size: 0.9rem;
+}
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _question = string.Empty;
+    private bool _loading = false;
+    private WhatIfResponse? _result = null;
+    private string? _error = null;
+
+    private async Task Submit()
+    {
+        if (_question.Length < 10 || _loading) return;
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            var req = new WhatIfRequest { PostId = PostId, UserQuestion = _question };
+            var resp = await Http.PostAsJsonAsync(new Uri(Navigation.BaseUri + "api/ai/what-if"), req);
+            if (resp.IsSuccessStatusCode)
+                _result = await resp.Content.ReadFromJsonAsync<WhatIfResponse>();
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit AI byl vyčerpán. Zkus to zítra.";
+            else
+                _error = "Chyba při generování. Zkus to prosím znovu.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "WhatIf failed");
+            _error = "Nepodařilo se spojit se serverem.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        _result = null;
+        _question = string.Empty;
+        _error = null;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        Reset();
+        OnClose.InvokeAsync();
+    }
+}

@@ -378,10 +378,10 @@ else
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item @(_loadingRealWorld ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadRealWorldApplications(); _showToolsDropdown = false; }" disabled="@_loadingRealWorld">
+                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
                             </button>
-                            <button class="tools-dropdown-item @(_loadingWhatIf ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadWhatIf(); _showToolsDropdown = false; }" disabled="@_loadingWhatIf">
+                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-stars"></i> Co kdyby?
                             </button>
                             <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
@@ -516,10 +516,10 @@ else
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item @(_loadingRealWorld ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadRealWorldApplications(); _showToolsDropdown = false; }" disabled="@_loadingRealWorld">
+                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
                             </button>
-                            <button class="tools-dropdown-item @(_loadingWhatIf ? "tools-dropdown-item-loading" : "")" @onclick="() => { LoadWhatIf(); _showToolsDropdown = false; }" disabled="@_loadingWhatIf">
+                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-stars"></i> Co kdyby?
                             </button>
                             <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
@@ -666,30 +666,8 @@ else
 <PracticeProblems PostId="@(_post?.Id ?? Id)" Visible="@_showPracticeProblems" OnClose="@(() => _showPracticeProblems = false)" Count="3" />
 <GradeRewriter PostId="@(_post?.Id ?? Id)" Visible="@_showGradeRewriter" OnClose="@(() => _showGradeRewriter = false)" />
 <FeynmanMode PostId="@(_post?.Id ?? Id)" Visible="@_showFeynman" OnClose="@(() => _showFeynman = false)" />
-
-@if (_realWorldApplications.Count > 0)
-{
-    <div class="rw-panel">
-        <div class="rw-panel-title"><i class="bi bi-globe2"></i> Reálné využití</div>
-        <ul class="rw-list">
-            @foreach (var app in _realWorldApplications)
-            {
-                <li>@app</li>
-            }
-        </ul>
-        <button class="rw-close-btn" @onclick="() => _realWorldApplications.Clear()" aria-label="Skrýt">&times;</button>
-    </div>
-}
-
-@if (_whatIfResult != null)
-{
-    <div class="rw-panel whatif-panel">
-        <div class="rw-panel-title"><i class="bi bi-stars"></i> Co kdyby?</div>
-        <p class="whatif-scenario">@_whatIfResult.Scenario</p>
-        <p class="whatif-explanation">@_whatIfResult.Explanation</p>
-        <button class="rw-close-btn" @onclick="() => _whatIfResult = null" aria-label="Skrýt">&times;</button>
-    </div>
-}
+<RealWorldModal PostId="@(_post?.Id ?? Id)" Visible="@_showRealWorld" OnClose="@(() => _showRealWorld = false)" />
+<WhatIfModal PostId="@(_post?.Id ?? Id)" Visible="@_showWhatIf" OnClose="@(() => _showWhatIf = false)" />
 
 @if (_showCheatSheetModal)
 {
@@ -811,11 +789,8 @@ else
     private bool _showPracticeProblems = false;
     private bool _showGradeRewriter = false;
     private bool _showFeynman = false;
-    private List<string> _realWorldApplications = new();
-    private bool _loadingRealWorld = false;
-    // What If state
-    private WhatIfResponse? _whatIfResult = null;
-    private bool _loadingWhatIf = false;
+    private bool _showRealWorld = false;
+    private bool _showWhatIf = false;
     // TTS state
     private bool _ttsSpeaking = false;
     private bool _ttsPaused = false;
@@ -1102,33 +1077,6 @@ else
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "ExplainSentence failed");
-        }
-    }
-
-    private async Task LoadRealWorldApplications()
-    {
-        if (_post == null || _loadingRealWorld) return;
-        _loadingRealWorld = true;
-        _realWorldApplications.Clear();
-        StateHasChanged();
-        try
-        {
-            var url = new Uri(Navigation.BaseUri + $"api/ai/real-world/{_post.Id}");
-            var resp = await Http.GetAsync(url);
-            if (resp.IsSuccessStatusCode)
-            {
-                var data = await resp.Content.ReadFromJsonAsync<RealWorldResponse>();
-                _realWorldApplications = data?.Applications ?? new();
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "LoadRealWorldApplications failed");
-        }
-        finally
-        {
-            _loadingRealWorld = false;
-            StateHasChanged();
         }
     }
 
@@ -1685,21 +1633,4 @@ else
         return Task.CompletedTask;
     }
 
-    // --- What If ---
-    private async Task LoadWhatIf()
-    {
-        if (_post == null || _loadingWhatIf) return;
-        _loadingWhatIf = true;
-        _whatIfResult = null;
-        StateHasChanged();
-        try
-        {
-            var url = new Uri(Navigation.BaseUri + $"api/ai/what-if/{_post.Id}");
-            var resp = await Http.GetAsync(url);
-            if (resp.IsSuccessStatusCode)
-                _whatIfResult = await resp.Content.ReadFromJsonAsync<WhatIfResponse>();
-        }
-        catch (Exception ex) { Logger.LogWarning(ex, "LoadWhatIf failed"); }
-        finally { _loadingWhatIf = false; StateHasChanged(); }
-    }
 }

@@ -517,11 +517,11 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
-        [HttpGet("what-if/{postId:int}")]
+        [HttpPost("what-if")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetWhatIfScenario(int postId)
+        public async Task<IActionResult> GetWhatIfScenario([FromBody] WhatIfRequest request)
         {
-            if (postId <= 0) return BadRequest("Invalid postId");
+            if (request == null || request.PostId <= 0) return BadRequest("Invalid request");
 
             var rateKey = GetRateKey();
             if (!TryConsumeRateLimit(rateKey))
@@ -529,12 +529,12 @@ namespace Tobiso.Web.App.Controllers
 
             try
             {
-                var result = await _aiService.GetWhatIfScenarioAsync(postId);
+                var result = await _aiService.GetWhatIfScenarioAsync(request);
                 return Ok(result);
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "What-if scenario failed for PostId={PostId}", postId);
+                Serilog.Log.Error(ex, "What-if scenario failed for PostId={PostId}", request.PostId);
                 return StatusCode(502, new { message = ex.Message });
             }
         }

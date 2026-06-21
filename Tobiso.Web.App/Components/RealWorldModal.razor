@@ -1,0 +1,119 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<RealWorldModal> Logger
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card rwm-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-globe2"></i> Reálné využití</span>
+                <button class="tobiso-modal-close" @onclick="Close" aria-label="Zavřít">&times;</button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <span>Hledám reálné příklady využití…</span>
+                </div>
+            }
+            else if (_error != null)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="rwm-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else if (_apps.Any())
+            {
+                <div class="tobiso-modal-body">
+                    <ul class="rwm-list">
+                        @foreach (var app in _apps)
+                        {
+                            <li>@app</li>
+                        }
+                    </ul>
+                </div>
+            }
+            <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
+        </div>
+    </div>
+}
+
+<style>
+.rwm-modal { max-width: 500px; }
+
+.rwm-error { color: var(--color-danger); font-size: 0.9rem; }
+
+.rwm-list {
+    margin: 0;
+    padding-left: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.rwm-list li {
+    font-size: 0.96rem;
+    line-height: 1.55;
+}
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<string> _apps = new();
+    private bool _loading = false;
+    private string? _error;
+    private int _loadedPostId = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _apps.Count == 0 && !_loading && PostId > 0 && PostId != _loadedPostId)
+            await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        _apps = new();
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.GetAsync(new Uri(Navigation.BaseUri + $"api/ai/real-world/{PostId}"));
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RealWorldResponse>();
+                _apps = data?.Applications ?? new();
+                _loadedPostId = PostId;
+            }
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit AI byl vyčerpán.";
+            else
+                _error = "Nepodařilo se načíst příklady.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "RealWorldApplications failed");
+            _error = "Nepodařilo se spojit se serverem.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Close()
+    {
+        _apps = new();
+        _loadedPostId = 0;
+        _error = null;
+        OnClose.InvokeAsync();
+    }
+}

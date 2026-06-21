@@ -19,7 +19,7 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade);
         Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
         Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId);
-        Task<WhatIfResponse> GetWhatIfScenarioAsync(int postId);
+        Task<WhatIfResponse> GetWhatIfScenarioAsync(WhatIfRequest request);
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
     }
 }

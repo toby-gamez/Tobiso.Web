@@ -1106,27 +1106,31 @@ namespace Tobiso.Web.App.Services
             return new GrammarCheckResponse();
         }
 
-        public async Task<WhatIfResponse> GetWhatIfScenarioAsync(int postId)
+        public async Task<WhatIfResponse> GetWhatIfScenarioAsync(WhatIfRequest request)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
-            var post = await _postService.GetById(postId);
+            var post = await _postService.GetById(request.PostId);
             var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
             var articleContext = PrepareArticleContext(versionContent);
             var title = post?.Title ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(articleContext)) return new WhatIfResponse { Scenario = "Článek nemá obsah.", Explanation = string.Empty };
 
-            var systemPrompt = "Jsi kreativní vědecký myslitel. Vygeneruj jeden fascinující myšlenkový experiment 'Co kdyby?' na základě tématu článku. " +
-                "Scénář musí být konkrétní, vědecky zajímavý a vhodný pro žáky základní školy. " +
-                "Vrať POUZE platný JSON (bez markdown): {\"scenario\":\"Co kdyby [konkrétní podmínka]?\",\"explanation\":\"[2-3 věty vysvětlení dopadů, fascinující a motivující]\"}";
+            var systemPrompt = "Jsi kreativní vědecký myslitel. Na základě tématu článku odpověz na myšlenkovou otázku 'Co kdyby?' zadanou žákem. " +
+                "Odpověď musí být vědecky zajímavá, konkrétní a vhodná pro žáky základní školy. " +
+                "Vrať POUZE platný JSON (bez markdown): {\"scenario\":\"[zopakuj nebo přeformuluj otázku žáka]\",\"explanation\":\"[2-3 věty fascinujícího vysvětlení dopadů]\"}";
+
+            var userContent = string.IsNullOrWhiteSpace(request.UserQuestion)
+                ? $"Téma článku: {title}\n\n{articleContext.Substring(0, Math.Min(articleContext.Length, 3000))}\n\nVymysli zajímavou otázku 'Co kdyby?' a odpověz na ni."
+                : $"Téma článku: {title}\n\n{articleContext.Substring(0, Math.Min(articleContext.Length, 2000))}\n\nOtázka žáka: {request.UserQuestion}";
 
             var messages = new List<object>
             {
                 new { role = "system", content = systemPrompt },
-                new { role = "user", content = $"Téma článku: {title}\n\n{articleContext.Substring(0, Math.Min(articleContext.Length, 3000))}" }
+                new { role = "user", content = userContent }
             };
 
             var payload = new { model, messages, max_tokens = 350, temperature = 0.85, response_format = new { type = "json_object" } };
@@ -1142,7 +1146,7 @@ namespace Tobiso.Web.App.Services
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "OpenAI what-if request failed for postId={PostId}", postId);
+                Serilog.Log.Error(ex, "OpenAI what-if request failed for postId={PostId}", request.PostId);
                 throw;
             }
 
@@ -1164,7 +1168,7 @@ namespace Tobiso.Web.App.Services
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "Failed to parse what-if response for postId={PostId}", postId);
+                Serilog.Log.Error(ex, "Failed to parse what-if response for postId={PostId}", request.PostId);
             }
 
             return new WhatIfResponse();

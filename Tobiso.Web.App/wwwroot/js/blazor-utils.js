@@ -1316,6 +1316,7 @@ let _sentenceTooltipEl = null;
 let _sentenceBtn = null;
 let _sentenceBtnTarget = null;
 let _tooltipVisible = false;
+let _sentenceHideTimer = null;
 
 export function initSentenceHelper(dotNetRef) {
   _sentenceHelperRef = dotNetRef;
@@ -1359,14 +1360,29 @@ export function initSentenceHelper(dotNetRef) {
       _sentenceBtn.disabled = false;
       _sentenceBtn.innerHTML = '<i class="bi bi-question-circle"></i>';
     });
+
+    _sentenceBtn.addEventListener('mouseenter', function () {
+      if (_sentenceHideTimer) { clearTimeout(_sentenceHideTimer); _sentenceHideTimer = null; }
+    });
+
+    _sentenceBtn.addEventListener('mouseleave', function () {
+      if (_tooltipVisible) return;
+      _sentenceHideTimer = setTimeout(function () {
+        _sentenceBtn.style.display = 'none';
+        _sentenceBtnTarget = null;
+        _sentenceHideTimer = null;
+      }, 150);
+    });
   }
 
-  // Delegated hover on paragraphs
+  // Delegated hover on paragraphs and list items
   content.addEventListener('mouseover', function (e) {
-    const p = e.target.closest('#content p');
-    if (!p || p === _sentenceBtnTarget) return;
-    _sentenceBtnTarget = p;
-    const rect = p.getBoundingClientRect();
+    const target = e.target.closest('#content p, #content li');
+    if (!target) return;
+    if (_sentenceHideTimer) { clearTimeout(_sentenceHideTimer); _sentenceHideTimer = null; }
+    if (target === _sentenceBtnTarget) return;
+    _sentenceBtnTarget = target;
+    const rect = target.getBoundingClientRect();
     const scrollY = window.scrollY || document.documentElement.scrollTop;
     _sentenceBtn.style.display = 'block';
     _sentenceBtn.style.position = 'absolute';
@@ -1376,8 +1392,11 @@ export function initSentenceHelper(dotNetRef) {
 
   content.addEventListener('mouseleave', function () {
     if (_tooltipVisible) return;
-    _sentenceBtn.style.display = 'none';
-    _sentenceBtnTarget = null;
+    _sentenceHideTimer = setTimeout(function () {
+      _sentenceBtn.style.display = 'none';
+      _sentenceBtnTarget = null;
+      _sentenceHideTimer = null;
+    }, 150);
   });
 
   // Dismiss tooltip on outside click or Esc
