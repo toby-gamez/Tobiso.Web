@@ -14,6 +14,7 @@
 @inject AddendumModalService ModalService
 @inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @inject ILogger<PostDetail> Logger
+@inject PostsGraphModalService GraphModalService
 @rendermode InteractiveServer
 @implements IDisposable
 <PageTitle>@(_post?.Title ?? "Blogový post") - Tobiso</PageTitle>
@@ -286,31 +287,6 @@ else
         </nav>
     }
 
-    @* Wiki-style Table of Contents for Markdown posts *@
-    @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any() && !(Layout?.NavMenuExpanded == true && Layout?.RightSidebarVisible == true))
-    {
-        <nav class="wiki-toc" aria-label="Obsah">
-            <div class="wiki-toc-title">Obsah</div>
-            @foreach (var item in _tocItems)
-            {
-                <a href="#@item.Id" class="wiki-toc-item level-@item.Level @( _activeTocId == item.Id ? "active" : "")" @onclick="() => ScrollToHeading(item.Id)" @onclick:preventDefault="true">@item.Text</a>
-            }
-        </nav>
-    }
-    else
-    {
-        // debug aid: if URL contains ?tocdebug=1, show placeholder so we can see placement
-        var uri = new Uri(Navigation.Uri);
-        var dbg = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tocdebug", out var _dbg) && _dbg == "1";
-        if (dbg)
-        {
-            <nav class="wiki-toc" aria-label="Obsah (debug)">
-                <div class="wiki-toc-title">Obsah (debug)</div>
-                <div style="opacity:0.6">No headings found or not a markdown post.</div>
-            </nav>
-        }
-    }
-
     <div class="tools">
         <div class="tool">
             @if (GetLatestEditDate() != null)
@@ -429,25 +405,99 @@ else
             </div>
         </div>
     }
-    <div class="content">
-        @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
-        <div id="content" class="content" style="@GetContentStyle()">
-            @if (_fileSuffix == ".md")
-            {
-                <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
-                @if (!_aiAvailable)
-                {
-                    <div class="alert alert-warning mt-3">
-                        AI detection is currently unavailable locally. Post will use existing person summaries. <br />
-                        @if (!string.IsNullOrEmpty(_aiDiagError)) { <small>@_aiDiagError</small> }
-                    </div>
-                }
-            }
-            else
-            {
-                @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
-            }
+    <div class="article-split-layout">
+        <div class="article-main">
+            <div class="content">
+                @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
+                <div id="content" class="content" style="@GetContentStyle()">
+                    @if (_fileSuffix == ".md")
+                    {
+                        <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
+                        @if (!_aiAvailable)
+                        {
+                            <div class="alert alert-warning mt-3">
+                                AI detection is currently unavailable locally. Post will use existing person summaries. <br />
+                                @if (!string.IsNullOrEmpty(_aiDiagError)) { <small>@_aiDiagError</small> }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
+                    }
+                </div>
+            </div>
         </div>
+
+        <aside class="article-context-sidebar">
+            @* TOC *@
+            @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any())
+            {
+                <div class="context-card">
+                    <div class="context-card-title">Obsah</div>
+                    <nav class="wiki-toc" aria-label="Obsah">
+                        @foreach (var item in _tocItems)
+                        {
+                            <a href="#@item.Id" class="wiki-toc-item level-@item.Level @(_activeTocId == item.Id ? "active" : "")"
+                               @onclick="() => ScrollToHeading(item.Id)" @onclick:preventDefault="true">@item.Text</a>
+                        }
+                    </nav>
+                </div>
+            }
+
+            @* Context shortcuts *@
+            <div class="context-card">
+                <div class="context-card-title">Kontext</div>
+                <button class="context-feature-btn" @onclick="GraphModalService.OpenGraphModal">
+                    <i class="bi bi-diagram-3"></i> Graf znalostí
+                </button>
+                <button class="context-feature-btn" @onclick="() => _showWhatIf = true">
+                    <i class="bi bi-stars"></i> Co kdyby?
+                </button>
+                <button class="context-feature-btn" @onclick="() => _showRealWorld = true">
+                    <i class="bi bi-globe2"></i> Reálné využití
+                </button>
+                <button class="context-feature-btn" @onclick="() => _showFeynman = true">
+                    <i class="bi bi-pencil"></i> Zkus to vysvětlit
+                </button>
+                <button class="context-feature-btn" disabled title="Brzy dostupné">
+                    <i class="bi bi-geo-alt"></i> Mapa
+                </button>
+                <button class="context-feature-btn" disabled title="Brzy dostupné">
+                    <i class="bi bi-clock-history"></i> Časová osa
+                </button>
+            </div>
+
+            @* Image gallery *@
+            @if (_articleImages.Count > 0)
+            {
+                <div class="context-card">
+                    <div class="context-card-title">Obrázky</div>
+                    <div class="sidebar-image-grid">
+                        @foreach (var img in _articleImages)
+                        {
+                            <img src="@img.Url" alt="@img.Alt" title="@img.Alt" loading="lazy" />
+                        }
+                    </div>
+                </div>
+            }
+
+            @* Related posts *@
+            @if (_relatedPosts != null && _relatedPosts.Any())
+            {
+                <div class="context-card">
+                    <div class="context-card-title">Související</div>
+                    @foreach (var rp in _relatedPosts.Take(6))
+                    {
+                        var rpData = _allPosts?.FirstOrDefault(p => p.Id == rp.RelatedPostId);
+                        if (rpData != null)
+                        {
+                            <a class="sidebar-related-post" href="/post/@rp.RelatedPostId">@rpData.Title</a>
+                        }
+                    }
+                </div>
+            }
+        </aside>
     </div>
     <div class="tools">
         <div class="tool">
@@ -626,38 +676,6 @@ else
         <AiChatBox PostId="@(_post?.Id ?? Id)" ShowEmptyPrompt="false" PostTitle="@(_post?.Title ?? string.Empty)" />
     </div>
 
-    @if (_relatedPosts != null && _relatedPosts.Any())
-    {
-        <div class="intro related-posts">
-            <h3 style="margin: 0">
-                Související články
-            </h3>
-
-            <div class="">
-                @foreach (var relatedPost in _relatedPosts)
-                {
-                    var relatedPostData = _allPosts?.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
-                    if (relatedPostData != null)
-                    {
-                        <a href="/post/@relatedPost.RelatedPostId">
-                        <div class="related-posts-div">
-
-                            <h5 >
-                                @relatedPostData.Title
-                            </h5>
-                            @if (!string.IsNullOrEmpty(relatedPost.Text))
-                            {
-                                <span class="related-posts-text">
-                                    @relatedPost.Text
-                                </span>
-                            }
-                        </div>
-                        </a>
-                    }
-                }
-            </div>
-        </div>
-    }
 }
 
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
@@ -791,6 +809,8 @@ else
     private bool _showFeynman = false;
     private bool _showRealWorld = false;
     private bool _showWhatIf = false;
+    private record ArticleImage(string Url, string Alt);
+    private List<ArticleImage> _articleImages = new();
     // TTS state
     private bool _ttsSpeaking = false;
     private bool _ttsPaused = false;
@@ -869,6 +889,7 @@ else
         await CheckForQuestions();
         await LoadRelatedPosts();
         await LoadExercises();
+        ExtractArticleImages();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -905,6 +926,7 @@ else
         await CheckForQuestions();
         await LoadRelatedPosts();
         await LoadExercises();
+        ExtractArticleImages();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1148,6 +1170,7 @@ else
     {
         _selectedVersionGradeId = gradeId;
         _showVersionPicker = false;
+        ExtractArticleImages();
     }
 
     // --- Reading preferences handlers ---
@@ -1506,6 +1529,18 @@ else
             "matching" => "link-45deg",
             _ => "puzzle"
         };
+    }
+
+    private void ExtractArticleImages()
+    {
+        var content = ActiveVersion?.Content;
+        if (string.IsNullOrEmpty(content)) { _articleImages = new(); return; }
+        var matches = Regex.Matches(content, @"!\[([^\]]*)\]\(([^)\s]+)\)");
+        _articleImages = matches
+            .Select(m => new ArticleImage(m.Groups[2].Value.Trim(), m.Groups[1].Value.Trim()))
+            .Where(i => !string.IsNullOrEmpty(i.Url))
+            .Take(8)
+            .ToList();
     }
 
     private string GetExerciseTypeLabel(string type)
