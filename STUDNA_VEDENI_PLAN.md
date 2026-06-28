@@ -53,6 +53,7 @@
 | 26 | Teacher assignments & confusion heatmap | 🔲 Not started |
 | 1b | Exercises in sidebar (layout) | ✅ Done |
 | 27 | Spaced Repetition & Téma dne | 🔲 Not started – requires accounts |
+| 28 | Dějepis jako živá timeline | 🔲 Not started |
 
 > **Note:** Fáze 1 contains only the split layout and buttons linking to existing modals. The actual Map, Timeline, and AI-tag Graph content for those buttons is built in Fáze 2–4.
 
@@ -685,3 +686,129 @@ Dnes:
 - Controllers: `POST /api/progress/rate`, `GET /api/progress/today`
 
 **Odhadovaná práce:** 10–14 dní (včetně accounts systému)
+
+---
+
+## Fáze 28 – Dějepis jako živá timeline
+
+**Co to je:** Dějepis přestane být kategorií se seznamem článků. Místo toho dostane vlastní pohled — interaktivní časová osa, kde každá událost je bod, a klik otevře popup s obsahem článku. Osa je filtrovatelná podle geografické oblasti.
+
+> Fáze 4 (HistoryContext strip) zůstává jako doplněk uvnitř článku. Toto je samostatný vstupní bod pro celý dějepis.
+
+**Vizuální návrh:**
+
+```
+/history
+
+Filtr oblasti: [Celý svět ▾]  [Čechy ▾]  [Evropa ▾]  [Asie ▾]  ...
+
+──────────────────────────────────────────────────────────────────►
+ 500    800   1000   1200   1400   1600   1800   2000
+         │           │      │
+    [Karel Vel.]  [Křížové │  ]
+                  výpravy  │
+                        [Karel IV.]  ●  ←── hover/klik
+                                     │
+                              ┌──────┴──────────────┐
+                              │ Karel IV.            │
+                              │ 1316–1378            │
+                              │                      │
+                              │ [obsah článku...]    │
+                              │                      │
+                              │ [Otevřít plný článek]│
+                              └──────────────────────┘
+```
+
+**Klíčové vlastnosti:**
+- **Osa** je primární navigace pro dějepis (nahrazuje category grid)
+- **Zoom**: scroll = přiblížení/oddálení časového úseku (jako Google Maps)
+- **Filtry geografické oblasti**: Čechy, Evropa, Středomoří, Asie, Amerika, Svět — přepínatelné, kombinovatelné
+- **Popup**: klik na událost otevře mini-verzi článku přímo v popupu (MarkdownContent), bez opuštění timeline
+- **Barvy**: každá geografická oblast má svou barvu bodů
+- **Přesah**: jedna událost může patřit do více oblastí (křížové výpravy = Evropa + Středomoří)
+- **Éry**: vizuální pruhy pod osou — Pravěk / Starověk / Středověk / Novověk / Souč.
+
+**Databázové změny:**
+
+```sql
+-- Rozšíření existující tabulky Events
+ALTER TABLE Events ADD GeoArea NVARCHAR(100);        -- 'cechy', 'evropa', 'svet', ...
+ALTER TABLE Events ADD GeoAreas NVARCHAR(500);       -- JSON array pro více oblastí
+ALTER TABLE Events ADD LinkedPostId INT;             -- přímý odkaz na Post
+ALTER TABLE Events ADD Era NVARCHAR(50);             -- 'starověk', 'středověk', ...
+ALTER TABLE Events ADD EndYear INT;                  -- pro události s trváním
+ALTER TABLE Events ADD Importance INT DEFAULT 1;     -- 1–3, ovlivňuje velikost bodu
+```
+
+**Nové soubory:**
+- `Tobiso.Web.App/Components/Pages/HistoryTimeline.razor` — stránka `/history`
+- `Tobiso.Web.App/wwwroot/js/history-timeline.js` — D3.js osa, zoom, filtry
+- `Tobiso.Web.App/Components/Shared/EventPopup.razor` — popup s obsahem článku
+
+**Změny stávajících souborů:**
+- Navigace: odkaz "Dějepis" v menu → `/history` místo `/categories/{id}`
+- `Tobiso.Web.App.Admin` — rozšíření editoru událostí o GeoArea, LinkedPostId, Importance
+
+**Technologie:**
+- D3.js (již existuje pro knowledge graph) — rozšíření pro timeline
+- Zoom: `d3.zoom()` na časové ose
+- Drag: horizontální drag pro posouvání
+
+**Odhadovaná práce:** 6–8 dní (základní timeline) + 5–7 dní (živá mapa, viz níže)
+
+---
+
+### Fáze 28b – Živá historická mapa (rozšíření)
+
+**Co to je:** Vedle timeline se zobrazí mapa světa/Evropy, která se mění v čase. Jak posouváš osu, mapa ukazuje, která území existovala ve stejnou dobu — překrývající se říše, měnící se hranice, vznikající a zanikající státy.
+
+```
+/history
+
+──────[ 1350 ]──────────────────────────────────────────►
+         ▲ scrubber
+
+┌─────────────────────────────────────────────────────┐
+│                    MAPA roku 1350                   │
+│                                                     │
+│   ░░░░ Říše Karla IV.   ████ Francie                │
+│   ████ Polsko           ░░░░ Uhersko                │
+│   ████ Osmanská říše (vzniká...)                    │
+│                                                     │
+│   Hover na území → "Česká koruna, 1310–1419         │
+│                     → [Článek: Karel IV.]"          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Klíčové vlastnosti:**
+- **Scrubber** — tažením po časové ose se mapa plynule mění
+- **Překryvy** — více říší/států může existovat ve stejném čase (vykresleny vrstvami s průhledností)
+- **Vznik a zánik** — území se "rozsvítí" když stát vznikne, "zhasne" když zanikne
+- **Hover na území** → tooltip se jménem, léty existence, a odkazem na článek
+- **Klik na území** → popup s článkem (stejný jako klik na bod v timeline)
+- **Filtr oblasti** synchronizovaný s timeline filtry (Čechy, Evropa, Svět...)
+
+**Data:**
+- GeoJSON polygony pro historická území (OpenHistoricalMap nebo ruční tvorba)
+- Každý polygon: `{ name, startYear, endYear, geoJson, linkedPostId, color }`
+- Nová tabulka: `HistoricalTerritories` s GeoJSON uloženým jako TEXT
+
+```sql
+CREATE TABLE HistoricalTerritories (
+    Id INT PRIMARY KEY,
+    Name NVARCHAR(200),
+    StartYear INT,
+    EndYear INT,
+    GeoJson TEXT,           -- GeoJSON polygon
+    Color NVARCHAR(10),     -- hex barva
+    LinkedPostId INT,       -- odkaz na článek
+    Area NVARCHAR(100)      -- 'cechy', 'evropa', ...
+);
+```
+
+**Technologie:**
+- Leaflet.js (přidáváme pro Fázi 3) — historické polygony jako GeoJSON vrstvy
+- Animace přechodů: `L.geoJSON` vrstvy se přidávají/odebírají při scrubování
+- Data z OpenHistoricalMap (open-source historické mapy) nebo manuální GeoJSON
+
+**Odhadovaná práce:** 5–7 dní (závisí na dostupnosti GeoJSON dat pro historická území)
