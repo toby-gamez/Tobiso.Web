@@ -445,6 +445,20 @@ else
                 </div>
             }
 
+            @* Exercises navigation *@
+            @if (_exercises != null && _exercises.Any())
+            {
+                <div class="context-card">
+                    <div class="context-card-title">Cvičení</div>
+                    @foreach (var ex in _exercises)
+                    {
+                        <button class="context-feature-btn" @onclick="() => ScrollToExercise(ex.Id)">
+                            <i class="bi bi-@GetExerciseIcon(ex.Type)"></i> @ex.Title
+                        </button>
+                    }
+                </div>
+            }
+
             @* Context shortcuts *@
             <div class="context-card">
                 <div class="context-card-title">Kontext</div>
@@ -625,7 +639,7 @@ else
 
             @foreach (var exercise in _exercises)
             {
-                <div class="card mb-4 shadow-sm">
+                <div id="exercise-@exercise.Id" class="card mb-4 shadow-sm">
                     <div class="card-header bg-primary text-white">
                         <h4 class="mb-0">
                             <i class="bi bi-@GetExerciseIcon(exercise.Type)"></i> @exercise.Title
@@ -1451,14 +1465,15 @@ else
     private async Task ScrollToExercises()
     {
         if (_jsModule == null) return;
-        try
-        {
-            await _jsModule.InvokeVoidAsync("scrollToElementById", "interaktivni-cviceni");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "ScrollToExercises failed");
-        }
+        try { await _jsModule.InvokeVoidAsync("scrollToElementById", "interaktivni-cviceni"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "ScrollToExercises failed"); }
+    }
+
+    private async Task ScrollToExercise(int exerciseId)
+    {
+        if (_jsModule == null) return;
+        try { await _jsModule.InvokeVoidAsync("scrollToElementById", $"exercise-{exerciseId}"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "ScrollToExercise failed for id {ExerciseId}", exerciseId); }
     }
 
     private string GetWordCountInfo(string? content)

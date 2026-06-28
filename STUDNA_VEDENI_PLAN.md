@@ -51,6 +51,8 @@
 | 24 | Step-by-step solver | 🔲 Not started |
 | 25 | Video context card | 🔲 Not started |
 | 26 | Teacher assignments & confusion heatmap | 🔲 Not started |
+| 1b | Exercises in sidebar (layout) | ✅ Done |
+| 27 | Spaced Repetition & Téma dne | 🔲 Not started – requires accounts |
 
 > **Note:** Fáze 1 contains only the split layout and buttons linking to existing modals. The actual Map, Timeline, and AI-tag Graph content for those buttons is built in Fáze 2–4.
 
@@ -642,3 +644,44 @@ Doporučuji dál: "Druhý Newtonův zákon →"
 **Nové entity:** `Assignment`, `AssignmentCompletion`, `ParagraphConfusion`
 
 **Odhadovaná práce:** 5–7 dní
+
+---
+
+## Fáze 27 – Spaced Repetition & Téma dne
+
+**Co to je:** Osobní denní procvičování — algoritmus rozhodne, který článek student potřebuje dnes zopakovat na základě toho, jak dávno ho četl a jak mu šel kvíz. Každý den jedno nové téma + opakování starých.
+
+> ⚠️ **Vyžaduje uživatelské účty.** Bez přihlášení nelze personalizovat — data by se ztratila při vymazání cache. Implementace accounts je prerekvizita (viz níže).
+
+**Algoritmus (SM-2 zjednodušený):**
+1. Student přečte článek → ohodnotí pochopení: 😊 Dobře / 😐 Tak tak / 😕 Špatně
+2. Hodnocení určí interval do dalšího opakování: 1 / 3 / 7 / 14 / 30 dní
+3. Každý den homepage zobrazí seznam článků k opakování na dnes
+4. Nové témata se dávkují: 1–2 nové za den, zbytek jsou opakování
+
+**UI:**
+```
+Dnes:
+  🔁 K opakování (3):  Zákon akce a reakce  |  Karel IV.  |  Fotosyntéza
+  🆕 Nové téma:        Archimédův zákon  →
+
+[Streak: 🔥 7 dní v řadě]  [Celkem přečteno: 34 článků]
+```
+
+- `/dashboard` — osobní přehled, kalendář opakování, progress po předmětech
+- Badge "⏰ Dnes" na article kartičkách v kategoriích
+- Po přečtení článku: lišta se sebehodnocením (1–3 nebo emoji)
+
+**Prerekvizita — Uživatelské účty:**
+- Registrace / přihlášení (email + heslo, nebo Google OAuth)
+- Stávající Basic Auth je admin-only → zůstane beze změn
+- Nový cookie-based auth pro studenty (ASP.NET Core Identity nebo custom)
+- Nové tabulky: `Users`, `UserArticleProgress`, `ReviewSchedule`
+
+**Nové soubory:**
+- `Tobiso.Web.Domain/Entities/User.cs`, `UserArticleProgress.cs`
+- `Tobiso.Web.Api/Services/SpacedRepetitionService.cs`
+- `Tobiso.Web.App/Components/Pages/Dashboard.razor`
+- Controllers: `POST /api/progress/rate`, `GET /api/progress/today`
+
+**Odhadovaná práce:** 10–14 dní (včetně accounts systému)
