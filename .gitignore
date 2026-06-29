@@ -409,3 +409,5 @@ chain.pem
 build/.config/dotnet-tools.json
 build/C:/*
 CLAUDE.md
+build/build-ftp-test.cake
+build/build-ftp-test.json

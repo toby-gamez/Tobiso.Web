@@ -50,12 +50,70 @@
 | 23 | Comparison tables (AI generated) | 🔲 Not started |
 | 24 | Step-by-step solver | 🔲 Not started |
 | 25 | Video context card | 🔲 Not started |
-| 26 | Teacher assignments & confusion heatmap | 🔲 Not started |
+| 26 | Teacher assignments & confusion heatmap | 🔲 Not started – requires accounts |
 | 1b | Exercises in sidebar (layout) | ✅ Done |
 | 27 | Spaced Repetition & Téma dne | 🔲 Not started – requires accounts |
-| 28 | Dějepis jako živá timeline | 🔲 Not started |
+| 28 | Dějepis jako živá timeline | 🔲 Not started – 28b blokováno dostupností GeoJSON dat |
 
 > **Note:** Fáze 1 contains only the split layout and buttons linking to existing modals. The actual Map, Timeline, and AI-tag Graph content for those buttons is built in Fáze 2–4.
+
+---
+
+## Roadmap – pořadí implementace
+
+```
+BLOK 1 – Základ (prerekvizita pro vše s identitou)
+  └─ Fáze 0   Uživatelské účty, AI chat historie, kreditový systém        6–8 dní
+
+BLOK 2 – Rychlé výhry (nezávislé, žádné prerekvizity)
+  ├─ Fáze 22  Náhodný článek / Článek dne                                  1 den
+  ├─ Fáze 15  Surprise facts sidebar ("Věděl jsi, že…?")                   1 den
+  ├─ Fáze 14  Exam predictor ("Co bude v testu?")                          1–2 dny
+  ├─ Fáze 21  Difficulty rating (😊/😐/😕 po přečtení)                      1 den
+  ├─ Fáze 17  Difficulty rewrite (8letý / gymnázium / odborník)            1 den
+  ├─ Fáze 19  Study timer (Pomodoro)                                       1 den
+  └─ Fáze 25  Video context card (YouTube embed)                           1 den
+
+BLOK 3 – Osobní funkce (využívají účty z Bloku 1)
+  ├─ Fáze 13  Reading progress & záložky (scroll %, bookmarks v DB)        1–2 dny
+  ├─ Fáze 18  Personal notes (per-článek poznámky)                         1 den
+  └─ Fáze 20  Reading streak & subject badges                              2–3 dny
+
+BLOK 4 – AI obsah (na sobě nezávislé, využívají AiService)
+  ├─ Fáze 11  "Proč?" explainer (kauzální AI vysvětlení věty)              1–2 dny
+  ├─ Fáze 12  Definition tooltips (hover definice klíčových pojmů)         2–3 dny
+  ├─ Fáze 16  Socratic tutor mode (AI pokládá otázky místo odpovědí)       2–3 dny
+  ├─ Fáze 23  Comparison tables ("Porovnat s…")                            2 dny
+  ├─ Fáze 24  Step-by-step solver (krok za krokem přes příklady)           2–3 dny
+  ├─ Fáze 6   AI Interactive Demo (GPT generuje HTML/JS widget do iframe)  2–3 dny
+  ├─ Fáze 7   Concept Map (myšlenková mapa pojmů uvnitř článku)            3–4 dny
+  ├─ Fáze 8   Formula Playground (KaTeX vzorce + slidery proměnných)       3–4 dny
+  └─ Fáze 9   Cross-subject Connector (osmóza → fyzika → chemie)           2–3 dny
+
+BLOK 5 – Grafy a navigace
+  ├─ Fáze 2   Knowledge Graph (AI tagy, D3 orbit kolem článku)             8–10 dní
+  └─ Fáze 5   Explore page (/explore, D3 celý graf)           [po Fázi 2]  5–6 dní
+
+BLOK 6 – Mapa a časová osa
+  ├─ Fáze 3   GeoContext – Leaflet mapa v článku                           4–5 dní
+  ├─ Fáze 4   History Timeline strip v článku                              3–4 dny
+  ├─ Fáze 28  Dějepis jako živá timeline (/history)          [po Fázi 4]   6–8 dní
+  └─ Fáze 28b Živá historická mapa (scrubber + polygony)  [po Fázi 28+3]  10–15 dní
+                ⚠️ blokováno dostupností GeoJSON dat
+
+BLOK 7 – Pokročilé osobní funkce (vyžadují účty + data z předchozích bloků)
+  ├─ Fáze 10  Learning Path & Progress                       [po Bloku 1]  4–5 dní
+  ├─ Fáze 26  Teacher tools (zadávání, confusion heatmap)    [po Bloku 1]  5–7 dní
+  └─ Fáze 27  Spaced Repetition & Téma dne (SM-2 algoritmus)[po Fázi 10]  10–14 dní
+```
+
+**Celkový čas:** ~80–105 dní (bez Fáze 28b která závisí na datech)
+
+**Doporučené pořadí bloků:** 1 → 2 → 3 → 4 → 5 → 6 → 7
+
+> Bloky 2, 3, 4 lze dělat paralelně nebo libovolně prohazovat. Blok 5 závisí sám na sobě (Fáze 5 po Fázi 2). Blok 6 závisí sám na sobě (28 po 4, 28b po 28 a 3). Blok 7 závisí na Bloku 1.
+
+> **Tip – quick wins:** Před zahájením Fáze 2 (8–10 dní) zvažte udělat nejdřív pár rychlých fází pro viditelný pokrok: **Fáze 15** (fun facts, 1 den), **Fáze 14** (exam predictor, 1–2 dny), **Fáze 22** (náhodný článek, 1 den). Jsou nezávislé, neblokují nic a dají uživatelům něco nového rychle.
 
 ---
 
@@ -138,7 +196,9 @@ Typ vazby:
 - `PostDetail.razor` – přidání `<ArticleOrbit>` místo statického "related posts"
 - `AiService.cs` – metoda `GenerateTagsForPost(postId)`
 
-**Odhadovaná práce:** 5–7 dní
+**Odhadovaná práce:** 8–10 dní
+
+> ⚠️ **Pozor na time estimate:** Původní odhad 5–7 dní podceňoval D3 orbit UI. AI tag generation + ArticleOrbit component + graph extensions + migration = reálně 8–10 dní při potřebě vizuálně vyladit orbit.
 
 ---
 
@@ -273,11 +333,11 @@ CREATE TABLE EventPostLinks (
 | Fáze | Dny |
 |------|-----|
 | 1 – Contextual Layer | 3–4 |
-| 2 – Graf znalostí | 5–7 |
+| 2 – Graf znalostí | 8–10 |
 | 3 – Mapa | 4–5 |
 | 4 – Časová osa | 3–4 |
 | 5 – Explorační mód | 5–6 |
-| **Celkem** | **20–26 dní** |
+| **Celkem** | **23–29 dní** |
 
 ---
 
@@ -414,7 +474,8 @@ F = 98 N  ← živě se mění
 - Při načtení článku → API call: `GET /api/ai/cross-connections/{postId}`
 - GPT-4o dostane obsah článku + seznam titulů všech článků
 - Vrátí max. 3 doporučení s krátkým vysvětlením proč jsou relevantní
-- Výsledek cache-ovat v DB (PostCrossConnections tabulka)
+- Výsledek cache-ovat v DB (nová tabulka `PostCrossConnections`)
+- **Cache invalidace:** Smazat záznamy při update obsahu článku — AI doporučení jsou vázaná na konkrétní obsah.
 
 **Příklad výstupu (Zákon akce a reakce):**
 ```
@@ -459,7 +520,7 @@ Doporučuji dál: "Druhý Newtonův zákon →"
 | Fáze | Dny |
 |------|-----|
 | 1 – Context Panel | ✅ 2 dny |
-| 2 – Graf znalostí | 5–7 |
+| 2 – Graf znalostí | 8–10 |
 | 3 – Mapa | 4–5 |
 | 4 – Časová osa | 3–4 |
 | 5 – Explorační mód | 5–6 |
@@ -508,6 +569,7 @@ Doporučuji dál: "Druhý Newtonův zákon →"
 - `GET /api/ai/key-terms/{postId}` → vrátí `[{ term, definition }]`
 - Výsledek cache-ovat v DB (nová tabulka `PostKeyTerms`)
 - JS post-processing v `MarkdownContent`: wrap každý term do `<span class="key-term" data-def="...">`, tooltip přes CSS/JS
+- **Cache invalidace:** Pokud se změní obsah článku (nová `PostVersion`), smazat záznamy z `PostKeyTerms` pro daný `PostId` — jinak zůstanou definice pro staré termíny.
 
 **Rozdíl od PersonModal:** PersonModal je pro historické osoby. Toto je pro fyzikální/chemické/geografické termíny.
 
@@ -543,6 +605,7 @@ Doporučuji dál: "Druhý Newtonův zákon →"
 **Co to je:** Sidebar card "Věděl jsi, že…?" se 3 AI-generovanými překvapivými fakty o tématu článku. Zobrazí se pod context shortcuts.
 
 **Implementace:** `GET /api/ai/fun-facts/{postId}`, cache v DB, zobrazit jako bulleted list v context cardu. Collapsible (výchozí skrytý, klik = rozbalí).
+- **Cache invalidace:** Mazat cached fakty při update článku (stejný princip jako u Fáze 12 a 9).
 
 **Odhadovaná práce:** 1 den
 
@@ -634,6 +697,8 @@ Doporučuji dál: "Druhý Newtonův zákon →"
 
 ## Fáze 26 – Teacher tools
 
+> ⚠️ **Vyžaduje uživatelské účty.** Učitelé i studenti musí být přihlášeni — bez auth nelze přiřazovat úkoly ani sledovat kdo co splnil. Implementace accounts je prerekvizita (viz Fáze 27).
+
 **Co to je:** Učitel může přiřadit články třídě jako domácí úkol s termínem. Studenti označí jako přečteno. Učitel vidí dashboard s přehledem.
 
 **Funkce:**
@@ -691,7 +756,9 @@ Dnes:
 
 ## Fáze 28 – Dějepis jako živá timeline
 
-**Co to je:** Dějepis přestane být kategorií se seznamem článků. Místo toho dostane vlastní pohled — interaktivní časová osa, kde každá událost je bod, a klik otevře popup s obsahem článku. Osa je filtrovatelná podle geografické oblasti.
+> ⭐ **Dějepis je samostatný předmět se speciálním pohledem.** Místo obyčejné kategorie se seznamem článků (jako Fyzika, Chemie atd.) dostane dějepis vlastní vstupní stránku `/history` — interaktivní časovou osu. Odkaz "Dějepis" v navigaci povede přímo na tuto osu, ne na grid článků. Je to záměrné odlišení: dějepis je ze své podstaty chronologický, takže timeline je přirozenější vstupní bod než kartičky.
+
+**Co to je:** Interaktivní časová osa kde každá historická událost je bod, klik otevře popup s obsahem článku. Osa je filtrovatelná podle geografické oblasti — Celý svět, Evropa, Čechy, Balkán / Albánie, Středomoří, Asie, Amerika.
 
 > Fáze 4 (HistoryContext strip) zůstává jako doplněk uvnitř článku. Toto je samostatný vstupní bod pro celý dějepis.
 
@@ -700,7 +767,7 @@ Dnes:
 ```
 /history
 
-Filtr oblasti: [Celý svět ▾]  [Čechy ▾]  [Evropa ▾]  [Asie ▾]  ...
+Filtr oblasti: [Celý svět ▾]  [Evropa ▾]  [Čechy ▾]  [Balkán / Albánie ▾]  [Středomoří ▾]  [Asie ▾]  [Amerika ▾]
 
 ──────────────────────────────────────────────────────────────────►
  500    800   1000   1200   1400   1600   1800   2000
@@ -732,13 +799,22 @@ Filtr oblasti: [Celý svět ▾]  [Čechy ▾]  [Evropa ▾]  [Asie ▾]  ...
 
 ```sql
 -- Rozšíření existující tabulky Events
-ALTER TABLE Events ADD GeoArea NVARCHAR(100);        -- 'cechy', 'evropa', 'svet', ...
-ALTER TABLE Events ADD GeoAreas NVARCHAR(500);       -- JSON array pro více oblastí
 ALTER TABLE Events ADD LinkedPostId INT;             -- přímý odkaz na Post
 ALTER TABLE Events ADD Era NVARCHAR(50);             -- 'starověk', 'středověk', ...
 ALTER TABLE Events ADD EndYear INT;                  -- pro události s trváním
 ALTER TABLE Events ADD Importance INT DEFAULT 1;     -- 1–3, ovlivňuje velikost bodu
+
+-- Join tabulka pro oblasti (místo GeoAreas NVARCHAR(500) s JSON)
+-- Důvod: JSON array v NVARCHAR je nefiltratelný bez parsování; join tabulka umožňuje
+-- WHERE EXISTS (SELECT 1 FROM EventGeoAreas WHERE EventId = e.Id AND Area = 'cechy')
+CREATE TABLE EventGeoAreas (
+    EventId INT NOT NULL,
+    Area    NVARCHAR(100) NOT NULL,  -- 'cechy', 'evropa', 'svet', ...
+    PRIMARY KEY (EventId, Area)
+);
 ```
+
+> ⚠️ **Schema poznámka:** Původní návrh měl `GeoAreas NVARCHAR(500)` jako JSON array. To bylo odstraněno ve prospěch `EventGeoAreas` join tabulky — filtry podle oblasti pak jdou dělat přes SQL bez parsování JSONu.
 
 **Nové soubory:**
 - `Tobiso.Web.App/Components/Pages/HistoryTimeline.razor` — stránka `/history`
@@ -811,4 +887,533 @@ CREATE TABLE HistoricalTerritories (
 - Animace přechodů: `L.geoJSON` vrstvy se přidávají/odebírají při scrubování
 - Data z OpenHistoricalMap (open-source historické mapy) nebo manuální GeoJSON
 
-**Odhadovaná práce:** 5–7 dní (závisí na dostupnosti GeoJSON dat pro historická území)
+**Odhadovaná práce:** 10–15 dní
+
+> ⚠️ **Největší riziko celého plánu — data.** Původní odhad 5–7 dní předpokládal dostupná GeoJSON data. Ve skutečnosti:
+> - OpenHistoricalMap má neúplné pokrytí pro střední Evropu před 1500
+> - Ruční tvorba polygonů pro Přemyslovce, Lucemburky, Habsburky = týdny práce
+> - Doporučeno: nejdřív ověřit dostupnost dat *před* zahájením implementace. Pokud data neexistují, celá Fáze 28b není realizovatelná bez samostatného datového projektu.
+> - Alternativa: začít jen s moderní mapou (1800–dnes) kde data existují, historické polygony přidávat postupně.
+> - **GeoJSON tvorba:** geojson.io funguje pro ruční kreslení polygonů a bodů – výstup přímo vložitelný do `HistoricalTerritories.GeoJson`.
+
+---
+
+## Fáze 0 – Uživatelské účty (prerekvizita pro fáze 26, 27 a AI historii)
+
+**Co to je:** Systém studentských účtů (registrace, přihlášení, profil). Oddělený od stávajícího admin Basic Auth — studenti mají vlastní JWT tokeny s `role: "student"` claimem. Obsahuje historii AI chatů, kreditový systém a základ pro vše co vyžaduje identitu.
+
+**Odhadovaná práce:** 6–8 dní
+
+---
+
+### Krok 1 – Databázové entity
+
+**Nové soubory v `Tobiso.Web.Domain/Entities/`:**
+
+```csharp
+// AppUser.cs
+public class AppUser
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string PasswordHash { get; set; } = "";   // PBKDF2
+    public int Credits { get; set; } = 20;            // startovní kredit
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastLoginAt { get; set; }
+
+    public ICollection<AiChatSession> ChatSessions { get; set; } = [];
+    public ICollection<AiCreditTransaction> CreditTransactions { get; set; } = [];
+    public ICollection<UserBookmark> Bookmarks { get; set; } = [];
+    public ICollection<UserReadPost> ReadPosts { get; set; } = [];
+}
+
+// AiChatSession.cs  (jedna konverzace = jedno vlákno zpráv u jednoho článku)
+public class AiChatSession
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int PostId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public AppUser User { get; set; } = null!;
+    public Post Post { get; set; } = null!;
+    public ICollection<AiChatMessage> Messages { get; set; } = [];
+}
+
+// AiChatMessage.cs
+public class AiChatMessage
+{
+    public int Id { get; set; }
+    public int SessionId { get; set; }
+    public string Role { get; set; } = "";   // "user" | "assistant"
+    public string Content { get; set; } = "";
+    public int? CreditsUsed { get; set; }    // null = user zpráva, číslo = AI odpověď
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public AiChatSession Session { get; set; } = null!;
+}
+
+// AiCreditTransaction.cs
+public class AiCreditTransaction
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int Delta { get; set; }           // kladné = dobití, záporné = utracení
+    public string Reason { get; set; } = ""; // "ai_ask" | "registration_bonus" | "admin_grant"
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public AppUser User { get; set; } = null!;
+}
+
+// UserBookmark.cs
+public class UserBookmark
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int PostId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public AppUser User { get; set; } = null!;
+    public Post Post { get; set; } = null!;
+}
+
+// UserReadPost.cs  (pro learning path + streak)
+public class UserReadPost
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int PostId { get; set; }
+    public int ScrollPercent { get; set; }   // 0–100
+    public DateTime FirstReadAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastReadAt { get; set; } = DateTime.UtcNow;
+
+    public AppUser User { get; set; } = null!;
+    public Post Post { get; set; } = null!;
+}
+```
+
+**Registrace v `TobisoDbContext`:**
+
+```csharp
+public DbSet<AppUser> Users => Set<AppUser>();
+public DbSet<AiChatSession> AiChatSessions => Set<AiChatSession>();
+public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
+public DbSet<AiCreditTransaction> AiCreditTransactions => Set<AiCreditTransaction>();
+public DbSet<UserBookmark> UserBookmarks => Set<UserBookmark>();
+public DbSet<UserReadPost> UserReadPosts => Set<UserReadPost>();
+```
+
+**Migration:**
+
+```bash
+dotnet ef migrations add AddUserAccounts \
+  --project Tobiso.Web.Api \
+  --startup-project Tobiso.Web.App \
+  --output-dir Infrastructure/Data/Migrations
+dotnet ef database update \
+  --project Tobiso.Web.Api \
+  --startup-project Tobiso.Web.App
+```
+
+---
+
+### Krok 2 – Password hashing (PBKDF2, žádná závislost navíc)
+
+**Nový soubor `Tobiso.Web.Api/Authentication/PasswordHasher.cs`:**
+
+```csharp
+public static class PasswordHasher
+{
+    // Returns "PBKDF2:iter:salt:hash" — vše v Base64
+    public static string Hash(string password)
+    {
+        const int iterations = 100_000;
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt,
+            iterations, HashAlgorithmName.SHA256, 32);
+        return $"PBKDF2:{iterations}:{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
+    }
+
+    public static bool Verify(string password, string stored)
+    {
+        var parts = stored.Split(':');
+        if (parts.Length != 4 || parts[0] != "PBKDF2") return false;
+        var iterations = int.Parse(parts[1]);
+        var salt = Convert.FromBase64String(parts[2]);
+        var expected = Convert.FromBase64String(parts[3]);
+        var actual = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt,
+            iterations, HashAlgorithmName.SHA256, 32);
+        return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+}
+```
+
+---
+
+### Krok 3 – UserService
+
+**Nový soubor `Tobiso.Web.Api/Services/UserService.cs`:**
+
+```csharp
+public interface IUserService
+{
+    Task<AppUser?> RegisterAsync(string email, string displayName, string password);
+    Task<AppUser?> LoginAsync(string email, string password);
+    Task<AppUser?> GetByIdAsync(int id);
+    Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
+    Task AddCreditsAsync(int userId, int amount, string reason);
+}
+
+public class UserService : IUserService
+{
+    private readonly TobisoDbContext _db;
+
+    public UserService(TobisoDbContext db) => _db = db;
+
+    public async Task<AppUser?> RegisterAsync(string email, string displayName, string password)
+    {
+        if (await _db.Users.AnyAsync(u => u.Email == email.ToLower()))
+            return null; // email již existuje
+
+        var user = new AppUser
+        {
+            Email = email.ToLower(),
+            DisplayName = displayName,
+            PasswordHash = PasswordHasher.Hash(password),
+            Credits = 20  // registrační bonus
+        };
+        _db.Users.Add(user);
+        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        {
+            User = user, Delta = 20, Reason = "registration_bonus"
+        });
+        await _db.SaveChangesAsync();
+        return user;
+    }
+
+    public async Task<AppUser?> LoginAsync(string email, string password)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower());
+        if (user == null || !PasswordHasher.Verify(password, user.PasswordHash))
+            return null;
+        user.LastLoginAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return user;
+    }
+
+    public Task<AppUser?> GetByIdAsync(int id) =>
+        _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+
+    public async Task<bool> DeductCreditsAsync(int userId, int amount, string reason)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null || user.Credits < amount) return false;
+        user.Credits -= amount;
+        _db.AiCreditTransactions.Add(new AiCreditTransaction
+            { UserId = userId, Delta = -amount, Reason = reason });
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task AddCreditsAsync(int userId, int amount, string reason)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null) return;
+        user.Credits += amount;
+        _db.AiCreditTransactions.Add(new AiCreditTransaction
+            { UserId = userId, Delta = amount, Reason = reason });
+        await _db.SaveChangesAsync();
+    }
+}
+```
+
+Registrace v `Program.cs`:
+
+```csharp
+builder.Services.AddScoped<IUserService, UserService>();
+```
+
+---
+
+### Krok 4 – JWT rozšíření (student tokeny)
+
+Stávající `ManualJwtAuthHandler` zůstane beze změn. `JwtTokenService` se rozšíří o metodu pro studenty:
+
+**Upravit `Tobiso.Web.App/Authentication/JwtTokenService.cs`:**
+
+```csharp
+// Přidat vedle stávající GenerateToken() pro adminy:
+public string GenerateStudentToken(AppUser user)
+{
+    var claims = new Dictionary<string, object>
+    {
+        ["sub"] = user.Id.ToString(),
+        ["name"] = user.DisplayName,
+        ["email"] = user.Email,
+        ["role"] = "student",
+        ["exp"] = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds()
+    };
+    return BuildToken(claims); // sdílená privátní metoda
+}
+```
+
+Token pak nese claim `role = "student"` → lze ho rozlišit od admin tokenů v middleware.
+
+---
+
+### Krok 5 – AuthController rozšíření
+
+**Přidat do `Tobiso.Web.App/Controllers/AuthController.cs`:**
+
+```csharp
+[HttpPost("register")]
+[AllowAnonymous]
+public async Task<IActionResult> Register([FromBody] RegisterRequest req)
+{
+    if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+        return BadRequest(new { message = "Email a heslo jsou povinné." });
+
+    var user = await _userService.RegisterAsync(req.Email, req.DisplayName ?? req.Email, req.Password);
+    if (user == null)
+        return Conflict(new { message = "Email je již zaregistrován." });
+
+    var token = _jwtService.GenerateStudentToken(user);
+    return Ok(new { token, displayName = user.DisplayName, credits = user.Credits });
+}
+
+[HttpPost("student-login")]
+[AllowAnonymous]
+public async Task<IActionResult> StudentLogin([FromBody] LoginRequest req)
+{
+    var user = await _userService.LoginAsync(req.Username, req.Password);
+    if (user == null)
+        return Unauthorized(new { message = "Nesprávný email nebo heslo." });
+
+    var token = _jwtService.GenerateStudentToken(user);
+    return Ok(new { token, displayName = user.DisplayName, credits = user.Credits });
+}
+
+[HttpGet("me")]
+[Authorize]  // funguje pro oba — admin i student JWT
+public async Task<IActionResult> Me()
+{
+    var role = User.FindFirst("role")?.Value;
+    if (role == "student")
+    {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _userService.GetByIdAsync(userId);
+        if (user == null) return NotFound();
+        return Ok(new { displayName = user.DisplayName, email = user.Email,
+                        credits = user.Credits, role = "student" });
+    }
+    return Ok(new { displayName = User.Identity?.Name, role = "admin" });
+}
+```
+
+**DTOs (`Tobiso.Web.Shared/DTOs/`):**
+
+```csharp
+public record RegisterRequest(string Email, string? DisplayName, string Password);
+// LoginRequest již existuje
+```
+
+---
+
+### Krok 6 – AI chat historie
+
+**Nový soubor `Tobiso.Web.Api/Services/AiChatHistoryService.cs`:**
+
+```csharp
+public interface IAiChatHistoryService
+{
+    Task<AiChatSession> GetOrCreateSessionAsync(int userId, int postId);
+    Task SaveMessageAsync(int sessionId, string role, string content, int? creditsUsed = null);
+    Task<List<AiChatSession>> GetUserSessionsAsync(int userId);
+    Task<List<AiChatMessage>> GetSessionMessagesAsync(int sessionId, int userId);
+}
+```
+
+**Upravit `Tobiso.Web.App/Controllers/AiController.cs` – metoda `Ask`:**
+
+```csharp
+// Na konci Ask(), po úspěšné AI odpovědi:
+if (User.Identity?.IsAuthenticated == true
+    && User.FindFirst("role")?.Value == "student"
+    && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+{
+    // Odečíst 1 kredit za AI odpověď
+    var hasCredits = await _userService.DeductCreditsAsync(userId, 1, "ai_ask");
+    if (!hasCredits)
+        return StatusCode(402, new { message = "Nemáš dostatek kreditů." });
+
+    var session = await _chatHistoryService.GetOrCreateSessionAsync(userId, request.PostId);
+    await _chatHistoryService.SaveMessageAsync(session.Id, "user", request.Question);
+    await _chatHistoryService.SaveMessageAsync(session.Id, "assistant", aiResponse, creditsUsed: 1);
+}
+```
+
+**Nový endpoint pro historii:**
+
+```csharp
+[HttpGet("history")]
+[Authorize]
+public async Task<IActionResult> GetHistory()
+{
+    var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    var sessions = await _chatHistoryService.GetUserSessionsAsync(userId);
+    return Ok(sessions);
+}
+
+[HttpGet("history/{sessionId}")]
+[Authorize]
+public async Task<IActionResult> GetSession(int sessionId)
+{
+    var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    var messages = await _chatHistoryService.GetSessionMessagesAsync(sessionId, userId);
+    return Ok(messages);
+}
+```
+
+> **Kredit logika pro anonymní uživatele:** Stávající IP/device rate limiting zůstane pro nepřihlášené. Přihlášení studenti místo toho jdou přes kreditový systém.
+
+---
+
+### Krok 7 – Blazor UI
+
+**Nové soubory v `Tobiso.Web.App/Components/`:**
+
+```
+Pages/
+  Register.razor         → /registrace
+  Login.razor            → /prihlaseni
+  Profile.razor          → /profil
+  ChatHistory.razor      → /profil/chaty
+
+Shared/
+  AuthState.razor        → sdílený stav přihlášení (Cascading)
+  UserMenu.razor         → avatar + menu v navbaru (přihlášen / nepřihlášen)
+  CreditBadge.razor      → zobrazení "💎 14 kreditů" v navbaru
+```
+
+**`AuthState` – správa JWT v Blazor Server:**
+
+```csharp
+// Uložení tokenu do localStorage při přihlášení:
+await JSRuntime.InvokeVoidAsync("localStorage.setItem", "tobiso_token", token);
+
+// Čtení při startu:
+var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "tobiso_token");
+```
+
+Protože Blazor Server nemůže přistoupit k localStorage při SSR prerenderu, token se načte přes JS interop po `OnAfterRenderAsync`.
+
+**`Login.razor` – formulář:**
+
+```razor
+@page "/prihlaseni"
+
+<div class="auth-card">
+    <h1>Přihlásit se</h1>
+    <input @bind="email" type="email" placeholder="Email" />
+    <input @bind="password" type="password" placeholder="Heslo" />
+    <button @onclick="DoLogin">Přihlásit</button>
+    <p>Nemáš účet? <a href="/registrace">Zaregistruj se</a></p>
+</div>
+```
+
+**`Profile.razor`** – zobrazí displayName, email, počet kreditů, historii chatů (seznam sessions s názvem článku + datum), záložky (bookmarks), přečtené články.
+
+---
+
+### Krok 8 – Kreditový systém (přehled)
+
+| Akce | Delta |
+|------|-------|
+| Registrace | +20 |
+| Každý den (denní bonus) | +20 |
+| AI odpověď | −1 |
+| Přečtení celého článku (>80% scroll) | +1 |
+
+**Denní bonus endpoint:**
+
+```csharp
+[HttpPost("daily-bonus")]
+[Authorize]
+public async Task<IActionResult> ClaimDailyBonus()
+{
+    var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    var user = await _userService.GetByIdAsync(userId);
+    if (user?.LastLoginAt?.Date == DateTime.UtcNow.Date)
+        return Conflict(new { message = "Bonus již byl dnes vybrán." });
+    await _userService.AddCreditsAsync(userId, 20, "daily_bonus");
+    return Ok(new { credits = user!.Credits + 20 });
+}
+```
+
+**Admin správa kreditů** (v Admin appu):
+
+```
+GET  /api/admin/users           → seznam uživatelů
+POST /api/admin/users/{id}/credits  → { delta, reason }
+```
+
+---
+
+### Krok 9 – Admin app rozšíření
+
+**Nová admin stránka `Tobiso.Web.App.Admin/Components/Pages/Users.razor`:**
+
+- Tabulka uživatelů (email, displayName, credits, createdAt, lastLoginAt)
+- Tlačítko "Přidat kredity" → modal s `delta` a `reason`
+- Tlačítko "Deaktivovat"
+- Zobrazení počtu AI chatů per user
+
+---
+
+### Shrnutí závislostí
+
+```
+Fáze 0 (Účty) ──► Fáze 10 (Learning Path)
+               ──► Fáze 20 (Streak & badges)
+               ──► Fáze 26 (Teacher tools)
+               ──► Fáze 27 (Spaced repetition)
+               ──► AI chat historie
+               ──► Kreditový systém
+               ──► Záložky v DB (místo localStorage)
+```
+
+**Soubory k vytvoření:**
+
+| Soubor | Projekt |
+|--------|---------|
+| `Domain/Entities/AppUser.cs` | `Tobiso.Web.Domain` |
+| `Domain/Entities/AiChatSession.cs` | `Tobiso.Web.Domain` |
+| `Domain/Entities/AiChatMessage.cs` | `Tobiso.Web.Domain` |
+| `Domain/Entities/AiCreditTransaction.cs` | `Tobiso.Web.Domain` |
+| `Domain/Entities/UserBookmark.cs` | `Tobiso.Web.Domain` |
+| `Domain/Entities/UserReadPost.cs` | `Tobiso.Web.Domain` |
+| `Api/Authentication/PasswordHasher.cs` | `Tobiso.Web.Api` |
+| `Api/Services/UserService.cs` | `Tobiso.Web.Api` |
+| `Api/Services/AiChatHistoryService.cs` | `Tobiso.Web.Api` |
+| `App/Components/Pages/Register.razor` | `Tobiso.Web.App` |
+| `App/Components/Pages/Login.razor` | `Tobiso.Web.App` |
+| `App/Components/Pages/Profile.razor` | `Tobiso.Web.App` |
+| `App/Components/Pages/ChatHistory.razor` | `Tobiso.Web.App` |
+| `App/Components/Shared/UserMenu.razor` | `Tobiso.Web.App` |
+| `App/Components/Shared/CreditBadge.razor` | `Tobiso.Web.App` |
+| `App.Admin/Components/Pages/Users.razor` | `Tobiso.Web.App.Admin` |
+
+**Soubory k úpravě:**
+
+| Soubor | Změna |
+|--------|-------|
+| `TobisoDbContext.cs` | DbSety pro nové entity |
+| `App/Controllers/AuthController.cs` | `/register`, `/student-login`, `/me` |
+| `App/Controllers/AiController.cs` | Kreditová kontrola, ukládání do historie |
+| `App/Authentication/JwtTokenService.cs` | `GenerateStudentToken()` |
+| `App/Components/Shared/NavMenu.razor` | `UserMenu` + `CreditBadge` |
+| `Shared/DTOs/` | `RegisterRequest`, `UserProfileDto` |
