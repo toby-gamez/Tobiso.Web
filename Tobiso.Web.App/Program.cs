@@ -68,11 +68,23 @@ services
         options.ValidateAudience = true;
         options.ValidateLifetime = true;
     })
-    .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
+    .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null)
+    .AddCookie("TempCookie", opts => opts.ExpireTimeSpan = TimeSpan.FromMinutes(10))
+    .AddGoogle("Google", opts =>
+    {
+        opts.ClientId     = builder.Configuration["Google:ClientId"]!;
+        opts.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
+        opts.CallbackPath = "/signin-google";
+        opts.SignInScheme = "TempCookie";
+    });
 
 services.AddAuthorization();
 
 services.AddRazorComponents().AddInteractiveServerComponents();
+services.AddCascadingAuthenticationState();
+services.AddSingleton<StudentCredentialStore>();
+services.AddScoped<StudentAuthStateProvider>();
+services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<StudentAuthStateProvider>());
 
 // Register API services from Tobiso.Web.Api.Services
 services.AddScoped<ICategoryService, CategoryService>();
@@ -137,6 +149,8 @@ services.AddControllers()
 services.AddEndpointsApiExplorer();
 
 services.AddScoped<JwtTokenService>();
+services.AddScoped<IUserService, UserService>();
+services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls
 services.AddScoped<PdfJsInterop>();

@@ -1,0 +1,30 @@
+@page "/google-auth-complete"
+@using Tobiso.Web.App.Authentication
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Přihlašování...</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card" style="text-align:center">
+        <span class="auth-spinner" style="width:2rem;height:2rem;margin:2rem auto;display:block"></span>
+        <p>Přihlašování přes Google...</p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? token { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || string.IsNullOrEmpty(token)) return;
+
+        await CredentialStore.SetAsync(token, JSRuntime);
+        AuthStateProvider.NotifyStateChanged();
+        NavigationManager.NavigateTo("/", forceLoad: false);
+    }
+}

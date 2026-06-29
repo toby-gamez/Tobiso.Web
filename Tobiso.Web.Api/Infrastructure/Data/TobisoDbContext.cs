@@ -23,6 +23,12 @@ public class TobisoDbContext : DbContext
     public DbSet<InteractiveExercisePost> InteractiveExercisePosts { get; set; }
     public DbSet<InteractiveExerciseCategory> InteractiveExerciseCategories { get; set; }
 
+    public DbSet<AppUser> Users { get; set; }
+    public DbSet<AiChatSession> AiChatSessions { get; set; }
+    public DbSet<AiChatMessage> AiChatMessages { get; set; }
+    public DbSet<AiCreditTransaction> AiCreditTransactions { get; set; }
+    public DbSet<UserBookmark> UserBookmarks { get; set; }
+    public DbSet<UserReadPost> UserReadPosts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -202,6 +208,100 @@ public class TobisoDbContext : DbContext
                 .WithMany(c => c.InteractiveExerciseCategories)
                 .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AppUser
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.PasswordHash).HasMaxLength(512);
+            entity.Property(e => e.GoogleId).HasMaxLength(128);
+            entity.Property(e => e.Credits).HasDefaultValue(20);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.GoogleId).IsUnique()
+                .HasFilter("[GoogleId] IS NOT NULL");
+        });
+
+        // Configure AiChatSession
+        modelBuilder.Entity<AiChatSession>(entity =>
+        {
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ChatSessions)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AiChatMessage
+        modelBuilder.Entity<AiChatMessage>(entity =>
+        {
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.Session)
+                .WithMany(s => s.Messages)
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure AiCreditTransaction
+        modelBuilder.Entity<AiCreditTransaction>(entity =>
+        {
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.CreditTransactions)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure UserBookmark
+        modelBuilder.Entity<UserBookmark>(entity =>
+        {
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Bookmarks)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.PostId }).IsUnique();
+        });
+
+        // Configure UserReadPost
+        modelBuilder.Entity<UserReadPost>(entity =>
+        {
+            entity.Property(e => e.FirstReadAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.LastReadAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ReadPosts)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.PostId }).IsUnique();
         });
     }
 }

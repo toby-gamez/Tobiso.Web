@@ -1,0 +1,11 @@
+@if (Credits >= 0)
+{
+    <span class="credit-badge" title="Tvoje kredity">
+        <i class="bi bi-gem"></i> @Credits
+    </span>
+}
+
+@code {
+    [Parameter]
+    public int Credits { get; set; }
+}

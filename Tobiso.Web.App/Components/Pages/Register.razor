@@ -1,0 +1,136 @@
+@page "/registrace"
+@using Tobiso.Web.App.Authentication
+@using Tobiso.Web.Shared.DTOs
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Registrace – Tobiso</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-card-header">
+            <h1>Vytvořit účet</h1>
+            <p>Začni studovat chytřeji</p>
+        </div>
+
+        <a href="/api/auth/google-login" class="btn-google">
+            <img src="/images/google-icon.svg" alt="Google" width="20" height="20" />
+            Registrovat přes Google
+        </a>
+
+        <div class="auth-divider"><span>nebo emailem</span></div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="auth-error">@errorMessage</div>
+        }
+
+        <div class="auth-form">
+            <div class="auth-field">
+                <label>Email</label>
+                <input type="email" @bind="email" @bind:event="oninput" placeholder="tvuj@email.cz" />
+            </div>
+            <div class="auth-field">
+                <label>Přezdívka <span class="auth-optional">(nepovinné)</span></label>
+                <input type="text" @bind="displayName" @bind:event="oninput" placeholder="Tvoje jméno" />
+            </div>
+            <div class="auth-field">
+                <label>Heslo</label>
+                <input type="password" @bind="password" @bind:event="oninput" placeholder="Minimálně 8 znaků" />
+            </div>
+            <div class="auth-field">
+                <label>Heslo znovu</label>
+                <input type="password" @bind="confirmPassword" @bind:event="oninput" placeholder="Zopakuj heslo" />
+            </div>
+            <button class="btn-auth-primary" @onclick="DoRegister" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="auth-spinner"></span>
+                }
+                else
+                {
+                    <span>Vytvořit účet</span>
+                }
+            </button>
+        </div>
+
+        <div class="auth-terms">
+            Registrací souhlasíš s
+            <a href="/post/300" target="_blank">podmínkami použití</a>
+            a
+            <a href="/post/301" target="_blank">zásadami ochrany osobních údajů</a>.
+        </div>
+
+        <div class="auth-footer">
+            Máš již účet? <a href="/prihlaseni">Přihlásit se</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string displayName = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    private async Task DoRegister()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Email a heslo jsou povinné.";
+            return;
+        }
+        if (password.Length < 8)
+        {
+            errorMessage = "Heslo musí mít alespoň 8 znaků.";
+            return;
+        }
+        if (password != confirmPassword)
+        {
+            errorMessage = "Hesla se neshodují.";
+            return;
+        }
+
+        isLoading = true;
+        try
+        {
+            var http = new HttpClient();
+            var resp = await http.PostAsJsonAsync("/api/auth/register",
+                new RegisterRequest(email, displayName, password));
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                errorMessage = "Tento email je již zaregistrován.";
+                return;
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                errorMessage = "Registrace se nezdařila. Zkus to znovu.";
+                return;
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<StudentLoginResponse>();
+            if (result == null) { errorMessage = "Chyba při registraci."; return; }
+
+            await CredentialStore.SetAsync(result.Token, JSRuntime);
+            AuthStateProvider.NotifyStateChanged();
+            NavigationManager.NavigateTo("/", forceLoad: false);
+        }
+        catch
+        {
+            errorMessage = "Nepodařilo se připojit k serveru.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

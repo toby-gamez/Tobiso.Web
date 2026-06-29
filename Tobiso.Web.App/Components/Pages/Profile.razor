@@ -1,0 +1,124 @@
+@page "/profil"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Tobiso.Web.App.Authentication
+@using Tobiso.Web.Api.Services
+@using System.Security.Claims
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
+@inject IAiChatHistoryService ChatHistoryService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Můj profil – Tobiso</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="profile-page">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+                <div class="profile-info">
+                    <h1>@context.User.FindFirst(ClaimTypes.Name)?.Value</h1>
+                    <p class="profile-email">@context.User.FindFirst(ClaimTypes.Email)?.Value</p>
+                    <CreditBadge Credits="@GetCredits(context.User)" />
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h2>Historie AI chatů</h2>
+                @if (sessions == null)
+                {
+                    <p class="profile-loading">Načítám...</p>
+                }
+                else if (sessions.Count == 0)
+                {
+                    <p class="profile-empty">Zatím žádné chaty.</p>
+                }
+                else
+                {
+                    <ul class="profile-sessions">
+                        @foreach (var s in sessions)
+                        {
+                            <li>
+                                <a href="post/@s.PostId">
+                                    <i class="bi bi-chat-dots"></i>
+                                    <span>@(s.Post?.Title ?? $"Článek #{s.PostId}")</span>
+                                </a>
+                                <span class="profile-session-date">@s.UpdatedAt.ToString("d. M. yyyy")</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="profile-actions">
+                <button class="btn-auth-outline" @onclick="Logout">
+                    <i class="bi bi-box-arrow-right"></i> Odhlásit se
+                </button>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="auth-page">
+            <div class="auth-card" style="text-align:center">
+                <p>Pro zobrazení profilu se musíš přihlásit.</p>
+                <a href="/prihlaseni" class="btn-auth-primary">Přihlásit se</a>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private List<Tobiso.Web.Domain.Entities.AiChatSession>? sessions;
+
+    private int GetCredits(ClaimsPrincipal user)
+    {
+        var c = user.FindFirst("credits")?.Value;
+        return int.TryParse(c, out var n) ? n : 0;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var idStr = await GetUserIdAsync();
+        if (int.TryParse(idStr, out var userId))
+        {
+            sessions = await ChatHistoryService.GetUserSessionsAsync(userId);
+        }
+        else
+        {
+            sessions = [];
+        }
+    }
+
+    private async Task<string?> GetUserIdAsync()
+    {
+        // Read token from store (already initialized by NavMenu on first render)
+        var token = CredentialStore.GetToken();
+        if (string.IsNullOrEmpty(token)) return null;
+
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length != 3) return null;
+            var padded = (parts[1].Length % 4) switch
+            {
+                2 => parts[1] + "==",
+                3 => parts[1] + "=",
+                _ => parts[1]
+            };
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded.Replace('-', '+').Replace('_', '/')));
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("sub", out var sub) ? sub.GetString() : null;
+        }
+        catch { return null; }
+    }
+
+    private async Task Logout()
+    {
+        await CredentialStore.ClearAsync(JSRuntime);
+        AuthStateProvider.NotifyStateChanged();
+        NavigationManager.NavigateTo("/", forceLoad: false);
+    }
+}

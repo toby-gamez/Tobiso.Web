@@ -7,6 +7,7 @@ using Tobiso.Web.App.Services;
 using Tobiso.Web.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 
 namespace Tobiso.Web.App.Controllers
@@ -20,14 +21,18 @@ namespace Tobiso.Web.App.Controllers
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly Tobiso.Web.Api.Services.IPostService _postService;
+        private readonly IAiChatHistoryService _chatHistory;
+        private readonly IUserService _userService;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _postService = postService;
+            _chatHistory = chatHistory;
+            _userService = userService;
         }
 
         [HttpGet("diag")]
@@ -102,7 +107,50 @@ namespace Tobiso.Web.App.Controllers
 
             var resp = await _aiService.AskAsync(request, rateKey);
             resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
+
+            // For logged-in students: deduct 1 credit and save to chat history
+            if (User.FindFirst("role")?.Value == "student"
+                && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var studentId))
+            {
+                var deducted = await _userService.DeductCreditsAsync(studentId, 1, "ai_ask");
+                if (!deducted)
+                    return StatusCode(402, new { message = "Nemáš dostatek kreditů." });
+
+                var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId);
+                await _chatHistory.SaveMessageAsync(session.Id, "user", request.Question ?? "");
+                await _chatHistory.SaveMessageAsync(session.Id, "assistant", resp.Answer ?? "", creditsUsed: 1);
+            }
+
             return Ok(resp);
+        }
+
+        [HttpGet("history")]
+        [Authorize]
+        public async Task<IActionResult> GetHistory()
+        {
+            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Unauthorized();
+
+            var sessions = await _chatHistory.GetUserSessionsAsync(userId);
+            return Ok(sessions.Select(s => new
+            {
+                s.Id,
+                s.PostId,
+                PostTitle = s.Post?.Title,
+                s.CreatedAt,
+                s.UpdatedAt
+            }));
+        }
+
+        [HttpGet("history/{sessionId:int}")]
+        [Authorize]
+        public async Task<IActionResult> GetSessionMessages(int sessionId)
+        {
+            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Unauthorized();
+
+            var messages = await _chatHistory.GetSessionMessagesAsync(sessionId, userId);
+            return Ok(messages);
         }
 
         [HttpPost("credits")]

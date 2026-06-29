@@ -1,0 +1,52 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Tobiso.Web.App.Authentication
+@using System.Security.Claims
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<div class="user-menu">
+    <AuthorizeView>
+        <Authorized>
+            <div class="user-menu-authenticated">
+                <a href="profil" class="user-menu-name" title="Můj profil">
+                    <i class="bi bi-person-circle"></i>
+                    <span class="user-menu-display-name">@context.User.FindFirst(ClaimTypes.Name)?.Value</span>
+                </a>
+                <CreditBadge Credits="@GetCredits(context.User)" />
+                <button class="user-menu-logout" @onclick="Logout" title="Odhlásit se">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="user-menu-anonymous">
+                <a href="prihlaseni" class="user-menu-btn user-menu-btn-login">
+                    <i class="bi bi-person"></i>
+                    <span>Přihlásit se</span>
+                </a>
+                <a href="registrace" class="user-menu-btn user-menu-btn-register">
+                    <i class="bi bi-person-plus"></i>
+                    <span>Registrovat se</span>
+                </a>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    private int GetCredits(ClaimsPrincipal user)
+    {
+        var creditClaim = user.FindFirst("credits")?.Value;
+        return int.TryParse(creditClaim, out var c) ? c : 0;
+    }
+
+    private async Task Logout()
+    {
+        await CredentialStore.ClearAsync(JSRuntime);
+        AuthStateProvider.NotifyStateChanged();
+        NavigationManager.NavigateTo("/", forceLoad: false);
+    }
+}

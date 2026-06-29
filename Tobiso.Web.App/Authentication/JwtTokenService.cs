@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.App.Authentication;
 
@@ -14,6 +15,22 @@ public class JwtTokenService
     {
         _config = config;
         _logger = logger;
+    }
+
+    public string GenerateStudentToken(AppUser user)
+    {
+        var secret  = _config["Auth:Jwt:Secret"]!;
+        var issuer  = _config["Auth:Jwt:Issuer"]   ?? "tobiso";
+        var audience = _config["Auth:Jwt:Audience"] ?? "tobiso";
+        var expiry  = DateTime.UtcNow.AddDays(30);
+
+        return CreateToken(secret, user.Id.ToString(), user.DisplayName, issuer, audience, expiry,
+            extraClaims: new Dictionary<string, string>
+            {
+                ["email"]   = user.Email,
+                ["role"]    = "student",
+                ["credits"] = user.Credits.ToString()
+            });
     }
 
     public string? GenerateToken(string username, string password)
@@ -44,20 +61,27 @@ public class JwtTokenService
     }
 
     private string CreateToken(string secret, string userId, string username,
-        string issuer, string audience, DateTime expiry)
+        string issuer, string audience, DateTime expiry,
+        Dictionary<string, string>? extraClaims = null)
     {
         var header = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
-        var payload = JsonSerializer.Serialize(new
+
+        var payloadDict = new Dictionary<string, object>
         {
-            sub              = userId,
-            unique_name      = username,
-            name             = username,
-            nameidentifier   = userId,
-            jti              = Guid.NewGuid().ToString(),
-            exp              = new DateTimeOffset(expiry).ToUnixTimeSeconds(),
-            iss              = issuer,
-            aud              = audience
-        });
+            ["sub"]            = userId,
+            ["unique_name"]    = username,
+            ["name"]           = username,
+            ["nameidentifier"] = userId,
+            ["jti"]            = Guid.NewGuid().ToString(),
+            ["exp"]            = new DateTimeOffset(expiry).ToUnixTimeSeconds(),
+            ["iss"]            = issuer,
+            ["aud"]            = audience
+        };
+        if (extraClaims != null)
+            foreach (var kv in extraClaims)
+                payloadDict[kv.Key] = kv.Value;
+
+        var payload = JsonSerializer.Serialize(payloadDict);
 
         var headerBase64   = Base64UrlEncode(Encoding.UTF8.GetBytes(header));
         var payloadBase64  = Base64UrlEncode(Encoding.UTF8.GetBytes(payload));

@@ -25,6 +25,7 @@
 
 | Fáze | Název | Status |
 |------|-------|--------|
+| 0 | Studentské účty (local + Google OAuth, kredity, AI chat historie) | ✅ Done |
 | 1 | Context Panel (split layout) | ✅ Done |
 | 2 | Knowledge Graph (AI tags, DB changes) | 🔲 Not started |
 | 3 | GeoContext / Map (Leaflet.js, DB) | 🔲 Not started |

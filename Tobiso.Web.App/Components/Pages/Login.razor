@@ -1,0 +1,124 @@
+@page "/prihlaseni"
+@using Tobiso.Web.App.Authentication
+@using Tobiso.Web.Shared.DTOs
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Přihlášení – Tobiso</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-card-header">
+            <h1>Přihlásit se</h1>
+            <p>Vítej zpět v Tobisu</p>
+        </div>
+
+        <a href="/api/auth/google-login" class="btn-google">
+            <img src="/images/google-icon.svg" alt="Google" width="20" height="20" />
+            Přihlásit přes Google
+        </a>
+
+        <div class="auth-divider"><span>nebo emailem</span></div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="auth-error">@errorMessage</div>
+        }
+
+        <div class="auth-form">
+            <div class="auth-field">
+                <label>Email</label>
+                <input type="email" @bind="email" @bind:event="oninput" placeholder="tvuj@email.cz"
+                       @onkeydown="HandleKeyDown" />
+            </div>
+            <div class="auth-field">
+                <label>Heslo</label>
+                <input type="password" @bind="password" @bind:event="oninput" placeholder="••••••••"
+                       @onkeydown="HandleKeyDown" />
+            </div>
+            <button class="btn-auth-primary" @onclick="DoLogin" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="auth-spinner"></span>
+                }
+                else
+                {
+                    <span>Přihlásit se</span>
+                }
+            </button>
+        </div>
+
+        <div class="auth-footer">
+            Nemáš účet? <a href="/registrace">Zaregistruj se</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    [SupplyParameterFromQuery]
+    private string? error { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (error == "google")
+            errorMessage = "Přihlášení přes Google se nezdařilo. Zkus to znovu.";
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoLogin();
+    }
+
+    private async Task DoLogin()
+    {
+        errorMessage = "";
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Vyplň email a heslo.";
+            return;
+        }
+
+        isLoading = true;
+        try
+        {
+            var http = new HttpClient();
+            var resp = await http.PostAsJsonAsync("/api/auth/student-login",
+                new LoginRequest(email, password));
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                errorMessage = "Nesprávný email nebo heslo.";
+                return;
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                errorMessage = "Přihlášení se nezdařilo. Zkus to znovu.";
+                return;
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<StudentLoginResponse>();
+            if (result == null) { errorMessage = "Chyba při přihlášení."; return; }
+
+            await CredentialStore.SetAsync(result.Token, JSRuntime);
+            AuthStateProvider.NotifyStateChanged();
+            NavigationManager.NavigateTo("/", forceLoad: false);
+        }
+        catch
+        {
+            errorMessage = "Nepodařilo se připojit k serveru.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
