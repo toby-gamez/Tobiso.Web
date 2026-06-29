@@ -24,13 +24,16 @@ public class JwtTokenService
         var audience = _config["Auth:Jwt:Audience"] ?? "tobiso";
         var expiry  = DateTime.UtcNow.AddDays(30);
 
-        return CreateToken(secret, user.Id.ToString(), user.DisplayName, issuer, audience, expiry,
-            extraClaims: new Dictionary<string, string>
-            {
-                ["email"]   = user.Email,
-                ["role"]    = "student",
-                ["credits"] = user.Credits.ToString()
-            });
+        var extra = new Dictionary<string, string>
+        {
+            ["email"]   = user.Email,
+            ["role"]    = "student",
+            ["credits"] = user.Credits.ToString()
+        };
+        if (!string.IsNullOrEmpty(user.AvatarUrl))
+            extra["avatar"] = user.AvatarUrl;
+
+        return CreateToken(secret, user.Id.ToString(), user.DisplayName, issuer, audience, expiry, extraClaims: extra);
     }
 
     public string? GenerateToken(string username, string password)

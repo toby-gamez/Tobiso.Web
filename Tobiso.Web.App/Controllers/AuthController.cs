@@ -127,11 +127,12 @@ public class AuthController : ControllerBase
         var googleId   = result.Principal!.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var email      = result.Principal!.FindFirst(ClaimTypes.Email)?.Value;
         var name       = result.Principal!.FindFirst(ClaimTypes.Name)?.Value;
+        var picture    = result.Principal!.FindFirst("picture")?.Value;
 
         if (string.IsNullOrEmpty(googleId) || string.IsNullOrEmpty(email))
             return Redirect("/prihlaseni?error=google");
 
-        var user = await _userService.FindOrCreateGoogleUserAsync(googleId, email, name ?? email);
+        var user = await _userService.FindOrCreateGoogleUserAsync(googleId, email, name ?? email, picture);
         var token = _jwtService.GenerateStudentToken(user);
 
         await HttpContext.SignOutAsync("TempCookie");

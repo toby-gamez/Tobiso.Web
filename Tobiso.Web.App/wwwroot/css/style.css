@@ -124,7 +124,14 @@ h5.modal-event-title,
 .person-modal-disclaimer,
 .tools-dropdown-item,
 .rw-panel-title,
-.whatif-scenario {
+.whatif-scenario,
+.user-menu-full-name,
+.user-menu-dropdown-items a,
+a.btn-google,
+label,
+.auth-footer,
+.auth-footer a,
+.btn-auth-primary span {
     font-family: var(--font-family-sans) !important;
 }
 
@@ -146,7 +153,10 @@ h5.modal-event-title,
 .answer-option,
 .person-modal-bio p,
 .rw-list li,
-.whatif-explanation {
+.whatif-explanation,
+.user-menu-email,
+.auth-terms,
+.auth-terms a {
     font-family: var(--font-family-serif) !important;
 }
 
@@ -580,7 +590,7 @@ main {
 }
 
 section {
-    max-width: 800px;
+    width: 800px;
     margin: auto auto 5px;
     padding: 20px;
     flex-grow: 1;
@@ -984,8 +994,6 @@ textarea:focus {
 
 @media only screen and (min-width: 1200px) {
     textarea {
-        min-width: 50rem;
-        min-height: 25rem;
         max-width: 60rem;
         max-height: 15rem;
     }
@@ -5049,7 +5057,7 @@ body.dark-mode .tools-dropdown-divider {
 
 .auth-card {
     background: var(--color-bg);
-    border: 1px solid var(--color-accent-4);
+    border: 2px solid var(--color-accent-4);
     border-radius: 16px;
     padding: 2rem;
     width: 100%;
@@ -5080,9 +5088,8 @@ body.dark-mode .tools-dropdown-divider {
     align-items: center;
     justify-content: center;
     gap: 0.6rem;
-    width: 100%;
     padding: 0.65rem 1rem;
-    border: 1.5px solid var(--color-accent-4);
+    border: 2px solid var(--color-accent-4);
     border-radius: 8px;
     background: var(--color-bg);
     color: var(--color-text);
@@ -5111,7 +5118,7 @@ body.dark-mode .tools-dropdown-divider {
 .auth-divider::after {
     content: "";
     flex: 1;
-    height: 1px;
+    height: 2px;
     background: var(--color-accent-4);
 }
 
@@ -5150,7 +5157,7 @@ body.dark-mode .tools-dropdown-divider {
 
 .auth-field input {
     padding: 0.55rem 0.85rem;
-    border: 1.5px solid var(--color-accent-4);
+    border: 2px solid var(--color-accent-4);
     border-radius: 8px;
     background: var(--color-bg);
     color: var(--color-text);
@@ -5164,24 +5171,7 @@ body.dark-mode .tools-dropdown-divider {
     border-color: var(--color-accent-strong);
 }
 
-.btn-auth-primary {
-    width: 100%;
-    padding: 0.65rem 1rem;
-    background: var(--color-accent-strong);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    margin-top: 0.25rem;
-}
+
 
 .btn-auth-primary:hover:not(:disabled) {
     background: var(--color-accent-3);
@@ -5190,17 +5180,6 @@ body.dark-mode .tools-dropdown-divider {
 .btn-auth-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-}
-
-.btn-auth-outline {
-    padding: 0.55rem 1.2rem;
-    background: transparent;
-    color: var(--color-text-muted);
-    border: 1.5px solid var(--color-accent-4);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
 }
 
 .btn-auth-outline:hover {
@@ -5246,92 +5225,134 @@ body.dark-mode .tools-dropdown-divider {
     margin-top: 0.75rem;
 }
 
-/* ===== UserMenu in sidebar ===== */
-
-.nav-user-section {
-    padding: 0.5rem 0.5rem 0;
-    border-top: 1px solid var(--color-accent-4);
-    margin-bottom: 0.5rem;
+img.user-menu-avatar,
+.btn-google img {
+    border: none;
 }
 
-.user-menu {
+/* ===== UserMenu – fixed top-right ===== */
+
+/*
+ * .user-menu-wrap is a fixed stacking context at z-index 1400.
+ * Dropdown (z-index 2) and backdrop (z-index 1) are siblings within it,
+ * so backdrop covers the page but never obscures the dropdown.
+ * Sits at right: 62px — 14 px gap from sidebar toggle's left edge (right: 48px).
+ * When sidebar opens it transitions to right: 297px (12px outside the 285px panel).
+ */
+.user-menu-wrap {
+    position: fixed;
+    top: 12px;
+    right: 62px;
+    z-index: 1400;
+    transition: right 0.25s ease-in-out;
+}
+
+.user-menu-wrap.sidebar-open {
+    right: 297px;
+}
+
+.user-menu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-3);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    padding: 3px;
+    text-decoration: none;
+    transition: background 0.15s;
+    overflow: hidden;
+}
+
+.user-menu-trigger:hover {
+    background: var(--color-accent-strong);
+}
+
+.user-menu-trigger:has(img) {
+    background: transparent;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.user-menu-trigger i {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.user-menu-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.user-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 220px;
+    background: var(--color-bg);
+    border: 2px solid var(--color-accent-4);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px var(--shadow-medium);
+    overflow: hidden;
+    z-index: 2;
+}
+
+.user-menu-dropdown-header {
+    padding: 0.85rem 1rem;
+    background: var(--hover-bg);
+    border-bottom: 2px solid var(--color-accent-4);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.user-menu-full-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-text);
+}
+
+.user-menu-email {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.user-menu-dropdown-items {
     padding: 0.4rem 0;
 }
 
-.user-menu-anonymous {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-}
-
-.user-menu-btn {
+.user-menu-dropdown-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 0.75rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.15s;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
     color: var(--color-text);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.12s;
+    text-align: left;
 }
 
-.user-menu-btn-login {
+.user-menu-dropdown-item:hover {
     background: var(--hover-bg);
 }
 
-.user-menu-btn-login:hover {
-    background: var(--color-accent-4);
-}
-
-.user-menu-btn-register {
-    background: var(--color-accent-strong);
-    color: #fff;
-}
-
-.user-menu-btn-register:hover {
-    background: var(--color-accent-3);
-}
-
-.user-menu-authenticated {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.user-menu-name {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--color-text);
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-    flex: 1;
-    min-width: 0;
-}
-
-.user-menu-display-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.user-menu-logout {
-    background: none;
-    border: none;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 4px;
-    font-size: 1rem;
-    transition: color 0.15s;
-}
-
-.user-menu-logout:hover {
-    color: var(--danger-text);
+.user-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
 }
 
 /* ===== CreditBadge ===== */
@@ -5370,6 +5391,15 @@ body.dark-mode .tools-dropdown-divider {
     font-size: 4rem;
     color: var(--color-accent-strong);
     line-height: 1;
+}
+
+.profile-avatar-img {
+    width: 72px;
+    height: 72px;
+    border-radius: 50% !important;
+    object-fit: cover;
+    display: block;
+    border: none !important;
 }
 
 .profile-info h1 {

@@ -8,7 +8,7 @@ namespace Tobiso.Web.Api.Services;
 public interface IUserService
 {
     Task<AppUser?> RegisterAsync(string email, string displayName, string password);
-    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName);
+    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null);
     Task<AppUser?> LoginAsync(string email, string password);
     Task<AppUser?> GetByIdAsync(int id);
     Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
@@ -43,12 +43,13 @@ public class UserService : IUserService
         return user;
     }
 
-    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName)
+    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId);
         if (user != null)
         {
             user.LastLoginAt = DateTime.UtcNow;
+            if (avatarUrl != null) user.AvatarUrl = avatarUrl;
             await _db.SaveChangesAsync();
             return user;
         }
@@ -59,6 +60,7 @@ public class UserService : IUserService
         {
             user.GoogleId = googleId;
             user.LastLoginAt = DateTime.UtcNow;
+            if (avatarUrl != null) user.AvatarUrl = avatarUrl;
             await _db.SaveChangesAsync();
             return user;
         }
@@ -68,6 +70,7 @@ public class UserService : IUserService
             Email = normalizedEmail,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             GoogleId = googleId,
+            AvatarUrl = avatarUrl,
             Credits = 20
         };
         _db.Users.Add(user);

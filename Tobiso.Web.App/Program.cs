@@ -76,6 +76,7 @@ services
         opts.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
         opts.CallbackPath = "/signin-google";
         opts.SignInScheme = "TempCookie";
+        opts.ClaimActions.MapJsonKey("picture", "picture");
     });
 
 services.AddAuthorization();

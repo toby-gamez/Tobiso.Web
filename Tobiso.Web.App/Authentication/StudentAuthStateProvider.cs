@@ -73,6 +73,9 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
                 case "credits":
                     claims.Add(new Claim("credits", prop.Value.GetString() ?? "0"));
                     break;
+                case "avatar":
+                    claims.Add(new Claim("avatar", prop.Value.GetString() ?? ""));
+                    break;
             }
         }
 

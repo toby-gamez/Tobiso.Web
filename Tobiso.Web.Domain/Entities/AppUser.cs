@@ -7,6 +7,7 @@ public class AppUser
     public string DisplayName { get; set; } = "";
     public string? PasswordHash { get; set; }
     public string? GoogleId { get; set; }
+    public string? AvatarUrl { get; set; }
     public int Credits { get; set; } = 20;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }

@@ -8,7 +8,7 @@
 @inject IAiChatHistoryService ChatHistoryService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>Můj profil – Tobiso</PageTitle>
 
@@ -17,7 +17,14 @@
         <div class="profile-page">
             <div class="profile-header">
                 <div class="profile-avatar">
-                    <i class="bi bi-person-circle"></i>
+                    @if (!string.IsNullOrEmpty(_avatarUrl))
+                    {
+                        <img class="profile-avatar-img" src="@_avatarUrl" alt="avatar" />
+                    }
+                    else
+                    {
+                        <i class="bi bi-person-circle"></i>
+                    }
                 </div>
                 <div class="profile-info">
                     <h1>@context.User.FindFirst(ClaimTypes.Name)?.Value</h1>
@@ -54,7 +61,7 @@
             </div>
 
             <div class="profile-actions">
-                <button class="btn-auth-outline" @onclick="Logout">
+                <button class="secondary" @onclick="Logout">
                     <i class="bi bi-box-arrow-right"></i> Odhlásit se
                 </button>
             </div>
@@ -64,7 +71,7 @@
         <div class="auth-page">
             <div class="auth-card" style="text-align:center">
                 <p>Pro zobrazení profilu se musíš přihlásit.</p>
-                <a href="/prihlaseni" class="btn-auth-primary">Přihlásit se</a>
+                <a href="/prihlaseni">Přihlásit se</a>
             </div>
         </div>
     </NotAuthorized>
@@ -79,25 +86,36 @@
         return int.TryParse(c, out var n) ? n : 0;
     }
 
-    protected override async Task OnInitializedAsync()
+    private bool _initialized;
+    private string? _avatarUrl;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var idStr = await GetUserIdAsync();
-        if (int.TryParse(idStr, out var userId))
+        if (firstRender && !_initialized)
         {
-            sessions = await ChatHistoryService.GetUserSessionsAsync(userId);
-        }
-        else
-        {
-            sessions = [];
+            _initialized = true;
+            await CredentialStore.InitializeAsync(JSRuntime);
+
+            _avatarUrl = GetTokenClaim("avatar");
+
+            AuthStateProvider.NotifyStateChanged();
+
+            var idStr = GetUserId();
+            if (int.TryParse(idStr, out var userId))
+                sessions = await ChatHistoryService.GetUserSessionsAsync(userId);
+            else
+                sessions = [];
+
+            StateHasChanged();
         }
     }
 
-    private async Task<string?> GetUserIdAsync()
+    private string? GetUserId() => GetTokenClaim("sub");
+
+    private string? GetTokenClaim(string claim)
     {
-        // Read token from store (already initialized by NavMenu on first render)
         var token = CredentialStore.GetToken();
         if (string.IsNullOrEmpty(token)) return null;
-
         try
         {
             var parts = token.Split('.');
@@ -110,7 +128,7 @@
             };
             var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded.Replace('-', '+').Replace('_', '/')));
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("sub", out var sub) ? sub.GetString() : null;
+            return doc.RootElement.TryGetProperty(claim, out var val) ? val.GetString() : null;
         }
         catch { return null; }
     }

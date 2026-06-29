@@ -1,52 +1,86 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Tobiso.Web.App.Authentication
+@using Tobiso.Web.App.Components.Layout
 @using System.Security.Claims
 @inject StudentCredentialStore CredentialStore
 @inject StudentAuthStateProvider AuthStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<div class="user-menu">
-    <AuthorizeView>
-        <Authorized>
-            <div class="user-menu-authenticated">
-                <a href="profil" class="user-menu-name" title="Můj profil">
-                    <i class="bi bi-person-circle"></i>
-                    <span class="user-menu-display-name">@context.User.FindFirst(ClaimTypes.Name)?.Value</span>
-                </a>
-                <CreditBadge Credits="@GetCredits(context.User)" />
-                <button class="user-menu-logout" @onclick="Logout" title="Odhlásit se">
-                    <i class="bi bi-box-arrow-right"></i>
-                </button>
-            </div>
-        </Authorized>
-        <NotAuthorized>
-            <div class="user-menu-anonymous">
-                <a href="prihlaseni" class="user-menu-btn user-menu-btn-login">
-                    <i class="bi bi-person"></i>
-                    <span>Přihlásit se</span>
-                </a>
-                <a href="registrace" class="user-menu-btn user-menu-btn-register">
-                    <i class="bi bi-person-plus"></i>
-                    <span>Registrovat se</span>
-                </a>
-            </div>
-        </NotAuthorized>
-    </AuthorizeView>
-</div>
+<AuthorizeView>
+    <Authorized>
+        <div class="user-menu-wrap @(Layout?.RightSidebarVisible == true ? "sidebar-open" : "")">
+            <button class="user-menu-trigger" @onclick="ToggleDropdown" title="Můj účet">
+                @if (!string.IsNullOrEmpty(context.User.FindFirst("avatar")?.Value))
+                {
+                    <img class="user-menu-avatar" src="@context.User.FindFirst("avatar")!.Value" alt="avatar" />
+                }
+                else
+                {
+                    <i class="bi bi-person-fill"></i>
+                }
+            </button>
+            @if (dropdownOpen)
+            {
+                <div class="user-menu-dropdown">
+                    <div class="user-menu-dropdown-header">
+                        <div class="user-menu-full-name">@context.User.FindFirst(ClaimTypes.Name)?.Value</div>
+                        <div class="user-menu-email">@context.User.FindFirst(ClaimTypes.Email)?.Value</div>
+                        <CreditBadge Credits="@GetCredits(context.User)" />
+                    </div>
+                    <div class="user-menu-dropdown-items">
+                        <a href="profil" class="user-menu-dropdown-item" @onclick="CloseDropdown">
+                            <i class="bi bi-person"></i> Můj profil
+                        </a>
+                        <button style="width: 93%;" @onclick="Logout">
+                            <i class="bi bi-box-arrow-right"></i> Odhlásit se
+                        </button>
+                    </div>
+                </div>
+                <div class="user-menu-backdrop" @onclick="CloseDropdown"></div>
+            }
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="user-menu-wrap @(Layout?.RightSidebarVisible == true ? "sidebar-open" : "")">
+            <button class="user-menu-trigger" @onclick='() => NavigationManager.NavigateTo("/prihlaseni")' title="Přihlásit se">
+                <i class="bi bi-person-fill"></i>
+            </button>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
+    [CascadingParameter] public MainLayout? Layout { get; set; }
+
+    private bool dropdownOpen = false;
+    private bool initialized = false;
+
+    private void ToggleDropdown() => dropdownOpen = !dropdownOpen;
+    private void CloseDropdown() => dropdownOpen = false;
+
     private int GetCredits(ClaimsPrincipal user)
     {
-        var creditClaim = user.FindFirst("credits")?.Value;
-        return int.TryParse(creditClaim, out var c) ? c : 0;
+        var c = user.FindFirst("credits")?.Value;
+        return int.TryParse(c, out var n) ? n : 0;
     }
 
     private async Task Logout()
     {
+        dropdownOpen = false;
         await CredentialStore.ClearAsync(JSRuntime);
         AuthStateProvider.NotifyStateChanged();
         NavigationManager.NavigateTo("/", forceLoad: false);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !initialized)
+        {
+            initialized = true;
+            await CredentialStore.InitializeAsync(JSRuntime);
+            AuthStateProvider.NotifyStateChanged();
+        }
     }
 }
