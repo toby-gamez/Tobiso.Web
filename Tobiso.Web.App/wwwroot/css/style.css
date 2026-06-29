@@ -5355,6 +5355,46 @@ img.user-menu-avatar,
     z-index: 1;
 }
 
+/* ===== UserMenu dark mode ===== */
+
+body.dark-mode .user-menu-trigger {
+    background: var(--color-accent-3-dark);
+}
+
+body.dark-mode .user-menu-trigger:hover {
+    background: var(--color-button-hover-dark);
+}
+
+body.dark-mode .user-menu-trigger:has(img) {
+    background: transparent;
+}
+
+body.dark-mode .user-menu-dropdown {
+    background: var(--color-bg-dark);
+    border-color: var(--color-accent-4-dark);
+}
+
+body.dark-mode .user-menu-dropdown-header {
+    background: var(--hover-bg-dark);
+    border-bottom-color: var(--color-accent-4-dark);
+}
+
+body.dark-mode .user-menu-full-name {
+    color: var(--color-text-dark);
+}
+
+body.dark-mode .user-menu-email {
+    color: var(--color-text-muted-dark);
+}
+
+body.dark-mode .user-menu-dropdown-item {
+    color: var(--color-text-dark);
+}
+
+body.dark-mode .user-menu-dropdown-item:hover {
+    background: var(--hover-bg-dark);
+}
+
 /* ===== CreditBadge ===== */
 
 .credit-badge {
@@ -5368,6 +5408,11 @@ img.user-menu-avatar,
     border-radius: 20px;
     padding: 0.15rem 0.5rem;
     white-space: nowrap;
+}
+
+body.dark-mode .credit-badge {
+    color: var(--color-text-muted-dark);
+    background: var(--color-light-accent-dark);
 }
 
 /* ===== Profile page ===== */

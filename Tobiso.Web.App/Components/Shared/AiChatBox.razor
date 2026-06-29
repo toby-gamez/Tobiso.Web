@@ -3,6 +3,7 @@
 @inject System.Net.Http.HttpClient Http
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
+@inject Tobiso.Web.App.Authentication.StudentCredentialStore CredentialStore
 
 <div class="ai-chatbox">
     <div class="chat-messages" id="ai-chat-window">
@@ -42,16 +43,19 @@
         }
     </div>
 
-    @if (_remaining <= 50)
+    @if (_isStudent)
+    {
+        <div class="remaining-info"><i class="bi bi-gem"></i> @_studentCredits kreditů</div>
+    }
+    else if (_remaining <= 50)
     {
         <div class="remaining-info">Zbývá dotazů dnes: @_remaining</div>
     }
 
-
-    @if (_remaining == 0)
+    @if ((_isStudent && _studentCredits <= 0) || (!_isStudent && _remaining == 0))
     {
         <div class="limit-reached-bar">
-            <span>Limit dotazů byl vyčerpán.</span>
+            <span>@(_isStudent ? "Došly ti kredity." : "Limit dotazů byl vyčerpán.")</span>
             <a href="post/240" class="limit-app-link" target="_blank" rel="noopener noreferrer">
                 <i class="bi bi-phone"></i> Stáhněte naši aplikaci a pokračujte!
             </a>
@@ -73,7 +77,7 @@
                 @oninput="HandleInput" @onkeydown="HandleKeyDown"></textarea>
             <div class="input-bar-actions">
                 <span class="char-count">@_remainingChars</span>
-                <button class="send-btn" @onclick="Send" disabled="@(_loading || _remaining == 0 || string.IsNullOrWhiteSpace(_question))" aria-label="Odeslat">
+                <button class="send-btn" @onclick="Send" disabled="@(_loading || (_isStudent ? _studentCredits <= 0 : _remaining == 0) || string.IsNullOrWhiteSpace(_question))" aria-label="Odeslat">
                     <i class="bi bi-arrow-up"></i>
                 </button>
             </div>
@@ -459,6 +463,10 @@ body.dark-mode .assistant-markdown pre {
     private int _remaining = 10;
     private string _sessionChatId = string.Empty;
 
+    private bool _isStudent = false;
+    private int _studentCredits = 0;
+    private bool _studentInitialized = false;
+
     private int _remainingChars => Math.Max(0, 300 - (_question?.Length ?? 0));
 
     private class SavedChat
@@ -558,6 +566,20 @@ body.dark-mode .assistant-markdown pre {
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && !_studentInitialized)
+        {
+            _studentInitialized = true;
+            await CredentialStore.InitializeAsync(Js);
+            var role = GetTokenClaim("role");
+            _isStudent = role == "student";
+            if (_isStudent)
+            {
+                var credStr = GetTokenClaim("credits");
+                _studentCredits = int.TryParse(credStr, out var n) ? n : 0;
+            }
+            StateHasChanged();
+        }
+
         try
         {
             await Js.InvokeVoidAsync("eval",
@@ -567,6 +589,27 @@ body.dark-mode .assistant-markdown pre {
                 "});");
         }
         catch { }
+    }
+
+    private string? GetTokenClaim(string claim)
+    {
+        var token = CredentialStore.GetToken();
+        if (string.IsNullOrEmpty(token)) return null;
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length != 3) return null;
+            var padded = (parts[1].Length % 4) switch
+            {
+                2 => parts[1] + "==",
+                3 => parts[1] + "=",
+                _ => parts[1]
+            };
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded.Replace('-', '+').Replace('_', '/')));
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty(claim, out var val) ? val.GetString() : null;
+        }
+        catch { return null; }
     }
 
     private async Task LoadRemainingAsync()
@@ -606,7 +649,18 @@ body.dark-mode .assistant-markdown pre {
             if (!string.IsNullOrEmpty(deviceId))
                 requestMessage.Headers.TryAddWithoutValidation("X-Device-Id", deviceId);
 
+            var token = CredentialStore.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                requestMessage.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
+
             using var response = await Http.SendAsync(requestMessage, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+
+            if ((int)response.StatusCode == 402)
+            {
+                _history.Add(new AiMessage { Role = "assistant", Content = "Došly ti kredity. Dobij si účet nebo počkej na denní bonus." });
+                _studentCredits = 0;
+                return;
+            }
 
             if ((int)response.StatusCode == 429)
             {
@@ -643,7 +697,10 @@ body.dark-mode .assistant-markdown pre {
                 await InvokeAsync(StateHasChanged);
             }
 
-            _remaining = Math.Max(0, _remaining - 1);
+            if (_isStudent)
+                _studentCredits = Math.Max(0, _studentCredits - 1);
+            else
+                _remaining = Math.Max(0, _remaining - 1);
         }
         catch (Exception ex)
         {
