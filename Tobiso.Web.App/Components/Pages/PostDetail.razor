@@ -175,6 +175,12 @@
         margin: 0 4px;
         cursor: pointer;
     }
+
+    @@media only screen and (min-width: 600px) {
+        body.focus-mode main {
+            margin-left: 0 !important;
+        }
+    }
     
         /* Dark mode variant for headings */
 body.dark-mode h1,
@@ -243,6 +249,27 @@ body.dark-mode .grade-badge {
         text-underline-offset: 6px;
     }
 </style>
+@if (_showVideoFullscreen && _postVideo != null)
+{
+    <div class="video-fullpage">
+        <div class="video-fullpage-bar">
+            <button class="video-back-btn" @onclick="() => _showVideoFullscreen = false">
+                <i class="bi bi-arrow-left"></i> Zpět na článek
+            </button>
+            @if (_post != null)
+            {
+                <span class="video-fullpage-title">@_post.Title</span>
+            }
+        </div>
+        <div class="video-fullpage-embed-wrap">
+            <iframe class="video-fullpage-iframe" src="@GetVideoEmbedUrl()"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+        </div>
+    </div>
+}
+else
+{
 @if (_post == null)
 {
     <div class="loading-circle"></div>
@@ -285,6 +312,30 @@ else
             }
             <span class="current">@_post.Title</span>
         </nav>
+    }
+
+    @* Wiki-style Table of Contents for Markdown posts *@
+    @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any() && !(Layout?.NavMenuExpanded == true && Layout?.RightSidebarVisible == true))
+    {
+        <nav class="wiki-toc" aria-label="Obsah">
+            <div class="wiki-toc-title">Obsah</div>
+            @foreach (var item in _tocItems)
+            {
+                <a href="#@item.Id" class="wiki-toc-item level-@item.Level @( _activeTocId == item.Id ? "active" : "")" @onclick="() => ScrollToHeading(item.Id)" @onclick:preventDefault="true">@item.Text</a>
+            }
+        </nav>
+    }
+    else
+    {
+        var uri = new Uri(Navigation.Uri);
+        var dbg = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("tocdebug", out var _dbg) && _dbg == "1";
+        if (dbg)
+        {
+            <nav class="wiki-toc" aria-label="Obsah (debug)">
+                <div class="wiki-toc-title">Obsah (debug)</div>
+                <div style="opacity:0.6">No headings found or not a markdown post.</div>
+            </nav>
+        }
     }
 
     <div class="tools">
@@ -332,45 +383,45 @@ else
                     </button>
                 }
                 <div class="tools-dropdown-wrap">
-                    <button class="tool-btn @(_showToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleToolsDropdown">
+                    <button class="tool-btn @(_showTopToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleTopToolsDropdown">
                         <i class="bi bi-three-dots"></i><span class="tool-label">Více</span>
                     </button>
-                    @if (_showToolsDropdown)
+                    @if (_showTopToolsDropdown)
                     {
                         <div class="tools-dropdown" @onclick:stopPropagation>
-                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showTopToolsDropdown = false; }">
                                 <i class="bi bi-printer"></i> Vytisknout (PDF)
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showTopToolsDropdown = false; }">
                                 <i class="bi bi-file-earmark-text"></i> Tahák (PDF)
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-card-text"></i> Kartičky
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-pencil-square"></i> Procvičovací úlohy
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-patch-question"></i> Co bude v testu?
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-stars"></i> Co kdyby?
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-alarm"></i> Pomodoro timer
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
+                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showTopToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
                         </div>
@@ -381,9 +432,9 @@ else
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
         </div>
     </div>
-    @if (_showToolsDropdown)
+    @if (_showTopToolsDropdown)
     {
-        <div class="tools-dropdown-backdrop" @onclick="() => _showToolsDropdown = false"></div>
+        <div class="tools-dropdown-backdrop" @onclick="() => _showTopToolsDropdown = false"></div>
     }
     @if (_showReadingPanel)
     {
@@ -411,153 +462,26 @@ else
             </div>
         </div>
     }
-    <div class="article-split-layout">
-        <div class="article-main">
-            <div class="content">
-                @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
-                <div id="content" class="content" style="@GetContentStyle()">
-                    @if (_fileSuffix == ".md")
-                    {
-                        <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
-                        @if (!_aiAvailable)
-                        {
-                            <div class="alert alert-warning mt-3">
-                                AI detection is currently unavailable locally. Post will use existing person summaries. <br />
-                                @if (!string.IsNullOrEmpty(_aiDiagError)) { <small>@_aiDiagError</small> }
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
-                    }
-                </div>
-                <div id="article-end-sentinel" style="height:1px"></div>
-            </div>
-        </div>
-
-        <aside class="article-context-sidebar">
-            @* TOC *@
-            @if (_fileSuffix == ".md" && _tocItems != null && _tocItems.Any())
+    <div class="content">
+        @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
+        <div id="content" class="content" style="@GetContentStyle()">
+            @if (_fileSuffix == ".md")
             {
-                <div class="context-card">
-                    <div class="context-card-title">Obsah</div>
-                    <nav class="wiki-toc" aria-label="Obsah">
-                        @foreach (var item in _tocItems)
-                        {
-                            <a href="#@item.Id" class="wiki-toc-item level-@item.Level @(_activeTocId == item.Id ? "active" : "")"
-                               @onclick="() => ScrollToHeading(item.Id)" @onclick:preventDefault="true">@item.Text</a>
-                        }
-                    </nav>
-                </div>
-            }
-
-            @* Exercises navigation *@
-            @if (_exercises != null && _exercises.Any())
-            {
-                <div class="context-card">
-                    <div class="context-card-title">Cvičení</div>
-                    @foreach (var ex in _exercises)
-                    {
-                        <button class="context-feature-btn" @onclick="() => ScrollToExercise(ex.Id)">
-                            <i class="bi bi-@GetExerciseIcon(ex.Type)"></i> @ex.Title
-                        </button>
-                    }
-                </div>
-            }
-
-            @* Context shortcuts *@
-            <div class="context-card">
-                <div class="context-card-title">Kontext</div>
-                <button class="context-feature-btn" @onclick="GraphModalService.OpenGraphModal">
-                    <i class="bi bi-diagram-3"></i> Graf znalostí
-                </button>
-                <button class="context-feature-btn" @onclick="() => _showWhatIf = true">
-                    <i class="bi bi-stars"></i> Co kdyby?
-                </button>
-                <button class="context-feature-btn" @onclick="() => _showRealWorld = true">
-                    <i class="bi bi-globe2"></i> Reálné využití
-                </button>
-                <button class="context-feature-btn" @onclick="() => _showFeynman = true">
-                    <i class="bi bi-pencil"></i> Zkus to vysvětlit
-                </button>
-                <button class="context-feature-btn" @onclick="() => _showExamPredictor = true">
-                    <i class="bi bi-patch-question"></i> Co bude v testu?
-                </button>
-                <button class="context-feature-btn" disabled title="Brzy dostupné">
-                    <i class="bi bi-geo-alt"></i> Mapa
-                </button>
-                <button class="context-feature-btn" disabled title="Brzy dostupné">
-                    <i class="bi bi-clock-history"></i> Časová osa
-                </button>
-            </div>
-
-            @* Fun facts *@
-            <div class="context-card">
-                <div class="context-card-title ff-toggle" @onclick="ToggleFunFacts" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
-                    <span><i class="bi bi-lightbulb"></i> Věděl jsi, že…?</span>
-                    <span class="ff-chevron">@(_showFunFacts ? "▲" : "▼")</span>
-                </div>
-                @if (_showFunFacts)
+                <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
+                @if (!_aiAvailable)
                 {
-                    @if (_funFactsLoading)
-                    {
-                        <div style="display:flex;justify-content:center;padding:0.75rem 0;">
-                            <div class="loading-circle"></div>
-                        </div>
-                    }
-                    else if (_funFacts.Count > 0)
-                    {
-                        <ul class="ff-list">
-                            @foreach (var fact in _funFacts)
-                            {
-                                <li>@fact</li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <p class="ff-empty">Fakta se nepodařilo načíst.</p>
-                    }
-                }
-            </div>
-
-            @* Video context card *@
-            @if (_postVideo != null)
-            {
-                <VideoContextCard YoutubeUrl="@_postVideo.YoutubeUrl" Timestamp="@_postVideo.Timestamp" Label="@_postVideo.Label" />
-            }
-
-            @* Image gallery *@
-            @if (_articleImages.Count > 0)
-            {
-                <div class="context-card">
-                    <div class="context-card-title">Obrázky</div>
-                    <div class="sidebar-image-grid">
-                        @foreach (var img in _articleImages)
-                        {
-                            <img src="@img.Url" alt="@img.Alt" title="@img.Alt" loading="lazy" />
-                        }
+                    <div class="alert alert-warning mt-3">
+                        AI detection is currently unavailable locally. Post will use existing person summaries. <br />
+                        @if (!string.IsNullOrEmpty(_aiDiagError)) { <small>@_aiDiagError</small> }
                     </div>
-                </div>
+                }
             }
-
-            @* Related posts *@
-            @if (_relatedPosts != null && _relatedPosts.Any())
+            else
             {
-                <div class="context-card">
-                    <div class="context-card-title">Související</div>
-                    @foreach (var rp in _relatedPosts.Take(6))
-                    {
-                        var rpData = _allPosts?.FirstOrDefault(p => p.Id == rp.RelatedPostId);
-                        if (rpData != null)
-                        {
-                            <a class="sidebar-related-post" href="/post/@rp.RelatedPostId">@rpData.Title</a>
-                        }
-                    }
-                </div>
+                @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
             }
-        </aside>
+        </div>
+        <div id="article-end-sentinel" style="height:1px"></div>
     </div>
     <div class="tools">
         <div class="tool">
@@ -604,45 +528,45 @@ else
                     </button>
                 }
                 <div class="tools-dropdown-wrap">
-                    <button class="tool-btn @(_showToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleToolsDropdown">
+                    <button class="tool-btn @(_showBottomToolsDropdown ? "tool-btn-active" : "")" aria-label="Více nástrojů" @onclick="ToggleBottomToolsDropdown">
                         <i class="bi bi-three-dots"></i><span class="tool-label">Více</span>
                     </button>
-                    @if (_showToolsDropdown)
+                    @if (_showBottomToolsDropdown)
                     {
                         <div class="tools-dropdown" @onclick:stopPropagation>
-                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { GeneratePdf(); _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-printer"></i> Vytisknout (PDF)
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { OpenCheatSheetModal(); _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-file-earmark-text"></i> Tahák (PDF)
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showFlashcards = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-card-text"></i> Kartičky
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-pencil-square"></i> Procvičovací úlohy
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-patch-question"></i> Co bude v testu?
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showWhatIf = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-stars"></i> Co kdyby?
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
                             <div class="tools-dropdown-divider"></div>
-                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-alarm"></i> Pomodoro timer
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
+                            <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showBottomToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
                         </div>
@@ -653,6 +577,10 @@ else
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
         </div>
     </div>
+    @if (_showBottomToolsDropdown)
+    {
+        <div class="tools-dropdown-backdrop" @onclick="() => _showBottomToolsDropdown = false"></div>
+    }
     @if (_showReadingPanel)
     {
         <div class="reading-panel" role="region" aria-label="Nastavení čtení">
@@ -679,6 +607,36 @@ else
             </div>
         </div>
     }
+
+    @* Věděl jsi, že? *@
+    <div class="funfacts-inline">
+        <div class="funfacts-inline-header" @onclick="ToggleFunFacts">
+            <span><i class="bi bi-lightbulb"></i> Věděl jsi, že…?</span>
+            <span class="ff-chevron">@(_showFunFacts ? "▲" : "▼")</span>
+        </div>
+        @if (_showFunFacts)
+        {
+            @if (_funFactsLoading)
+            {
+                <div style="display:flex;justify-content:center;padding:0.75rem 0;">
+                    <div class="loading-circle"></div>
+                </div>
+            }
+            else if (_funFacts.Count > 0)
+            {
+                <ul class="ff-list">
+                    @foreach (var fact in _funFacts)
+                    {
+                        <li>@fact</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="ff-empty">Fakta se nepodařilo načíst.</p>
+            }
+        }
+    </div>
 
     @* Interaktivní cvičení *@
     @if (_exercises != null && _exercises.Any())
@@ -736,12 +694,52 @@ else
         </section>
     }
 
+    @if (_postVideo != null)
+    {
+        <button class="video-float-btn" @onclick="() => _showVideoFullscreen = true" aria-label="Otevřít video">
+            <i class="bi bi-play-circle-fill"></i> Otevřít video
+        </button>
+    }
+
     <div class="ai-box">
         <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
 
         <AiChatBox PostId="@(_post?.Id ?? Id)" ShowEmptyPrompt="false" PostTitle="@(_post?.Title ?? string.Empty)" />
     </div>
 
+    @if (_relatedPosts != null && _relatedPosts.Any())
+    {
+        <div class="intro related-posts">
+            <h3 style="margin: 0">
+                Související články
+            </h3>
+
+            <div class="">
+                @foreach (var relatedPost in _relatedPosts)
+                {
+                    var relatedPostData = _allPosts?.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
+                    if (relatedPostData != null)
+                    {
+                        <a href="/post/@relatedPost.RelatedPostId">
+                        <div class="related-posts-div">
+
+                            <h5 >
+                                @relatedPostData.Title
+                            </h5>
+                            @if (!string.IsNullOrEmpty(relatedPost.Text))
+                            {
+                                <span class="related-posts-text">
+                                    @relatedPost.Text
+                                </span>
+                            }
+                        </div>
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+    }
+}
 }
 
 <AddendumModal IsVisible="@_showAddendumModal" IsVisibleChanged="@OnAddendumModalClose" AddendumId="@_selectedAddendumId" />
@@ -939,7 +937,8 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     private IJSObjectReference? _jsModule;
     private bool _aiAvailable = true;
     private string? _aiDiagError = null;
-    private bool _showToolsDropdown = false;
+    private bool _showTopToolsDropdown = false;
+    private bool _showBottomToolsDropdown = false;
     private bool _showFlashcards = false;
     private bool _showPracticeProblems = false;
     private bool _showGradeRewriter = false;
@@ -952,6 +951,7 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     private bool _funFactsLoading = false;
     private List<string> _funFacts = new();
     private Tobiso.Web.Shared.DTOs.PostVideoResponse? _postVideo;
+    private bool _showVideoFullscreen = false;
     private bool _difficultyRatingSubmitted = false;
     private bool _showDifficultyWidget = false;
     private record ArticleImage(string Url, string Alt);
@@ -1776,7 +1776,8 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     }
 
     // --- Toolbar dropdown ---
-    private void ToggleToolsDropdown() => _showToolsDropdown = !_showToolsDropdown;
+    private void ToggleTopToolsDropdown() => _showTopToolsDropdown = !_showTopToolsDropdown;
+    private void ToggleBottomToolsDropdown() => _showBottomToolsDropdown = !_showBottomToolsDropdown;
 
     private async Task ToggleFunFacts()
     {
@@ -1896,6 +1897,20 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     {
         _showDifficultyWidget = false;
         _difficultyRatingSubmitted = true;
+    }
+
+    private static string? ExtractYoutubeId(string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+        var m = Regex.Match(url, @"(?:youtube\.com/watch\?.*v=|youtu\.be/)([A-Za-z0-9_-]{11})");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    private string GetVideoEmbedUrl()
+    {
+        if (_postVideo == null) return "";
+        var id = ExtractYoutubeId(_postVideo.YoutubeUrl);
+        return id == null ? "" : $"https://www.youtube.com/embed/{id}?start={_postVideo.Timestamp}&autoplay=1";
     }
 
 }
