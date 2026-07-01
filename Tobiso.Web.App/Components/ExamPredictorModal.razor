@@ -1,0 +1,219 @@
+@using Tobiso.Web.Shared.DTOs
+@inject System.Net.Http.HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card ep-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-patch-question"></i> Co bude v testu?</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="loading-circle"></div>
+                    <p class="ep-hint">Generuji zkouškové otázky…</p>
+                </div>
+            }
+            else if (_error != null)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="ep-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else if (_questions.Count == 0)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p>Otázky nebyly vygenerovány.</p>
+                    <button @onclick="Load">Zkusit znovu</button>
+                </div>
+            }
+            else
+            {
+                <div class="tobiso-modal-body">
+                    <p class="ep-intro">AI odhaduje, co pravděpodobně zazní při testu nebo zkoušení z tohoto tématu.</p>
+
+                    @for (int i = 0; i < _questions.Count; i++)
+                    {
+                        var idx = i;
+                        var q = _questions[i];
+                        <div class="ep-card">
+                            <div class="ep-card-header">
+                                <span class="ep-index">@(idx + 1).</span>
+                                <span class="ep-question">@q.Question</span>
+                            </div>
+                            @if (_revealed.Contains(idx))
+                            {
+                                <div class="ep-answer">
+                                    <div class="ep-answer-label"><i class="bi bi-check-circle-fill"></i> Vzorová odpověď</div>
+                                    <div class="ep-answer-text">@q.Answer</div>
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="ep-reveal-btn" @onclick="() => _revealed.Add(idx)">
+                                    <i class="bi bi-eye"></i> Zobrazit odpověď
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    <button class="ep-regenerate" @onclick="Load" title="Vygenerovat nové otázky">
+                        <i class="bi bi-arrow-clockwise"></i> Vygenerovat znovu
+                    </button>
+                </div>
+            }
+            <div class="tobiso-modal-disclaimer">AI odhaduje pravděpodobné otázky – nejde o záruku. Vždy si projdi celé učivo.</div>
+        </div>
+    </div>
+}
+
+<style>
+.ep-modal { max-width: 620px; }
+
+.ep-intro {
+    font-size: 0.82rem;
+    color: var(--color-text-muted, #888);
+    margin: 0 0 0.75rem;
+}
+
+.ep-card {
+    border: 1px solid var(--color-accent-2);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    background: var(--intro-bg);
+}
+
+body.dark-mode .ep-card {
+    border-color: var(--color-accent-2-dark);
+    background: var(--intro-bg-dark);
+}
+
+.ep-card-header { display: flex; gap: 0.6rem; align-items: flex-start; }
+
+.ep-index {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--color-accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.ep-question { font-size: 0.93rem; font-weight: 600; line-height: 1.4; }
+
+.ep-answer {
+    border-top: 1px solid var(--color-accent-2);
+    padding-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+body.dark-mode .ep-answer { border-top-color: var(--color-accent-2-dark); }
+
+.ep-answer-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-success, #6ab06f);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ep-answer-text { font-size: 0.88rem; line-height: 1.5; }
+
+.ep-reveal-btn {
+    align-self: flex-start;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid var(--color-accent-2);
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+body.dark-mode .ep-reveal-btn { border-color: var(--color-accent-2-dark); color: var(--color-text-dark); }
+.ep-reveal-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+.ep-regenerate {
+    margin-top: 0.5rem;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid var(--color-accent-2);
+    background: transparent;
+    color: var(--color-accent);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.ep-regenerate:hover { background: var(--color-accent); color: #fff; }
+
+.ep-error { color: var(--color-danger, #c0392b); font-size: 0.9rem; }
+.ep-hint { font-size: 0.82rem; color: var(--color-text-muted); }
+</style>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<ExamQuestion> _questions = new();
+    private HashSet<int> _revealed = new();
+    private bool _loading = false;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _questions.Count == 0 && !_loading)
+            await Load();
+    }
+
+    private async Task Load()
+    {
+        if (PostId <= 0) return;
+        _loading = true;
+        _error = null;
+        _revealed.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + $"api/ai/exam-questions/{PostId}");
+            var resp = await Http.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<ExamQuestionsWrapper>();
+                _questions = data?.Questions ?? new();
+            }
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit dotazů byl vyčerpán.";
+            else
+                _error = "Otázky se nepodařilo vygenerovat. Zkuste to znovu.";
+        }
+        catch (Exception ex) { _error = $"Chyba: {ex.Message}"; }
+        finally { _loading = false; StateHasChanged(); }
+    }
+
+    private async Task Close()
+    {
+        _questions.Clear();
+        _error = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private record ExamQuestionsWrapper(List<ExamQuestion> Questions);
+}

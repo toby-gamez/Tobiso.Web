@@ -18,6 +18,8 @@ public interface IPostService
     Task<bool> UpdateMetadata(int id, UpdatePostRequest req);
     Task<bool> Delete(int id);
     Task<PostResponse?> Create(CreatePostRequest req);
+    Task<PostLinkResponse?> GetRandomAsync();
+    Task<PostLinkResponse?> GetArticleOfTheDayAsync();
 }
 
 public class PostService : IPostService
@@ -216,6 +218,28 @@ public class PostService : IPostService
             _logger.LogError(ex, "Error deleting post {PostId}", id);
             throw;
         }
+    }
+
+    public async Task<PostLinkResponse?> GetRandomAsync()
+    {
+        var count = await _context.Posts.CountAsync();
+        if (count == 0) return null;
+        var skip = Random.Shared.Next(count);
+        return await _context.Posts
+            .OrderBy(p => p.Id)
+            .Skip(skip)
+            .Select(p => new PostLinkResponse { Id = p.Id, Title = p.Title, FilePath = p.FilePath })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<PostLinkResponse?> GetArticleOfTheDayAsync()
+    {
+        var posts = await _context.Posts
+            .OrderBy(p => p.Id)
+            .Select(p => new PostLinkResponse { Id = p.Id, Title = p.Title, FilePath = p.FilePath })
+            .ToListAsync();
+        if (posts.Count == 0) return null;
+        return posts[DateTime.UtcNow.DayOfYear % posts.Count];
     }
 
     public async Task<PostResponse?> Create(CreatePostRequest req)

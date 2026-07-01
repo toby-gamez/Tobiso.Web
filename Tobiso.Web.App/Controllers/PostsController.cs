@@ -1,9 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tobiso.Api.Authentication;
+using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Helpers;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Tobiso.Web.Api.Controllers;
 
@@ -14,11 +17,13 @@ public class PostsController : ControllerBase
 {
     private readonly IPostService _postService;
     private readonly IWebHostEnvironment _env;
+    private readonly TobisoDbContext _db;
 
-    public PostsController(IPostService postService, IWebHostEnvironment env)
+    public PostsController(IPostService postService, IWebHostEnvironment env, TobisoDbContext db)
     {
         _postService = postService;
         _env = env;
+        _db = db;
     }
 
     [AllowAnonymous]
@@ -72,6 +77,66 @@ public class PostsController : ControllerBase
     {
         var deleted = await _postService.Delete(id);
         if (!deleted) return NotFound();
+        return NoContent();
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id}/difficulty")]
+    public async Task<IActionResult> GetDifficulty(int id)
+    {
+        var ratings = await _db.PostDifficultyRatings.Where(r => r.PostId == id).ToListAsync();
+        return Ok(new
+        {
+            Easy  = ratings.Count(r => r.Rating == 1),
+            Ok    = ratings.Count(r => r.Rating == 2),
+            Hard  = ratings.Count(r => r.Rating == 3),
+            Total = ratings.Count
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("{id}/rate-difficulty")]
+    public async Task<IActionResult> RateDifficulty(int id, [FromBody] DifficultyRatingRequest req)
+    {
+        if (req == null || req.Rating < 1 || req.Rating > 3) return BadRequest();
+        var deviceId = req.DeviceId ?? Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+        var existing = await _db.PostDifficultyRatings.FirstOrDefaultAsync(r => r.PostId == id && r.DeviceId == deviceId);
+        if (existing != null) return Ok(new { message = "already_rated" });
+
+        _db.PostDifficultyRatings.Add(new PostDifficultyRating
+        {
+            PostId = id, Rating = req.Rating, DeviceId = deviceId
+        });
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "ok" });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id}/video")]
+    public async Task<IActionResult> GetVideo(int id)
+    {
+        var video = await _db.PostVideos.FirstOrDefaultAsync(v => v.PostId == id);
+        if (video == null) return NotFound();
+        return Ok(new { video.YoutubeUrl, video.Timestamp, video.Label });
+    }
+
+    [Authorize]
+    [HttpPut("{id}/video")]
+    public async Task<IActionResult> PutVideo(int id, [FromBody] PostVideoRequest req)
+    {
+        if (req == null) return BadRequest();
+        var existing = await _db.PostVideos.FirstOrDefaultAsync(v => v.PostId == id);
+        if (existing != null)
+        {
+            existing.YoutubeUrl = req.YoutubeUrl ?? "";
+            existing.Timestamp = req.Timestamp;
+            existing.Label = req.Label ?? "";
+        }
+        else
+        {
+            _db.PostVideos.Add(new PostVideo { PostId = id, YoutubeUrl = req.YoutubeUrl ?? "", Timestamp = req.Timestamp, Label = req.Label ?? "" });
+        }
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 

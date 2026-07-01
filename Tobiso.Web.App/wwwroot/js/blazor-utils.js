@@ -1514,3 +1514,29 @@ export function ttsStop() {
 export function ttsIsSupported() {
   return !!(window.speechSynthesis);
 }
+
+let __articleEndObserver = null;
+
+export function initScrollRating(dotnetRef) {
+  if (__articleEndObserver) {
+    __articleEndObserver.disconnect();
+    __articleEndObserver = null;
+  }
+  const sentinel = document.getElementById('article-end-sentinel');
+  if (!sentinel) return;
+  __articleEndObserver = new IntersectionObserver(function (entries) {
+    if (entries[0].isIntersecting) {
+      __articleEndObserver.disconnect();
+      __articleEndObserver = null;
+      try { dotnetRef.invokeMethodAsync('OnScrolledPast80'); } catch (e) {}
+    }
+  }, { threshold: 0.5 });
+  __articleEndObserver.observe(sentinel);
+}
+
+export function removeScrollRating() {
+  if (__articleEndObserver) {
+    __articleEndObserver.disconnect();
+    __articleEndObserver = null;
+  }
+}

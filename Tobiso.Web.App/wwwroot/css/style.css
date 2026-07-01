@@ -406,6 +406,20 @@ body.focus-mode .wiki-toc {
 }
 .context-feature-btn:last-child { margin-bottom: 0; }
 
+.ff-chevron { font-size: 0.7rem; color: var(--color-accent); }
+
+.ff-list {
+    margin: 0.4rem 0 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ff-list li { font-size: 0.85rem; line-height: 1.45; }
+
+.ff-empty { font-size: 0.82rem; color: var(--color-text-muted, #888); margin: 0.5rem 0 0; }
+
 .sidebar-related-post {
     display: block;
     padding: 0.42rem 0;

@@ -86,6 +86,10 @@
                                 <i class="bi bi-search"></i>
                                 <span>Hledat</span>
                             </a>
+                            <a class="nav-essential-item" style="cursor: pointer" title="Náhodný článek" @onclick="NavigateToRandom">
+                                <i class="bi bi-shuffle"></i>
+                                <span>Náhodný článek</span>
+                            </a>
                         </div>
                     </li>
                     <li class="nav-item" style="padding-top: 3rem">
@@ -290,6 +294,10 @@
                     <i class="bi bi-stars"></i>
                     <span>AI Chat</span>
                 </a>
+                <a class="menu-grid-item" style="cursor: pointer" @onclick="NavigateToRandom" @onclick:preventDefault="true">
+                    <i class="bi bi-shuffle"></i>
+                    <span>Náhodný článek</span>
+                </a>
             </div>
         </div>
         <!-- Grid 2: Předměty -->
@@ -414,6 +422,18 @@
     {
         CloseMobileMenu();
         GraphModalService.OpenGraphModal();
+    }
+
+    private async Task NavigateToRandom()
+    {
+        CloseMobileMenu();
+        try
+        {
+            var post = await AnonymApi.GetRandomPost();
+            var slug = post.FilePath?.TrimStart('/').Replace(".md", "", StringComparison.OrdinalIgnoreCase) ?? "";
+            NavigationManager.NavigateTo($"/post/{slug}");
+        }
+        catch { }
     }
 
     private void HandleCloseMobileMenuKey(KeyboardEventArgs e)

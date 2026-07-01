@@ -8,6 +8,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IConfiguration Configuration
+@inject System.Net.Http.HttpClient Http
 
 <PageTitle>Editace článku</PageTitle>
 
@@ -82,6 +83,33 @@ else
             <i class="bi bi-file-earmark-text"></i> Tahák
         </button>
     </EditForm>
+
+    <div class="card mt-4">
+        <div class="card-header"><h5>Video k článku</h5></div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">YouTube URL</label>
+                <input class="form-control" @bind="_videoUrl" placeholder="https://www.youtube.com/watch?v=..." />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Začít od (sekundy)</label>
+                <input class="form-control" type="number" @bind="_videoTimestamp" min="0" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Popisek karty</label>
+                <input class="form-control" @bind="_videoLabel" placeholder="Video k tématu" />
+            </div>
+            @if (!string.IsNullOrEmpty(_videoSaveMsg))
+            {
+                <div class="alert alert-success py-1 mb-2">@_videoSaveMsg</div>
+            }
+            <button class="btn btn-primary" @onclick="SaveVideoAsync">Uložit video</button>
+            @if (!string.IsNullOrEmpty(_videoUrl))
+            {
+                <button class="btn btn-outline-danger ms-2" @onclick="RemoveVideoAsync">Odebrat</button>
+            }
+        </div>
+    </div>
 
     <div class="card mt-4">
         <div class="card-header"><h5>Verze článku</h5></div>
@@ -245,6 +273,11 @@ else
     private int? _editingGradeVersionId;
     private int _editingNewGradeId;
 
+    private string _videoUrl = "";
+    private int _videoTimestamp = 0;
+    private string _videoLabel = "";
+    private string? _videoSaveMsg;
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -294,6 +327,39 @@ else
             errorMessage = ex.Message;
             Console.WriteLine($"Error initializing EditPost for {Id}: {ex.Message}");
         }
+
+        try
+        {
+            var videoResp = await Http.GetAsync($"/api/posts/{Id}/video");
+            if (videoResp.IsSuccessStatusCode)
+            {
+                var v = await videoResp.Content.ReadFromJsonAsync<Tobiso.Web.Shared.DTOs.PostVideoResponse>();
+                if (v != null) { _videoUrl = v.YoutubeUrl; _videoTimestamp = v.Timestamp; _videoLabel = v.Label; }
+            }
+        }
+        catch { }
+    }
+
+    private async Task SaveVideoAsync()
+    {
+        try
+        {
+            var resp = await Http.PutAsJsonAsync($"/api/posts/{Id}/video", new Tobiso.Web.Shared.DTOs.PostVideoRequest
+            {
+                YoutubeUrl = _videoUrl, Timestamp = _videoTimestamp, Label = _videoLabel
+            });
+            _videoSaveMsg = resp.IsSuccessStatusCode ? "Video uloženo." : "Chyba při ukládání.";
+            StateHasChanged();
+            await Task.Delay(3000);
+            _videoSaveMsg = null;
+        }
+        catch (Exception ex) { _videoSaveMsg = $"Chyba: {ex.Message}"; }
+    }
+
+    private async Task RemoveVideoAsync()
+    {
+        _videoUrl = ""; _videoTimestamp = 0; _videoLabel = "";
+        await SaveVideoAsync();
     }
 
     private async Task CheckGrammar()

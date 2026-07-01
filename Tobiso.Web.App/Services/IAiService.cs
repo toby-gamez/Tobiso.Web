@@ -12,9 +12,12 @@ namespace Tobiso.Web.App.Services
         Task<FlashcardResponse> GenerateFlashcardsAsync(int postId);
         Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count);
         Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade);
+        Task<RewriteGradeResponse> RewriteForRegisterAsync(int postId, string register);
         Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
         Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId);
         Task<WhatIfResponse> GetWhatIfScenarioAsync(WhatIfRequest request);
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
+        Task<List<string>> GenerateFunFactsAsync(int postId);
+        Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
     }
 }

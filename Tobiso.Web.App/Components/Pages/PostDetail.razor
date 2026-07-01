@@ -353,6 +353,9 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-patch-question"></i> Co bude v testu?
+                            </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
@@ -364,6 +367,9 @@ else
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
                             <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-alarm"></i> Pomodoro timer
+                            </button>
                             <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
@@ -426,6 +432,7 @@ else
                         @((MarkupString)(ActiveVersion?.Content ?? string.Empty))
                     }
                 </div>
+                <div id="article-end-sentinel" style="height:1px"></div>
             </div>
         </div>
 
@@ -474,6 +481,9 @@ else
                 <button class="context-feature-btn" @onclick="() => _showFeynman = true">
                     <i class="bi bi-pencil"></i> Zkus to vysvětlit
                 </button>
+                <button class="context-feature-btn" @onclick="() => _showExamPredictor = true">
+                    <i class="bi bi-patch-question"></i> Co bude v testu?
+                </button>
                 <button class="context-feature-btn" disabled title="Brzy dostupné">
                     <i class="bi bi-geo-alt"></i> Mapa
                 </button>
@@ -481,6 +491,42 @@ else
                     <i class="bi bi-clock-history"></i> Časová osa
                 </button>
             </div>
+
+            @* Fun facts *@
+            <div class="context-card">
+                <div class="context-card-title ff-toggle" @onclick="ToggleFunFacts" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                    <span><i class="bi bi-lightbulb"></i> Věděl jsi, že…?</span>
+                    <span class="ff-chevron">@(_showFunFacts ? "▲" : "▼")</span>
+                </div>
+                @if (_showFunFacts)
+                {
+                    @if (_funFactsLoading)
+                    {
+                        <div style="display:flex;justify-content:center;padding:0.75rem 0;">
+                            <div class="loading-circle"></div>
+                        </div>
+                    }
+                    else if (_funFacts.Count > 0)
+                    {
+                        <ul class="ff-list">
+                            @foreach (var fact in _funFacts)
+                            {
+                                <li>@fact</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="ff-empty">Fakta se nepodařilo načíst.</p>
+                    }
+                }
+            </div>
+
+            @* Video context card *@
+            @if (_postVideo != null)
+            {
+                <VideoContextCard YoutubeUrl="@_postVideo.YoutubeUrl" Timestamp="@_postVideo.Timestamp" Label="@_postVideo.Label" />
+            }
 
             @* Image gallery *@
             @if (_articleImages.Count > 0)
@@ -579,6 +625,9 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-patch-question"></i> Co bude v testu?
+                            </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showToolsDropdown = false; }">
                                 <i class="bi bi-globe2"></i> Reálné využití
@@ -590,6 +639,9 @@ else
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
                             <div class="tools-dropdown-divider"></div>
+                            <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showToolsDropdown = false; }">
+                                <i class="bi bi-alarm"></i> Pomodoro timer
+                            </button>
                             <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
@@ -700,6 +752,8 @@ else
 <FeynmanMode PostId="@(_post?.Id ?? Id)" Visible="@_showFeynman" OnClose="@(() => _showFeynman = false)" />
 <RealWorldModal PostId="@(_post?.Id ?? Id)" Visible="@_showRealWorld" OnClose="@(() => _showRealWorld = false)" />
 <WhatIfModal PostId="@(_post?.Id ?? Id)" Visible="@_showWhatIf" OnClose="@(() => _showWhatIf = false)" />
+<ExamPredictorModal PostId="@(_post?.Id ?? Id)" Visible="@_showExamPredictor" OnClose="@(() => _showExamPredictor = false)" />
+<StudyTimer Visible="@_showStudyTimer" OnClose="@(() => _showStudyTimer = false)" />
 
 @if (_showCheatSheetModal)
 {
@@ -773,6 +827,75 @@ else
     </div>
 }
 
+@if (_showDifficultyWidget)
+{
+    <div class="dr-widget">
+        <span class="dr-label">Jak ti přišel článek?</span>
+        <button class="dr-btn" @onclick='() => SubmitDifficulty(1)' title="Snadný">😊 Snadný</button>
+        <button class="dr-btn" @onclick='() => SubmitDifficulty(2)' title="OK">😐 OK</button>
+        <button class="dr-btn" @onclick='() => SubmitDifficulty(3)' title="Těžký">😕 Těžký</button>
+        <button class="dr-dismiss" @onclick="DismissDifficulty" aria-label="Zavřít">×</button>
+    </div>
+}
+
+<style>
+.dr-widget {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--color-card-bg);
+    border-radius: 30px;
+    padding: 10px 18px;
+    box-shadow: 0 4px 20px var(--shadow-md);
+    z-index: 900;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+}
+
+body.dark-mode .dr-widget {
+    background: #2a1020;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.dr-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+body.dark-mode .dr-label { color: var(--color-text-dark); }
+
+.dr-btn {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--color-accent-2);
+    background: transparent;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--color-text);
+}
+
+body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--color-text-dark); }
+.dr-btn:hover { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+.dr-dismiss {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--color-text-muted, #888);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+</style>
+
 @using Tobiso.Web.App.Components.Shared
 @using Tobiso.Web.App.Components
 @code {
@@ -823,6 +946,14 @@ else
     private bool _showFeynman = false;
     private bool _showRealWorld = false;
     private bool _showWhatIf = false;
+    private bool _showExamPredictor = false;
+    private bool _showStudyTimer = false;
+    private bool _showFunFacts = false;
+    private bool _funFactsLoading = false;
+    private List<string> _funFacts = new();
+    private Tobiso.Web.Shared.DTOs.PostVideoResponse? _postVideo;
+    private bool _difficultyRatingSubmitted = false;
+    private bool _showDifficultyWidget = false;
     private record ArticleImage(string Url, string Alt);
     private List<ArticleImage> _articleImages = new();
     // TTS state
@@ -904,6 +1035,7 @@ else
         await LoadRelatedPosts();
         await LoadExercises();
         ExtractArticleImages();
+        await LoadVideo();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -976,6 +1108,17 @@ else
 
                 try { await _jsModule.InvokeVoidAsync("initSentenceHelper", _dotNetRef); }
                 catch (Exception ex) { Logger.LogWarning(ex, "initSentenceHelper failed"); }
+
+                // Difficulty rating scroll listener
+                var postId = _post?.Id ?? Id;
+                var drKey = $"dr_{postId}";
+                try
+                {
+                    var alreadyRated = await Js.InvokeAsync<string>("localStorage.getItem", drKey);
+                    if (string.IsNullOrEmpty(alreadyRated))
+                        await _jsModule.InvokeVoidAsync("initScrollRating", _dotNetRef);
+                }
+                catch { }
             }
 
             // Load persisted reading preferences from localStorage.
@@ -1635,6 +1778,31 @@ else
     // --- Toolbar dropdown ---
     private void ToggleToolsDropdown() => _showToolsDropdown = !_showToolsDropdown;
 
+    private async Task ToggleFunFacts()
+    {
+        _showFunFacts = !_showFunFacts;
+        if (_showFunFacts && _funFacts.Count == 0 && !_funFactsLoading)
+        {
+            _funFactsLoading = true;
+            StateHasChanged();
+            try
+            {
+                var postId = _post?.Id ?? Id;
+                var url = new Uri(Navigation.BaseUri + $"api/ai/fun-facts/{postId}");
+                var resp = await Http.GetAsync(url);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var data = await resp.Content.ReadFromJsonAsync<FunFactsWrapper>();
+                    _funFacts = data?.Facts ?? new();
+                }
+            }
+            catch { }
+            finally { _funFactsLoading = false; }
+        }
+    }
+
+    private record FunFactsWrapper(List<string> Facts);
+
     // --- TTS ---
     private async Task TtsStart()
     {
@@ -1681,6 +1849,53 @@ else
         _ttsPaused = false;
         InvokeAsync(StateHasChanged);
         return Task.CompletedTask;
+    }
+
+    private async Task LoadVideo()
+    {
+        var postId = _post?.Id ?? Id;
+        if (postId <= 0) return;
+        try
+        {
+            var resp = await Http.GetAsync($"/api/posts/{postId}/video");
+            if (resp.IsSuccessStatusCode)
+                _postVideo = await resp.Content.ReadFromJsonAsync<Tobiso.Web.Shared.DTOs.PostVideoResponse>();
+        }
+        catch { }
+    }
+
+    [JSInvokable]
+    public Task OnScrolledPast80()
+    {
+        _showDifficultyWidget = true;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    private async Task SubmitDifficulty(int rating)
+    {
+        _showDifficultyWidget = false;
+        var postId = _post?.Id ?? Id;
+        try
+        {
+            var drKey = $"dr_{postId}";
+            var deviceId = await Js.InvokeAsync<string>("localStorage.getItem", "deviceId");
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                deviceId = Guid.NewGuid().ToString();
+                await Js.InvokeVoidAsync("localStorage.setItem", "deviceId", deviceId);
+            }
+            await Http.PostAsJsonAsync($"/api/posts/{postId}/rate-difficulty", new { Rating = rating, DeviceId = deviceId });
+            await Js.InvokeVoidAsync("localStorage.setItem", drKey, "1");
+        }
+        catch { }
+        StateHasChanged();
+    }
+
+    private void DismissDifficulty()
+    {
+        _showDifficultyWidget = false;
+        _difficultyRatingSubmitted = true;
     }
 
 }

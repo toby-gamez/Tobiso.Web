@@ -1244,5 +1244,114 @@ namespace Tobiso.Web.App.Services
 
             return new EvaluateComprehensionResponse();
         }
+
+        public async Task<RewriteGradeResponse> RewriteForRegisterAsync(int postId, string register)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post?.Title ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(articleContext)) return new RewriteGradeResponse();
+
+            var systemPrompt = register switch
+            {
+                "simple" => "Jsi pedagog. Přepiš tento vzdělávací text tak, aby mu rozumělo 8leté dítě. Používej velmi krátké věty, jednoduché slovo, přirovnání z každodenního života (hračky, jídlo, rodina). Vyhni se odborným termínům – pokud musíš, vysvětli je velmi jednoduše. Odpovídej čistým textem v češtině, bez markdown formátování.",
+                "expert"  => "Jsi odborník. Přepiš tento vzdělávací text do odborné formy vhodné pro experta v oboru. Používej správnou terminologii, předpokládej hluboké znalosti tématu, přidej kontext a nuance. Odpovídej čistým textem v češtině, bez markdown formátování.",
+                _         => "Jsi pedagog. Přepiš tento vzdělávací text pro studenta gymnázia. Používej přesné termíny a buď srozumitelný, ale nevyhýbej se odbornosti. Odpovídej čistým textem v češtině, bez markdown formátování."
+            };
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Téma: {title}\n\n{articleContext}" }
+            };
+
+            var payload = new { model, messages, max_tokens = 1200, temperature = 0.4 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI rewrite-register request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            using var respStream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(respStream);
+            var docRoot = doc.RootElement;
+            if (docRoot.TryGetProperty("choices", out var ch) && ch.GetArrayLength() > 0
+                && ch[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c))
+            {
+                return new RewriteGradeResponse { Content = c.GetString()?.Trim() ?? string.Empty };
+            }
+
+            return new RewriteGradeResponse();
+        }
+
+        public async Task<List<string>> GenerateFunFactsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new List<string>();
+
+            var systemPrompt = "Jsi zajímavý pedagog. Vygeneruj 3 překvapivé, zajímavé a méně známé fakty o tématu tohoto článku. Fakty musí být stručné (1-2 věty), vzdělávací a vhodné pro studenty ZŠ/SŠ. Odpověz výhradně jako JSON array of strings, bez dalšího textu.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var facts = new List<string>();
+                if (root.ValueKind == JsonValueKind.Array)
+                    foreach (var el in root.EnumerateArray())
+                        if (el.ValueKind == JsonValueKind.String && el.GetString() is string s)
+                            facts.Add(s);
+                return facts;
+            }
+            catch { return new List<string>(); }
+        }
+
+        public async Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new List<ExamQuestion>();
+
+            var systemPrompt = "Jsi zkušený pedagog. Vygeneruj 5 nejpravděpodobnějších zkouškových otázek z tohoto článku, které by mohl položit učitel při testu nebo zkoušení. Pro každou otázku přidej vzornou odpověď. Odpověz výhradně jako JSON array: [{\"question\": \"...\", \"answer\": \"...\"}], bez dalšího textu.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var questions = new List<ExamQuestion>();
+                if (root.ValueKind == JsonValueKind.Array)
+                    foreach (var el in root.EnumerateArray())
+                    {
+                        var q = el.TryGetProperty("question", out var qp) ? qp.GetString() ?? "" : "";
+                        var a = el.TryGetProperty("answer", out var ap) ? ap.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(q))
+                            questions.Add(new ExamQuestion { Question = q, Answer = a });
+                    }
+                return questions;
+            }
+            catch { return new List<ExamQuestion>(); }
+        }
     }
 }

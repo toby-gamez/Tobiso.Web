@@ -1,0 +1,232 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="Close">
+        <div class="tobiso-modal-card st-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-alarm"></i> Pomodoro timer</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+            <div class="tobiso-modal-body tobiso-modal-center st-body">
+                <div class="st-mode-label @(_isBreak ? "st-break" : "st-work")">
+                    @(_isBreak ? "Přestávka" : "Soustředění")
+                </div>
+
+                <div class="st-ring-wrapper">
+                    <svg class="st-ring" viewBox="0 0 120 120">
+                        <circle class="st-ring-bg" cx="60" cy="60" r="54" />
+                        <circle class="st-ring-fg @(_isBreak ? "st-ring-break" : "")"
+                                cx="60" cy="60" r="54"
+                                stroke-dasharray="@_circumference"
+                                stroke-dashoffset="@_dashOffset"
+                                transform="rotate(-90 60 60)" />
+                    </svg>
+                    <span class="st-time">@FormatTime(_secondsLeft)</span>
+                </div>
+
+                <div class="st-controls">
+                    @if (!_running)
+                    {
+                        <button class="st-btn st-btn-start" @onclick="Start"><i class="bi bi-play-fill"></i> Start</button>
+                    }
+                    else
+                    {
+                        <button class="st-btn st-btn-pause" @onclick="Pause"><i class="bi bi-pause-fill"></i> Pauza</button>
+                    }
+                    <button class="st-btn st-btn-reset" @onclick="Reset"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+                </div>
+
+                @if (_cycleCount > 0)
+                {
+                    <div class="st-cycles">Dokončeno @_cycleCount @(_cycleCount == 1 ? "cyklus" : _cycleCount < 5 ? "cykly" : "cyklů")</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+.st-modal { max-width: 380px; }
+
+.st-body { gap: 1.25rem; padding: 1.5rem 1rem; }
+
+.st-mode-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 12px;
+    border-radius: 20px;
+}
+
+.st-work { background: var(--color-accent); color: #fff; }
+.st-break { background: var(--color-success, #90c695); color: #fff; }
+
+.st-ring-wrapper {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.st-ring {
+    position: absolute;
+    top: 0; left: 0;
+    width: 140px;
+    height: 140px;
+}
+
+.st-ring-bg {
+    fill: none;
+    stroke: var(--color-accent-2);
+    stroke-width: 8;
+    opacity: 0.3;
+}
+
+.st-ring-fg {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.9s linear;
+}
+
+.st-ring-break { stroke: var(--color-success, #90c695); }
+
+.st-time {
+    font-size: 2.4rem;
+    font-weight: 700;
+    font-family: var(--font-family-monospace);
+    color: var(--color-text);
+    z-index: 1;
+}
+
+body.dark-mode .st-time { color: var(--color-text-dark); }
+
+.st-controls { display: flex; gap: 10px; }
+
+.st-btn {
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.st-btn-start { background: var(--color-accent); color: #fff; }
+.st-btn-start:hover { background: var(--color-accent-3); }
+.st-btn-pause { background: var(--color-accent-2); color: var(--color-text); }
+.st-btn-reset { background: transparent; border: 2px solid var(--color-accent-2); color: var(--color-text); }
+
+body.dark-mode .st-btn-pause { color: var(--color-text-dark); }
+body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(--color-accent-2-dark); }
+
+.st-cycles { font-size: 0.78rem; color: var(--color-accent); font-weight: 600; }
+</style>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private const int WorkSeconds = 25 * 60;
+    private const int BreakSeconds = 5 * 60;
+    private const double Radius = 54.0;
+    private double _circumference = 2 * Math.PI * 54;
+
+    private bool _running = false;
+    private bool _isBreak = false;
+    private int _secondsLeft = WorkSeconds;
+    private int _cycleCount = 0;
+    private double _dashOffset = 0;
+    private CancellationTokenSource? _cts;
+
+    protected override void OnInitialized() => UpdateDash();
+
+    private static string FormatTime(int seconds) =>
+        $"{seconds / 60:D2}:{seconds % 60:D2}";
+
+    private void UpdateDash()
+    {
+        var total = _isBreak ? BreakSeconds : WorkSeconds;
+        var progress = (double)_secondsLeft / total;
+        _dashOffset = _circumference * (1 - progress);
+    }
+
+    private async Task Start()
+    {
+        if (_running) return;
+        _running = true;
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
+        try
+        {
+            await JS.InvokeVoidAsync("studyTimer.requestNotificationPermission");
+        }
+        catch { }
+
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested && _secondsLeft > 0)
+            {
+                await Task.Delay(1000, token);
+                _secondsLeft--;
+                UpdateDash();
+                await InvokeAsync(StateHasChanged);
+            }
+
+            if (!token.IsCancellationRequested && _secondsLeft == 0)
+            {
+                if (!_isBreak)
+                {
+                    _cycleCount++;
+                    _isBreak = true;
+                    _secondsLeft = BreakSeconds;
+                    try { await JS.InvokeVoidAsync("studyTimer.notify", "Čas na přestávku! ☕", "25 minut uplynulo. Odpočiň si 5 minut."); } catch { }
+                }
+                else
+                {
+                    _isBreak = false;
+                    _secondsLeft = WorkSeconds;
+                    try { await JS.InvokeVoidAsync("studyTimer.notify", "Zpět do práce! 📚", "Přestávka skončila. Soustřeď se dalších 25 minut."); } catch { }
+                }
+                UpdateDash();
+                _running = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }, token);
+    }
+
+    private void Pause()
+    {
+        _running = false;
+        _cts?.Cancel();
+    }
+
+    private void Reset()
+    {
+        _running = false;
+        _cts?.Cancel();
+        _isBreak = false;
+        _secondsLeft = WorkSeconds;
+        UpdateDash();
+    }
+
+    private async Task Close()
+    {
+        Pause();
+        await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts?.Cancel();
+        await ValueTask.CompletedTask;
+    }
+}

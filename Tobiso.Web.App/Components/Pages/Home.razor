@@ -28,6 +28,55 @@
     .ribbon-1, .ribbon-2, .ribbon-3, .ribbon-4, .ribbon-5 {
         display: none;
     }
+
+    .aod-section {
+        display: flex;
+        justify-content: center;
+        padding: 0 1rem 1.5rem;
+    }
+
+    .aod-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--intro-bg);
+        border-radius: 12px;
+        padding: 0.75rem 1.25rem;
+        max-width: 680px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    body.dark-mode .aod-card { background: var(--intro-bg-dark); }
+
+    .aod-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-accent);
+        white-space: nowrap;
+    }
+
+    .aod-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--color-text);
+        text-decoration: none;
+    }
+
+    body.dark-mode .aod-title { color: var(--color-text-dark); }
+    .aod-title:hover { color: var(--color-accent); }
+
+    .aod-link {
+        font-size: 0.82rem;
+        color: var(--color-accent);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .aod-link:hover { text-decoration: underline; }
     .loading-bar-container {
         display: none;
     }
@@ -143,6 +192,18 @@
         </div>
     </div>
 </div>
+@if (_articleOfDay != null)
+{
+    var aodSlug = _articleOfDay.FilePath?.TrimStart('/').Replace(".md", "", StringComparison.OrdinalIgnoreCase) ?? "";
+    <div class="aod-section">
+        <div class="aod-card">
+            <span class="aod-label"><i class="bi bi-sun"></i> Článek dne</span>
+            <a class="aod-title" href="post/@aodSlug">@_articleOfDay.Title</a>
+            <a class="aod-link" href="post/@aodSlug">Přejít na článek <i class="bi bi-arrow-right"></i></a>
+        </div>
+    </div>
+}
+
 <div class="home-grid">
     <a href="categories/2" class="home-grid-item" @onclick:preventDefault="true" @onclick="Mluvnice">
         <div>
@@ -221,7 +282,9 @@
 @code {
     [CascadingParameter(Name = "IsDarkMode")]
     public bool isDarkMode { get; set; }
-    
+
+    private Tobiso.Web.Shared.DTOs.PostLinkResponse? _articleOfDay;
+
     private void Learn() => NavigationManager.NavigateTo("categories");
 
     private void Mluvnice() => NavigationManager.NavigateTo("categories/2");
@@ -243,6 +306,7 @@
         {
             grades = (await AnonymApi.GetGrades()).ToList();
             selectedGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+            _articleOfDay = await AnonymApi.GetArticleOfTheDay();
         }
         catch
         {

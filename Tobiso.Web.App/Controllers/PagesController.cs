@@ -53,4 +53,20 @@ public class PagesController : ControllerBase
     {
         return Ok(await _categoryService.GetAncestors(categoryId));
     }
+
+    [HttpGet("random")]
+    public async Task<IActionResult> GetRandomPost()
+    {
+        var post = await _postService.GetRandomAsync();
+        if (post == null) return NotFound();
+        return Ok(post);
+    }
+
+    [HttpGet("article-of-day")]
+    public async Task<IActionResult> GetArticleOfTheDay()
+    {
+        var post = await _postService.GetArticleOfTheDayAsync();
+        if (post == null) return NotFound();
+        return Ok(post);
+    }
 }

@@ -30,6 +30,10 @@ public class TobisoDbContext : DbContext
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
 
+    public DbSet<PostFunFact> PostFunFacts { get; set; }
+    public DbSet<PostDifficultyRating> PostDifficultyRatings { get; set; }
+    public DbSet<PostVideo> PostVideos { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

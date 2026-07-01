@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
+using Tobiso.Api.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.App.Controllers
 {
@@ -23,8 +26,9 @@ namespace Tobiso.Web.App.Controllers
         private readonly Tobiso.Web.Api.Services.IPostService _postService;
         private readonly IAiChatHistoryService _chatHistory;
         private readonly IUserService _userService;
+        private readonly TobisoDbContext _db;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -33,6 +37,7 @@ namespace Tobiso.Web.App.Controllers
             _postService = postService;
             _chatHistory = chatHistory;
             _userService = userService;
+            _db = db;
         }
 
         [HttpGet("diag")]
@@ -583,6 +588,99 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "What-if scenario failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("rewrite-register")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RewriteRegister([FromBody] RewriteRegisterRequest request)
+        {
+            if (request == null || request.PostId <= 0) return BadRequest("Invalid request");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var result = await _aiService.RewriteForRegisterAsync(request.PostId, request.Register);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Rewrite-register failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("fun-facts/{postId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetFunFacts(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            // Check DB cache first
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostFunFacts.FirstOrDefaultAsync(f => f.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try
+                {
+                    var cachedFacts = System.Text.Json.JsonSerializer.Deserialize<List<string>>(cached.FactsJson) ?? new();
+                    return Ok(new { facts = cachedFacts });
+                }
+                catch { }
+            }
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var facts = await _aiService.GenerateFunFactsAsync(postId);
+                var json = System.Text.Json.JsonSerializer.Serialize(facts);
+
+                if (cached != null)
+                {
+                    cached.FactsJson = json;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostFunFacts.Add(new PostFunFact { PostId = postId, FactsJson = json });
+                }
+                await _db.SaveChangesAsync();
+
+                return Ok(new { facts });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Fun-facts failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("exam-questions/{postId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetExamQuestions(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var questions = await _aiService.GenerateExamQuestionsAsync(postId);
+                return Ok(new { questions });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Exam-questions failed for PostId={PostId}", postId);
                 return StatusCode(502, new { message = ex.Message });
             }
         }

@@ -7,45 +7,67 @@
     <div class="tobiso-modal-backdrop" @onclick="Close">
         <div class="tobiso-modal-card gr-modal" @onclick:stopPropagation>
             <div class="tobiso-modal-header">
-                <span class="tobiso-modal-title"><i class="bi bi-person-lines-fill"></i> Přepsat pro ročník</span>
+                <span class="tobiso-modal-title"><i class="bi bi-person-lines-fill"></i> Přepsat obsah</span>
                 <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
             </div>
 
-            <div class="gr-grade-row">
-                @foreach (var grade in new[] { 4, 5, 6, 7, 8, 9 })
-                {
-                    var g = grade;
-                    <button class="gr-grade-btn @(_selectedGrade == g ? "active" : "")" @onclick="() => SelectGrade(g)">
-                        @g. tř.
-                    </button>
-                }
+            <div class="gr-tabs">
+                <button class="gr-tab @(_activeTab == "grade" ? "active" : "")" @onclick='() => _activeTab = "grade"'>Ročník</button>
+                <button class="gr-tab @(_activeTab == "style" ? "active" : "")" @onclick='() => _activeTab = "style"'>Styl</button>
             </div>
+
+            @if (_activeTab == "grade")
+            {
+                <div class="gr-grade-row">
+                    @foreach (var grade in new[] { 4, 5, 6, 7, 8, 9 })
+                    {
+                        var g = grade;
+                        <button class="gr-grade-btn @(_selectedGrade == g ? "active" : "")" @onclick="() => SelectGrade(g)">
+                            @g. tř.
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="gr-grade-row">
+                    <button class="gr-grade-btn gr-register-btn @(_selectedRegister == "simple" ? "active" : "")" @onclick='() => SelectRegister("simple")'>
+                        👶 Pro 8leté dítě
+                    </button>
+                    <button class="gr-grade-btn gr-register-btn @(_selectedRegister == "student" ? "active" : "")" @onclick='() => SelectRegister("student")'>
+                        🎓 Pro gymnazisty
+                    </button>
+                    <button class="gr-grade-btn gr-register-btn @(_selectedRegister == "expert" ? "active" : "")" @onclick='() => SelectRegister("expert")'>
+                        🔬 Pro odborníky
+                    </button>
+                </div>
+            }
 
             @if (_loading)
             {
                 <div class="tobiso-modal-body tobiso-modal-center">
                     <div class="loading-circle"></div>
-                    <p class="gr-hint">Přepisuji text pro @_selectedGrade. ročník…</p>
+                    <p class="gr-hint">Přepisuji text…</p>
                 </div>
             }
             else if (_error != null)
             {
                 <div class="tobiso-modal-body tobiso-modal-center">
                     <p class="gr-error"><i class="bi bi-exclamation-triangle"></i> @_error</p>
-                    <button @onclick="() => Rewrite(_selectedGrade)">Zkusit znovu</button>
+                    <button @onclick="RetryLast">Zkusit znovu</button>
                 </div>
             }
             else if (!string.IsNullOrEmpty(_content))
             {
                 <div class="tobiso-modal-body">
-                    <div class="gr-grade-label">Verze pro @_loadedGrade. ročník</div>
+                    <div class="gr-grade-label">@_loadedLabel</div>
                     <div class="gr-content"><MarkdownContent Content="@_content" ContainerId="gr-content" /></div>
                 </div>
             }
             else
             {
                 <div class="tobiso-modal-body tobiso-modal-center">
-                    <p class="gr-placeholder"><i class="bi bi-arrow-up"></i> Vyber ročník a článek se přepíše.</p>
+                    <p class="gr-placeholder"><i class="bi bi-arrow-up"></i> Vyber ročník nebo styl a článek se přepíše.</p>
                 </div>
             }
             <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
@@ -55,6 +77,31 @@
 
 <style>
 .gr-modal { max-width: 640px; }
+
+.gr-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-accent-2);
+}
+
+body.dark-mode .gr-tabs { border-bottom-color: var(--color-accent-2-dark); }
+
+.gr-tab {
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+}
+
+body.dark-mode .gr-tab { color: var(--color-text-dark); }
+.gr-tab:hover { color: var(--color-accent); }
+.gr-tab.active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
 
 .gr-grade-row {
     display: flex;
@@ -87,6 +134,8 @@ body.dark-mode .gr-grade-btn {
 .gr-grade-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
 .gr-grade-btn.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
 
+.gr-register-btn { font-size: 0.85rem; }
+
 .gr-error { color: var(--color-danger, #c0392b); font-size: 0.9rem; }
 .gr-hint { font-size: 0.82rem; color: var(--color-text-muted); }
 body.dark-mode .gr-hint { color: var(--color-text-muted-dark); }
@@ -117,20 +166,37 @@ body.dark-mode .gr-placeholder { color: var(--color-text-muted-dark); }
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
+    private string _activeTab = "grade";
     private int _selectedGrade = 0;
-    private int _loadedGrade = 0;
+    private string _selectedRegister = "";
+    private string _loadedLabel = "";
     private string _content = string.Empty;
     private bool _loading = false;
     private string? _error;
+    private Func<Task>? _lastAction;
 
     private async Task SelectGrade(int grade)
     {
         if (_loading) return;
         _selectedGrade = grade;
-        await Rewrite(grade);
+        _lastAction = () => RewriteByGrade(grade);
+        await RewriteByGrade(grade);
     }
 
-    private async Task Rewrite(int grade)
+    private async Task SelectRegister(string register)
+    {
+        if (_loading) return;
+        _selectedRegister = register;
+        _lastAction = () => RewriteByRegister(register);
+        await RewriteByRegister(register);
+    }
+
+    private async Task RetryLast()
+    {
+        if (_lastAction != null) await _lastAction();
+    }
+
+    private async Task RewriteByGrade(int grade)
     {
         if (PostId <= 0) return;
         _loading = true;
@@ -146,33 +212,56 @@ body.dark-mode .gr-placeholder { color: var(--color-text-muted-dark); }
             {
                 var data = await resp.Content.ReadFromJsonAsync<RewriteGradeResponse>();
                 _content = data?.Content ?? string.Empty;
-                _loadedGrade = grade;
+                _loadedLabel = $"Verze pro {grade}. ročník";
             }
             else if ((int)resp.StatusCode == 429)
-            {
                 _error = "Denní limit dotazů byl vyčerpán.";
-            }
             else
-            {
                 _error = "Text se nepodařilo přepsat. Zkuste to znovu.";
+        }
+        catch (Exception ex) { _error = $"Chyba: {ex.Message}"; }
+        finally { _loading = false; StateHasChanged(); }
+    }
+
+    private async Task RewriteByRegister(string register)
+    {
+        if (PostId <= 0) return;
+        _loading = true;
+        _error = null;
+        _content = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/rewrite-register");
+            var resp = await Http.PostAsJsonAsync(url, new RewriteRegisterRequest { PostId = PostId, Register = register });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RewriteGradeResponse>();
+                _content = data?.Content ?? string.Empty;
+                _loadedLabel = register switch
+                {
+                    "simple" => "Verze pro 8leté dítě",
+                    "expert" => "Verze pro odborníky",
+                    _ => "Verze pro gymnazisty"
+                };
             }
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit dotazů byl vyčerpán.";
+            else
+                _error = "Text se nepodařilo přepsat. Zkuste to znovu.";
         }
-        catch (Exception ex)
-        {
-            _error = $"Chyba: {ex.Message}";
-        }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { _error = $"Chyba: {ex.Message}"; }
+        finally { _loading = false; StateHasChanged(); }
     }
 
     private async Task Close()
     {
         _content = string.Empty;
         _selectedGrade = 0;
+        _selectedRegister = "";
         _error = null;
+        _activeTab = "grade";
         await OnClose.InvokeAsync();
     }
 }

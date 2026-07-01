@@ -11,6 +11,12 @@ public interface ITobisoAnonymApi
     [Get("/api/Pages/summaries")]
     Task<IList<PostSummaryResponse>> GetPostSummaries();
 
+    [Get("/api/Pages/random")]
+    Task<PostLinkResponse> GetRandomPost();
+
+    [Get("/api/Pages/article-of-day")]
+    Task<PostLinkResponse> GetArticleOfTheDay();
+
     [Get("/api/Pages/{id}")]
     Task<PostResponse> GetPostById(int id, [Query] int? gradeId = null);
 

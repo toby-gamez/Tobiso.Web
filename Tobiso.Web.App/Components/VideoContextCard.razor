@@ -1,0 +1,89 @@
+@using System.Text.RegularExpressions
+
+@if (!string.IsNullOrEmpty(YoutubeUrl))
+{
+    var videoId = ExtractYoutubeId(YoutubeUrl);
+    var thumbUrl = string.IsNullOrEmpty(videoId) ? "" : $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+    <div class="context-card vc-card">
+        <div class="context-card-title">▶ @(!string.IsNullOrEmpty(Label) ? Label : "Video k článku")</div>
+        @if (!_playing)
+        {
+            <div class="vc-thumb-wrap" @onclick="() => _playing = true">
+                @if (!string.IsNullOrEmpty(thumbUrl))
+                {
+                    <img class="vc-thumb" src="@thumbUrl" alt="Video thumbnail" loading="lazy" />
+                }
+                <div class="vc-play-overlay"><i class="bi bi-play-circle-fill"></i></div>
+            </div>
+        }
+        else
+        {
+            var embedUrl = string.IsNullOrEmpty(videoId) ? "" : $"https://www.youtube.com/embed/{videoId}?start={Timestamp}&autoplay=1";
+            <div class="vc-embed-wrap">
+                <iframe class="vc-iframe" src="@embedUrl" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen></iframe>
+            </div>
+        }
+    </div>
+}
+
+<style>
+.vc-card { overflow: hidden; }
+.vc-thumb-wrap {
+    position: relative;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    line-height: 0;
+}
+.vc-thumb {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+    transition: filter 0.2s;
+}
+.vc-thumb-wrap:hover .vc-thumb { filter: brightness(0.75); }
+.vc-play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    opacity: 0.85;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.vc-thumb-wrap:hover .vc-play-overlay { opacity: 1; }
+.vc-embed-wrap {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+}
+.vc-iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+
+@code {
+    [Parameter] public string YoutubeUrl { get; set; } = "";
+    [Parameter] public int Timestamp { get; set; } = 0;
+    [Parameter] public string Label { get; set; } = "";
+
+    private bool _playing = false;
+
+    private static string? ExtractYoutubeId(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+        var m = Regex.Match(url, @"(?:youtube\.com/watch\?.*v=|youtu\.be/)([A-Za-z0-9_-]{11})");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+}
