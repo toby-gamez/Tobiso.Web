@@ -219,6 +219,109 @@ body.focus-mode section {
     margin-top: 2px;
     margin-bottom: 2px;
 }
+    /* Rewrite inline spinner (avoids section:has(.loading-circle) layout rule) */
+    .rewrite-spinner {
+        width: 2.5rem; height: 2.5rem;
+        border: 3px solid var(--color-accent-2);
+        border-top-color: var(--color-accent);
+        border-radius: 50%;
+        animation: rewrite-spin 0.75s linear infinite;
+    }
+    @@keyframes rewrite-spin { to { transform: rotate(360deg); } }
+
+    /* Mini timer pulse animation */
+    .mini-timer-btn { position: relative; }
+    @@keyframes timer-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.25); }
+    }
+    .mini-timer-pulse { animation: timer-pulse 1.2s ease-in-out infinite; color: var(--color-accent); }
+
+    /* Back-to-original button shown inside the rewrite content label */
+    .rewrite-back-btn {
+        font-size: 0.78rem; padding: 3px 9px; border-radius: 20px;
+        border: 1.5px solid var(--color-accent); background: none; cursor: pointer;
+        color: var(--color-accent); white-space: nowrap; text-transform: none; font-weight: 600;
+    }
+    .rewrite-back-btn:hover { background: var(--color-accent); color: #fff; }
+    .rewrite-content-label {
+        font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.07em; color: var(--color-accent); margin-bottom: 0.75rem;
+        display: flex; align-items: center; gap: 10px;
+    }
+
+    /* Fun facts panel (moved from inline header) */
+    .funfacts-panel {
+        background: var(--color-accent-5);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 1rem;
+    }
+    body.dark-mode .funfacts-panel { background: var(--color-accent-4-dark); }
+    .funfacts-panel-header {
+        display: flex; align-items: center; justify-content: space-between;
+        font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;
+        color: var(--color-text);
+    }
+    body.dark-mode .funfacts-panel-header { color: var(--color-text-dark); }
+    .funfacts-panel-close {
+        background: none; border: none; font-size: 1.2rem; cursor: pointer;
+        color: var(--color-text-muted, #888); padding: 2px 6px; line-height: 1;
+    }
+
+    /* Exercises section — single collapsible block */
+    .exercises-section {
+        border-radius: 10px;
+        border: 1.5px solid var(--color-accent-2);
+        overflow: hidden;
+        margin: 1.5rem 0;
+    }
+    body.dark-mode .exercises-section { border-color: var(--color-accent-2-dark); }
+    .exercises-section-toggle {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; padding: 13px 16px; background: transparent;
+        border: none; cursor: pointer; text-align: left; font-weight: 600;
+        font-size: 0.95rem; color: var(--color-text); transition: background 0.12s;
+    }
+    body.dark-mode .exercises-section-toggle { color: var(--color-text-dark); }
+    .exercises-section-toggle:hover,
+    .exercises-section-toggle:active {
+        background: var(--color-accent-2);
+        transform: none;
+        border-color: transparent;
+    }
+    body.dark-mode .exercises-section-toggle:hover,
+    body.dark-mode .exercises-section-toggle:active { background: var(--color-accent-2-dark); }
+    .exercises-section-toggle.expanded {
+        border-bottom: 1.5px solid var(--color-accent-2);
+        color: var(--color-accent);
+    }
+    body.dark-mode .exercises-section-toggle.expanded { border-bottom-color: var(--color-accent-2-dark); }
+    .exercises-count { font-size: 0.75rem; font-weight: 400; opacity: 0.55; margin-left: 4px; }
+    .exercises-section-body {
+        padding: 14px; display: flex; flex-direction: column; gap: 14px;
+    }
+    /* Individual exercise card (inside expanded section) */
+    .exercise-card {
+        border-radius: 8px;
+        border: 1px solid var(--color-accent-2);
+        overflow: hidden;
+    }
+    body.dark-mode .exercise-card { border-color: var(--color-accent-2-dark); }
+    .exercise-card-header {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 13px;
+        font-weight: 600; font-size: 0.88rem; color: var(--color-text);
+        border-bottom: 1px solid var(--color-accent-2);
+        background: transparent;
+    }
+    body.dark-mode .exercise-card-header { color: var(--color-text-dark); border-bottom-color: var(--color-accent-2-dark); }
+    .exercise-card-body { padding: 14px; }
+    .exercise-instructions { margin-bottom: 1rem; padding: 0.6rem; background: rgba(0,0,0,0.04); border-radius: 6px; font-size: 0.88rem; }
+    .exercise-todo { font-size: 0.9rem; opacity: 0.7; }
+    /* Rewrite modal width */
+    .rw-modal { max-width: 520px; }
+
     .grade-badge {
     display: inline-block;
     font-size: 0.78rem;
@@ -401,11 +504,14 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-pencil-square"></i> Procvičovací úlohy
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showTopToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { ToggleRewritePanel(); _showTopToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
                             <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-patch-question"></i> Co bude v testu?
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { ToggleFunFacts(); _showTopToolsDropdown = false; }">
+                                <i class="bi bi-lightbulb"></i> Věděl jsi, že…?
                             </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showTopToolsDropdown = false; }">
@@ -427,6 +533,12 @@ else
                         </div>
                     }
                 </div>
+                @if (_timerRunning && !_showStudyTimer)
+                {
+                    <button class="tool-btn mini-timer-btn" title="Pomodoro běží" @onclick="() => _showStudyTimer = true">
+                        <i class="bi bi-alarm-fill mini-timer-pulse"></i>
+                    </button>
+                }
             </div>
         <div class="tool">
             <span>@((MarkupString)GetWordCountInfo(ActiveVersion?.Content))</span>
@@ -465,7 +577,12 @@ else
     <div class="content">
         @* Wrap rendered content in a container with class/id `content` so JS selector finds it *@
         <div id="content" class="content" style="@GetContentStyle()">
-            @if (_fileSuffix == ".md")
+            @if (!string.IsNullOrEmpty(_rewrittenContent))
+            {
+                <div class="rewrite-content-label">@_rewrittenLabel <button class="rewrite-back-btn" @onclick="ClearRewrite"><i class="bi bi-arrow-left"></i> Zpět na originál</button></div>
+                <MarkdownContent Content="@_rewrittenContent" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
+            }
+            else if (_fileSuffix == ".md")
             {
                 <MarkdownContent Content="@(ActiveVersion?.Content ?? string.Empty)" AllPosts="@_allPosts" AllPeople="@_allPeople" ContainerId="content" />
                 @if (!_aiAvailable)
@@ -546,11 +663,14 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showPracticeProblems = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-pencil-square"></i> Procvičovací úlohy
                             </button>
-                            <button class="tools-dropdown-item" @onclick="() => { _showGradeRewriter = true; _showBottomToolsDropdown = false; }">
+                            <button class="tools-dropdown-item" @onclick="() => { ToggleRewritePanel(); _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-person-lines-fill"></i> Přepsat pro ročník
                             </button>
                             <button class="tools-dropdown-item" @onclick="() => { _showExamPredictor = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-patch-question"></i> Co bude v testu?
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { ToggleFunFacts(); _showBottomToolsDropdown = false; }">
+                                <i class="bi bi-lightbulb"></i> Věděl jsi, že…?
                             </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showRealWorld = true; _showBottomToolsDropdown = false; }">
@@ -608,18 +728,18 @@ else
         </div>
     }
 
-    @* Věděl jsi, že? *@
-    <div class="funfacts-inline">
-        <div class="funfacts-inline-header" @onclick="ToggleFunFacts">
-            <span><i class="bi bi-lightbulb"></i> Věděl jsi, že…?</span>
-            <span class="ff-chevron">@(_showFunFacts ? "▲" : "▼")</span>
-        </div>
-        @if (_showFunFacts)
-        {
+    @* Věděl jsi, že? — shown only when triggered from dropdown *@
+    @if (_showFunFacts)
+    {
+        <div class="funfacts-panel">
+            <div class="funfacts-panel-header">
+                <span><i class="bi bi-lightbulb"></i> Věděl jsi, že…?</span>
+                <button class="funfacts-panel-close" @onclick="() => _showFunFacts = false" aria-label="Zavřít">×</button>
+            </div>
             @if (_funFactsLoading)
             {
                 <div style="display:flex;justify-content:center;padding:0.75rem 0;">
-                    <div class="loading-circle"></div>
+                    <div class="rewrite-spinner"></div>
                 </div>
             }
             else if (_funFacts.Count > 0)
@@ -635,63 +755,63 @@ else
             {
                 <p class="ff-empty">Fakta se nepodařilo načíst.</p>
             }
-        }
-    </div>
+        </div>
+    }
 
-    @* Interaktivní cvičení *@
+    @* Interaktivní cvičení — single collapsible block, collapsed by default *@
     @if (_exercises != null && _exercises.Any())
     {
-        <section id="interaktivni-cviceni">
-            <div class="mt-5 mb-4">
-            <h2>
-                <i class="bi bi-puzzle"></i> Interaktivní cvičení
-            </h2>
-
-            @foreach (var exercise in _exercises)
+        <div id="interaktivni-cviceni" class="exercises-section">
+            <button class="exercises-section-toggle @(_exercisesExpanded ? "expanded" : "")" @onclick="() => _exercisesExpanded = !_exercisesExpanded">
+                <span><i class="bi bi-puzzle"></i> Interaktivní cvičení <span class="exercises-count">(@_exercises.Count)</span></span>
+                <i class="bi bi-chevron-@(_exercisesExpanded ? "up" : "down")"></i>
+            </button>
+            @if (_exercisesExpanded)
             {
-                <div id="exercise-@exercise.Id" class="card mb-4 shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">
-                            <i class="bi bi-@GetExerciseIcon(exercise.Type)"></i> @exercise.Title
-                        </h4>
-                    </div>
-                    <div class="card-body">
-                        @if (!string.IsNullOrEmpty(exercise.InstructionsMarkdown))
-                        {
-                            <div class="alert alert-info">
-                                @((MarkupString)Markdig.Markdown.ToHtml(exercise.InstructionsMarkdown))
+                <div class="exercises-section-body">
+                    @foreach (var exercise in _exercises)
+                    {
+                        <div id="exercise-@exercise.Id" class="exercise-card">
+                            <div class="exercise-card-header expanded">
+                                <span><i class="bi bi-@GetExerciseIcon(exercise.Type)"></i> @exercise.Title</span>
                             </div>
-                        }
-
-                        <div class="exercise-content bg-light p-4 rounded">
-                            @switch (exercise.Type)
-                            {
-                                case ExerciseTypeConstants.Circuit:
-                                    <CircuitSimulator Exercise="exercise" />
-                                    break;
-                                case ExerciseTypeConstants.Timeline:
-                                    <TimelineExercise Exercise="exercise" />
-                                    break;
-                                case ExerciseTypeConstants.DragDrop:
-                                    <DragDropExercise Exercise="exercise" />
-                                    break;
-                                case ExerciseTypeConstants.Matching:
-                                    <MatchingExercise Exercise="exercise" />
-                                    break;
-                                case ExerciseTypeConstants.Molecule:
-                                default:
-                                    <div class="alert alert-warning">
-                                        <i class="bi bi-tools"></i>
-                                        <strong>Vývoj probíhá:</strong> Interaktivní komponenta pro typ "@exercise.Type" bude brzy dostupná.
+                            <div class="exercise-card-body">
+                                @if (!string.IsNullOrEmpty(exercise.InstructionsMarkdown))
+                                {
+                                    <div class="exercise-instructions">
+                                        @((MarkupString)Markdig.Markdown.ToHtml(exercise.InstructionsMarkdown))
                                     </div>
-                                    break;
-                            }
+                                }
+                                <div class="exercise-content">
+                                    @switch (exercise.Type)
+                                    {
+                                        case ExerciseTypeConstants.Circuit:
+                                            <CircuitSimulator Exercise="exercise" />
+                                            break;
+                                        case ExerciseTypeConstants.Timeline:
+                                            <TimelineExercise Exercise="exercise" />
+                                            break;
+                                        case ExerciseTypeConstants.DragDrop:
+                                            <DragDropExercise Exercise="exercise" />
+                                            break;
+                                        case ExerciseTypeConstants.Matching:
+                                            <MatchingExercise Exercise="exercise" />
+                                            break;
+                                        case ExerciseTypeConstants.Molecule:
+                                        default:
+                                            <div class="exercise-todo">
+                                                <i class="bi bi-tools"></i>
+                                                <strong>Vývoj probíhá:</strong> Interaktivní komponenta pro typ "@exercise.Type" bude brzy dostupná.
+                                            </div>
+                                            break;
+                                    }
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    }
                 </div>
             }
         </div>
-        </section>
     }
 
     @if (_postVideo != null)
@@ -746,12 +866,69 @@ else
 <PersonModal IsVisible="@_showPersonModal" IsVisibleChanged="@OnPersonModalClose" PersonName="@_personNameForModal" />
 <FlashcardDeck PostId="@(_post?.Id ?? Id)" Visible="@_showFlashcards" OnClose="@(() => _showFlashcards = false)" />
 <PracticeProblems PostId="@(_post?.Id ?? Id)" Visible="@_showPracticeProblems" OnClose="@(() => _showPracticeProblems = false)" Count="3" />
-<GradeRewriter PostId="@(_post?.Id ?? Id)" Visible="@_showGradeRewriter" OnClose="@(() => _showGradeRewriter = false)" />
 <FeynmanMode PostId="@(_post?.Id ?? Id)" Visible="@_showFeynman" OnClose="@(() => _showFeynman = false)" />
 <RealWorldModal PostId="@(_post?.Id ?? Id)" Visible="@_showRealWorld" OnClose="@(() => _showRealWorld = false)" />
 <WhatIfModal PostId="@(_post?.Id ?? Id)" Visible="@_showWhatIf" OnClose="@(() => _showWhatIf = false)" />
 <ExamPredictorModal PostId="@(_post?.Id ?? Id)" Visible="@_showExamPredictor" OnClose="@(() => _showExamPredictor = false)" />
-<StudyTimer Visible="@_showStudyTimer" OnClose="@(() => _showStudyTimer = false)" />
+<StudyTimer @ref="_studyTimerRef" Visible="@_showStudyTimer" OnClose="@(() => _showStudyTimer = false)" OnRunningChanged="OnTimerRunningChanged" OnPhaseEnded="OnTimerPhaseEnded" />
+
+@* Rewrite modal — selector + loading; closes automatically when rewrite is ready *@
+@if (_showRewritePanel)
+{
+    <div class="tobiso-modal-backdrop" @onclick="() => { if (!_rewriteLoading) ToggleRewritePanel(); }">
+        <div class="tobiso-modal-card rw-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title"><i class="bi bi-person-lines-fill"></i> Přepsat pro ročník</span>
+                <button class="tobiso-modal-close" aria-label="Zavřít" @onclick="ToggleRewritePanel" disabled="@_rewriteLoading">&times;</button>
+            </div>
+
+            <div class="gr-tabs">
+                <button class="gr-tab @(_rewriteActiveTab == "grade" ? "active" : "")" @onclick='() => _rewriteActiveTab = "grade"' disabled="@_rewriteLoading">Ročník</button>
+                <button class="gr-tab @(_rewriteActiveTab == "style" ? "active" : "")" @onclick='() => _rewriteActiveTab = "style"' disabled="@_rewriteLoading">Styl</button>
+            </div>
+
+            <div class="gr-grade-row">
+                @if (_rewriteActiveTab == "grade")
+                {
+                    @foreach (var grade in new[] { 4, 5, 6, 7, 8, 9 })
+                    {
+                        var g = grade;
+                        <button class="gr-grade-btn @(_rewriteSelectedGrade == g && string.IsNullOrEmpty(_rewriteRegister) ? "active" : "")"
+                                @onclick="() => RewriteInlineByGrade(g)" disabled="@_rewriteLoading">@g. tř.</button>
+                    }
+                }
+                else
+                {
+                    <button class="gr-grade-btn @(_rewriteRegister == "simple" ? "active" : "")" @onclick='() => RewriteInlineByRegister("simple")' disabled="@_rewriteLoading">👶 Pro 8leté dítě</button>
+                    <button class="gr-grade-btn @(_rewriteRegister == "student" ? "active" : "")" @onclick='() => RewriteInlineByRegister("student")' disabled="@_rewriteLoading">🎓 Pro gymnazisty</button>
+                    <button class="gr-grade-btn @(_rewriteRegister == "expert" ? "active" : "")" @onclick='() => RewriteInlineByRegister("expert")' disabled="@_rewriteLoading">🔬 Pro odborníky</button>
+                }
+            </div>
+
+            @if (_rewriteLoading)
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <div class="rewrite-spinner"></div>
+                    <p class="gr-hint">Přepisuji text…</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_rewriteError))
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="gr-error"><i class="bi bi-exclamation-triangle"></i> @_rewriteError</p>
+                    <button @onclick="() => _rewriteError = null">Zkusit znovu</button>
+                </div>
+            }
+            else
+            {
+                <div class="tobiso-modal-body tobiso-modal-center">
+                    <p class="gr-placeholder"><i class="bi bi-arrow-up"></i> Vyber ročník nebo styl a článek se přepíše.</p>
+                </div>
+            }
+            <div class="tobiso-modal-disclaimer">AI může dělat chyby, vždy si zkontrolujte odpovědi.</div>
+        </div>
+    </div>
+}
 
 @if (_showCheatSheetModal)
 {
@@ -829,9 +1006,9 @@ else
 {
     <div class="dr-widget">
         <span class="dr-label">Jak ti přišel článek?</span>
-        <button class="dr-btn" @onclick='() => SubmitDifficulty(1)' title="Snadný">😊 Snadný</button>
-        <button class="dr-btn" @onclick='() => SubmitDifficulty(2)' title="OK">😐 OK</button>
-        <button class="dr-btn" @onclick='() => SubmitDifficulty(3)' title="Těžký">😕 Těžký</button>
+        <button class="dr-btn dr-btn-easy" @onclick='() => SubmitDifficulty(1)' title="Snadný">😊 Snadný</button>
+        <button class="dr-btn dr-btn-medium" @onclick='() => SubmitDifficulty(2)' title="OK">😐 OK</button>
+        <button class="dr-btn dr-btn-hard" @onclick='() => SubmitDifficulty(3)' title="Těžký">😕 Těžký</button>
         <button class="dr-dismiss" @onclick="DismissDifficulty" aria-label="Zavřít">×</button>
     </div>
 }
@@ -882,6 +1059,15 @@ body.dark-mode .dr-label { color: var(--color-text-dark); }
 
 body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--color-text-dark); }
 .dr-btn:hover { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.dr-btn-easy { border-color: #4caf50; color: #2e7d32; }
+.dr-btn-easy:hover { background: #4caf50; color: #fff; border-color: #4caf50; }
+.dr-btn-medium { border-color: #ff9800; color: #e65100; }
+.dr-btn-medium:hover { background: #ff9800; color: #fff; border-color: #ff9800; }
+.dr-btn-hard { border-color: #f44336; color: #b71c1c; }
+.dr-btn-hard:hover { background: #f44336; color: #fff; border-color: #f44336; }
+body.dark-mode .dr-btn-easy { color: #81c784; border-color: #4caf50; }
+body.dark-mode .dr-btn-medium { color: #ffb74d; border-color: #ff9800; }
+body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
 
 .dr-dismiss {
     background: none;
@@ -941,12 +1127,13 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     private bool _showBottomToolsDropdown = false;
     private bool _showFlashcards = false;
     private bool _showPracticeProblems = false;
-    private bool _showGradeRewriter = false;
     private bool _showFeynman = false;
     private bool _showRealWorld = false;
     private bool _showWhatIf = false;
     private bool _showExamPredictor = false;
     private bool _showStudyTimer = false;
+    private bool _timerRunning = false;
+    private StudyTimer? _studyTimerRef;
     private bool _showFunFacts = false;
     private bool _funFactsLoading = false;
     private List<string> _funFacts = new();
@@ -961,6 +1148,18 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
     private bool _ttsPaused = false;
     // Table of Contents state
     private record TocItem(string Id, string Text, int Level);
+    // Inline rewrite state
+    private bool _showRewritePanel = false;
+    private string _rewriteActiveTab = "grade";
+    private int _rewriteSelectedGrade = 0;
+    private string _rewriteRegister = string.Empty;
+    private string _rewrittenContent = string.Empty;
+    private string _rewrittenLabel = string.Empty;
+    private bool _rewriteLoading = false;
+    private string? _rewriteError = null;
+    // Exercises section — single toggle, collapsed by default
+    private bool _exercisesExpanded = false;
+    private readonly HashSet<int> _expandedExercises = new();
     private List<TocItem> _tocItems = new();
     private string? _activeTocId = null;
     private string? _lastExtractedContentHash = null;
@@ -1911,6 +2110,106 @@ body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--
         if (_postVideo == null) return "";
         var id = ExtractYoutubeId(_postVideo.YoutubeUrl);
         return id == null ? "" : $"https://www.youtube.com/embed/{id}?start={_postVideo.Timestamp}&autoplay=1";
+    }
+
+    // --- Timer callbacks ---
+    private Task OnTimerRunningChanged(bool running)
+    {
+        _timerRunning = running;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTimerPhaseEnded()
+    {
+        _showStudyTimer = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // --- Rewrite modal ---
+    private void ToggleRewritePanel()
+    {
+        if (_rewriteLoading) return;
+        _showRewritePanel = !_showRewritePanel;
+        if (!_showRewritePanel)
+        {
+            _rewriteError = null;
+            _rewriteSelectedGrade = 0;
+            _rewriteRegister = string.Empty;
+        }
+    }
+
+    private async Task RewriteInlineByGrade(int grade)
+    {
+        if (_rewriteLoading || _post == null) return;
+        _rewriteSelectedGrade = grade;
+        _rewriteRegister = string.Empty;
+        _rewriteLoading = true;
+        _rewriteError = null;
+        _rewrittenContent = string.Empty;
+        StateHasChanged();
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/rewrite-grade");
+            var resp = await Http.PostAsJsonAsync(url, new RewriteGradeRequest { PostId = _post.Id, TargetGrade = grade });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RewriteGradeResponse>();
+                _rewrittenContent = data?.Content ?? string.Empty;
+                _rewrittenLabel = $"Verze pro {grade}. ročník";
+                _showRewritePanel = false; // close modal, content now shows inline
+            }
+            else if ((int)resp.StatusCode == 429)
+                _rewriteError = "Denní limit dotazů byl vyčerpán.";
+            else
+                _rewriteError = "Text se nepodařilo přepsat. Zkuste to znovu.";
+        }
+        catch (Exception ex) { _rewriteError = $"Chyba: {ex.Message}"; }
+        finally { _rewriteLoading = false; StateHasChanged(); }
+    }
+
+    private async Task RewriteInlineByRegister(string register)
+    {
+        if (_rewriteLoading || _post == null) return;
+        _rewriteRegister = register;
+        _rewriteSelectedGrade = 0;
+        _rewriteLoading = true;
+        _rewriteError = null;
+        _rewrittenContent = string.Empty;
+        StateHasChanged();
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/rewrite-register");
+            var resp = await Http.PostAsJsonAsync(url, new RewriteRegisterRequest { PostId = _post.Id, Register = register });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<RewriteGradeResponse>();
+                _rewrittenContent = data?.Content ?? string.Empty;
+                _rewrittenLabel = register switch
+                {
+                    "simple" => "Verze pro 8leté dítě",
+                    "expert" => "Verze pro odborníky",
+                    _ => "Verze pro gymnazisty"
+                };
+                _showRewritePanel = false; // close modal, content now shows inline
+            }
+            else if ((int)resp.StatusCode == 429)
+                _rewriteError = "Denní limit dotazů byl vyčerpán.";
+            else
+                _rewriteError = "Text se nepodařilo přepsat. Zkuste to znovu.";
+        }
+        catch (Exception ex) { _rewriteError = $"Chyba: {ex.Message}"; }
+        finally { _rewriteLoading = false; StateHasChanged(); }
+    }
+
+    private void ClearRewrite()
+    {
+        _rewrittenContent = string.Empty;
+        _rewriteLoading = false;
+        _rewriteError = null;
+        _rewriteSelectedGrade = 0;
+        _rewriteRegister = string.Empty;
     }
 
 }

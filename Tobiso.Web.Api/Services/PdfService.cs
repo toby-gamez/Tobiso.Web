@@ -984,46 +984,55 @@ namespace Tobiso.Web.Api.Services
         private static float CheatSheetWidth(string ratio) =>
             ratio.StartsWith("2x", StringComparison.OrdinalIgnoreCase) ? 18f : 10f;
 
+        private enum CheatLineKind { Section, Bullet }
+        private record CheatLine(CheatLineKind Kind, string Text);
+
         public byte[] GenerateCheatSheetPdf(string title, string bulletText, string ratio = "1x1")
         {
             if (string.IsNullOrWhiteSpace(bulletText)) return Array.Empty<byte>();
 
-            // Parse lines, keep only non-empty ones
+            const float SectionSize = CheatSheetTitleSize - 0.5f;
+
+            // Parse lines into typed entries (section headers vs bullet points)
             var lines = (bulletText ?? string.Empty)
                 .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(l => l.Trim())
                 .Where(l => l.Length > 0)
+                .Select(l =>
+                {
+                    if (l.StartsWith("###") || l.StartsWith("##"))
+                    {
+                        var text = System.Text.RegularExpressions.Regex.Replace(l, @"^#+\s*", "").Trim();
+                        return new CheatLine(CheatLineKind.Section, text);
+                    }
+                    var bullet = System.Text.RegularExpressions.Regex.Replace(l, @"^[•\-\*]\s*", "").Trim();
+                    return new CheatLine(CheatLineKind.Bullet, bullet);
+                })
+                .Where(l => !string.IsNullOrWhiteSpace(l.Text))
                 .ToList();
 
-            // ── Calculate page height to fit content exactly (no trailing whitespace) ──
-            // QuestPDF default length unit (without explicit Unit.*) is points (1pt = 25.4/72 mm)
+            // ── Calculate page height to fit content exactly ──
             const float ptToMm = 25.4f / 72f;
-
             bool hasTitle = !string.IsNullOrWhiteSpace(title);
 
-            // Content height in points
             float contentPt = 0f;
             if (hasTitle)
-                contentPt += CheatSheetTitleSize * 1.25f   // title line
-                           + 1f;                            // PaddingBottom(1)
+                contentPt += CheatSheetTitleSize * 1.25f + 1f;
+            contentPt += 2f; // gap after title
 
-            contentPt += 2f;  // Height(2) gap after title
+            foreach (var l in lines)
+            {
+                contentPt += l.Kind == CheatLineKind.Section
+                    ? SectionSize * 1.25f + 3f  // section header + top margin
+                    : CheatSheetFontSize * 1.25f;
+            }
 
-            contentPt += lines.Count * (CheatSheetFontSize * 1.25f); // bullet lines
-
-            // col.Spacing(1) → (N-1) gaps between all column items
             int colItems = (hasTitle ? 1 : 0) + 1 + lines.Count;
             contentPt += Math.Max(0, colItems - 1) * 1f;
 
-            // Convert to mm and add margins + footer allowance + 2 mm safety buffer
             float footerMm = 4.5f * ptToMm + 1f;
-            float heightMm = CheatSheetMarginMm               // top margin
-                           + contentPt * ptToMm               // content
-                           + CheatSheetMarginMm               // bottom margin
-                           + footerMm                         // watermark row
-                           + 2f;                              // buffer
-
-            float heightCm = Math.Max(heightMm / 10f, 2f);   // at least 2 cm
+            float heightMm = CheatSheetMarginMm + contentPt * ptToMm + CheatSheetMarginMm + footerMm + 2f;
+            float heightCm = Math.Max(heightMm / 10f, 2f);
             float widthCm  = CheatSheetWidth(ratio);
 
             var document = Document.Create(container =>
@@ -1039,7 +1048,7 @@ namespace Tobiso.Web.Api.Services
                     {
                         col.Spacing(1);
 
-                        // Title
+                        // Article title
                         if (!string.IsNullOrWhiteSpace(title))
                         {
                             col.Item()
@@ -1050,36 +1059,35 @@ namespace Tobiso.Web.Api.Services
                                .FontSize(CheatSheetTitleSize)
                                .Bold();
                         }
+                        col.Item().Height(2);
 
-                        col.Item().Height(2); // small gap after title
-
-                        // Bullet lines
+                        bool firstSection = true;
                         foreach (var line in lines)
                         {
-                            // Strip leading bullet markers from AI output (•, -, *, etc.)
-                            var text = System.Text.RegularExpressions.Regex.Replace(line, @"^[•\-\*]\s*", "").Trim();
-                            if (string.IsNullOrWhiteSpace(text)) continue;
-
-                            col.Item().Row(row =>
+                            if (line.Kind == CheatLineKind.Section)
                             {
-                                row.AutoItem()
-                                   .Text("•")
-                                   .FontSize(CheatSheetFontSize);
-
-                                row.RelativeItem()
-                                   .PaddingLeft(2)
-                                   .Text(text)
-                                   .FontSize(CheatSheetFontSize);
-                            });
+                                // Extra top padding before section headers (except the first)
+                                if (!firstSection)
+                                    col.Item().Height(3);
+                                firstSection = false;
+                                col.Item()
+                                   .Text(line.Text.ToUpperInvariant())
+                                   .FontSize(SectionSize)
+                                   .Bold()
+                                   .FontColor("#4a90d9");
+                            }
+                            else
+                            {
+                                col.Item().Row(row =>
+                                {
+                                    row.AutoItem().Text("•").FontSize(CheatSheetFontSize);
+                                    row.RelativeItem().PaddingLeft(2).Text(line.Text).FontSize(CheatSheetFontSize);
+                                });
+                            }
                         }
                     });
 
-                    // Tiny, barely-visible watermark in the bottom-right corner
-                    page.Footer()
-                        .AlignRight()
-                        .Text("Tobiso")
-                        .FontSize(4.5f)
-                        .FontColor("#DDDDDD");
+                    page.Footer().AlignRight().Text("Tobiso").FontSize(4.5f).FontColor("#DDDDDD");
                 });
             });
 

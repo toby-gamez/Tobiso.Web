@@ -4659,15 +4659,17 @@ body.dark-mode .loading-circle::after {
 }
 
 /* When a page-level section is in loading state, fill the viewport so the
-   spinner lands in the vertical centre of the screen */
-section:has(.loading-circle) {
+   spinner lands in the vertical centre of the screen.
+   Use > article > .loading-circle to only match the top-level page loader
+   (not loading circles nested inside modals or inline sections). */
+section:has(> article > .loading-circle) {
     min-height: calc(100svh - 120px);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-section:has(.loading-circle) > article {
+section:has(> article > .loading-circle) > article {
     flex: 1;
     display: flex;
     align-items: center;

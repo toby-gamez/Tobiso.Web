@@ -36,6 +36,7 @@
                         <button class="st-btn st-btn-pause" @onclick="Pause"><i class="bi bi-pause-fill"></i> Pauza</button>
                     }
                     <button class="st-btn st-btn-reset" @onclick="Reset"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+                    <button class="st-btn st-btn-close" @onclick="Close"><i class="bi bi-x"></i></button>
                 </div>
 
                 @if (_cycleCount > 0)
@@ -123,6 +124,7 @@ body.dark-mode .st-time { color: var(--color-text-dark); }
 .st-btn-start:hover { background: var(--color-accent-3); }
 .st-btn-pause { background: var(--color-accent-2); color: var(--color-text); }
 .st-btn-reset { background: transparent; border: 2px solid var(--color-accent-2); color: var(--color-text); }
+.st-btn-close { background: transparent; border: 2px solid var(--color-accent-2); color: var(--color-text); padding: 8px 12px; }
 
 body.dark-mode .st-btn-pause { color: var(--color-text-dark); }
 body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(--color-accent-2-dark); }
@@ -133,6 +135,8 @@ body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<bool> OnRunningChanged { get; set; }
+    [Parameter] public EventCallback OnPhaseEnded { get; set; }
 
     private const int WorkSeconds = 25 * 60;
     private const int BreakSeconds = 5 * 60;
@@ -158,6 +162,10 @@ body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(
         _dashOffset = _circumference * (1 - progress);
     }
 
+    public bool IsRunning => _running;
+    public int SecondsLeft => _secondsLeft;
+    public bool IsBreak => _isBreak;
+
     private async Task Start()
     {
         if (_running) return;
@@ -170,6 +178,8 @@ body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(
             await JS.InvokeVoidAsync("studyTimer.requestNotificationPermission");
         }
         catch { }
+
+        await OnRunningChanged.InvokeAsync(true);
 
         _ = Task.Run(async () =>
         {
@@ -199,28 +209,32 @@ body.dark-mode .st-btn-reset { color: var(--color-text-dark); border-color: var(
                 UpdateDash();
                 _running = false;
                 await InvokeAsync(StateHasChanged);
+                await OnRunningChanged.InvokeAsync(false);
+                await OnPhaseEnded.InvokeAsync();
             }
         }, token);
     }
 
-    private void Pause()
+    private async Task Pause()
     {
         _running = false;
         _cts?.Cancel();
+        await OnRunningChanged.InvokeAsync(false);
     }
 
-    private void Reset()
+    private async Task Reset()
     {
         _running = false;
         _cts?.Cancel();
         _isBreak = false;
         _secondsLeft = WorkSeconds;
         UpdateDash();
+        await OnRunningChanged.InvokeAsync(false);
     }
 
     private async Task Close()
     {
-        Pause();
+        // Do NOT pause when closing — the timer keeps running in background
         await OnClose.InvokeAsync();
     }
 

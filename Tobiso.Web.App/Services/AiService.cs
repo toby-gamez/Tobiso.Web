@@ -281,19 +281,27 @@ namespace Tobiso.Web.App.Services
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
 
-            // Bullet count, size label and token budget per ratio
+            // Section/bullet counts and token budget per ratio
             // 1x* = 10 cm wide, 2x* = 18 cm wide; x1 = compact, x2 = full content
-            var (bulletRange, sizeSuffix, maxTokens) = ratio switch
+            var (sectionRange, bulletRange, sizeSuffix, maxTokens) = ratio switch
             {
-                "2x1" => ("22–32", "18×10 cm", 700),
-                "2x2" => ("42–60", "18×20 cm", 1300),
-                "1x2" => ("28–40", "10×20 cm", 900),
-                _     => ("15–22", "10×10 cm", 550),  // 1x1 default
+                "2x1" => ("3–5", "4–7",  "18×10 cm", 700),
+                "2x2" => ("4–6", "5–10", "18×20 cm", 1300),
+                "1x2" => ("3–5", "5–8",  "10×20 cm", 900),
+                _     => ("2–4", "3–5",  "10×10 cm", 550),  // 1x1 default
             };
 
             var systemPrompt = _configuration["OpenAI:CheatSheetSystemPrompt"] is { Length: > 0 } sp
-                ? sp.Replace("15–25", bulletRange).Replace("10×10 cm", sizeSuffix)
-                : $"Jsi asistent pro tvorbu tahákú. Dostaneš obsah vzdělávacího článku a tvým úkolem je vytvořit maximálně stručný tahák. Pravidla: Piš POUZE krátké odrážkové body (•), žádný úvod ani závěr. Každý bod max. 10 slov. Vyber pouze {bulletRange} nejdůležitějších faktů, pojmů, vzorců nebo dat. Vzorce piš v textové formě (např. a/b, a^2). Odpovídej výhradně v češtině. Buď maximálně úsporný – tahák musí být čitelný na ploše {sizeSuffix}.";
+                ? sp
+                : $"Jsi asistent pro tvorbu tahákú. Dostaneš vzdělávací článek a vytvoříš strukturovaný tahák. " +
+                  $"Formát (PŘESNĚ dodržuj):\n" +
+                  $"### Název sekce\n" +
+                  $"• krátký bod (max 8 slov)\n" +
+                  $"• krátký bod\n\n" +
+                  $"Pravidla: Vytvoř {sectionRange} tematických sekcí. Každá sekce má {bulletRange} bodů. " +
+                  $"Žádný úvod ani závěr – POUZE sekce a body. " +
+                  $"Vzorce piš textově (a/b, a^2). Odpovídej výhradně v češtině. " +
+                  $"Tahák musí být čitelný na ploše {sizeSuffix}.";
 
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
