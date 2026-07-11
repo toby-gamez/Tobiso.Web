@@ -159,6 +159,7 @@ services.AddEndpointsApiExplorer();
 services.AddScoped<JwtTokenService>();
 services.AddScoped<IUserService, UserService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
+services.AddScoped<IUserProgressService, UserProgressService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls
 services.AddScoped<PdfJsInterop>();

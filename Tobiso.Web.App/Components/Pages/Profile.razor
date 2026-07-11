@@ -2,15 +2,71 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Tobiso.Web.App.Authentication
 @using Tobiso.Web.Api.Services
+@using Tobiso.Web.Shared.DTOs
 @using System.Security.Claims
 @inject StudentCredentialStore CredentialStore
 @inject StudentAuthStateProvider AuthStateProvider
 @inject IAiChatHistoryService ChatHistoryService
+@inject IUserProgressService ProgressService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>Můj profil – Tobiso</PageTitle>
+
+<style>
+.profile-streak {
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+.profile-badge {
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.profile-badge.badge-začátečník {
+    background: #e8f4fd;
+    color: #1a6fad;
+    border-color: #b3d9f7;
+}
+.profile-badge.badge-pokročilý {
+    background: #eaf6ea;
+    color: #2a7a2a;
+    border-color: #a8e0a8;
+}
+.profile-badge.badge-expert {
+    background: #fff4e0;
+    color: #b36200;
+    border-color: #f5cc80;
+}
+body.dark-mode .profile-badge.badge-začátečník { background: #0d2d4a; color: #7ec8f5; border-color: #2a5a80; }
+body.dark-mode .profile-badge.badge-pokročilý  { background: #0d2e0d; color: #7cd87c; border-color: #2a602a; }
+body.dark-mode .profile-badge.badge-expert     { background: #2e1e00; color: #f5a832; border-color: #6e4500; }
+.profile-subject-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--color-border, #eee);
+    font-size: 0.93rem;
+}
+.profile-subject-count {
+    color: var(--color-text-muted, #888);
+    font-size: 0.85rem;
+}
+</style>
 
 <AuthorizeView>
     <Authorized>
@@ -32,6 +88,54 @@
                     <CreditBadge Credits="@GetCredits(context.User)" />
                 </div>
             </div>
+
+            @if (_stats != null)
+            {
+                <div class="profile-section">
+                    <h2>🔥 Série čtení</h2>
+                    <p class="profile-streak">
+                        @if (_stats.StreakDays > 0)
+                        {
+                            <span>@_stats.StreakDays dní v řadě</span>
+                        }
+                        else
+                        {
+                            <span>Zatím žádná série</span>
+                        }
+                        @if (_stats.TotalRead > 0)
+                        {
+                            <span style="font-weight:400;color:var(--color-text-muted,#888)">· @_stats.TotalRead článků přečteno</span>
+                        }
+                    </p>
+                </div>
+
+                @if (_stats.Badges.Any())
+                {
+                    <div class="profile-section">
+                        <h2>Odznaky</h2>
+                        <div class="profile-badges">
+                            @foreach (var b in _stats.Badges)
+                            {
+                                <span class="profile-badge badge-@b.Level.ToLower()">@b.SubjectName · @b.Level</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_stats.PerSubject.Any())
+                {
+                    <div class="profile-section">
+                        <h2>Přečteno podle předmětu</h2>
+                        @foreach (var s in _stats.PerSubject)
+                        {
+                            <div class="profile-subject-row">
+                                <span>@s.SubjectName</span>
+                                <span class="profile-subject-count">@s.Count @(s.Count == 1 ? "článek" : s.Count < 5 ? "články" : "článků")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            }
 
             <div class="profile-section">
                 <h2>Historie AI chatů</h2>
@@ -79,6 +183,7 @@
 
 @code {
     private List<Tobiso.Web.Domain.Entities.AiChatSession>? sessions;
+    private UserStatsDto? _stats;
 
     private int GetCredits(ClaimsPrincipal user)
     {
@@ -102,9 +207,15 @@
 
             var idStr = GetUserId();
             if (int.TryParse(idStr, out var userId))
+            {
                 sessions = await ChatHistoryService.GetUserSessionsAsync(userId);
+                try { _stats = await ProgressService.GetStatsAsync(userId); }
+                catch { }
+            }
             else
+            {
                 sessions = [];
+            }
 
             StateHasChanged();
         }

@@ -1540,3 +1540,87 @@ export function removeScrollRating() {
     __articleEndObserver = null;
   }
 }
+
+// ── Bookmarks (localStorage) ──────────────────────────────────────────────────
+
+const BOOKMARKS_KEY = 'tobiso_bookmarks';
+
+function _readBookmarks() {
+  try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'); } catch { return []; }
+}
+
+function _writeBookmarks(arr) {
+  try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(arr)); } catch {}
+}
+
+export function getBookmarks() {
+  return _readBookmarks();
+}
+
+export function addBookmark(id) {
+  const arr = _readBookmarks();
+  if (!arr.includes(id)) { arr.push(id); _writeBookmarks(arr); }
+}
+
+export function removeBookmark(id) {
+  _writeBookmarks(_readBookmarks().filter(x => x !== id));
+}
+
+export function isBookmarked(id) {
+  return _readBookmarks().includes(id);
+}
+
+export function toggleBookmark(id) {
+  const arr = _readBookmarks();
+  const exists = arr.includes(id);
+  if (exists) _writeBookmarks(arr.filter(x => x !== id));
+  else { arr.push(id); _writeBookmarks(arr); }
+  return !exists;
+}
+
+// ── Personal Notes (localStorage) ────────────────────────────────────────────
+
+export function getNotes(postId) {
+  try { return localStorage.getItem('note_' + postId) || ''; } catch { return ''; }
+}
+
+export function saveNotes(postId, text) {
+  try {
+    if (text) localStorage.setItem('note_' + postId, text);
+    else localStorage.removeItem('note_' + postId);
+  } catch {}
+}
+
+// ── Reading Streak (localStorage, anonymous) ──────────────────────────────────
+
+const DATES_KEY = 'tobiso_read_dates';
+
+export function addReadDate() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    let arr = JSON.parse(localStorage.getItem(DATES_KEY) || '[]');
+    if (!arr.includes(today)) {
+      arr.push(today);
+      // keep last 90 entries
+      if (arr.length > 90) arr = arr.slice(-90);
+      localStorage.setItem(DATES_KEY, JSON.stringify(arr));
+    }
+  } catch {}
+}
+
+export function getStreakDays() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(DATES_KEY) || '[]');
+    if (!arr.length) return 0;
+    const today = new Date();
+    let streak = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      if (arr.includes(key)) streak++;
+      else if (i > 0) break;
+    }
+    return streak;
+  } catch { return 0; }
+}

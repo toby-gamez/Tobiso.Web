@@ -4,6 +4,7 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Authorization
 @using Tobiso.Web.App.Services
 @inject ITobisoAnonymApi Api
 @inject ITobisoWebApi WebApi
@@ -339,6 +340,43 @@ body.focus-mode section {
 body.dark-mode .grade-badge {
     background: var(--color-accent-dark, #2d6db5);
 }
+    .bookmark-fab {
+        position: absolute;
+        top: 0.75rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.4rem;
+        color: var(--color-text-muted, #aaa);
+        padding: 0.2rem 0.3rem;
+        line-height: 1;
+        transition: color 0.15s, transform 0.15s;
+        z-index: 2;
+    }
+    .bookmark-fab:hover { color: var(--color-accent, #4a90d9); transform: scale(1.15); }
+    .bookmark-fab.bookmarked { color: var(--color-accent, #4a90d9); }
+
+    .notes-textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-border, #ddd);
+        border-radius: 8px;
+        background: var(--color-card-bg, #fff);
+        color: var(--color-text, #222);
+        font-size: 0.92rem;
+        line-height: 1.5;
+        resize: vertical;
+        margin-top: 0.5rem;
+        box-sizing: border-box;
+    }
+    body.dark-mode .notes-textarea {
+        background: var(--color-card-bg-dark, #1e1e2e);
+        color: var(--color-text-dark, #ddd);
+        border-color: var(--color-border-dark, #444);
+    }
+
     /* In-article heading style when active via TOC */
     #content h2.toc-active-heading,
     #content h3.toc-active-heading,
@@ -379,6 +417,20 @@ else
 }
 else
 {
+    @if (_isLoggedIn)
+    {
+        <button class="bookmark-fab @(_isBookmarked ? "bookmarked" : "")"
+                title="@(_isBookmarked ? "Odebrat záložku" : "Přidat záložku")"
+                @onclick="ToggleBookmark">
+            <i class="bi @(_isBookmarked ? "bi-bookmark-fill" : "bi-bookmark")"></i>
+        </button>
+    }
+    else
+    {
+        <span class="bookmark-fab" title="Záložky vyžadují účet" style="cursor:default">
+            <i class="bi bi-bookmark" style="opacity:.35"></i>
+        </span>
+    }
     <h1 class="verybig">@_post.Title</h1>
     @if (ActiveVersion != null)
     {
@@ -530,6 +582,19 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showTopToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
+                            <div class="tools-dropdown-divider"></div>
+                            @if (_isLoggedIn)
+                            {
+                                <button class="tools-dropdown-item" @onclick="() => { _ = ToggleNotes(); _showTopToolsDropdown = false; }">
+                                    <i class="bi bi-journal-text"></i> Poznámky
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="tools-dropdown-item" disabled title="Vyžaduje účet">
+                                    <i class="bi bi-journal-text"></i> Poznámky <small style="opacity:.55">(s účtem)</small>
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -689,6 +754,19 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { TtsStart(); _showBottomToolsDropdown = false; }" disabled="@_ttsSpeaking">
                                 <i class="bi bi-volume-up"></i> Poslech
                             </button>
+                            <div class="tools-dropdown-divider"></div>
+                            @if (_isLoggedIn)
+                            {
+                                <button class="tools-dropdown-item" @onclick="() => { _ = ToggleNotes(); _showBottomToolsDropdown = false; }">
+                                    <i class="bi bi-journal-text"></i> Poznámky
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="tools-dropdown-item" disabled title="Vyžaduje účet">
+                                    <i class="bi bi-journal-text"></i> Poznámky <small style="opacity:.55">(s účtem)</small>
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -755,6 +833,19 @@ else
             {
                 <p class="ff-empty">Fakta se nepodařilo načíst.</p>
             }
+        </div>
+    }
+
+    @* Moje poznámky — locally stored per-article notes *@
+    @if (_showNotes)
+    {
+        <div class="funfacts-panel">
+            <div class="funfacts-panel-header">
+                <span><i class="bi bi-journal-text"></i> Moje poznámky</span>
+                <button class="funfacts-panel-close" @onclick="() => _showNotes = false" aria-label="Zavřít">×</button>
+            </div>
+            <textarea class="notes-textarea" value="@_notesText" @oninput="OnNotesInput"
+                placeholder="Piš si sem poznámky k článku…" rows="6"></textarea>
         </div>
     }
 
@@ -1086,6 +1177,9 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
     [CascadingParameter]
     private MainLayout? Layout { get; set; }
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
     [Parameter]
     public int Id { get; set; }
     [Parameter]
@@ -1137,6 +1231,11 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
     private bool _showFunFacts = false;
     private bool _funFactsLoading = false;
     private List<string> _funFacts = new();
+    private bool _isLoggedIn = false;
+    private bool _isBookmarked = false;
+    private bool _showNotes = false;
+    private string _notesText = string.Empty;
+    private CancellationTokenSource? _notesSaveCts;
     private Tobiso.Web.Shared.DTOs.PostVideoResponse? _postVideo;
     private bool _showVideoFullscreen = false;
     private bool _difficultyRatingSubmitted = false;
@@ -1281,7 +1380,7 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
         {
             try
             {
-                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=13");
+                _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=14");
             }
             catch (Exception ex)
             {
@@ -1317,6 +1416,15 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
                     if (string.IsNullOrEmpty(alreadyRated))
                         await _jsModule.InvokeVoidAsync("initScrollRating", _dotNetRef);
                 }
+                catch { }
+
+                // Auth + bookmark state
+                if (AuthStateTask != null)
+                {
+                    var auth = await AuthStateTask;
+                    _isLoggedIn = auth.User.Identity?.IsAuthenticated == true;
+                }
+                try { _isBookmarked = await _jsModule.InvokeAsync<bool>("isBookmarked", postId); StateHasChanged(); }
                 catch { }
             }
 
@@ -1496,6 +1604,8 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
         AddendumModalService.OnGlobalAddendumRequested -= HandleAddendumRequest;
         ModalService.OnAddendumRequested -= HandleAddendumRequest;
         PersonModalService.OnGlobalPersonRequested -= HandlePersonRequestByName;
+        _notesSaveCts?.Cancel();
+        _notesSaveCts?.Dispose();
         if (_jsModule != null)
         {
             _ = _jsModule.InvokeVoidAsync("ttsStop").AsTask();
@@ -2002,6 +2112,43 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
     }
 
     private record FunFactsWrapper(List<string> Facts);
+
+    private async Task ToggleBookmark()
+    {
+        if (_jsModule == null) return;
+        var postId = _post?.Id ?? Id;
+        try { _isBookmarked = await _jsModule.InvokeAsync<bool>("toggleBookmark", postId); }
+        catch { }
+    }
+
+    private async Task ToggleNotes()
+    {
+        _showNotes = !_showNotes;
+        if (_showNotes && string.IsNullOrEmpty(_notesText) && _jsModule != null)
+        {
+            var postId = _post?.Id ?? Id;
+            try { _notesText = await _jsModule.InvokeAsync<string>("getNotes", postId) ?? string.Empty; }
+            catch { }
+        }
+    }
+
+    private async Task OnNotesInput(ChangeEventArgs e)
+    {
+        _notesText = e.Value?.ToString() ?? string.Empty;
+        _notesSaveCts?.Cancel();
+        _notesSaveCts = new CancellationTokenSource();
+        var token = _notesSaveCts.Token;
+        try
+        {
+            await Task.Delay(600, token);
+            if (_jsModule != null)
+            {
+                var postId = _post?.Id ?? Id;
+                await _jsModule.InvokeVoidAsync("saveNotes", postId, _notesText);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
 
     // --- TTS ---
     private async Task TtsStart()

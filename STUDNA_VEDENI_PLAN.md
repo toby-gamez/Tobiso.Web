@@ -38,19 +38,19 @@
 | 10 | Learning Path & Progress | 🔲 Not started |
 | 11 | "Proč?" explainer | 🔲 Not started |
 | 12 | Definition tooltips | 🔲 Not started |
-| 13 | Reading progress & bookmarks | 🔲 Not started |
-| 14 | Exam predictor | 🔲 Not started |
-| 15 | Surprise facts sidebar card | 🔲 Not started |
+| 13 | Reading progress & bookmarks | ✅ Done |
+| 14 | Exam predictor | ✅ Done |
+| 15 | Surprise facts sidebar card | ✅ Done |
 | 16 | Socratic tutor mode | 🔲 Not started |
-| 17 | Difficulty rewrite (register switch) | 🔲 Not started |
-| 18 | Personal notes | 🔲 Not started |
-| 19 | Study timer (Pomodoro) | 🔲 Not started |
-| 20 | Reading streak & subject badges | 🔲 Not started |
-| 21 | Difficulty rating by students | 🔲 Not started |
-| 22 | Random article / Article of the day | 🔲 Not started |
+| 17 | Difficulty rewrite (register switch) | ✅ Done |
+| 18 | Personal notes | ✅ Done |
+| 19 | Study timer (Pomodoro) | ✅ Done |
+| 20 | Reading streak & subject badges | ✅ Done |
+| 21 | Difficulty rating by students | ✅ Done |
+| 22 | Random article / Article of the day | ✅ Done |
 | 23 | Comparison tables (AI generated) | 🔲 Not started |
 | 24 | Step-by-step solver | 🔲 Not started |
-| 25 | Video context card | 🔲 Not started |
+| 25 | Video context card | ✅ Done |
 | 26 | Teacher assignments & confusion heatmap | 🔲 Not started – requires accounts |
 | 1b | Exercises in sidebar (layout) | ✅ Done |
 | 27 | Spaced Repetition & Téma dne | 🔲 Not started – requires accounts |
@@ -66,19 +66,19 @@
 BLOK 1 – Základ (prerekvizita pro vše s identitou)
   └─ Fáze 0   Uživatelské účty, AI chat historie, kreditový systém        6–8 dní
 
-BLOK 2 – Rychlé výhry (nezávislé, žádné prerekvizity)
-  ├─ Fáze 22  Náhodný článek / Článek dne                                  1 den
-  ├─ Fáze 15  Surprise facts sidebar ("Věděl jsi, že…?")                   1 den
-  ├─ Fáze 14  Exam predictor ("Co bude v testu?")                          1–2 dny
-  ├─ Fáze 21  Difficulty rating (😊/😐/😕 po přečtení)                      1 den
-  ├─ Fáze 17  Difficulty rewrite (8letý / gymnázium / odborník)            1 den
-  ├─ Fáze 19  Study timer (Pomodoro)                                       1 den
-  └─ Fáze 25  Video context card (YouTube embed)                           1 den
+BLOK 2 – Rychlé výhry (nezávislé, žádné prerekvizity) ✅ HOTOVO
+  ├─ Fáze 22  Náhodný článek / Článek dne                                  ✅ Done
+  ├─ Fáze 15  Surprise facts sidebar ("Věděl jsi, že…?")                   ✅ Done
+  ├─ Fáze 14  Exam predictor ("Co bude v testu?")                          ✅ Done
+  ├─ Fáze 21  Difficulty rating (😊/😐/😕 po přečtení)                      ✅ Done
+  ├─ Fáze 17  Difficulty rewrite (8letý / gymnázium / odborník)            ✅ Done
+  ├─ Fáze 19  Study timer (Pomodoro)                                       ✅ Done
+  └─ Fáze 25  Video context card (YouTube embed)                           ✅ Done
 
-BLOK 3 – Osobní funkce (využívají účty z Bloku 1)
-  ├─ Fáze 13  Reading progress & záložky (scroll %, bookmarks v DB)        1–2 dny
-  ├─ Fáze 18  Personal notes (per-článek poznámky)                         1 den
-  └─ Fáze 20  Reading streak & subject badges                              2–3 dny
+BLOK 3 – Osobní funkce (využívají účty z Bloku 1) ✅ HOTOVO
+  ├─ Fáze 13  Reading progress & záložky (scroll %, bookmarks v DB)        ✅ Done
+  ├─ Fáze 18  Personal notes (per-článek poznámky)                         ✅ Done
+  └─ Fáze 20  Reading streak & subject badges                              ✅ Done
 
 BLOK 4 – AI obsah (na sobě nezávislé, využívají AiService)
   ├─ Fáze 11  "Proč?" explainer (kauzální AI vysvětlení věty)              1–2 dny
