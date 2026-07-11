@@ -131,7 +131,9 @@ a.btn-google,
 label,
 .auth-footer,
 .auth-footer a,
-.btn-auth-primary span {
+.btn-auth-primary span,
+.aod-label,
+.aod-link {
     font-family: var(--font-family-sans) !important;
 }
 
@@ -157,7 +159,8 @@ label,
 .user-menu-email,
 .auth-terms,
 .auth-terms a,
-.reading-section div {
+.reading-section div,
+.aod-title {
     font-family: var(--font-family-serif) !important;
 }
 

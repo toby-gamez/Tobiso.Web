@@ -575,6 +575,12 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showCompare = true; _showTopToolsDropdown = false; }">
+                                <i class="bi bi-table"></i> Porovnat s…
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showStepSolver = true; _showTopToolsDropdown = false; }">
+                                <i class="bi bi-list-ol"></i> Vyřeš krok za krokem
+                            </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showTopToolsDropdown = false; }">
                                 <i class="bi bi-alarm"></i> Pomodoro timer
@@ -747,6 +753,12 @@ else
                             <button class="tools-dropdown-item" @onclick="() => { _showFeynman = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-pencil"></i> Zkus to vysvětlit
                             </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showCompare = true; _showBottomToolsDropdown = false; }">
+                                <i class="bi bi-table"></i> Porovnat s…
+                            </button>
+                            <button class="tools-dropdown-item" @onclick="() => { _showStepSolver = true; _showBottomToolsDropdown = false; }">
+                                <i class="bi bi-list-ol"></i> Vyřeš krok za krokem
+                            </button>
                             <div class="tools-dropdown-divider"></div>
                             <button class="tools-dropdown-item" @onclick="() => { _showStudyTimer = true; _showBottomToolsDropdown = false; }">
                                 <i class="bi bi-alarm"></i> Pomodoro timer
@@ -912,6 +924,14 @@ else
         </button>
     }
 
+    @* BLOK 4 collapsible AI context cards *@
+    @if (_post != null)
+    {
+        <AiInteractiveDemo PostId="@_post.Id" />
+        <ConceptMapCard PostId="@_post.Id" />
+        <CrossConnectionsCard PostId="@_post.Id" />
+    }
+
     <div class="ai-box">
         <h3 style="text-decoration: none;"><i class="bi bi-stars"></i> AI Chat o článku</h3>
 
@@ -961,6 +981,8 @@ else
 <RealWorldModal PostId="@(_post?.Id ?? Id)" Visible="@_showRealWorld" OnClose="@(() => _showRealWorld = false)" />
 <WhatIfModal PostId="@(_post?.Id ?? Id)" Visible="@_showWhatIf" OnClose="@(() => _showWhatIf = false)" />
 <ExamPredictorModal PostId="@(_post?.Id ?? Id)" Visible="@_showExamPredictor" OnClose="@(() => _showExamPredictor = false)" />
+<CompareModal PostId="@(_post?.Id ?? Id)" Visible="@_showCompare" OnClose="@(() => _showCompare = false)" />
+<StepSolverModal PostId="@(_post?.Id ?? Id)" Visible="@_showStepSolver" OnClose="@(() => _showStepSolver = false)" />
 <StudyTimer @ref="_studyTimerRef" Visible="@_showStudyTimer" OnClose="@(() => _showStudyTimer = false)" OnRunningChanged="OnTimerRunningChanged" OnPhaseEnded="OnTimerPhaseEnded" />
 
 @* Rewrite modal — selector + loading; closes automatically when rewrite is ready *@
@@ -1140,25 +1162,25 @@ body.dark-mode .dr-label { color: var(--color-text-dark); }
 .dr-btn {
     padding: 5px 12px;
     border-radius: 20px;
-    border: 1.5px solid var(--color-accent-2);
-    background: transparent;
+    border: 2px solid transparent;
+    background: rgba(0,0,0,.12);
     font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
     color: var(--color-text);
 }
 
-body.dark-mode .dr-btn { border-color: var(--color-accent-2-dark); color: var(--color-text-dark); }
-.dr-btn:hover { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
-.dr-btn-easy { border-color: #4caf50; color: #2e7d32; }
-.dr-btn-easy:hover { background: #4caf50; color: #fff; border-color: #4caf50; }
-.dr-btn-medium { border-color: #ff9800; color: #e65100; }
-.dr-btn-medium:hover { background: #ff9800; color: #fff; border-color: #ff9800; }
-.dr-btn-hard { border-color: #f44336; color: #b71c1c; }
-.dr-btn-hard:hover { background: #f44336; color: #fff; border-color: #f44336; }
-body.dark-mode .dr-btn-easy { color: #81c784; border-color: #4caf50; }
-body.dark-mode .dr-btn-medium { color: #ffb74d; border-color: #ff9800; }
-body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
+body.dark-mode .dr-btn { background: rgba(255,255,255,.1); }
+.dr-btn-easy { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+.dr-btn-easy:hover { background: #1b5e20; border-color: #1b5e20; color: #fff; }
+.dr-btn-medium { background: #e65100; color: #fff; border-color: #e65100; }
+.dr-btn-medium:hover { background: #bf360c; border-color: #bf360c; color: #fff; }
+.dr-btn-hard { background: #b71c1c; color: #fff; border-color: #b71c1c; }
+.dr-btn-hard:hover { background: #7f0000; border-color: #7f0000; color: #fff; }
+body.dark-mode .dr-btn-easy { background: #388e3c; border-color: #388e3c; }
+body.dark-mode .dr-btn-medium { background: #f57c00; border-color: #f57c00; }
+body.dark-mode .dr-btn-hard { background: #c62828; border-color: #c62828; }
 
 .dr-dismiss {
     background: none;
@@ -1169,6 +1191,196 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
     padding: 0 4px;
     line-height: 1;
 }
+
+/* ── BLOK 4 context cards ───────────────────────────────────────── */
+.context-card {
+    border: 1px solid var(--color-accent-2, #d0e8ff);
+    border-radius: 8px;
+    margin: 1rem 0;
+    overflow: hidden;
+    background: var(--color-bg-card, #f8fbff);
+}
+body.dark-mode .context-card {
+    border-color: var(--color-accent-2-dark, #1a3a5c);
+    background: var(--color-bg-card-dark, #0f1e30);
+}
+.context-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    user-select: none;
+}
+.context-card-header:hover { background: rgba(0,0,0,.04); }
+body.dark-mode .context-card-header:hover { background: rgba(255,255,255,.04); }
+.context-card-chevron { font-size: 0.7rem; opacity: .6; }
+
+/* Compare modal */
+.compare-modal-wrap { padding: 1rem; display: flex; flex-direction: column; gap: .65rem; }
+.compare-input-wrap { display: flex; gap: .5rem; }
+.compare-input {
+    flex: 1;
+    padding: .45rem .7rem;
+    border: 1px solid var(--color-accent-2, #c0d8f0);
+    border-radius: 6px;
+    font-size: .9rem;
+    background: inherit;
+    color: inherit;
+}
+.compare-btn {
+    padding: .45rem 1rem;
+    background: var(--color-primary, #1565c0);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: .9rem;
+}
+.compare-btn:disabled { opacity: .5; cursor: not-allowed; }
+.compare-error { color: #c62828; font-size: .85rem; }
+.compare-result table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+.compare-result th, .compare-result td { border: 1px solid var(--color-accent-2, #c0d8f0); padding: .3rem .55rem; }
+.compare-result th { background: var(--color-accent-2, #e3f2fd); font-weight: 600; }
+.compare-table-wrap { overflow-x: auto; }
+.compare-retry {
+    font-size: .82rem;
+    padding: .3rem .7rem;
+    border: 1px solid var(--color-accent-2, #aad);
+    border-radius: 5px;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+}
+.compare-retry:hover { background: rgba(0,0,0,.05); }
+
+/* Step solver modal */
+.step-solver-modal .tobiso-modal-card { max-width: 680px; }
+.solver-steps { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-direction: column; gap: .5rem; }
+.solver-step { border: 1px solid var(--color-accent-2, #d0e8ff); border-radius: 6px; overflow: hidden; }
+body.dark-mode .solver-step { border-color: var(--color-accent-2-dark, #1a3a5c); }
+.solver-step-header {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .5rem .75rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: .9rem;
+}
+.solver-step-header:hover { background: rgba(0,0,0,.04); }
+body.dark-mode .solver-step-header:hover { background: rgba(255,255,255,.04); }
+.solver-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--color-primary, #1565c0);
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.solver-step-body { padding: .5rem .75rem .65rem 2.45rem; font-size: .88rem; line-height: 1.55; }
+
+/* AI Demo card */
+.ai-demo-card .concept-map-body,
+.ai-demo-body { padding: .5rem; }
+.ai-demo-iframe {
+    width: 100%;
+    min-height: 280px;
+    border: none;
+    border-radius: 5px;
+    background: #fff;
+}
+.ai-demo-hint { font-size: .78rem; opacity: .6; margin-top: .3rem; }
+
+/* Concept map card */
+.concept-map-body { padding: .4rem .6rem .6rem; }
+.concept-map-svg-wrap { width: 100%; overflow: hidden; border-radius: 4px; }
+
+/* Cross-connections card */
+.cross-connections-body { padding: .5rem .75rem .75rem; }
+.cc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .7rem; }
+.cc-item { font-size: .88rem; }
+.cc-title { font-weight: 600; }
+.cc-subject { font-size: .8rem; opacity: .65; margin-left: .3rem; }
+.cc-explanation { margin: .2rem 0 0; color: var(--color-text-muted, #555); font-size: .85rem; }
+body.dark-mode .cc-explanation { color: var(--color-text-muted-dark, #aaa); }
+
+/* Key term hover tooltips */
+.key-term {
+    border-bottom: 1px dashed var(--color-primary, #1565c0);
+    cursor: help;
+}
+.key-term-tooltip {
+    position: absolute;
+    max-width: 300px;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-accent-2, #c0d8f0);
+    border-radius: 6px;
+    padding: .4rem .65rem;
+    font-size: .82rem;
+    line-height: 1.45;
+    z-index: 1500;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    pointer-events: none;
+}
+body.dark-mode .key-term-tooltip {
+    background: var(--color-bg-card-dark, #0f1e30);
+    border-color: var(--color-accent-2-dark, #1a3a5c);
+}
+
+/* Para why/explain buttons */
+.para-why-btn { margin-top: 2px; }
+
+/* Formula playground */
+.formula-playground {
+    border: 1px solid var(--color-accent-2, #c0d8f0);
+    border-radius: 7px;
+    padding: .65rem .85rem .75rem;
+    margin: .75rem 0;
+    background: var(--color-bg-card, #f8fbff);
+    font-size: .88rem;
+}
+body.dark-mode .formula-playground {
+    border-color: var(--color-accent-2-dark, #1a3a5c);
+    background: var(--color-bg-card-dark, #0f1e30);
+}
+.fp-sliders { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .5rem; }
+.fp-slider-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.fp-label { min-width: 120px; font-size: .82rem; color: var(--color-text-muted, #555); }
+body.dark-mode .fp-label { color: var(--color-text-muted-dark, #aaa); }
+.fp-slider-wrap { display: flex; align-items: center; gap: .4rem; flex: 1; }
+.fp-slider { flex: 1; min-width: 80px; }
+.fp-val { min-width: 3rem; text-align: right; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.fp-result { font-size: .95rem; padding-top: .3rem; border-top: 1px solid var(--color-accent-2, #c0d8f0); }
+body.dark-mode .fp-result { border-color: var(--color-accent-2-dark, #1a3a5c); }
+.fp-result-var { font-weight: 700; }
+.fp-result-unit { opacity: .6; font-size: .82rem; }
+
+/* Socratic toggle */
+.socratic-toggle {
+    padding: .3rem .7rem;
+    border: 1px solid var(--color-accent-2, #c0d8f0);
+    border-radius: 5px;
+    background: none;
+    font-size: .82rem;
+    cursor: pointer;
+    color: inherit;
+    transition: background .15s, border-color .15s;
+}
+.socratic-toggle.active {
+    background: var(--color-primary, #1565c0);
+    border-color: var(--color-primary, #1565c0);
+    color: #fff;
+}
+body.dark-mode .socratic-toggle { border-color: var(--color-accent-2-dark, #1a3a5c); }
+body.dark-mode .socratic-toggle.active { background: #1565c0; border-color: #1565c0; }
 </style>
 
 @using Tobiso.Web.App.Components.Shared
@@ -1224,6 +1436,10 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
     private bool _showFeynman = false;
     private bool _showRealWorld = false;
     private bool _showWhatIf = false;
+    private bool _showCompare = false;
+    private bool _showStepSolver = false;
+    private bool _formulaPlaygroundInitialized = false;
+    private bool _keyTermsInitialized = false;
     private bool _showExamPredictor = false;
     private bool _showStudyTimer = false;
     private bool _timerRunning = false;
@@ -1511,6 +1727,52 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
                         Logger.LogWarning(ex, "Failed to initialize TOC observer");
                     }
                 }
+
+                // Formula playground — run once per article load
+                if (_post != null && !_formulaPlaygroundInitialized)
+                {
+                    _formulaPlaygroundInitialized = true;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var fvResp = await Http.GetAsync(new Uri(Navigation.BaseUri + $"api/ai/formula-vars/{_post.Id}"));
+                            if (fvResp.IsSuccessStatusCode)
+                            {
+                                var fvData = await fvResp.Content.ReadFromJsonAsync<Tobiso.Web.Shared.DTOs.FormulaVarsResponse>();
+                                if (fvData?.Formulas?.Count > 0 && _jsModule != null)
+                                    await _jsModule.InvokeVoidAsync("initFormulaPlayground", fvData.Formulas);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogWarning(ex, "Formula playground init failed");
+                        }
+                    });
+                }
+
+                // Key-term tooltips — run once per article load
+                if (_post != null && !_keyTermsInitialized)
+                {
+                    _keyTermsInitialized = true;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var ktResp = await Http.GetAsync(new Uri(Navigation.BaseUri + $"api/ai/key-terms/{_post.Id}"));
+                            if (ktResp.IsSuccessStatusCode)
+                            {
+                                var ktData = await ktResp.Content.ReadFromJsonAsync<List<Tobiso.Web.Shared.DTOs.KeyTermEntry>>();
+                                if (ktData?.Count > 0 && _jsModule != null)
+                                    await _jsModule.InvokeVoidAsync("initKeyTermTooltips", ktData);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogWarning(ex, "Key terms init failed");
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -1563,6 +1825,28 @@ body.dark-mode .dr-btn-hard { color: #e57373; border-color: #f44336; }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "ExplainSentence failed");
+        }
+    }
+
+    [JSInvokable("ExplainWhy")]
+    public async Task ExplainWhy(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _post == null) return;
+        try
+        {
+            var req = new Tobiso.Web.Shared.DTOs.WhyRequest { PostId = _post.Id, Sentence = text.Trim() };
+            var resp = await Http.PostAsJsonAsync(new Uri(Navigation.BaseUri + "api/ai/why"), req);
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<Tobiso.Web.Shared.DTOs.WhyResponse>();
+                var explanation = data?.Explanation ?? string.Empty;
+                if (!string.IsNullOrEmpty(explanation) && _jsModule != null)
+                    await _jsModule.InvokeVoidAsync("showSentenceTooltip", explanation);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ExplainWhy failed");
         }
     }
 

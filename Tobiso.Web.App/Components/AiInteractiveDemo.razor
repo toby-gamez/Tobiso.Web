@@ -1,0 +1,76 @@
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@if (!string.IsNullOrEmpty(_html) || _loading)
+{
+    <div class="context-card ai-demo-card">
+        <div class="context-card-header" @onclick="Toggle">
+            <span>🎮 Interaktivní demo</span>
+            <span class="context-card-chevron">@(_open ? "▲" : "▼")</span>
+        </div>
+
+        @if (_open)
+        {
+            <div class="ai-demo-body">
+                @if (_loading)
+                {
+                    <div class="loading-wrap">
+                        <div class="loading-circle"></div>
+                        <p style="font-size:0.85rem">AI generuje demo…</p>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_html))
+                {
+                    <iframe srcdoc="@_html" sandbox="allow-scripts" class="ai-demo-iframe" title="Interaktivní demo"></iframe>
+                    <button class="compare-retry" @onclick="Regenerate" style="margin-top:0.5rem">Vygenerovat znovu</button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int PostId { get; set; }
+
+    private bool _open;
+    private bool _loading;
+    private string _html = string.Empty;
+    private int _loadedPostId;
+
+    protected override void OnInitialized()
+    {
+        _ = LoadBackground();
+    }
+
+    private async Task LoadBackground()
+    {
+        if (_loadedPostId == PostId) return;
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.PostAsync(new Uri(Navigation.BaseUri + $"api/ai/generate-demo/{PostId}"), null);
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                _html = data.TryGetProperty("html", out var h) ? h.GetString() ?? string.Empty : string.Empty;
+                _loadedPostId = PostId;
+            }
+        }
+        catch { }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Regenerate()
+    {
+        _html = string.Empty;
+        _loadedPostId = 0;
+        await LoadBackground();
+    }
+
+    private void Toggle() => _open = !_open;
+}

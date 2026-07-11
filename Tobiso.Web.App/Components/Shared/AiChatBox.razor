@@ -77,6 +77,10 @@
                 @oninput="HandleInput" @onkeydown="HandleKeyDown"></textarea>
             <div class="input-bar-actions">
                 <span class="char-count">@_remainingChars</span>
+                <button class="socratic-toggle @(_socraticMode ? "active" : "")" title="@(_socraticMode ? "Sokratovský mód: zapnuto" : "Sokratovský mód: vypnuto")"
+                    @onclick="() => _socraticMode = !_socraticMode" aria-label="Přepnout sokratovský mód">
+                    🏛️
+                </button>
                 <button class="send-btn" @onclick="Send" disabled="@(_loading || (_isStudent ? _studentCredits <= 0 : _remaining == 0) || string.IsNullOrWhiteSpace(_question))" aria-label="Odeslat">
                     <i class="bi bi-arrow-up"></i>
                 </button>
@@ -316,6 +320,34 @@ body.dark-mode .attached-chip {
     color: var(--color-text-muted);
 }
 
+.socratic-toggle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1.5px solid var(--color-border, #ccc);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+    padding: 0;
+    opacity: 0.6;
+}
+
+.socratic-toggle.active {
+    background: #e8f5e9;
+    border-color: #4caf50;
+    opacity: 1;
+}
+
+body.dark-mode .socratic-toggle.active {
+    background: #1b3a1f;
+    border-color: #4caf50;
+}
+
 .send-btn {
     width: 34px;
     height: 34px;
@@ -462,6 +494,7 @@ body.dark-mode .assistant-markdown pre {
     private string _typingText = string.Empty;
     private int _remaining = 10;
     private string _sessionChatId = string.Empty;
+    private bool _socraticMode = false;
 
     private bool _isStudent = false;
     private int _studentCredits = 0;
@@ -632,7 +665,8 @@ body.dark-mode .assistant-markdown pre {
         {
             PostId = PostId,
             Question = questionSnapshot,
-            ConversationHistory = _history.Select(h => h).ToList()
+            ConversationHistory = _history.Select(h => h).ToList(),
+            SocraticMode = _socraticMode
         };
 
         var fullAnswer = string.Empty;

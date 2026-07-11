@@ -1,0 +1,106 @@
+@using Tobiso.Web.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="() => { if (!_loading) OnClose.InvokeAsync(); }">
+        <div class="tobiso-modal-card step-solver-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title">🔢 Krok za krokem</span>
+                <button class="tobiso-modal-close" @onclick="() => OnClose.InvokeAsync()" disabled="@_loading">&times;</button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="loading-wrap">
+                    <div class="loading-circle"></div>
+                    <p>Připravuji řešení…</p>
+                </div>
+            }
+            else if (_steps != null && _steps.Count > 0)
+            {
+                <div class="solver-steps">
+                    @for (int i = 0; i < _steps.Count; i++)
+                    {
+                        var step = _steps[i];
+                        var idx = i;
+                        <div class="solver-step @(_expanded.Contains(idx) ? "expanded" : "")">
+                            <button class="solver-step-header" @onclick="() => ToggleStep(idx)">
+                                <span class="solver-step-num">@(idx + 1)</span>
+                                <span class="solver-step-title">@step.Step</span>
+                                <span class="solver-step-chevron">@(_expanded.Contains(idx) ? "▲" : "▼")</span>
+                            </button>
+                            @if (_expanded.Contains(idx))
+                            {
+                                <div class="solver-step-body">@step.Explanation</div>
+                            }
+                        </div>
+                    }
+                </div>
+                <button class="compare-retry" @onclick="Load">Vygenerovat znovu</button>
+            }
+            else if (_error != null)
+            {
+                <p class="compare-error">@_error</p>
+                <button class="compare-btn" @onclick="Load">Zkusit znovu</button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<SolverStep>? _steps;
+    private HashSet<int> _expanded = new();
+    private bool _loading;
+    private string? _error;
+    private int _loadedPostId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _loadedPostId != PostId)
+            await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        _expanded.Clear();
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.GetAsync(new Uri(Navigation.BaseUri + $"api/ai/step-solver/{PostId}"));
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<StepSolverResponse>();
+                _steps = data?.Steps ?? new();
+                _loadedPostId = PostId;
+                if (_steps.Count > 0) _expanded.Add(0);
+            }
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit dotazů byl vyčerpán.";
+            else
+                _error = "Nepodařilo se vygenerovat řešení.";
+        }
+        catch
+        {
+            _error = "Chyba při připojení.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleStep(int idx)
+    {
+        if (_expanded.Contains(idx)) _expanded.Remove(idx);
+        else _expanded.Add(idx);
+    }
+}

@@ -1,0 +1,81 @@
+@using Tobiso.Web.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@if (_connections != null || _loading)
+{
+    <div class="context-card cross-connections-card">
+        <div class="context-card-header" @onclick="Toggle">
+            <span>🔗 Tento princip také v…</span>
+            <span class="context-card-chevron">@(_open ? "▲" : "▼")</span>
+        </div>
+
+        @if (_open)
+        {
+            <div class="cross-connections-body">
+                @if (_loading)
+                {
+                    <div class="loading-wrap">
+                        <div class="loading-circle"></div>
+                        <p style="font-size:0.85rem">Hledám propojení…</p>
+                    </div>
+                }
+                else if (_connections != null && _connections.Count > 0)
+                {
+                    <ul class="cc-list">
+                        @foreach (var c in _connections)
+                        {
+                            <li class="cc-item">
+                                <span class="cc-title">@c.TargetPostTitle</span>
+                                @if (!string.IsNullOrEmpty(c.Subject))
+                                {
+                                    <span class="cc-subject">(@c.Subject)</span>
+                                }
+                                <p class="cc-explanation">@c.Explanation</p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int PostId { get; set; }
+
+    private bool _open;
+    private bool _loading;
+    private List<CrossConnection>? _connections;
+    private int _loadedPostId;
+
+    protected override void OnInitialized()
+    {
+        _ = LoadBackground();
+    }
+
+    private async Task LoadBackground()
+    {
+        if (_loadedPostId == PostId) return;
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await Http.GetAsync(new Uri(Navigation.BaseUri + $"api/ai/cross-connections/{PostId}"));
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<CrossConnectionResponse>();
+                _connections = data?.Connections ?? new();
+                _loadedPostId = PostId;
+            }
+        }
+        catch { }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Toggle() => _open = !_open;
+}

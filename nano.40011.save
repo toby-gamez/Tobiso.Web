@@ -1,0 +1,18 @@
+Bug fix (layout destruction when AI loads):
+- style.css: Changed section:has(.loading-circle) → section:has(> article > .loading-circle) so the full-viewport centering rule only fires for top-level page loaders, not for loading circles inside fixed modals.
+
+Difficulty rating widget colors:
+- Added .dr-btn-easy (green), .dr-btn-medium (orange), .dr-btn-hard (red) CSS classes with dark mode variants, applied to the post review popup buttons.
+
+"Did you know?" moved to dropdown:
+- Removed the always-visible funfacts-inline section from the page body.
+- Added "Věděl jsi, že…?" button to both top and bottom dropdowns.
+- When clicked, shows a styled panel (.funfacts-panel) with a close button.
+
+Inline rewrite (instead of popup):
+- Removed <GradeRewriter> modal component.
+- "Přepsat pro ročník" in the dropdown now opens an inline panel above the article with grade/style buttons.
+- Selected rewrite replaces article content in-place with a label and "Zpět na originál" button. Uses a custom .rewrite-spinner (not .loading-circle) to avoid triggering the layout rule.
+
+Exercises collapsible:
+- All interactive exercises now start collapsed by default (empty HashSet<int> _expandedExercises).

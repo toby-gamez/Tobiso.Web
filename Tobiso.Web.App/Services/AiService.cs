@@ -48,7 +48,10 @@ namespace Tobiso.Web.App.Services
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-            var systemPrompt = _configuration["OpenAI:SystemPrompt"] ?? "Jsi AI asistent vzdělávacího webu Tobiso.com. Pomáháš studentům pochopit učivo – vysvětluješ pojmy, uvádíš příklady s řešením. Odpovídáš v češtině stručně a srozumitelně. Pokud otázka přesahuje téma článku nebo si nejsi jistý, odpoviš: 'Nevím.' Nespekuluj.";
+            var baseSystemPrompt = _configuration["OpenAI:SystemPrompt"] ?? "Jsi AI asistent vzdělávacího webu Tobiso.com. Pomáháš studentům pochopit učivo – vysvětluješ pojmy, uvádíš příklady s řešením. Odpovídáš v češtině stručně a srozumitelně. Pokud otázka přesahuje téma článku nebo si nejsi jistý, odpoviš: 'Nevím.' Nespekuluj.";
+            var systemPrompt = request.SocraticMode
+                ? baseSystemPrompt + " SOKRATOVSKÝ MODUS: Nikdy neodpovídej přímo. Místo toho pokládej naváděcí otázky, které studenta přivedou k odpovědi. Odpověz jednou nebo dvěma krátkými otázkami."
+                : baseSystemPrompt;
 
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
@@ -1360,6 +1363,281 @@ namespace Tobiso.Web.App.Services
                 return questions;
             }
             catch { return new List<ExamQuestion>(); }
+        }
+
+        public async Task<string> ExplainWhyAsync(string sentence, string articleContext)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var systemPrompt = "Jsi pedagog. Vysvětli PROČ je daná věta pravda – zaměř se na příčiny a důvody, ne na definici. Používej analogie a příklady z každodenního života. Odpovídej v češtině, max. 3 věty.";
+            var trimmed = PrepareArticleContext(articleContext);
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "system", content = $"Kontext článku:\n{trimmed}" },
+                new { role = "user", content = $"Proč je pravda: \"{sentence}\"?" }
+            };
+            var payload = new { model, messages, max_tokens = 300 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json"));
+            response.EnsureSuccessStatusCode();
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("choices", out var ch) && ch.GetArrayLength() > 0
+                && ch[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c))
+                return c.GetString()?.Trim() ?? string.Empty;
+            return string.Empty;
+        }
+
+        public async Task<List<KeyTermEntry>> GenerateKeyTermsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new List<KeyTermEntry>();
+
+            var systemPrompt = "Jsi pedagog. Z článku vyber 8–12 klíčových odborných pojmů a pro každý napiš stručnou 1-větnou definici. Vrať výhradně jako JSON array: [{\"term\": \"...\", \"definition\": \"...\"}]. Pojmy musí být přesně ve tvaru, v jakém se vyskytují v textu (stejný tvar slova).";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var terms = new List<KeyTermEntry>();
+                if (root.ValueKind == JsonValueKind.Array)
+                    foreach (var el in root.EnumerateArray())
+                    {
+                        var t = el.TryGetProperty("term", out var tp) ? tp.GetString() ?? "" : "";
+                        var d = el.TryGetProperty("definition", out var dp) ? dp.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(t))
+                            terms.Add(new KeyTermEntry { Term = t, Definition = d });
+                    }
+                return terms;
+            }
+            catch { return new List<KeyTermEntry>(); }
+        }
+
+        public async Task<string> GenerateComparisonAsync(int postId, string compareTo)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var systemPrompt = "Jsi pedagog. Vytvoř přehlednou srovnávací tabulku v Markdownu (s | oddělovači) mezi dvěma pojmy. Tabulka musí mít záhlaví a alespoň 5 řádků s různými kritérii srovnání. Piš v češtině.";
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "system", content = $"Kontext článku o tématu '{title}':\n{content}" },
+                new { role = "user", content = $"Porovnej: \"{title}\" vs. \"{compareTo}\"" }
+            };
+            var payload = new { model, messages, max_tokens = 700 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json"));
+            response.EnsureSuccessStatusCode();
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("choices", out var ch) && ch.GetArrayLength() > 0
+                && ch[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c))
+                return c.GetString()?.Trim() ?? string.Empty;
+            return string.Empty;
+        }
+
+        public async Task<StepSolverResponse> GenerateStepSolverAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new StepSolverResponse();
+
+            var systemPrompt = "Jsi pedagog. Z článku vyber hlavní příklad nebo úlohu a vyřeš ji krok za krokem. Pro každý krok uveď název kroku a jeho vysvětlení. Odpověz výhradně jako JSON array: [{\"step\": \"Krok 1: ...\", \"explanation\": \"...\"}]. Maximálně 7 kroků.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var steps = new List<SolverStep>();
+                if (root.ValueKind == JsonValueKind.Array)
+                    foreach (var el in root.EnumerateArray())
+                    {
+                        var s = el.TryGetProperty("step", out var sp) ? sp.GetString() ?? "" : "";
+                        var e = el.TryGetProperty("explanation", out var ep) ? ep.GetString() ?? "" : "";
+                        if (!string.IsNullOrWhiteSpace(s))
+                            steps.Add(new SolverStep { Step = s, Explanation = e });
+                    }
+                return new StepSolverResponse { Steps = steps };
+            }
+            catch { return new StepSolverResponse(); }
+        }
+
+        public async Task<string> GenerateInteractiveDemoAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var systemPrompt = "Jsi expert na tvorbu interaktivních vzdělávacích demonstrací. Vytvoř interaktivní HTML/JS demonstraci hlavního konceptu z daného článku. Požadavky: Použij Canvas nebo SVG + vanilla JS. ŽÁDNÉ externí knihovny. Výstup: POUZE kompletní HTML soubor začínající <!DOCTYPE html>. Animace nebo interakce (slidery, klikání). Max 200 řádků kódu. Styl: čistý, moderní, tmavé pozadí (#1a1a2e), bílý text, modrá (#4fc3f7) jako akcent. Funkční bez jakýchkoliv externích závislostí.";
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = $"Vytvoř interaktivní demo pro téma: {title}\n\nObsah článku:\n{content.Substring(0, Math.Min(content.Length, 3000))}" }
+            };
+            var payload = new { model, messages, max_tokens = 2000 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            var response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json"));
+            response.EnsureSuccessStatusCode();
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("choices", out var ch) && ch.GetArrayLength() > 0
+                && ch[0].TryGetProperty("message", out var m) && m.TryGetProperty("content", out var c))
+            {
+                var html = c.GetString()?.Trim() ?? string.Empty;
+                // Strip markdown code fences if present
+                if (html.StartsWith("```"))
+                {
+                    var firstNewline = html.IndexOf('\n');
+                    if (firstNewline > 0) html = html[(firstNewline + 1)..];
+                    if (html.EndsWith("```")) html = html[..^3].TrimEnd();
+                }
+                return html;
+            }
+            return string.Empty;
+        }
+
+        public async Task<ConceptMapResponse> GenerateConceptMapAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new ConceptMapResponse();
+
+            var systemPrompt = "Jsi pedagog. Z článku extrahuj 6–12 klíčových pojmů a jejich vzájemné vztahy jako myšlenkovou mapu. Vrať výhradně jako JSON objekt: {\"nodes\": [{\"id\": \"n1\", \"label\": \"Pojem\"}], \"edges\": [{\"source\": \"n1\", \"target\": \"n2\", \"label\": \"je součástí\"}]}. Bez dalšího textu.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var nodes = new List<ConceptNode>();
+                var edges = new List<ConceptEdge>();
+                if (root.TryGetProperty("nodes", out var nodesEl))
+                    foreach (var n in nodesEl.EnumerateArray())
+                        nodes.Add(new ConceptNode
+                        {
+                            Id = n.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
+                            Label = n.TryGetProperty("label", out var lbl) ? lbl.GetString() ?? "" : ""
+                        });
+                if (root.TryGetProperty("edges", out var edgesEl))
+                    foreach (var e in edgesEl.EnumerateArray())
+                        edges.Add(new ConceptEdge
+                        {
+                            Source = e.TryGetProperty("source", out var src) ? src.GetString() ?? "" : "",
+                            Target = e.TryGetProperty("target", out var tgt) ? tgt.GetString() ?? "" : "",
+                            Label = e.TryGetProperty("label", out var lbl) ? lbl.GetString() ?? "" : ""
+                        });
+                return new ConceptMapResponse { Nodes = nodes, Edges = edges };
+            }
+            catch { return new ConceptMapResponse(); }
+        }
+
+        public async Task<FormulaVarsResponse> ExtractFormulaVarsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new FormulaVarsResponse();
+
+            var systemPrompt = "Jsi fyzik/matematik. Z článku extrahuj matematické/fyzikální vzorce vhodné pro interaktivní playground se slidery. Pro každý vzorec uveď: formula (LaTeX), expression (JavaScript výraz, např. 'm * a'), resultVar (proměnná výsledku), resultUnit (jednotka), variables (pole proměnných). Vrať výhradně JSON: {\"formulas\": [{\"formula\": \"F = m \\\\cdot a\", \"expression\": \"m * a\", \"resultVar\": \"F\", \"resultUnit\": \"N\", \"variables\": [{\"name\": \"m\", \"label\": \"Hmotnost\", \"unit\": \"kg\", \"min\": 1, \"max\": 100, \"defaultVal\": 10, \"step\": 1}, {\"name\": \"a\", \"label\": \"Zrychlení\", \"unit\": \"m/s²\", \"min\": 0, \"max\": 50, \"defaultVal\": 9.8, \"step\": 0.1}]}]}. Pokud článek neobsahuje vzorce, vrať {\"formulas\": []}.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var result = new FormulaVarsResponse();
+                if (!root.TryGetProperty("formulas", out var formulasEl)) return result;
+                foreach (var f in formulasEl.EnumerateArray())
+                {
+                    var entry = new FormulaEntry
+                    {
+                        Formula = f.TryGetProperty("formula", out var fp) ? fp.GetString() ?? "" : "",
+                        Expression = f.TryGetProperty("expression", out var ep) ? ep.GetString() ?? "" : "",
+                        ResultVar = f.TryGetProperty("resultVar", out var rvp) ? rvp.GetString() ?? "" : "",
+                        ResultUnit = f.TryGetProperty("resultUnit", out var rup) ? rup.GetString() ?? "" : ""
+                    };
+                    if (f.TryGetProperty("variables", out var varsEl))
+                        foreach (var v in varsEl.EnumerateArray())
+                            entry.Variables.Add(new FormulaVariable
+                            {
+                                Name = v.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                                Label = v.TryGetProperty("label", out var l) ? l.GetString() ?? "" : "",
+                                Unit = v.TryGetProperty("unit", out var u) ? u.GetString() ?? "" : "",
+                                Min = v.TryGetProperty("min", out var mn) ? mn.GetDouble() : 0,
+                                Max = v.TryGetProperty("max", out var mx) ? mx.GetDouble() : 100,
+                                DefaultVal = v.TryGetProperty("defaultVal", out var dv) ? dv.GetDouble() : 1,
+                                Step = v.TryGetProperty("step", out var st) ? st.GetDouble() : 1
+                            });
+                    if (!string.IsNullOrEmpty(entry.Formula))
+                        result.Formulas.Add(entry);
+                }
+                return result;
+            }
+            catch { return new FormulaVarsResponse(); }
+        }
+
+        public async Task<CrossConnectionResponse> GetCrossConnectionsAsync(int postId, List<string> allPostTitles)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return new CrossConnectionResponse();
+
+            var titlesSnippet = string.Join(", ", allPostTitles.Take(80));
+            var systemPrompt = "Jsi interdisciplinární pedagog. Najdi max. 3 konceptuální propojení mezi tímto článkem a tématy z jiných předmětů. Vrať výhradně jako JSON array: [{\"targetPostTitle\": \"přesný název tématu ze seznamu\", \"subject\": \"Předmět (Fyzika/Chemie/...)\", \"explanation\": \"Stručné vysvětlení propojení (1 věta)\"}].";
+            var userPrompt = $"Článek: {title}\n\nDostupná témata: {titlesSnippet}\n\nObsah:\n{content}";
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonRaw);
+                var root = doc.RootElement;
+                var connections = new List<CrossConnection>();
+                if (root.ValueKind == JsonValueKind.Array)
+                    foreach (var el in root.EnumerateArray())
+                        connections.Add(new CrossConnection
+                        {
+                            TargetPostTitle = el.TryGetProperty("targetPostTitle", out var tp) ? tp.GetString() ?? "" : "",
+                            Subject = el.TryGetProperty("subject", out var sp) ? sp.GetString() ?? "" : "",
+                            Explanation = el.TryGetProperty("explanation", out var ep) ? ep.GetString() ?? "" : ""
+                        });
+                return new CrossConnectionResponse { Connections = connections };
+            }
+            catch { return new CrossConnectionResponse(); }
         }
     }
 }

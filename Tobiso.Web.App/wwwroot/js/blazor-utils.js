@@ -1314,6 +1314,7 @@ export function setFocusMode(enable) {
 let _sentenceHelperRef = null;
 let _sentenceTooltipEl = null;
 let _sentenceBtn = null;
+let _sentenceWhyBtn = null;
 let _sentenceBtnTarget = null;
 let _tooltipVisible = false;
 let _sentenceHideTimer = null;
@@ -1333,7 +1334,7 @@ export function initSentenceHelper(dotNetRef) {
     document.body.appendChild(_sentenceTooltipEl);
   }
 
-  // Ensure button element exists
+  // Ensure "Co to znamená?" button exists
   if (!_sentenceBtn) {
     _sentenceBtn = document.createElement('button');
     _sentenceBtn.className = 'para-explain-btn';
@@ -1369,6 +1370,50 @@ export function initSentenceHelper(dotNetRef) {
       if (_tooltipVisible) return;
       _sentenceHideTimer = setTimeout(function () {
         _sentenceBtn.style.display = 'none';
+        if (_sentenceWhyBtn) _sentenceWhyBtn.style.display = 'none';
+        _sentenceBtnTarget = null;
+        _sentenceHideTimer = null;
+      }, 150);
+    });
+  }
+
+  // Ensure "Proč?" button exists
+  if (!_sentenceWhyBtn) {
+    _sentenceWhyBtn = document.createElement('button');
+    _sentenceWhyBtn.className = 'para-explain-btn para-why-btn';
+    _sentenceWhyBtn.setAttribute('aria-label', 'Proč je to pravda?');
+    _sentenceWhyBtn.innerHTML = '<i class="bi bi-lightbulb"></i>';
+    _sentenceWhyBtn.style.display = 'none';
+    document.body.appendChild(_sentenceWhyBtn);
+
+    _sentenceWhyBtn.addEventListener('click', async function (e) {
+      e.stopPropagation();
+      if (!_sentenceBtnTarget || !_sentenceHelperRef) return;
+      const text = (_sentenceBtnTarget.innerText || '').trim().slice(0, 500);
+      if (!text) return;
+
+      _sentenceWhyBtn.disabled = true;
+      _sentenceWhyBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+      try {
+        await _sentenceHelperRef.invokeMethodAsync('ExplainWhy', text);
+      } catch (err) {
+        console.log('[sentence-why] invoke failed', err);
+      }
+
+      _sentenceWhyBtn.disabled = false;
+      _sentenceWhyBtn.innerHTML = '<i class="bi bi-lightbulb"></i>';
+    });
+
+    _sentenceWhyBtn.addEventListener('mouseenter', function () {
+      if (_sentenceHideTimer) { clearTimeout(_sentenceHideTimer); _sentenceHideTimer = null; }
+    });
+
+    _sentenceWhyBtn.addEventListener('mouseleave', function () {
+      if (_tooltipVisible) return;
+      _sentenceHideTimer = setTimeout(function () {
+        _sentenceBtn.style.display = 'none';
+        _sentenceWhyBtn.style.display = 'none';
         _sentenceBtnTarget = null;
         _sentenceHideTimer = null;
       }, 150);
@@ -1388,12 +1433,18 @@ export function initSentenceHelper(dotNetRef) {
     _sentenceBtn.style.position = 'absolute';
     _sentenceBtn.style.top = (rect.top + scrollY) + 'px';
     _sentenceBtn.style.left = (rect.right + 6) + 'px';
+    // "Proč?" button appears below the explain button
+    _sentenceWhyBtn.style.display = 'block';
+    _sentenceWhyBtn.style.position = 'absolute';
+    _sentenceWhyBtn.style.top = (rect.top + scrollY + 36) + 'px';
+    _sentenceWhyBtn.style.left = (rect.right + 6) + 'px';
   });
 
   content.addEventListener('mouseleave', function () {
     if (_tooltipVisible) return;
     _sentenceHideTimer = setTimeout(function () {
       _sentenceBtn.style.display = 'none';
+      if (_sentenceWhyBtn) _sentenceWhyBtn.style.display = 'none';
       _sentenceBtnTarget = null;
       _sentenceHideTimer = null;
     }, 150);
@@ -1447,6 +1498,7 @@ export function hideSentenceTooltip() {
   if (_sentenceTooltipEl) _sentenceTooltipEl.style.display = 'none';
   _tooltipVisible = false;
   if (_sentenceBtn) _sentenceBtn.style.display = 'none';
+  if (_sentenceWhyBtn) _sentenceWhyBtn.style.display = 'none';
   _sentenceBtnTarget = null;
 }
 
@@ -1623,4 +1675,101 @@ export function getStreakDays() {
     }
     return streak;
   } catch { return 0; }
+}
+
+// ── Key-term tooltips ─────────────────────────────────────────────────────────
+
+export function initKeyTermTooltips(terms) {
+  if (!terms || terms.length === 0) return;
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  // Build a regex that matches any of the terms (longest first to avoid partial matches)
+  const sorted = [...terms].sort((a, b) => b.term.length - a.term.length);
+
+  function wrapTermsInNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      let text = node.textContent;
+      let changed = false;
+      const frag = document.createDocumentFragment();
+      let lastIdx = 0;
+
+      // Simple scan: find first matching term at each position
+      outer: while (lastIdx < text.length) {
+        for (const entry of sorted) {
+          const idx = text.toLowerCase().indexOf(entry.term.toLowerCase(), lastIdx);
+          if (idx === lastIdx) {
+            // Append preceding text
+            if (idx > lastIdx) {
+              frag.appendChild(document.createTextNode(text.slice(lastIdx, idx)));
+            }
+            const span = document.createElement('span');
+            span.className = 'key-term';
+            span.dataset.def = entry.definition;
+            span.textContent = text.slice(idx, idx + entry.term.length);
+            frag.appendChild(span);
+            lastIdx = idx + entry.term.length;
+            changed = true;
+            continue outer;
+          }
+        }
+        // No match starting here — find next possible match start
+        let nextMatch = text.length;
+        for (const entry of sorted) {
+          const idx = text.toLowerCase().indexOf(entry.term.toLowerCase(), lastIdx + 1);
+          if (idx !== -1 && idx < nextMatch) nextMatch = idx;
+        }
+        frag.appendChild(document.createTextNode(text.slice(lastIdx, nextMatch)));
+        lastIdx = nextMatch;
+      }
+
+      if (changed && node.parentNode) {
+        node.parentNode.replaceChild(frag, node);
+      }
+    } else if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      !['SCRIPT', 'STYLE', 'CODE', 'PRE', 'SPAN'].includes(node.tagName)
+    ) {
+      // Walk child nodes (copy array because we mutate during iteration)
+      Array.from(node.childNodes).forEach(wrapTermsInNode);
+    }
+  }
+
+  // Only process paragraphs and list items to avoid touching headings/code
+  content.querySelectorAll('p, li').forEach(wrapTermsInNode);
+
+  // Tooltip element
+  let _ktTooltip = document.getElementById('kt-tooltip');
+  if (!_ktTooltip) {
+    _ktTooltip = document.createElement('div');
+    _ktTooltip.id = 'kt-tooltip';
+    _ktTooltip.className = 'key-term-tooltip';
+    _ktTooltip.style.display = 'none';
+    document.body.appendChild(_ktTooltip);
+  }
+
+  content.addEventListener('mouseover', function (e) {
+    const span = e.target.closest('.key-term');
+    if (!span) return;
+    _ktTooltip.textContent = span.dataset.def || '';
+    const rect = span.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    _ktTooltip.style.display = 'block';
+    _ktTooltip.style.position = 'absolute';
+    _ktTooltip.style.top = (rect.bottom + scrollY + 4) + 'px';
+    _ktTooltip.style.left = Math.max(8, rect.left) + 'px';
+    requestAnimationFrame(function () {
+      const vpW = window.innerWidth;
+      const r = _ktTooltip.getBoundingClientRect();
+      if (r.right > vpW - 8) {
+        _ktTooltip.style.left = Math.max(8, vpW - r.width - 16) + 'px';
+      }
+    });
+  });
+
+  content.addEventListener('mouseout', function (e) {
+    const span = e.target.closest('.key-term');
+    if (!span) return;
+    _ktTooltip.style.display = 'none';
+  });
 }

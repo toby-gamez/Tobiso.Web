@@ -1,0 +1,110 @@
+@using Tobiso.Web.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@if (Visible)
+{
+    <div class="tobiso-modal-backdrop" @onclick="() => { if (!_loading) OnClose.InvokeAsync(); }">
+        <div class="tobiso-modal-card compare-modal" @onclick:stopPropagation>
+            <div class="tobiso-modal-header">
+                <span class="tobiso-modal-title">⚖️ Porovnat s…</span>
+                <button class="tobiso-modal-close" @onclick="() => OnClose.InvokeAsync()" disabled="@_loading">&times;</button>
+            </div>
+
+            @if (_result == null && !_loading)
+            {
+                <div class="compare-input-wrap">
+                    <p class="compare-hint">Zadej téma nebo pojem, který chceš porovnat s tímto článkem.</p>
+                    <input class="compare-input" @bind="_compareTo" @onkeydown="OnKeyDown"
+                           placeholder="Např. Statické tření, Newton vs. Einstein…" maxlength="100" />
+                    <button class="compare-btn" @onclick="LoadComparison" disabled="@(string.IsNullOrWhiteSpace(_compareTo))">
+                        Porovnat
+                    </button>
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <p class="compare-error">@_error</p>
+                    }
+                </div>
+            }
+            else if (_loading)
+            {
+                <div class="loading-wrap">
+                    <div class="loading-circle"></div>
+                    <p>Generuji srovnávací tabulku…</p>
+                </div>
+            }
+            else if (_result != null)
+            {
+                <div class="compare-result">
+                    <div class="compare-table-wrap">
+                        @((MarkupString)_renderedHtml)
+                    </div>
+                    <button class="compare-retry" @onclick="Reset">Porovnat s jiným pojmem</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _compareTo = string.Empty;
+    private string? _result;
+    private string _renderedHtml = string.Empty;
+    private bool _loading;
+    private string _error = string.Empty;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_compareTo))
+            await LoadComparison();
+    }
+
+    private async Task LoadComparison()
+    {
+        if (string.IsNullOrWhiteSpace(_compareTo) || _loading) return;
+        _loading = true;
+        _error = string.Empty;
+        StateHasChanged();
+        try
+        {
+            var url = new Uri(Navigation.BaseUri + "api/ai/compare");
+            var resp = await Http.PostAsJsonAsync(url, new CompareRequest { PostId = PostId, CompareTo = _compareTo.Trim() });
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<CompareResponse>();
+                _result = data?.MarkdownTable ?? string.Empty;
+                _renderedHtml = Markdig.Markdown.ToHtml(_result);
+            }
+            else if ((int)resp.StatusCode == 429)
+                _error = "Denní limit dotazů byl vyčerpán.";
+            else
+                _error = "Nepodařilo se vygenerovat tabulku. Zkuste to znovu.";
+        }
+        catch
+        {
+            _error = "Chyba při připojení.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        _result = null;
+        _renderedHtml = string.Empty;
+        _compareTo = string.Empty;
+        _error = string.Empty;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!Visible) Reset();
+    }
+}

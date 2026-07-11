@@ -707,5 +707,292 @@ namespace Tobiso.Web.App.Controllers
                 return StatusCode(502, new { message = ex.Message });
             }
         }
+
+        // ── Fáze 11: "Proč?" explainer ────────────────────────────────────────
+
+        [HttpPost("why")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExplainWhy([FromBody] WhyRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Sentence))
+                return BadRequest("Missing sentence");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Daily limit reached" });
+
+            var post = await _postService.GetById(request.PostId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+
+            try
+            {
+                var explanation = await _aiService.ExplainWhyAsync(request.Sentence, versionContent);
+                return Ok(new WhyResponse { Explanation = explanation });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Explain-why failed");
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 12: Definition tooltips ──────────────────────────────────────
+
+        [HttpGet("key-terms/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetKeyTerms(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostKeyTerms.FirstOrDefaultAsync(k => k.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try
+                {
+                    var cachedTerms = System.Text.Json.JsonSerializer.Deserialize<List<KeyTermEntry>>(cached.TermsJson) ?? new();
+                    return Ok(new { terms = cachedTerms });
+                }
+                catch { }
+            }
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var terms = await _aiService.GenerateKeyTermsAsync(postId);
+                var json = System.Text.Json.JsonSerializer.Serialize(terms);
+                if (cached != null)
+                {
+                    cached.TermsJson = json;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostKeyTerms.Add(new PostKeyTerms { PostId = postId, TermsJson = json });
+                }
+                await _db.SaveChangesAsync();
+                return Ok(new { terms });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Key-terms failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 23: Comparison tables ────────────────────────────────────────
+
+        [HttpPost("compare")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Compare([FromBody] CompareRequest request)
+        {
+            if (request == null || request.PostId <= 0 || string.IsNullOrWhiteSpace(request.CompareTo))
+                return BadRequest("Invalid request");
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var table = await _aiService.GenerateComparisonAsync(request.PostId, request.CompareTo);
+                return Ok(new CompareResponse { MarkdownTable = table });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Compare failed for PostId={PostId}", request.PostId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 24: Step-by-step solver ──────────────────────────────────────
+
+        [HttpGet("step-solver/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetStepSolver(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var result = await _aiService.GenerateStepSolverAsync(postId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Step-solver failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 6: AI Interactive Demo ───────────────────────────────────────
+
+        [HttpPost("generate-demo/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GenerateDemo(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostAiDemos.FirstOrDefaultAsync(d => d.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+                return Ok(new { html = cached.HtmlContent });
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var html = await _aiService.GenerateInteractiveDemoAsync(postId);
+                if (cached != null)
+                {
+                    cached.HtmlContent = html;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostAiDemos.Add(new PostAiDemo { PostId = postId, HtmlContent = html });
+                }
+                await _db.SaveChangesAsync();
+                return Ok(new { html });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Generate-demo failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 7: Concept Map ───────────────────────────────────────────────
+
+        [HttpGet("concept-map/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetConceptMap(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostConceptMaps.FirstOrDefaultAsync(c => c.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try
+                {
+                    var cachedMap = System.Text.Json.JsonSerializer.Deserialize<ConceptMapResponse>(cached.MapJson);
+                    if (cachedMap != null) return Ok(cachedMap);
+                }
+                catch { }
+            }
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var map = await _aiService.GenerateConceptMapAsync(postId);
+                var json = System.Text.Json.JsonSerializer.Serialize(map);
+                if (cached != null)
+                {
+                    cached.MapJson = json;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostConceptMaps.Add(new PostConceptMap { PostId = postId, MapJson = json });
+                }
+                await _db.SaveChangesAsync();
+                return Ok(map);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Concept-map failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 8: Formula Playground ────────────────────────────────────────
+
+        [HttpGet("formula-vars/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetFormulaVars(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var result = await _aiService.ExtractFormulaVarsAsync(postId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Formula-vars failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── Fáze 9: Cross-subject Connector ──────────────────────────────────
+
+        [HttpGet("cross-connections/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCrossConnections(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostCrossConnections.FirstOrDefaultAsync(c => c.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try
+                {
+                    var cachedConns = System.Text.Json.JsonSerializer.Deserialize<CrossConnectionResponse>(cached.ConnectionsJson);
+                    if (cachedConns != null) return Ok(cachedConns);
+                }
+                catch { }
+            }
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var allPosts = await _postService.GetAll();
+                var allTitles = allPosts?.Select(p => p.Title).Where(t => !string.IsNullOrEmpty(t)).ToList() ?? new();
+                var result = await _aiService.GetCrossConnectionsAsync(postId, allTitles!);
+                var json = System.Text.Json.JsonSerializer.Serialize(result);
+                if (cached != null)
+                {
+                    cached.ConnectionsJson = json;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostCrossConnections.Add(new PostCrossConnection { PostId = postId, ConnectionsJson = json });
+                }
+                await _db.SaveChangesAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Cross-connections failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
     }
 }

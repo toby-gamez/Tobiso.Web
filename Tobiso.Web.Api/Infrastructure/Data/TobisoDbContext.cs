@@ -34,6 +34,11 @@ public class TobisoDbContext : DbContext
     public DbSet<PostDifficultyRating> PostDifficultyRatings { get; set; }
     public DbSet<PostVideo> PostVideos { get; set; }
 
+    public DbSet<PostKeyTerms> PostKeyTerms { get; set; }
+    public DbSet<PostConceptMap> PostConceptMaps { get; set; }
+    public DbSet<PostCrossConnection> PostCrossConnections { get; set; }
+    public DbSet<PostAiDemo> PostAiDemos { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

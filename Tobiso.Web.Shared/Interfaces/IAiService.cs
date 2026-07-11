@@ -1,4 +1,5 @@
 using Tobiso.Web.Shared.DTOs;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Tobiso.Web.Shared.Interfaces
@@ -24,5 +25,13 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
         Task<List<string>> GenerateFunFactsAsync(int postId);
         Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
+        Task<string> ExplainWhyAsync(string sentence, string articleContext);
+        Task<List<KeyTermEntry>> GenerateKeyTermsAsync(int postId);
+        Task<string> GenerateComparisonAsync(int postId, string compareTo);
+        Task<StepSolverResponse> GenerateStepSolverAsync(int postId);
+        Task<string> GenerateInteractiveDemoAsync(int postId);
+        Task<ConceptMapResponse> GenerateConceptMapAsync(int postId);
+        Task<FormulaVarsResponse> ExtractFormulaVarsAsync(int postId);
+        Task<CrossConnectionResponse> GetCrossConnectionsAsync(int postId, List<string> allPostTitles);
     }
 }
