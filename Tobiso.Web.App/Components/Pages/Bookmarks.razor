@@ -1,0 +1,169 @@
+@page "/zalozky"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Microsoft.JSInterop
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Záložky – Tobiso</PageTitle>
+<style>
+.bookmarks-page {
+    max-width: 680px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.bookmarks-page h1 {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bookmarks-empty {
+    color: var(--color-text-muted, #888);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.bookmarks-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.bookmark-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--color-card-bg);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    transition: border-color 0.15s;
+}
+
+.bookmark-item:hover {
+    border-color: var(--color-accent);
+}
+
+body.dark-mode .bookmark-item {
+    background: var(--color-card-bg-dark, #1e1e2e);
+    border-color: var(--color-border-dark, #333);
+}
+
+.bookmark-icon {
+    color: var(--color-accent);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.bookmark-title {
+    flex: 1;
+    font-weight: 500;
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 0.95rem;
+}
+
+body.dark-mode .bookmark-title { color: var(--color-text-dark); }
+.bookmark-title:hover { color: var(--color-accent); }
+
+.bookmark-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted, #888);
+    font-size: 1rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.bookmark-remove:hover {
+    color: #e55;
+    background: rgba(220, 50, 50, 0.08);
+}
+</style>
+
+<div class="bookmarks-page">
+    <h1><i class="bi bi-bookmark-heart"></i> Záložky</h1>
+
+    @if (_loading)
+    {
+        <div class="loading-circle"></div>
+    }
+    else if (_bookmarkedPosts.Count == 0)
+    {
+        <p class="bookmarks-empty">
+            Nemáš žádné záložky.<br />
+            Na stránce článku klikni na <i class="bi bi-bookmark"></i> <strong>Záložka</strong> a článek se uloží sem.
+        </p>
+    }
+    else
+    {
+        <ul class="bookmarks-list">
+            @foreach (var post in _bookmarkedPosts)
+            {
+                var slug = SlugFromFilePath(post.FilePath);
+                <li class="bookmark-item">
+                    <i class="bi bi-bookmark-fill bookmark-icon"></i>
+                    <a class="bookmark-title" href="post/@slug">@post.Title</a>
+                    <button class="bookmark-remove" title="Odebrat záložku" @onclick="() => RemoveBookmark(post.Id)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private List<PostSummaryResponse> _bookmarkedPosts = new();
+    private IJSObjectReference? _jsModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "/js/blazor-utils.js?v=14");
+            var ids = await _jsModule.InvokeAsync<int[]>("getBookmarks");
+            if (ids is { Length: > 0 })
+            {
+                var allPosts = await Api.GetPostSummaries();
+                _bookmarkedPosts = allPosts
+                    .Where(p => ids.Contains(p.Id))
+                    .OrderBy(p => Array.IndexOf(ids, p.Id))
+                    .ToList();
+            }
+        }
+        catch { }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task RemoveBookmark(int postId)
+    {
+        if (_jsModule != null)
+        {
+            try { await _jsModule.InvokeVoidAsync("removeBookmark", postId); }
+            catch { }
+        }
+        _bookmarkedPosts.RemoveAll(p => p.Id == postId);
+    }
+
+    private static string SlugFromFilePath(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        return System.IO.Path.GetFileNameWithoutExtension(filePath);
+    }
+}

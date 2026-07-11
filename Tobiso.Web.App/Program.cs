@@ -69,15 +69,22 @@ services
         options.ValidateLifetime = true;
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null)
-    .AddCookie("TempCookie", opts => opts.ExpireTimeSpan = TimeSpan.FromMinutes(10))
-    .AddGoogle("Google", opts =>
-    {
-        opts.ClientId     = builder.Configuration["Google:ClientId"]!;
-        opts.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
-        opts.CallbackPath = "/signin-google";
-        opts.SignInScheme = "TempCookie";
-        opts.ClaimActions.MapJsonKey("picture", "picture");
-    });
+    .AddCookie("TempCookie", opts => opts.ExpireTimeSpan = TimeSpan.FromMinutes(10));
+
+var googleClientId = builder.Configuration["Google:ClientId"];
+var googleClientSecret = builder.Configuration["Google:ClientSecret"];
+if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
+{
+    services.AddAuthentication()
+        .AddGoogle("Google", opts =>
+        {
+            opts.ClientId     = googleClientId;
+            opts.ClientSecret = googleClientSecret;
+            opts.CallbackPath = "/signin-google";
+            opts.SignInScheme = "TempCookie";
+            opts.ClaimActions.MapJsonKey("picture", "picture");
+        });
+}
 
 services.AddAuthorization();
 

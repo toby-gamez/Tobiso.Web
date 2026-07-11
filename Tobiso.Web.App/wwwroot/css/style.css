@@ -156,7 +156,8 @@ label,
 .whatif-explanation,
 .user-menu-email,
 .auth-terms,
-.auth-terms a {
+.auth-terms a,
+.reading-section div {
     font-family: var(--font-family-serif) !important;
 }
 
