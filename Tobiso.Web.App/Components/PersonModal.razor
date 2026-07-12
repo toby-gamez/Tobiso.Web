@@ -50,7 +50,7 @@
                     </div>
                     @if (!string.IsNullOrEmpty(_person.Bio))
                     {
-                        <div class="person-modal-bio">@((MarkupString)Markdig.Markdown.ToHtml(_person.Bio))</div>
+                        <div class="person-modal-bio">@((MarkupString)Tobiso.Web.App.Services.AiMarkdown.ToSafeHtml(_person.Bio))</div>
                     }
                     @if (!string.IsNullOrEmpty(_person.ExternalLink))
                     {

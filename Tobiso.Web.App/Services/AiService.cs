@@ -1496,7 +1496,7 @@ namespace Tobiso.Web.App.Services
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
-            var systemPrompt = "Jsi expert na tvorbu interaktivních vzdělávacích demonstrací. Vytvoř interaktivní HTML/JS demonstraci hlavního konceptu z daného článku. Požadavky: Použij Canvas nebo SVG + vanilla JS. ŽÁDNÉ externí knihovny. Výstup: POUZE kompletní HTML soubor začínající <!DOCTYPE html>. Animace nebo interakce (slidery, klikání). Max 200 řádků kódu. Styl: čistý, moderní, tmavé pozadí (#1a1a2e), bílý text, modrá (#4fc3f7) jako akcent. Funkční bez jakýchkoliv externích závislostí.";
+            var systemPrompt = "Jsi expert na tvorbu interaktivních vzdělávacích demonstrací. Vytvoř SKUTEČNĚ interaktivní HTML/JS aktivitu, která učí nebo procvičuje hlavní myšlenku článku. Vanilla JS, ŽÁDNÉ externí knihovny. Výstup: POUZE kompletní HTML soubor začínající <!DOCTYPE html>. Max 200 řádků kódu.\n\nNEJDŘÍV VYBER SPRÁVNÝ TYP AKTIVITY podle povahy tématu (nedělej u všeho canvas simulaci):\n- Přírodní vědy / matematika / fyzika / chemie (něco, co jde simulovat): interaktivní simulace nebo animovaný diagram na Canvas/SVG se slidery či tlačítky (např. změna parametru mění graf/animaci).\n- Literatura / jazyk / společenské vědy: interaktivní KVÍZ s otázkami a vyhodnocením, přiřazovací hra (spáruj pojem↔definici, autor↔dílo), klikací příklady odhalující vysvětlení, doplňovačka, nebo krátká interaktivní ukázka literárního jevu.\n- Dějepis / vývojová témata: interaktivní ČASOVÁ OSA, kde kliknutím na událost se zobrazí popis, nebo kvíz na pořadí událostí.\n\nPOVINNÉ – SKUTEČNÁ INTERAKCE A UČENÍ: Uživatel musí něco DĚLAT (klikat, přetahovat, odpovídat, posouvat) a dostávat ZPĚTNOU VAZBU (správně/špatně, skóre, odhalené vysvětlení, změna vizualizace). Aktivita musí čerpat z KONKRÉTNÍHO OBSAHU článku (konkrétní pojmy, jména, fakta), ne obecné fráze.\n\nZAKÁZÁNO: NEDĚLEJ pasivní ukázku, která jen zobrazí název článku a jedno tlačítko „Zobrazit více\\\" / „Další téma\\\" bez skutečné aktivity. NEZOBRAZUJ jen barevný obdélník s textem. To NENÍ demo.\n\nSPRÁVNOST KVÍZU (KRITICKÉ – tyto chyby se NESMÍ stát):\n1) Odpovědi MUSÍ logicky odpovídat otázce. Např. na otázku „Z jakého jazyka pochází název fejeton?\\\" jsou odpověďmi JAZYKY (francouzština, latina, němčina…), NIKDY jména autorů. Zkontroluj u každé otázky, že všechny nabízené odpovědi jsou smysluplné odpovědi PRÁVĚ na tuto otázku.\n2) Každá otázka má SVOJI vlastní sadu odpovědí a index správné odpovědi. Ulož data jako pole objektů, např. [{q:\\\"...\\\", options:[\\\"...\\\"], correct:0}]. Při přechodu na další otázku VŽDY znovu vykresli JAK text otázky, TAK VŠECHNY tlačítka odpovědí z aktuálního objektu otázky – nikdy nenechávej staré odpovědi z předchozí otázky. (Častá chyba: aktualizuje se jen text otázky, ale tlačítka odpovědí zůstanou stará – to je ZAKÁZÁNO.)\n3) Právě jedna odpověď je správná a musí být fakticky pravdivá podle obsahu článku. Po odpovědi dej zpětnou vazbu (správně/špatně) a umožni pokračovat na další otázku.\n\nBAREVNÁ PALETA (POVINNÁ – použij PŘESNĚ tyto barvy, žádnou modrou): světlé pozadí #fdf3f9, text #3a2530, hlavní akcent #d175a6, tmavší akcent #c36f9a, doplňkový akcent #d89dbd, jemné pozadí prvků #f3d6e5. Tlačítka/ovládací prvky používají akcent #c36f9a s bílým textem, hover #903c67.\n\nROZVRŽENÍ A VELIKOSTI (KRITICKÉ – demo je vloženo v úzkém sloupci ~320–360 px): html,body { margin:0; padding:10px; box-sizing:border-box; width:100%; max-width:100%; overflow-x:hidden; } vše používej box-sizing:border-box. Používej relativní jednotky (%, rem) místo pevných px pro rozměry. ŽÁDNÝ prvek nesmí být širší než kontejner – nikdy nenastavuj pevnou šířku v px větší než ~300 px. Canvas/SVG: šířka 100 %, max-width:100 %, výška úměrná. U SVG VŽDY používej atribut viewBox (např. viewBox=\\\"0 0 300 200\\\") + width=\\\"100%\\\" + preserveAspectRatio, aby se obsah i text zmenšil dovnitř. U Canvasu nastav vnitřní rozlišení podle element.clientWidth a překresli. NIKDY nesmí obsah přetéct do stran (žádný horizontální posuvník, žádný oříznutý text). Text VŽDY zalamuj (overflow-wrap:break-word) – nesmí být oříznutý na okraji. Ovládací prvky (slidery, tlačítka) umísti pod plátno, plně viditelné.\n\nVZHLED: Zaoblené rohy u boxů, tlačítek i plátna (border-radius: 10px). Jemné okraje. Font sans-serif, čitelné velikosti.\n\nKONTRAST (POVINNÝ – text musí být vždy dobře čitelný): Na světlém pozadí (#fdf3f9, #f3d6e5) používej TMAVÝ text (#3a2530). Barevné/zvýrazněné plochy a aktivní tlačítka dělej v sytém akcentu #c36f9a s BÍLÝM textem (#ffffff). NEPOUŽÍVEJ tmavý text na středně sytém růžovém pozadí (#d89dbd) – to má špatný kontrast. Funkční bez jakýchkoliv externích závislostí.";
             var messages = new List<object>
             {
                 new { role = "system", content = systemPrompt },
@@ -1522,9 +1522,34 @@ namespace Tobiso.Web.App.Services
                     if (firstNewline > 0) html = html[(firstNewline + 1)..];
                     if (html.EndsWith("```")) html = html[..^3].TrimEnd();
                 }
-                return html;
+                return InjectDemoSafetyStyles(html);
             }
             return string.Empty;
+        }
+
+        // Guarantees the generated demo can never overflow the narrow card it lives in,
+        // regardless of what the model produced (fixed widths, un-wrapped text, oversized canvas).
+        private static string InjectDemoSafetyStyles(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) return html;
+            const string style = "<style>"
+                + "html,body{margin:0;padding:10px;box-sizing:border-box;width:100%;max-width:100%;overflow-x:hidden;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}"
+                + "*,*::before,*::after{box-sizing:border-box;}"
+                + "body,div,p,span,h1,h2,h3,h4,button,label,li{overflow-wrap:break-word;word-break:break-word;}"
+                + "svg,canvas,img,video,table{max-width:100%!important;height:auto;}"
+                + "canvas{display:block;}"
+                + "</style>";
+
+            var headClose = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+            if (headClose >= 0) return html.Insert(headClose, style);
+
+            var bodyOpen = html.IndexOf("<body", StringComparison.OrdinalIgnoreCase);
+            if (bodyOpen >= 0)
+            {
+                var bodyTagEnd = html.IndexOf('>', bodyOpen);
+                if (bodyTagEnd >= 0) return html.Insert(bodyTagEnd + 1, style);
+            }
+            return style + html;
         }
 
         public async Task<ConceptMapResponse> GenerateConceptMapAsync(int postId)

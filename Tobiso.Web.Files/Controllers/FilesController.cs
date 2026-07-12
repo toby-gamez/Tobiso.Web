@@ -9,7 +9,7 @@ namespace Tobiso.Web.Files.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous]
+[Authorize(AuthenticationSchemes = "Basic")]
 public class FilesController : ControllerBase
 {
     private readonly ILogger<FilesController> _logger;
@@ -35,10 +35,13 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Žádný soubor nebyl nahrán" });
             }
 
-            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml" };
-            if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            // Validate by extension (server-derived), not the client-supplied ContentType which is spoofable.
+            // SVG is intentionally excluded: it can carry inline <script> and would execute when served inline.
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            if (!allowedExts.Contains(ext))
             {
-                return BadRequest(new { error = "Nepodporovaný typ souboru. Povolené jsou pouze: JPEG, PNG, GIF, WebP, SVG" });
+                return BadRequest(new { error = "Nepodporovaný typ souboru. Povolené jsou pouze: JPEG, PNG, GIF, WebP" });
             }
 
             const int maxFileSize = 10 * 1024 * 1024;
@@ -47,7 +50,12 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Soubor je příliš velký. Maximální velikost je 10MB" });
             }
 
-            var fileName = file.FileName;
+            // Build a safe filename: strip any path components from the original name and append a
+            // random suffix. This prevents path traversal (e.g. "../../wwwroot/x") and overwriting.
+            var baseName = Path.GetFileNameWithoutExtension(file.FileName);
+            baseName = string.Join("_", baseName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+            if (string.IsNullOrEmpty(baseName)) baseName = "image";
+            var fileName = $"{baseName}-{Guid.NewGuid():N}{ext}";
 
             var uploadsPath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images");
 
@@ -58,7 +66,14 @@ public class FilesController : ControllerBase
 
             var filePath = Path.Combine(uploadsPath, fileName);
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            // Defence in depth: ensure the resolved path stays inside the images directory.
+            var uploadsRoot = Path.GetFullPath(uploadsPath) + Path.DirectorySeparatorChar;
+            if (!Path.GetFullPath(filePath).StartsWith(uploadsRoot, StringComparison.Ordinal))
+            {
+                return BadRequest(new { error = "Neplatný název souboru" });
+            }
+
+            using (var stream = new FileStream(filePath, FileMode.CreateNew))
             {
                 await file.CopyToAsync(stream);
             }
@@ -72,10 +87,10 @@ public class FilesController : ControllerBase
                 OriginalFileName = file.FileName,
                 Url = fileUrl,
                 Size = file.Length,
-                ContentType = file.ContentType
+                ContentType = GetContentType(fileName)
             };
 
-            _logger.LogInformation("Successfully uploaded file: {FileName} -> {FilePath}", file.FileName, fileName);
+            _logger.LogInformation("Successfully uploaded file: {FileName} -> {StoredName}", file.FileName, fileName);
             return Ok(response);
         }
         catch (Exception ex)
@@ -86,7 +101,6 @@ public class FilesController : ControllerBase
     }
 
     [HttpGet]
-    [AllowAnonymous]
     public ActionResult<IEnumerable<FileUploadResponse>> GetAllFiles([FromQuery] string? subDirectory = null)
     {
         try
@@ -136,7 +150,19 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Název souboru je vyžadován" });
             }
 
-            var filePath = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images", fileName);
+            // Strip any directory components so callers cannot traverse out of the images folder.
+            var safeName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(safeName) || safeName != fileName)
+            {
+                return BadRequest(new { error = "Neplatný název souboru" });
+            }
+
+            var imagesRoot = Path.Combine(_environment.WebRootPath ?? _environment.ContentRootPath, "images");
+            var filePath = Path.Combine(imagesRoot, safeName);
+            if (!Path.GetFullPath(filePath).StartsWith(Path.GetFullPath(imagesRoot) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                return BadRequest(new { error = "Neplatný název souboru" });
+            }
 
             if (!System.IO.File.Exists(filePath))
             {

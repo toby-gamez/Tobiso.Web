@@ -74,14 +74,10 @@ namespace Tobiso.Web.App.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Ask([FromBody] AiChatRequest request)
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-            // Per-device rate key using X-Device-Id; fall back to IP
-            string deviceId = null;
-            if (Request.Headers.TryGetValue("X-Device-Id", out var dvVals))
-                deviceId = dvVals.FirstOrDefault();
-
-            var rateKey = !string.IsNullOrEmpty(deviceId) ? $"device:{deviceId}" : ip;
+            // Consumption is anchored to the server-observed IP (cannot be rotated by the client);
+            // purchased bonus credits are looked up by the device key and only add to the limit.
+            var rateKey = GetRateKey();
+            var bonusKey = GetBonusKey();
 
             // Determine base limit from X-Client-Id config override
             string clientId = null;
@@ -100,7 +96,7 @@ namespace Tobiso.Web.App.Controllers
                 baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
             }
 
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(rateKey);
+            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(bonusKey);
 
             var remainingBefore = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
             if (remainingBefore <= 0)
@@ -173,13 +169,24 @@ namespace Tobiso.Web.App.Controllers
             if (request.ValidUntilUtc > now + 25 * 3600 || request.ValidUntilUtc < now)
                 return BadRequest(new { message = "Invalid expiry" });
 
-            var secret = _configuration["OpenAI:CreditsSigningSecret"] ?? string.Empty;
-            if (!string.IsNullOrEmpty(secret))
+            // Fail closed: without a configured signing secret we cannot verify the request, so reject it.
+            // Treating "no secret" as "signature valid" would let anyone grant themselves unlimited credits.
+            var secret = _configuration["OpenAI:CreditsSigningSecret"];
+            if (string.IsNullOrEmpty(secret))
             {
-                var payload = $"{request.DeviceId}:{request.Count}:{request.ValidUntilUtc}";
-                using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+                Serilog.Log.Error("AddCredits called but OpenAI:CreditsSigningSecret is not configured; rejecting request.");
+                return StatusCode(503, new { message = "Credit signing is not configured" });
+            }
+
+            var payload = $"{request.DeviceId}:{request.Count}:{request.ValidUntilUtc}";
+            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            {
                 var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
-                if (!string.Equals(expected, request.Signature, StringComparison.OrdinalIgnoreCase))
+                var providedSig = request.Signature ?? string.Empty;
+                var match = CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(expected),
+                    Encoding.UTF8.GetBytes(providedSig.ToLowerInvariant()));
+                if (!match)
                     return StatusCode(403, new { message = "Invalid signature" });
             }
 
@@ -393,21 +400,32 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        // The consumption bucket is anchored to the server-observed client IP. A client cannot rotate
+        // this the way it can the X-Device-Id header, so it can't reset its free daily quota at will.
         private string GetRateKey()
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return $"ip:{ip}";
+        }
+
+        // Purchased bonus credits are tied to the device that bought them (see AddCredits). They are
+        // only ever additive to the IP-anchored limit, so keying them on the client-supplied device id
+        // is safe and does not enable quota-reset abuse.
+        private string GetBonusKey()
+        {
             if (Request.Headers.TryGetValue("X-Device-Id", out var dv))
             {
                 var deviceId = dv.FirstOrDefault();
                 if (!string.IsNullOrEmpty(deviceId)) return $"device:{deviceId}";
             }
-            return ip;
+            return GetRateKey();
         }
 
         private bool TryConsumeRateLimit(string rateKey)
         {
             var baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            return _rateLimitService.TryConsume(rateKey, baseLimit + _rateLimitService.GetBonusTotal(rateKey));
+            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(GetBonusKey());
+            return _rateLimitService.TryConsume(rateKey, effectiveLimit);
         }
 
         [HttpGet("detect-persons/{postId}")]
@@ -835,16 +853,23 @@ namespace Tobiso.Web.App.Controllers
 
         // ── Fáze 6: AI Interactive Demo ───────────────────────────────────────
 
+        // Bump this whenever the demo generation prompt/style changes so that
+        // demos cached under the old prompt are transparently regenerated.
+        private static readonly DateTime DemoPromptVersion =
+            new(2026, 7, 12, 10, 57, 0, DateTimeKind.Utc);
+
         [HttpPost("generate-demo/{postId:int}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GenerateDemo(int postId)
+        public async Task<IActionResult> GenerateDemo(int postId, [FromQuery] bool force = false)
         {
             if (postId <= 0) return BadRequest();
 
             var post = await _postService.GetById(postId);
             var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
             var cached = await _db.PostAiDemos.FirstOrDefaultAsync(d => d.PostId == postId);
-            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            if (!force && cached != null
+                && cached.GeneratedAt >= postLastEdit
+                && cached.GeneratedAt >= DemoPromptVersion)
                 return Ok(new { html = cached.HtmlContent });
 
             var rateKey = GetRateKey();

@@ -5,7 +5,7 @@
 {
     <div class="context-card ai-demo-card">
         <div class="context-card-header" @onclick="Toggle">
-            <span>🎮 Interaktivní demo</span>
+            <span>🧩 Interaktivní cokoliv</span>
             <span class="context-card-chevron">@(_open ? "▲" : "▼")</span>
         </div>
 
@@ -16,12 +16,12 @@
                 {
                     <div class="loading-wrap">
                         <div class="loading-circle"></div>
-                        <p style="font-size:0.85rem">AI generuje demo…</p>
+                        <p style="font-size:0.85rem">AI generuje aktivitu…</p>
                     </div>
                 }
                 else if (!string.IsNullOrEmpty(_html))
                 {
-                    <iframe srcdoc="@_html" sandbox="allow-scripts" class="ai-demo-iframe" title="Interaktivní demo"></iframe>
+                    <iframe srcdoc="@_html" sandbox="allow-scripts" class="ai-demo-iframe" title="Interaktivní cokoliv"></iframe>
                     <button class="compare-retry" @onclick="Regenerate" style="margin-top:0.5rem">Vygenerovat znovu</button>
                 }
             </div>
@@ -42,14 +42,15 @@
         _ = LoadBackground();
     }
 
-    private async Task LoadBackground()
+    private async Task LoadBackground(bool force = false)
     {
-        if (_loadedPostId == PostId) return;
+        if (_loadedPostId == PostId && !force) return;
         _loading = true;
         StateHasChanged();
         try
         {
-            var resp = await Http.PostAsync(new Uri(Navigation.BaseUri + $"api/ai/generate-demo/{PostId}"), null);
+            var url = Navigation.BaseUri + $"api/ai/generate-demo/{PostId}" + (force ? "?force=true" : "");
+            var resp = await Http.PostAsync(new Uri(url), null);
             if (resp.IsSuccessStatusCode)
             {
                 var data = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
@@ -69,7 +70,7 @@
     {
         _html = string.Empty;
         _loadedPostId = 0;
-        await LoadBackground();
+        await LoadBackground(force: true);
     }
 
     private void Toggle() => _open = !_open;

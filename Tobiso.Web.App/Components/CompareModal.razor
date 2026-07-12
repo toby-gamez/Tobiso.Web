@@ -77,7 +77,7 @@
             {
                 var data = await resp.Content.ReadFromJsonAsync<CompareResponse>();
                 _result = data?.MarkdownTable ?? string.Empty;
-                _renderedHtml = Markdig.Markdown.ToHtml(_result);
+                _renderedHtml = Tobiso.Web.App.Services.AiMarkdown.ToSafeHtml(_result);
             }
             else if ((int)resp.StatusCode == 429)
                 _error = "Denní limit dotazů byl vyčerpán.";

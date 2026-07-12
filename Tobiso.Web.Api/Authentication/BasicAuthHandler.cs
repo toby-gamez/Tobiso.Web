@@ -51,15 +51,28 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
             var password = credentials[1];
 
             var expectedUsername = _config["Auth:Basic:Username"];
+            var expectedPasswordHash = _config["Auth:Basic:PasswordHash"];
             var expectedPassword = _config["Auth:Basic:Password"];
             var userId = _config["Auth:Basic:UserId"] ?? Guid.Empty.ToString();
 
             var usernameMatch = CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(username ?? string.Empty),
                 Encoding.UTF8.GetBytes(expectedUsername ?? string.Empty));
-            var passwordMatch = CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(password ?? string.Empty),
-                Encoding.UTF8.GetBytes(expectedPassword ?? string.Empty));
+
+            // Prefer a PBKDF2 hash (Auth:Basic:PasswordHash). Fall back to a plaintext
+            // Auth:Basic:Password for backward compatibility while configs are migrated.
+            bool passwordMatch;
+            if (!string.IsNullOrEmpty(expectedPasswordHash))
+            {
+                passwordMatch = PasswordHasher.Verify(password ?? string.Empty, expectedPasswordHash);
+            }
+            else
+            {
+                passwordMatch = CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(password ?? string.Empty),
+                    Encoding.UTF8.GetBytes(expectedPassword ?? string.Empty));
+            }
+
             if (!usernameMatch || !passwordMatch)
             {
                 Logger.LogWarning("[BasicAuth] Invalid credentials for user: {User}", username);

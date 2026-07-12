@@ -96,7 +96,7 @@
         if (_map == null) return;
         try
         {
-            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/concept-map.js");
+            _jsModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/concept-map.js?v=3");
             await _jsModule.InvokeVoidAsync("renderConceptMap", $"concept-map-{PostId}", _map);
             _rendered = true;
         }

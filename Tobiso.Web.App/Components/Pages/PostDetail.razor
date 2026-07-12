@@ -1291,12 +1291,14 @@ body.dark-mode .solver-step-header:hover { background: rgba(255,255,255,.04); }
 .ai-demo-card .concept-map-body,
 .ai-demo-body { padding: .5rem; }
 .ai-demo-iframe {
+    display: block;
     width: 100%;
-    min-height: 280px;
-    border: none;
-    border-radius: 5px;
-    background: #fff;
+    min-height: 320px;
+    border: 1px solid var(--color-accent-2, #d89dbd);
+    border-radius: 6px;
+    background: #fdf3f9;
 }
+body.dark-mode .ai-demo-iframe { border-color: var(--color-accent-2-dark, #622748); }
 .ai-demo-hint { font-size: .78rem; opacity: .6; margin-top: .3rem; }
 
 /* Concept map card */

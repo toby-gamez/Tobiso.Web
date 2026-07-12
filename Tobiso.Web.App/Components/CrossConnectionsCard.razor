@@ -2,7 +2,7 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
-@if (_connections != null || _loading)
+@if (_loading || (_connections != null && _connections.Count > 0))
 {
     <div class="context-card cross-connections-card">
         <div class="context-card-header" @onclick="Toggle">
