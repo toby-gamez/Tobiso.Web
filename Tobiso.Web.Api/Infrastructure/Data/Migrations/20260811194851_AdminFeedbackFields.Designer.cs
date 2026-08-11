@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811194851_AdminFeedbackFields")]
+    partial class AdminFeedbackFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -548,81 +551,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("Posts");
                 });
 
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostAiDemo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("HtmlContent")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("PostAiDemos");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostConceptMap", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("MapJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("PostConceptMaps");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostCrossConnection", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConnectionsJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("PostCrossConnections");
-                });
-
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostDifficultyRating", b =>
                 {
                     b.Property<int>("Id")
@@ -674,31 +602,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasIndex("PostId");
 
                     b.ToTable("PostFunFacts");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostKeyTerms", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TermsJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("PostKeyTerms");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostVersion", b =>
@@ -1014,39 +917,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostAiDemo", b =>
-                {
-                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
-                        .WithMany()
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostConceptMap", b =>
-                {
-                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
-                        .WithMany()
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostCrossConnection", b =>
-                {
-                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
-                        .WithMany()
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostDifficultyRating", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
@@ -1059,17 +929,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostFunFact", b =>
-                {
-                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
-                        .WithMany()
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PostKeyTerms", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
                         .WithMany()

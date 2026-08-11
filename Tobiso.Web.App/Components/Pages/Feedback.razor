@@ -1,5 +1,6 @@
 @page "/feedback"
 @using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Domain.Entities
 @inject Tobiso.Web.Api.Services.IFeedbackService FeedbackService
 @inject NavigationManager NavigationManager
 
@@ -24,6 +25,30 @@
         background-color: #f8d7da;
         border-radius: 4px;
     }
+
+    .feedback-type-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .type-btn {
+        flex: 1;
+        padding: 10px;
+        border: 2px solid #ccc;
+        border-radius: 6px;
+        background: transparent;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    .type-btn.active {
+        border-color: #2980b9;
+        background-color: #ebf5fb;
+        font-weight: bold;
+    }
+
     @@media only screen and (min-width: 1200px) {
     textarea {
         max-width: 60rem;
@@ -43,6 +68,19 @@
     @if (!isSubmitted)
     {
     <div class="feedback-form">
+            <div class="feedback-type-selector">
+                <button type="button"
+                        class="type-btn @(feedback.Type == FeedbackType.Bug ? "active" : "")"
+                        @onclick="() => feedback.Type = FeedbackType.Bug">
+                    🐛 Chyba
+                </button>
+                <button type="button"
+                        class="type-btn @(feedback.Type == FeedbackType.FeatureRequest ? "active" : "")"
+                        @onclick="() => feedback.Type = FeedbackType.FeatureRequest">
+                    💡 Návrh
+                </button>
+            </div>
+
             <label for="feedback-name" class="visually-hidden">Vaše jméno</label>
             <input
                 id="feedback-name"
@@ -50,6 +88,17 @@
                 class="opinion-input"
                 placeholder="Vaše jméno"
                 @bind="feedback.Name"
+                required
+                aria-required="true"
+            />
+
+            <label for="feedback-title" class="visually-hidden">Krátký popis</label>
+            <input
+                id="feedback-title"
+                type="text"
+                class="opinion-input"
+                placeholder="Krátký popis (co se stalo / co navrhujete)"
+                @bind="feedback.Title"
                 required
                 aria-required="true"
             />
@@ -103,7 +152,7 @@
 </div>
 
 @code {
-    private CreateFeedbackDto feedback = new CreateFeedbackDto { Platform = "Web" };
+    private CreateFeedbackDto feedback = new CreateFeedbackDto { Platform = "Web", Type = FeedbackType.Bug };
     private bool isSubmitting = false;
     private bool isSubmitted = false;
     private bool showSuccess = false;
@@ -113,6 +162,7 @@
     {
         if (string.IsNullOrWhiteSpace(feedback.Name) ||
             string.IsNullOrWhiteSpace(feedback.Email) ||
+            string.IsNullOrWhiteSpace(feedback.Title) ||
             string.IsNullOrWhiteSpace(feedback.Message))
         {
             showError = true;
@@ -135,7 +185,7 @@
             {
                 isSubmitted = true;
                 showSuccess = true;
-                feedback = new CreateFeedbackDto { Platform = "Web" };
+                feedback = new CreateFeedbackDto { Platform = "Web", Type = FeedbackType.Bug };
             }
             else
             {

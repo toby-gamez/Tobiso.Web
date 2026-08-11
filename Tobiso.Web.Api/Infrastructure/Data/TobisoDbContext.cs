@@ -19,6 +19,7 @@ public class TobisoDbContext : DbContext
     public DbSet<RelatedPost> RelatedPosts { get; set; }
     public DbSet<Addendum> Addendums { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
+    public DbSet<DeviceToken> DeviceTokens { get; set; }
     public DbSet<InteractiveExercise> InteractiveExercises { get; set; }
     public DbSet<InteractiveExercisePost> InteractiveExercisePosts { get; set; }
     public DbSet<InteractiveExerciseCategory> InteractiveExerciseCategories { get; set; }

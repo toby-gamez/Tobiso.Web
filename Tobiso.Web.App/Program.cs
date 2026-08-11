@@ -1,3 +1,5 @@
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Tobiso.Web.Shared.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -107,6 +109,8 @@ services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
 services.AddScoped<PersonModalService>();
+services.AddScoped<IPushNotificationService, PushNotificationService>();
+services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
@@ -243,6 +247,19 @@ services.AddSwaggerGen(options =>
         }
     });
 });
+
+var firebaseCreds = builder.Configuration["Auth:Firebase:CredentialsPath"];
+if (!string.IsNullOrEmpty(firebaseCreds))
+{
+    // Resolve relative paths against the app's content root (same folder as appsettings.json)
+    var fullPath = Path.IsPathRooted(firebaseCreds)
+        ? firebaseCreds
+        : Path.Combine(builder.Environment.ContentRootPath, firebaseCreds);
+    if (File.Exists(fullPath))
+        FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fullPath) });
+    else
+        Log.Warning("Firebase credentials file not found at {Path} — push notifications disabled", fullPath);
+}
 
 var app = builder.Build();
 
