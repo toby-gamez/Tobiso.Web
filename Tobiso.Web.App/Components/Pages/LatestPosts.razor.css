@@ -1,0 +1,76 @@
+.latest-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 800px;
+}
+
+.latest-page h1 {
+    font-size: 42px;
+    margin-bottom: var(--space-2);
+}
+
+.latest-page > div > p {
+    font-size: 16px;
+    color: var(--color-neutral-600);
+}
+
+.filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.post-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.post-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    font: inherit;
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+    width: 100%;
+}
+
+.post-row-main {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.post-row-title {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 20px;
+}
+
+.post-row-meta {
+    display: block;
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    margin-top: 2px;
+}
+
+.post-row-grades {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.post-row-date {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    width: 96px;
+    text-align: right;
+    flex-shrink: 0;
+}

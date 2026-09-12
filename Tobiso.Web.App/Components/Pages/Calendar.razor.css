@@ -1,0 +1,121 @@
+.calendar-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 900px;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.calendar-header h1 { font-size: 42px; margin: 0 0 var(--space-2); }
+.calendar-header p { font-size: 16px; color: var(--color-neutral-600); margin: 0; }
+
+.calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.calendar-month-label {
+    font-family: var(--font-heading);
+    font-size: 19px;
+    min-width: 150px;
+    text-align: center;
+    text-transform: capitalize;
+}
+
+.calendar-grid-wrap { padding: var(--space-4); }
+
+.calendar-weekdays,
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.calendar-weekdays {
+    margin-bottom: 6px;
+}
+
+.calendar-weekdays span {
+    text-align: center;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-neutral-600);
+}
+
+.calendar-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 76px;
+    padding: 6px;
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.calendar-cell-muted { opacity: .4; }
+
+.calendar-cell-today {
+    outline: 2px solid var(--color-accent-600);
+    outline-offset: -2px;
+}
+
+.calendar-daynum {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.calendar-event {
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 2px 5px;
+    border-radius: 999px;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-more {
+    font-size: 10px;
+    color: var(--color-neutral-600);
+}
+
+.calendar-page h2 { font-size: 26px; margin: 0 0 var(--space-3); }
+
+.calendar-upcoming {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.calendar-upcoming-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+}
+
+.calendar-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.calendar-upcoming-title { flex: 1; font-size: 15px; }
+
+.calendar-upcoming-date {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    white-space: nowrap;
+}

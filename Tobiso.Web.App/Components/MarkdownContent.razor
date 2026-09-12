@@ -1,4 +1,6 @@
 @using System.Text.RegularExpressions
+@using System.Globalization
+@using System.Text
 @using Tobiso.Web.Shared.DTOs
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
@@ -11,13 +13,25 @@
     [Parameter] public List<PersonSummaryResponse>? AllPeople { get; set; }
     /// <summary>ID of the container element that wraps this component's output – used by KaTeX to target math rendering.</summary>
     [Parameter] public string ContainerId { get; set; } = "content";
+    /// <summary>Raised after each render with the level-2 headings found in the content, in document order, as (Text, Anchor id) — lets a host page build a table of contents that links to real element ids.</summary>
+    [Parameter] public EventCallback<List<(string Text, string Anchor)>> OnHeadingsExtracted { get; set; }
 
     private string _renderedHtml = string.Empty;
     private bool _katexLoaded = false;
+    private readonly List<(string Text, string Anchor)> _headings = [];
+    private string? _lastProcessedContent;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
+        // Blazor calls OnParametersSetAsync on every parent render, not just when Content
+        // actually changes. Re-invoking OnHeadingsExtracted unconditionally lets a parent that
+        // calls StateHasChanged() from the callback re-render itself into an infinite loop.
+        if (Content == _lastProcessedContent) return;
+        _lastProcessedContent = Content;
+
         _renderedHtml = TransformMarkdownContent(Content);
+        if (OnHeadingsExtracted.HasDelegate)
+            await OnHeadingsExtracted.InvokeAsync([.. _headings]);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -204,9 +218,9 @@
             return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
         });
 
-        // Wrap text between ... ... into intro div
+        // Wrap text between ... ... into the lead-paragraph div
         var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
-        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>", 1);
+        html = dotsRegex.Replace(html, m => $"<div class=\"post-lead\">{m.Groups[2].Value}</div>", 1);
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
         html = html.Replace("...", "");
@@ -250,7 +264,45 @@
         // don't break mobile layouts. This wraps any <table ...>...</table>
         // with <div class="table-scroll-wrapper">...</div>.
         html = WrapTablesForScroll(html);
+        html = InjectHeadingIds(html);
         return html;
+    }
+
+    // Adds a stable id="" to each h2/h3 so a table of contents can link straight to it,
+    // and records the h2s (in document order) for OnHeadingsExtracted.
+    private string InjectHeadingIds(string html)
+    {
+        _headings.Clear();
+        var used = new HashSet<string>();
+        var headingRegex = new Regex(@"<h([23])>(.*?)</h\1>", RegexOptions.Singleline);
+
+        return headingRegex.Replace(html, m =>
+        {
+            var level = m.Groups[1].Value;
+            var inner = m.Groups[2].Value;
+            var text = Regex.Replace(inner, "<[^>]+>", "").Trim();
+
+            var anchor = Slugify(text);
+            if (anchor.Length == 0) anchor = "sekce";
+            var unique = anchor;
+            for (var i = 2; !used.Add(unique); i++) unique = $"{anchor}-{i}";
+
+            if (level == "2") _headings.Add((text, unique));
+            return $"<h{level} id=\"{unique}\">{inner}</h{level}>";
+        });
+    }
+
+    private static string Slugify(string text)
+    {
+        var normalized = text.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        var slug = Regex.Replace(sb.ToString().Normalize(NormalizationForm.FormC), "[^a-z0-9]+", "-");
+        return slug.Trim('-');
     }
 
     private string WrapTablesForScroll(string html)

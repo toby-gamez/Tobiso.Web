@@ -1,0 +1,93 @@
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-8);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand-logo-sm {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+    border-radius: 999px;
+    font-family: var(--font-heading);
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.brand-name-sm {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.login-title {
+    font-size: 32px;
+    margin-bottom: 6px;
+}
+
+.login-sub {
+    font-size: 15px;
+    color: var(--color-neutral-600);
+}
+
+.login-submit {
+    justify-content: center;
+    padding: 13px 24px;
+    font-size: 15px;
+}
+
+.login-google {
+    justify-content: center;
+    padding: 12px 24px;
+    background: var(--color-neutral-100);
+    text-decoration: none;
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: 13px;
+    color: var(--color-neutral-500);
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-divider);
+}
+
+.login-error {
+    padding: 10px 14px;
+    background: #fde3ca;
+    color: var(--color-accent-800);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+}
+
+.login-register {
+    font-size: 14px;
+    color: var(--color-neutral-600);
+    text-align: center;
+    margin: 0;
+}
+
+.login-register a {
+    color: var(--color-accent-700);
+}

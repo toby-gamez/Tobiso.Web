@@ -1,0 +1,116 @@
+@page "/calendar"
+@page "/kalendar"
+@inject IEventService EventService
+@inject IJSRuntime JS
+
+<PageTitle>Kalendář — Tobiso</PageTitle>
+
+<div class="calendar-page">
+    <div class="calendar-header">
+        <div>
+            <h1>Kalendář</h1>
+            <p>Prázdniny, státní svátky a tvoje připomínky.</p>
+        </div>
+        <div class="calendar-nav">
+            <button class="pill" @onclick="PrevMonth" aria-label="Předchozí měsíc"><i data-lucide="chevron-left"></i></button>
+            <span class="calendar-month-label">@MonthLabel</span>
+            <button class="pill" @onclick="NextMonth" aria-label="Další měsíc"><i data-lucide="chevron-right"></i></button>
+        </div>
+    </div>
+
+    <div class="soft calendar-grid-wrap">
+        <div class="calendar-weekdays">
+            @foreach (var d in Weekdays)
+            {
+                <span>@d</span>
+            }
+        </div>
+        <div class="calendar-grid">
+            @foreach (var cell in Cells)
+            {
+                var dayEvents = EventsOn(cell.Date);
+                <div class="calendar-cell @(cell.InMonth ? "" : "calendar-cell-muted") @(cell.Date.Date == DateTime.Today ? "calendar-cell-today" : "")">
+                    <span class="calendar-daynum">@cell.Date.Day</span>
+                    @foreach (var e in dayEvents.Take(2))
+                    {
+                        <span class="calendar-event" style="background:@e.Color" title="@e.Title">@e.Title</span>
+                    }
+                    @if (dayEvents.Count > 2)
+                    {
+                        <span class="calendar-more">+@(dayEvents.Count - 2)</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div>
+        <h2>Nejbližší události</h2>
+        @if (Upcoming.Count == 0)
+        {
+            <p style="color:var(--color-neutral-600)">Žádné nadcházející události.</p>
+        }
+        else
+        {
+            <div class="calendar-upcoming">
+                @foreach (var e in Upcoming)
+                {
+                    <div class="soft calendar-upcoming-row">
+                        <span class="calendar-dot" style="background:@e.Color"></span>
+                        <span class="calendar-upcoming-title">@e.Title</span>
+                        <span class="calendar-upcoming-date">@FormatRange(e)</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly string[] Weekdays = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+
+    private DateTime _month = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<EventResponse> _events = [];
+
+    private record Cell(DateTime Date, bool InMonth);
+
+    protected override async Task OnInitializedAsync() => await LoadMonth();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+
+    private async Task LoadMonth()
+    {
+        _events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
+    }
+
+    private async Task PrevMonth() { _month = _month.AddMonths(-1); await LoadMonth(); }
+    private async Task NextMonth() { _month = _month.AddMonths(1); await LoadMonth(); }
+
+    private string MonthLabel => _month.ToString("MMMM yyyy", new System.Globalization.CultureInfo("cs-CZ"));
+
+    private List<Cell> Cells
+    {
+        get
+        {
+            var offset = ((int)_month.DayOfWeek + 6) % 7;
+            var start = _month.AddDays(-offset);
+            return [.. Enumerable.Range(0, 42)
+                .Select(i => start.AddDays(i))
+                .Select(d => new Cell(d, d.Month == _month.Month && d.Year == _month.Year))];
+        }
+    }
+
+    private List<EventResponse> EventsOn(DateTime day) =>
+        [.. _events.Where(e => e.StartDate.Date <= day.Date && (e.EndDate?.Date ?? e.StartDate.Date) >= day.Date)];
+
+    private List<EventResponse> Upcoming =>
+        [.. _events.Where(e => (e.EndDate?.Date ?? e.StartDate.Date) >= DateTime.Today)
+            .OrderBy(e => e.StartDate)
+            .Take(6)];
+
+    private static string FormatRange(EventResponse e) =>
+        e.EndDate.HasValue && e.EndDate.Value.Date != e.StartDate.Date
+            ? $"{e.StartDate:d. M.} – {e.EndDate.Value:d. M. yyyy}"
+            : e.StartDate.ToString("d. M. yyyy");
+}

@@ -1,0 +1,84 @@
+@page "/chat"
+@inject IAiChatHistoryService ChatHistory
+@inject IPostService PostService
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>AI chat — Tobiso</PageTitle>
+
+<div class="chat-page">
+    <div class="chat-main">
+        <div class="chat-header">
+            <div>
+                <h1>AI chat</h1>
+                <p>Zeptej se na cokoliv z učiva. Odpovídá v češtině a drží se látky.</p>
+            </div>
+            @if (_isAuth)
+            {
+                <span class="grade-chip"><i data-lucide="coins"></i> @_credits kreditů</span>
+            }
+        </div>
+
+        <div class="chat-panel soft">
+            <AiChatBox PostId="0"
+                       EmptyTitle="Na co se dnes podíváme?"
+                       Suggestions="@(new[] { "Vysvětli mi Pythagorovu větu", "Jak funguje fotosyntéza?", "Dej mi příklad na zlomky" })" />
+        </div>
+    </div>
+
+    <aside class="chat-history">
+        <h2>Historie</h2>
+        @if (!_isAuth)
+        {
+            <p class="chat-history-empty">Historie se ukládá po <a href="/prihlaseni">přihlášení</a>.</p>
+        }
+        else if (_sessions.Count == 0)
+        {
+            <p class="chat-history-empty">Zatím žádné konverzace.</p>
+        }
+        else
+        {
+            <div class="chat-history-list">
+                @foreach (var s in _sessions)
+                {
+                    <a class="chat-history-item lift" href="/post/@(s.PostId)">
+                        <span class="chat-history-title">@PostTitle(s.PostId)</span>
+                        <span class="chat-history-date">@s.UpdatedAt.ToLocalTime().ToString("d. M. yyyy")</span>
+                    </a>
+                }
+            </div>
+        }
+    </aside>
+</div>
+
+@code {
+    private bool _isAuth;
+    private int _userId;
+    private int _credits;
+    private List<Tobiso.Web.Domain.Entities.AiChatSession> _sessions = [];
+    private Dictionary<int, string> _postTitles = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        _isAuth = auth.User.Identity?.IsAuthenticated == true;
+        if (!_isAuth) return;
+
+        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
+
+        _sessions = await ChatHistory.GetUserSessionsAsync(_userId);
+        var summaries = await PostService.GetSummaries();
+        foreach (var p in summaries) _postTitles[p.Id] = p.Title;
+        _credits = (await UserService.GetByIdAsync(_userId))?.Credits ?? 0;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private string PostTitle(int postId) =>
+        _postTitles.TryGetValue(postId, out var t) ? t : "Obecná konverzace";
+}

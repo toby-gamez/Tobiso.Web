@@ -1,0 +1,414 @@
+/* Organic utility classes — Tobiso.Web */
+
+/* Pills */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--color-divider);
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 120ms ease;
+}
+
+.pill:hover {
+    background: var(--color-neutral-100);
+}
+
+.pill-on {
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+    border-color: transparent;
+}
+
+.pill-on:hover {
+    background: var(--color-accent-700);
+}
+
+/* Card hover lift */
+.lift {
+    transition: background 120ms ease;
+}
+
+/* Card and row links must not read as inline text links */
+a.lift,
+a.soft,
+a.sage-tint {
+    text-decoration: none;
+    color: inherit;
+}
+
+.lift:hover {
+    background: var(--color-surface) !important;
+}
+
+/* Soft card */
+.soft {
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+}
+
+/* Sage tint */
+.sage-tint {
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-900);
+}
+
+/* Grade chip */
+.grade-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--color-accent-200);
+    color: var(--color-accent-800);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* Form field */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Input */
+.input {
+    font: inherit;
+    font-size: 15px;
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    color: var(--color-text);
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 120ms ease;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-accent-600);
+}
+
+.input::placeholder {
+    color: var(--color-neutral-500);
+}
+
+/* Skeleton loading */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--color-neutral-200) 25%,
+        var(--color-neutral-100) 50%,
+        var(--color-neutral-200) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Article prose */
+#article-prose {
+    font-size: 17px;
+    line-height: 1.75;
+    max-width: 68ch;
+    color: var(--color-text);
+}
+
+#article-prose p {
+    margin: 0 0 1.1em;
+}
+
+#article-prose h2 {
+    font-family: var(--font-heading);
+    font-size: 27px;
+    margin: 2em 0 0.5em;
+    color: var(--color-text);
+}
+
+#article-prose h3 {
+    font-family: var(--font-heading);
+    font-size: 21px;
+    margin: 1.6em 0 0.4em;
+    color: var(--color-text);
+}
+
+#article-prose ul,
+#article-prose ol {
+    margin: 0 0 1.2em;
+    padding-left: 1.4em;
+}
+
+#article-prose li {
+    margin-bottom: 0.35em;
+}
+
+#article-prose strong {
+    font-weight: 700;
+}
+
+#article-prose a {
+    color: var(--color-accent-700);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+#article-prose a:hover {
+    color: var(--color-accent-800);
+}
+
+#article-prose table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1.2em;
+}
+
+#article-prose th {
+    background: var(--color-surface);
+    font-weight: 700;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--color-divider);
+}
+
+#article-prose td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--color-divider);
+}
+
+/* Lead paragraph: authored in markdown between "..." markers */
+#article-prose .post-lead {
+    padding: var(--space-6);
+    background: var(--color-accent-200);
+    color: var(--color-accent-900);
+    border-radius: var(--radius-lg);
+    font-size: 19px;
+    line-height: 1.6;
+    font-weight: 500;
+    margin: 0 0 1.6em;
+}
+
+/* Toolbar button */
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 120ms ease;
+}
+
+.toolbar-btn:hover {
+    background: var(--color-neutral-100);
+}
+
+/* Rail nav item */
+.rail-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--color-text);
+    font-size: 15px;
+    font: inherit;
+    font-size: 15px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background 120ms ease;
+}
+
+.rail-item:hover {
+    background: var(--color-neutral-200);
+}
+
+.rail-item.active {
+    background: var(--color-accent-200);
+    font-weight: 700;
+}
+
+/* Progress bar */
+.progress-bar {
+    height: 6px;
+    background: var(--color-neutral-300);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--color-accent-600);
+    border-radius: 999px;
+    transition: width 300ms ease;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
+.breadcrumb a {
+    color: var(--color-accent-700);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb-sep {
+    opacity: 0.45;
+}
+
+/* Callout tip */
+.callout-tip {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: #ffe1d0;
+    border-radius: var(--radius-lg);
+    margin: var(--space-6) 0;
+    max-width: 68ch;
+}
+
+.callout-tip-icon {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-600);
+    color: #fff8f3;
+    border-radius: 999px;
+    font-size: 18px;
+}
+
+/* Callout sidefact */
+.callout-sidefact {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--color-accent-2-200);
+    border-radius: var(--radius-lg);
+    margin: var(--space-6) 0;
+    max-width: 68ch;
+}
+
+/* Stats row */
+.stat-card {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.stat-card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-700);
+}
+
+.stat-card-value {
+    font-family: var(--font-heading);
+    font-size: 38px;
+    line-height: 1;
+}
+
+.stat-card-sub {
+    font-size: 14px;
+    color: var(--color-neutral-600);
+}
+
+/* Lucide icon sizing */
+svg.lucide {
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+}
+
+/* Segmented control (reading settings) */
+.seg-control {
+    display: flex;
+    gap: 6px;
+}
+
+.seg-btn {
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--color-divider);
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.seg-btn:hover {
+    background: var(--color-neutral-200);
+}
+
+.seg-btn.active {
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+    border-color: transparent;
+}
+
+/* Chapter link (ToC) */
+.toc-link {
+    display: block;
+    padding: 7px 12px;
+    text-decoration: none;
+    font-size: 14px;
+    color: var(--color-neutral-600);
+    border-left: 2px solid var(--color-divider);
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.toc-link:hover {
+    color: var(--color-text);
+}
+
+.toc-link.active {
+    border-left-color: var(--color-accent-600);
+    color: var(--color-text);
+    font-weight: 600;
+}

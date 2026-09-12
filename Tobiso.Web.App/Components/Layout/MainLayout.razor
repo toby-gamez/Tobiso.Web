@@ -1,3 +1,16 @@
 @inherits LayoutComponentBase
 
-@Body
+<div class="app-shell">
+    <NavMenu OnSearchOpen="OpenSearch" />
+    <main class="main-content">
+        @Body
+    </main>
+</div>
+
+<SearchModal @ref="_search" />
+
+@code {
+    private SearchModal? _search;
+
+    private void OpenSearch() => _search?.Open();
+}

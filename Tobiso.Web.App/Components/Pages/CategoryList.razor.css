@@ -1,0 +1,101 @@
+.category-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 860px;
+}
+
+.category-page h1 {
+    font-size: 42px;
+    margin-bottom: var(--space-2);
+}
+
+.category-page > div > p {
+    font-size: 16px;
+    color: var(--color-neutral-600);
+}
+
+.subcategory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-3);
+}
+
+.subcategory-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    text-align: left;
+    font: inherit;
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-surface);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+}
+
+.subcategory-name {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 20px;
+}
+
+.subcategory-count {
+    display: block;
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
+.article-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.article-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    font: inherit;
+    font-size: 16px;
+    padding: 12px var(--space-4);
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--color-text);
+}
+
+.category-page h2 {
+    font-size: 26px;
+    margin-bottom: var(--space-3);
+}
+
+.root-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-3);
+}
+
+.subject-root-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    font: inherit;
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-neutral-100);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+}
+
+.subject-icon {
+    font-size: 24px;
+    color: var(--color-accent-600);
+    flex-shrink: 0;
+}

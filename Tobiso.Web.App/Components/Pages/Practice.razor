@@ -1,0 +1,87 @@
+@page "/practice"
+@inject IQuestionService QuestionService
+@inject ICategoryService CategoryService
+@inject IPostService PostService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Procvičování — Tobiso</PageTitle>
+
+<div class="practice-page">
+    <div>
+        <h1>Procvičování</h1>
+        <p>„Ověř si porozumění" najdeš přímo na konci každého článku — tady jsou všechny otázky na jednom místě.</p>
+    </div>
+
+    <div class="practice-mode-grid">
+        <button class="practice-mode-card" style="background:var(--color-accent-200); color:var(--color-accent-900)">
+            <i data-lucide="layers" style="font-size:24px"></i>
+            <span class="practice-mode-title">Kartičky</span>
+            <span class="practice-mode-desc">Rychlé opakování pojmů.</span>
+        </button>
+        <button class="practice-mode-card lift" @onclick="@(() => Nav.NavigateTo("/practice/quiz"))">
+            <i data-lucide="file-check-2" style="font-size:24px; color:var(--color-accent-600)"></i>
+            <span class="practice-mode-title">Ověř si porozumění</span>
+            <span class="practice-mode-desc" style="color:var(--color-neutral-600)">Otázky s výběrem odpovědi z jednotlivých článků.</span>
+        </button>
+        <button class="practice-mode-card sage-tint">
+            <i data-lucide="sparkles" style="font-size:24px"></i>
+            <span class="practice-mode-title">AI zkoušení</span>
+            <span class="practice-mode-desc">Odpovídáš vlastními slovy.</span>
+        </button>
+    </div>
+
+    <div>
+        <h2>Zásoba otázek</h2>
+        <div class="filter-pills" style="margin-bottom:var(--space-4)">
+            <button class="pill @(_activeFilter == null ? "pill-on" : "")" @onclick="@(() => _activeFilter = null)">Vše · @_questions.Count</button>
+            @foreach (var (name, count) in CategoryCounts)
+            {
+                <button class="pill @(_activeFilter == name ? "pill-on" : "")" @onclick="@(() => _activeFilter = name)">@name · @count</button>
+            }
+        </div>
+        <div class="question-list">
+            @foreach (var q in FilteredQuestions.Take(20))
+            {
+                <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+                    <span style="flex:1 1 240px; font-size:16px">@q.QuestionText</span>
+                    <span style="font-size:13px; color:var(--color-neutral-600)">@q.Answers.Count odpovědí</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<QuestionResponse> _questions = [];
+    private string? _activeFilter;
+    private readonly Dictionary<int, string> _postCategory = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _questions = await QuestionService.GetAll();
+        var categories = await CategoryService.GetAll();
+        var catNames = categories.ToDictionary(c => c.Id, c => c.Name);
+        foreach (var p in await PostService.GetSummaries())
+        {
+            if (p.CategoryId is int catId && catNames.TryGetValue(catId, out var name))
+                _postCategory[p.Id] = name;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private IEnumerable<QuestionResponse> FilteredQuestions => _activeFilter == null
+        ? _questions
+        : _questions.Where(q => _postCategory.TryGetValue(q.PostId, out var n) && n == _activeFilter);
+
+    private IEnumerable<(string Name, int Count)> CategoryCounts =>
+        _questions
+            .GroupBy(q => _postCategory.TryGetValue(q.PostId, out var n) ? n : "Ostatní")
+            .Select(g => (Name: g.Key, Count: g.Count()))
+            .OrderByDescending(x => x.Count)
+            .Take(5);
+}

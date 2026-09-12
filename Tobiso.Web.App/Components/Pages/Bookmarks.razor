@@ -1,0 +1,81 @@
+@page "/zalozky"
+@inject IUserProgressService UserProgressService
+@inject IPostService PostService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Záložky — Tobiso</PageTitle>
+
+<div class="bookmarks-page">
+    <div>
+        <h1>Záložky</h1>
+        <p>Na stránce článku klikni na záložku a uloží se sem.</p>
+    </div>
+
+    @if (!_isAuth)
+    {
+        <div class="soft" style="padding:var(--space-6); text-align:center">
+            <p>Pro záložky se musíš <a href="/prihlaseni">přihlásit</a>.</p>
+        </div>
+    }
+    else if (_posts.Count == 0 && !_loading)
+    {
+        <div class="soft" style="padding:var(--space-6); text-align:center">
+            <p>Zatím nemáš žádné záložky.</p>
+        </div>
+    }
+    else
+    {
+        <div class="bookmarks-grid">
+            @foreach (var post in _posts)
+            {
+                <div class="soft" style="padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-2)">
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-2)">
+                        <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Uloženo</span>
+                        <button aria-label="Odebrat" class="pill" style="width:30px; height:30px; padding:0; justify-content:center; border-color:transparent"
+                                @onclick="@(() => RemoveBookmark(post.Id))">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <a class="bookmark-title" href="/post/@(post.Id)">
+                        @post.Title
+                    </a>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _isAuth;
+    private int _userId;
+    private List<PostSummaryResponse> _posts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        _isAuth = auth.User.Identity?.IsAuthenticated == true;
+        if (!_isAuth) { _loading = false; return; }
+
+        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId))
+        { _loading = false; return; }
+
+        var ids = await UserProgressService.GetBookmarkIdsAsync(_userId);
+        var all = await PostService.GetSummaries();
+        _posts = [.. all.Where(p => ids.Contains(p.Id))];
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private async Task RemoveBookmark(int postId)
+    {
+        await UserProgressService.RemoveBookmarkAsync(_userId, postId);
+        _posts.RemoveAll(p => p.Id == postId);
+    }
+}

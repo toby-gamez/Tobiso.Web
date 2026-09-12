@@ -1,0 +1,127 @@
+@page "/feedback"
+@page "/zpetna-vazba"
+@using Tobiso.Web.Domain.Entities
+@inject IFeedbackService FeedbackService
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Zpětná vazba — Tobiso</PageTitle>
+
+<div class="feedback-page">
+    <div>
+        <h1>Zpětná vazba</h1>
+        <p>Našel jsi chybu nebo máš nápad? Napiš nám — čteme všechno.</p>
+    </div>
+
+    @if (_sent)
+    {
+        <div class="soft feedback-done">
+            <i data-lucide="check-circle-2" style="font-size:32px; color:var(--color-accent-2-700)"></i>
+            <p>Díky! Zpětnou vazbu jsme uložili.</p>
+            <button class="pill" @onclick="Reset">Napsat další</button>
+        </div>
+    }
+    else
+    {
+        <div class="soft feedback-form">
+            <div class="field">
+                <label>O co jde?</label>
+                <div class="filter-pills">
+                    <button class="pill @(_type == FeedbackType.Bug ? "pill-on" : "")" @onclick="@(() => _type = FeedbackType.Bug)">Chyba v obsahu</button>
+                    <button class="pill @(_type == FeedbackType.FeatureRequest ? "pill-on" : "")" @onclick="@(() => _type = FeedbackType.FeatureRequest)">Návrh na vylepšení</button>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="fb-name">Jméno</label>
+                <input id="fb-name" class="input" @bind="_name" placeholder="Jak ti máme říkat?" />
+            </div>
+
+            <div class="field">
+                <label for="fb-email">E-mail</label>
+                <input id="fb-email" class="input" type="email" @bind="_email" placeholder="abys věděl, jak to dopadlo" />
+            </div>
+
+            <div class="field">
+                <label for="fb-title">Nadpis</label>
+                <input id="fb-title" class="input" @bind="_title" placeholder="Stručně, o co jde" />
+            </div>
+
+            <div class="field">
+                <label for="fb-message">Zpráva</label>
+                <textarea id="fb-message" class="input" rows="6" @bind="_message" placeholder="Popiš to co nejkonkrétněji — kde, co a co jsi čekal."></textarea>
+            </div>
+
+            @if (_error != null)
+            {
+                <div class="feedback-error">@_error</div>
+            }
+
+            <button class="pill pill-on feedback-submit" @onclick="Submit" disabled="@_sending">
+                @(_sending ? "Odesílám…" : "Odeslat")
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private FeedbackType _type = FeedbackType.Bug;
+    private string _name = "";
+    private string _email = "";
+    private string _title = "";
+    private string _message = "";
+    private bool _sending;
+    private bool _sent;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true)
+            _name = auth.User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+
+    private async Task Submit()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_message))
+        {
+            _error = "Vyplň prosím nadpis a zprávu.";
+            return;
+        }
+
+        _sending = true;
+        try
+        {
+            var created = await FeedbackService.Create(new CreateFeedbackDto
+            {
+                Name = _name.Trim(),
+                Email = _email.Trim(),
+                Title = _title.Trim(),
+                Message = _message.Trim(),
+                Platform = "web",
+                Type = _type
+            });
+
+            if (created == null) _error = "Odeslání se nezdařilo. Zkus to prosím znovu.";
+            else _sent = true;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Odeslání se nezdařilo: {ex.Message}";
+        }
+        _sending = false;
+    }
+
+    private void Reset()
+    {
+        _sent = false;
+        _title = "";
+        _message = "";
+        _type = FeedbackType.Bug;
+    }
+}

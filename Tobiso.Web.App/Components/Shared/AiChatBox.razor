@@ -1,0 +1,152 @@
+@using Tobiso.Web.App.Services
+@using System.Threading
+@implements IDisposable
+@inject IAiService AiService
+@inject IJSRuntime JS
+
+<div class="chat-box">
+    @if (_messages.Count == 0)
+    {
+        <div class="chat-empty">
+            <i data-lucide="sparkles" style="font-size:28px; color:var(--color-accent-600)"></i>
+            <p class="chat-empty-title">@EmptyTitle</p>
+            <div class="chat-suggestions">
+                @foreach (var s in Suggestions)
+                {
+                    <button class="pill" @onclick="@(() => UseSuggestion(s))">@s</button>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="chat-thread">
+            @foreach (var m in _messages)
+            {
+                <div class="chat-msg @(m.Role == "user" ? "chat-msg-user" : "chat-msg-ai")">
+                    <div class="chat-bubble">@m.Content</div>
+                </div>
+            }
+            @if (_streaming)
+            {
+                <div class="chat-msg chat-msg-ai">
+                    <div class="chat-bubble">
+                        @if (_pending.Length == 0)
+                        {
+                            <span class="chat-dots"><span></span><span></span><span></span></span>
+                        }
+                        else
+                        {
+                            @_pending.ToString()
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (_error != null)
+    {
+        <div class="chat-error">@_error</div>
+    }
+
+    <div class="chat-input-row">
+        <input class="input" placeholder="@Placeholder" @bind="_draft" @bind:event="oninput"
+               @onkeydown="OnKeyDown" disabled="@_streaming" />
+        <button class="pill pill-on chat-send" @onclick="Send" disabled="@(_streaming || string.IsNullOrWhiteSpace(_draft))">
+            <i data-lucide="send"></i>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public bool SocraticMode { get; set; }
+    [Parameter] public string EmptyTitle { get; set; } = "Zeptej se na cokoliv z učiva.";
+    [Parameter] public string Placeholder { get; set; } = "Napiš otázku…";
+    [Parameter] public string[] Suggestions { get; set; } = ["Vysvětli mi to jednodušeji", "Dej mi příklad", "Na co se mě můžou zeptat?"];
+    [Parameter] public EventCallback<string> OnAnswered { get; set; }
+
+    private readonly List<AiMessage> _messages = [];
+    private readonly System.Text.StringBuilder _pending = new();
+    private readonly CancellationTokenSource _cts = new();
+    private string _draft = "";
+    private bool _streaming;
+    private string? _error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey) await Send();
+    }
+
+    private void UseSuggestion(string s)
+    {
+        _draft = s;
+    }
+
+    private async Task Send()
+    {
+        var question = _draft.Trim();
+        if (question.Length == 0 || _streaming) return;
+
+        _draft = "";
+        _error = null;
+        _messages.Add(new AiMessage { Role = "user", Content = question });
+        _pending.Clear();
+        _streaming = true;
+        StateHasChanged();
+
+        var request = new AiChatRequest
+        {
+            PostId = PostId,
+            Question = question,
+            SocraticMode = SocraticMode,
+            ConversationHistory = [.. _messages.Take(_messages.Count - 1)]
+        };
+
+        try
+        {
+            await foreach (var chunk in AiService.AskStreamAsync(request, _cts.Token))
+            {
+                _pending.Append(chunk);
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed (e.g. user navigated away) while streaming; stop touching state.
+            return;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Odpověď se nepodařilo načíst: {ex.Message}";
+        }
+
+        var answer = _pending.ToString();
+        _streaming = false;
+        _pending.Clear();
+
+        if (answer.Length > 0)
+        {
+            _messages.Add(new AiMessage { Role = "assistant", Content = answer });
+            if (OnAnswered.HasDelegate) await OnAnswered.InvokeAsync(answer);
+        }
+        else if (_error == null)
+        {
+            _error = "AI neodpověděla. Zkus to prosím znovu.";
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

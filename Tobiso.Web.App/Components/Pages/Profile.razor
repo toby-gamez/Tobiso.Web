@@ -1,0 +1,136 @@
+@page "/profil"
+@inject IUserProgressService UserProgressService
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Profil — Tobiso</PageTitle>
+
+<div class="profile-page">
+    @if (!_isAuth)
+    {
+        <div class="soft" style="padding:var(--space-8); text-align:center">
+            <h1 style="font-size:32px; margin:0 0 var(--space-3)">Profil</h1>
+            <p>Pro zobrazení profilu se <a href="/prihlaseni">přihlas</a>.</p>
+        </div>
+    }
+    else
+    {
+        <div class="profile-header soft">
+            <div class="profile-avatar">@Initials</div>
+            <div class="profile-identity">
+                <h1>@_displayName</h1>
+                <p>@_email</p>
+            </div>
+        </div>
+
+        <div class="profile-stats">
+            <div class="stat-card">
+                <i data-lucide="flame" style="color:var(--color-accent-600)"></i>
+                <span class="stat-value">@(_stats?.StreakDays ?? 0)</span>
+                <span class="stat-label">Dní v řadě</span>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="book-open" style="color:var(--color-accent-600)"></i>
+                <span class="stat-value">@(_stats?.TotalRead ?? 0)</span>
+                <span class="stat-label">Přečteno</span>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="coins" style="color:var(--color-accent-600)"></i>
+                <span class="stat-value">@_credits</span>
+                <span class="stat-label">Kreditů</span>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="award" style="color:var(--color-accent-600)"></i>
+                <span class="stat-value">@(_stats?.Badges.Count ?? 0)</span>
+                <span class="stat-label">Odznaků</span>
+            </div>
+        </div>
+
+        <div>
+            <h2>Pokrok podle předmětů</h2>
+            @if (_stats == null || _stats.PerSubject.Count == 0)
+            {
+                <p style="color:var(--color-neutral-600)">Zatím žádný pokrok — přečti si první článek.</p>
+            }
+            else
+            {
+                <div class="profile-subjects">
+                    @foreach (var s in _stats.PerSubject.OrderByDescending(x => x.Count))
+                    {
+                        <div class="profile-subject">
+                            <div class="profile-subject-row">
+                                <span>@s.SubjectName</span>
+                                <span style="color:var(--color-neutral-600)">@s.Count</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" style="width:@(MaxSubject == 0 ? 0 : s.Count * 100 / MaxSubject)%"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div>
+            <h2>Odznaky</h2>
+            @if (_stats == null || _stats.Badges.Count == 0)
+            {
+                <p style="color:var(--color-neutral-600)">Zatím žádné odznaky.</p>
+            }
+            else
+            {
+                <div class="profile-badges">
+                    @foreach (var b in _stats.Badges)
+                    {
+                        <div class="profile-badge">
+                            <i data-lucide="award"></i>
+                            <span class="profile-badge-name">@b.SubjectName</span>
+                            <span class="profile-badge-level">@b.Level</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isAuth;
+    private int _userId;
+    private int _credits;
+    private string _displayName = "";
+    private string _email = "";
+    private UserStatsDto? _stats;
+
+    private int MaxSubject => _stats?.PerSubject.Count > 0 ? _stats.PerSubject.Max(s => s.Count) : 0;
+
+    private string Initials
+    {
+        get
+        {
+            var parts = _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "?";
+            if (parts.Length == 1) return parts[0][..1].ToUpperInvariant();
+            return $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        _isAuth = auth.User.Identity?.IsAuthenticated == true;
+        if (!_isAuth) return;
+
+        _displayName = auth.User.FindFirst(ClaimTypes.Name)?.Value ?? "Student";
+        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
+
+        _stats = await UserProgressService.GetStatsAsync(_userId);
+        var user = await UserService.GetByIdAsync(_userId);
+        _credits = user?.Credits ?? 0;
+        _email = user?.Email ?? "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+}

@@ -1,0 +1,22 @@
+.bookmarks-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 900px;
+}
+
+.bookmarks-page h1 { font-size: 42px; margin: 0 0 var(--space-2); }
+.bookmarks-page > div > p { font-size: 16px; color: var(--color-neutral-600); margin: 0; }
+
+.bookmark-title {
+    font-family: var(--font-heading);
+    font-size: 19px;
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.bookmarks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-3);
+}

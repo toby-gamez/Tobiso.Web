@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Tobiso.Web.Shared.DTOs;
@@ -492,7 +493,7 @@ namespace Tobiso.Web.App.Services
             }
         }
 
-        public async IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request)
+        public async IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
@@ -529,8 +530,12 @@ namespace Tobiso.Web.App.Services
             HttpResponseMessage response;
             try
             {
-                response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+                response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 response.EnsureSuccessStatusCode();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -538,12 +543,13 @@ namespace Tobiso.Web.App.Services
                 yield break;
             }
 
-            using var stream = await response.Content.ReadAsStreamAsync();
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var reader = new System.IO.StreamReader(stream);
 
             while (!reader.EndOfStream)
             {
-                var line = await reader.ReadLineAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+                var line = await reader.ReadLineAsync(cancellationToken);
                 if (string.IsNullOrEmpty(line) || !line.StartsWith("data: ")) continue;
                 var data = line.Substring(6).Trim();
                 if (data == "[DONE]") break;

@@ -1,0 +1,144 @@
+@inherits OwningComponentBase
+@implements IAsyncDisposable
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@if (_open)
+{
+    <div class="search-backdrop" @onclick="Close">
+        <div class="search-dialog" @onclick:stopPropagation="true">
+            <div class="search-input-row">
+                <i data-lucide="search"></i>
+                <input class="search-input" placeholder="Hledej článek…" @bind="_query" @bind:event="oninput"
+                       @onkeydown="OnKeyDown" @ref="_inputRef" />
+                <kbd>Esc</kbd>
+            </div>
+
+            @if (_query.Trim().Length == 0)
+            {
+                <p class="search-hint">Piš a hledej napříč všemi články.</p>
+            }
+            else if (Results.Count == 0)
+            {
+                <p class="search-hint">Nic nenalezeno.</p>
+            }
+            else
+            {
+                <div class="search-results">
+                    @foreach (var p in Results)
+                    {
+                        <button class="search-result lift" @onclick="@(() => Go(p.Id))">
+                            <span class="search-result-title">@p.Title</span>
+                            @if (p.AvailableGradeNames.Count > 0)
+                            {
+                                <span class="search-result-grades">
+                                    @foreach (var g in p.AvailableGradeNames)
+                                    {
+                                        <span class="grade-chip">@g</span>
+                                    }
+                                </span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _open;
+    private string _query = "";
+    private List<PostSummaryResponse> _posts = [];
+    private ElementReference _inputRef;
+    private DotNetObjectReference<SearchModal>? _selfRef;
+    private bool _pendingFocus;
+
+    private List<PostSummaryResponse> Results
+    {
+        get
+        {
+            var q = _query.Trim();
+            if (q.Length == 0) return [];
+            return [.. _posts
+                .Where(p => p.Title.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .Take(8)];
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _posts = await ScopedServices.GetRequiredService<IPostService>().GetSummaries();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerSearchShortcut", _selfRef);
+        }
+
+        if (_open)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+            if (_pendingFocus)
+            {
+                _pendingFocus = false;
+                try { await _inputRef.FocusAsync(); } catch { }
+            }
+        }
+    }
+
+    [JSInvokable]
+    public Task ToggleFromJs()
+    {
+        if (_open) Close(); else OpenInternal();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task CloseFromJs()
+    {
+        if (_open)
+        {
+            Close();
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    public void Open()
+    {
+        OpenInternal();
+        StateHasChanged();
+    }
+
+    private void OpenInternal()
+    {
+        _open = true;
+        _query = "";
+        _pendingFocus = true;
+    }
+
+    private void Close() => _open = false;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Close();
+        else if (e.Key == "Enter" && Results.Count > 0) Go(Results[0].Id);
+    }
+
+    private void Go(int postId)
+    {
+        _open = false;
+        Nav.NavigateTo($"/post/{postId}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("unregisterSearchShortcut"); } catch { }
+        _selfRef?.Dispose();
+    }
+}

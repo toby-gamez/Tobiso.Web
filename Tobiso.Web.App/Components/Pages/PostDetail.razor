@@ -1,0 +1,410 @@
+@page "/post/{Id:int}"
+@page "/post/{Slug}"
+@implements IAsyncDisposable
+@inject IPostService PostService
+@inject ICategoryService CategoryService
+@inject IRelatedPostService RelatedPostService
+@inject IQuestionService QuestionService
+@inject IUserProgressService UserProgressService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>@(_post?.Title ?? "Článek") — Tobiso</PageTitle>
+
+@if (_loading)
+{
+    <div style="display:flex; flex-direction:column; gap:var(--space-4); max-width:800px">
+        <div class="skeleton" style="height:16px; width:200px"></div>
+        <div class="skeleton" style="height:44px; width:70%"></div>
+        <div class="skeleton" style="height:20px; width:300px"></div>
+        <div class="skeleton" style="height:52px; border-radius:999px"></div>
+        <div class="skeleton" style="height:300px; border-radius:var(--radius-lg)"></div>
+    </div>
+}
+else if (_post == null)
+{
+    <div style="text-align:center; padding:var(--space-8)">
+        <h1>Článek nenalezen</h1>
+        <a href="/" class="pill" style="margin-top:var(--space-4)">Zpět domů</a>
+    </div>
+}
+else
+{
+    <div class="post-detail-layout">
+        <div class="post-body">
+            <nav class="breadcrumb" style="margin-bottom:var(--space-4)">
+                <a href="/categories">Předměty</a>
+                @foreach (var anc in _ancestors)
+                {
+                    <span class="breadcrumb-sep">/</span>
+                    <a href="/categories/@anc.Id">@anc.Name</a>
+                }
+                <span class="breadcrumb-sep">/</span>
+                <span>@_post.Title</span>
+            </nav>
+
+            <div class="post-title-row">
+                <h1 class="post-h1">@_post.Title</h1>
+                <div class="grade-selector">
+                    @if (_currentVersion != null)
+                    {
+                        <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "—") ročník</span>
+                        @if (_versions.Count > 1)
+                        {
+                            <button class="icon-btn" @onclick="ToggleVersions" aria-label="Vybrat ročník">
+                                <i data-lucide="chevron-down"></i>
+                            </button>
+                        }
+                    }
+                    @if (_versionsOpen)
+                    {
+                        <div class="version-dropdown">
+                            @foreach (var v in _versions)
+                            {
+                                <button class="version-item @(v.Id == _currentVersion?.Id ? "active" : "")"
+                                        @onclick="@(() => SelectVersion(v))">
+                                    @v.GradeName ročník
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="post-meta">
+                <span><i data-lucide="book-open"></i> @WordCount slov · @ReadTime min čtení</span>
+                <span style="opacity:.4">·</span>
+                <span>Upraveno @FormatDateTime(MostRecentEdit)</span>
+                @if (_currentVersion?.LastFix.HasValue == true)
+                {
+                    <span style="opacity:.4">·</span>
+                    <span style="color:var(--color-accent-2-700)"><i data-lucide="check-circle-2"></i> Zkontrolováno</span>
+                }
+            </div>
+
+            <div class="toolbar">
+                <button class="toolbar-btn" @onclick="GoBack">
+                    <i data-lucide="arrow-left"></i> Zpět
+                </button>
+                <button class="toolbar-btn" @onclick="ScrollToQuiz">
+                    <i data-lucide="file-check-2"></i> Ověř si porozumění
+                </button>
+                <button class="toolbar-btn @(_readingOpen ? "active" : "")" @onclick="ToggleReading">
+                    <i data-lucide="type"></i> Čtení
+                </button>
+                <button class="toolbar-btn" @onclick="ScrollToExercises">
+                    <i data-lucide="puzzle"></i> Cvičení
+                </button>
+                <button class="toolbar-btn" style="opacity:.5; cursor:not-allowed">
+                    <i data-lucide="volume-2"></i> Poslech
+                </button>
+                <span style="flex:1"></span>
+                <button class="icon-btn @(_bookmarked ? "bookmarked" : "")" @onclick="ToggleBookmark" aria-label="Záložka">
+                    <i data-lucide="bookmark"></i>
+                </button>
+                <button class="pill pill-on" style="font-size:14px; padding:9px 16px" @onclick="ToggleMore">
+                    <i data-lucide="sparkles"></i> Více
+                </button>
+            </div>
+
+            @if (_readingOpen)
+            {
+                <div class="reading-panel">
+                    <div>
+                        <div class="panel-label">Písmo</div>
+                        <div class="seg-control">
+                            <button class="seg-btn @(_readingFont == "figtree" ? "active" : "")" @onclick='@(() => _readingFont = "figtree")'>Figtree</button>
+                            <button class="seg-btn @(_readingFont == "serif" ? "active" : "")" @onclick='@(() => _readingFont = "serif")'>Serif</button>
+                            <button class="seg-btn @(_readingFont == "mono" ? "active" : "")" @onclick='@(() => _readingFont = "mono")'>Mono</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="panel-label">Velikost</div>
+                        <div class="seg-control">
+                            <button class="seg-btn @(_readingSize == "sm" ? "active" : "")" @onclick='@(() => _readingSize = "sm")' style="font-size:11px">A</button>
+                            <button class="seg-btn @(_readingSize == "md" ? "active" : "")" @onclick='@(() => _readingSize = "md")'>A</button>
+                            <button class="seg-btn @(_readingSize == "lg" ? "active" : "")" @onclick='@(() => _readingSize = "lg")' style="font-size:18px">A</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="panel-label">Šířka sloupce</div>
+                        <div class="seg-control">
+                            <button class="seg-btn @(_readingWidth == "narrow" ? "active" : "")" @onclick='@(() => _readingWidth = "narrow")'>Úzká</button>
+                            <button class="seg-btn @(_readingWidth == "mid" ? "active" : "")" @onclick='@(() => _readingWidth = "mid")'>Střední</button>
+                            <button class="seg-btn @(_readingWidth == "wide" ? "active" : "")" @onclick='@(() => _readingWidth = "wide")'>Široká</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (_moreOpen)
+            {
+                <div class="more-panel">
+                    <div class="more-panel-label">Nástroje k článku</div>
+                    <button class="more-item"><i data-lucide="layers" style="color:var(--color-accent-600)"></i> Kartičky</button>
+                    <button class="more-item"><i data-lucide="pencil-line" style="color:var(--color-accent-600)"></i> Procvičovací úlohy</button>
+                    <button class="more-item"><i data-lucide="users" style="color:var(--color-accent-600)"></i> Přepsat pro ročník</button>
+                    <button class="more-item"><i data-lucide="help-circle" style="color:var(--color-accent-600)"></i> Co může přijít v testu</button>
+                    <button class="more-item"><i data-lucide="globe-2" style="color:var(--color-accent-2-600)"></i> Reálné využití</button>
+                    <button class="more-item"><i data-lucide="wand-2" style="color:var(--color-accent-2-600)"></i> Co kdyby?</button>
+                    <button class="more-item"><i data-lucide="message-square-quote" style="color:var(--color-accent-2-600)"></i> Zkus to vysvětlit</button>
+                    <button class="more-item"><i data-lucide="table-2" style="color:var(--color-accent-2-600)"></i> Porovnat s…</button>
+                    <button class="more-item"><i data-lucide="list-ordered" style="color:var(--color-accent-2-600)"></i> Krok za krokem</button>
+                    <div style="grid-column:1/-1; height:1px; background:var(--color-divider); margin:var(--space-1) 0"></div>
+                    <button class="more-item"><i data-lucide="printer"></i> Vytisknout (PDF)</button>
+                    <button class="more-item"><i data-lucide="file-text"></i> Tahák (PDF)</button>
+                    <button class="more-item"><i data-lucide="alarm-clock"></i> Pomodoro</button>
+                    <button class="more-item"><i data-lucide="notebook-pen"></i> Poznámky</button>
+                </div>
+            }
+
+            <div id="article-prose" class="@ProseClass">
+                @if (_currentVersion != null)
+                {
+                    <MarkdownContent Content="@_currentVersion.Content"
+                                     AllPosts="@_allPosts"
+                                     AllPeople="@_allPeople"
+                                     OnHeadingsExtracted="OnHeadingsExtracted" />
+                }
+            </div>
+
+            @if (_questions.Count > 0)
+            {
+                <div id="quiz-section" style="margin-top:var(--space-8)">
+                    <h2 style="font-size:28px; margin-bottom:var(--space-4)">Ověř si porozumění</h2>
+                    <a href="/practice/quiz/@_post.Id" class="pill pill-on" style="font-size:15px; padding:11px 22px">
+                        Spustit kvíz (@_questions.Count otázek) <i data-lucide="arrow-right"></i>
+                    </a>
+                </div>
+            }
+
+            @if (_relatedPosts.Count > 0)
+            {
+                <div style="margin-top:var(--space-8)">
+                    <h2 style="font-size:26px; margin-bottom:var(--space-4)">Souvisí s tímto</h2>
+                    <div class="related-grid">
+                        @foreach (var rel in _relatedPosts.Take(3))
+                        {
+                            <a href="/post/@rel.RelatedPostId" class="related-card lift">
+                                <span class="related-title">@rel.RelatedPostTitle</span>
+                                @if (!string.IsNullOrEmpty(rel.Text))
+                                {
+                                    <span class="related-desc">@rel.Text</span>
+                                }
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div style="margin-top:var(--space-8)">
+                <div class="panel-label" style="margin-bottom:var(--space-3)">Jak těžký je tento článek?</div>
+                <div style="display:flex; gap:var(--space-2)">
+                    <button class="pill @(_rating == 1 ? "pill-on" : "")" @onclick="@(() => _rating = 1)">Snadné</button>
+                    <button class="pill @(_rating == 2 ? "pill-on" : "")" @onclick="@(() => _rating = 2)">Střední</button>
+                    <button class="pill @(_rating == 3 ? "pill-on" : "")" @onclick="@(() => _rating = 3)">Těžké</button>
+                </div>
+            </div>
+        </div>
+
+        <aside class="post-toc">
+            @if (_tocHeaders.Count > 0)
+            {
+                <div class="panel-label" style="margin-bottom:var(--space-1)">Obsah</div>
+                @foreach (var (text, anchor) in _tocHeaders)
+                {
+                    <a href="#@anchor" class="toc-link @(anchor == _activeAnchor ? "active" : "")"
+                       @onclick="@(() => ScrollToHeading(anchor))" @onclick:preventDefault="true">@text</a>
+                }
+            }
+            <div class="toc-progress">
+                <div class="panel-label" style="margin-bottom:6px">Přečteno</div>
+                <div class="progress-bar"><div class="progress-bar-fill" style="width:@(_readPercent)%"></div></div>
+                <div style="font-size:13px; color:var(--color-neutral-600); margin-top:8px">@(_readPercent) %</div>
+            </div>
+        </aside>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string? Slug { get; set; }
+
+    private bool _loading = true;
+    private PostResponse? _post;
+    private PostVersionResponse? _currentVersion;
+    private List<PostVersionResponse> _versions = [];
+    private List<CategoryResponse> _ancestors = [];
+    private List<RelatedPostResponse> _relatedPosts = [];
+    private List<QuestionResponse> _questions = [];
+    private List<PostSummaryResponse> _allPosts = [];
+    private List<PersonSummaryResponse> _allPeople = [];
+    private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked;
+    private string _readingFont = "figtree";
+    private string _readingSize = "md";
+    private string _readingWidth = "mid";
+    private int _rating;
+    private List<(string Text, string Anchor)> _tocHeaders = [];
+    private string? _activeAnchor;
+    private int _readPercent;
+    private int _lastPersistedPercent = -1;
+    private int? _userId;
+    private bool _needsScrollInit;
+    private DotNetObjectReference<PostDetail>? _selfRef;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        // Load by int ID or slug
+        PostResponse? post = null;
+        if (Id > 0)
+            post = await PostService.GetById(Id);
+        else if (!string.IsNullOrEmpty(Slug) && int.TryParse(Slug, out int parsedId))
+            post = await PostService.GetById(parsedId);
+
+        if (post == null) return;
+        _post = post;
+        _versions = _post.Versions ?? [];
+        _currentVersion = _versions.FirstOrDefault();
+
+        var allCats = await CategoryService.GetAll();
+        if (_post.CategoryId.HasValue)
+            _ancestors = await CategoryService.GetAncestors(_post.CategoryId.Value);
+
+        _relatedPosts = await RelatedPostService.GetByPostId(_post.Id);
+        _questions = await QuestionService.GetByPostId(_post.Id);
+        _allPosts = await PostService.GetSummaries();
+
+        _activeAnchor = null;
+        _readPercent = 0;
+        _lastPersistedPercent = -1;
+        _needsScrollInit = true;
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true &&
+            int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
+        {
+            _userId = uid;
+            var bookmarkIds = await UserProgressService.GetBookmarkIdsAsync(uid);
+            _bookmarked = bookmarkIds.Contains(_post.Id);
+        }
+        else
+        {
+            _userId = null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+
+        if (_needsScrollInit && _currentVersion != null)
+        {
+            _needsScrollInit = false;
+            _selfRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initReadingProgress", _selfRef, "#article-prose");
+        }
+    }
+
+    private void OnHeadingsExtracted(List<(string Text, string Anchor)> headings)
+    {
+        _tocHeaders = headings;
+        StateHasChanged();
+    }
+
+    // A plain href="#id" would resolve against <base href="/"> and navigate to "/#id"
+    // (home) instead of scrolling the current page, so ToC links scroll via JS instead.
+    private async Task ScrollToHeading(string anchor) => await JS.InvokeVoidAsync("scrollToId", anchor);
+
+    [JSInvokable]
+    public async Task OnReadingProgress(string? activeAnchor, int percent)
+    {
+        _activeAnchor = activeAnchor;
+        _readPercent = percent;
+        StateHasChanged();
+
+        if (_userId.HasValue && _post != null && percent >= _lastPersistedPercent + 5)
+        {
+            _lastPersistedPercent = percent;
+            await UserProgressService.UpsertReadProgressAsync(_userId.Value, _post.Id, percent);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
+        _selfRef?.Dispose();
+    }
+
+    private void SelectVersion(PostVersionResponse v)
+    {
+        _currentVersion = v;
+        _versionsOpen = false;
+        _needsScrollInit = true;
+        _activeAnchor = null;
+        _readPercent = 0;
+        _lastPersistedPercent = -1;
+    }
+
+    private void ToggleVersions() => _versionsOpen = !_versionsOpen;
+    private void ToggleReading() => _readingOpen = !_readingOpen;
+    private void ToggleMore() => _moreOpen = !_moreOpen;
+
+    private async Task ToggleBookmark()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (!auth.User.Identity?.IsAuthenticated == true || _post == null) return;
+        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid)) return;
+
+        if (_bookmarked)
+            await UserProgressService.RemoveBookmarkAsync(uid, _post.Id);
+        else
+            await UserProgressService.AddBookmarkAsync(uid, _post.Id);
+        _bookmarked = !_bookmarked;
+    }
+
+    private void ScrollToQuiz() => Nav.NavigateTo($"/practice/quiz/{_post?.Id}");
+
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+    private void ScrollToExercises() { }
+
+    private int WordCount => _currentVersion == null ? 0 : _currentVersion.Content.Split(' ').Length;
+    private int ReadTime => Math.Max(1, WordCount / 200);
+
+    private string ProseClass
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_readingFont == "serif") parts.Add("prose-serif");
+            if (_readingFont == "mono") parts.Add("prose-mono");
+            if (_readingSize == "sm") parts.Add("prose-sm");
+            if (_readingSize == "lg") parts.Add("prose-lg");
+            if (_readingWidth == "narrow") parts.Add("prose-narrow");
+            if (_readingWidth == "wide") parts.Add("prose-wide");
+            return string.Join(" ", parts);
+        }
+    }
+
+    private DateTime? MostRecentEdit
+    {
+        get
+        {
+            var edit = _currentVersion?.LastEdit;
+            var fix = _currentVersion?.LastFix;
+            if (edit == null) return fix;
+            if (fix == null) return edit;
+            return edit >= fix ? edit : fix;
+        }
+    }
+
+    private static string FormatDateTime(DateTime? dt) => dt.HasValue ? dt.Value.ToString("d. M. yyyy 'v' HH:mm") : "";
+
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+}

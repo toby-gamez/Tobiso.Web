@@ -1,5 +1,6 @@
 using Tobiso.Web.Shared.DTOs;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Tobiso.Web.Shared.Interfaces
@@ -7,7 +8,7 @@ namespace Tobiso.Web.Shared.Interfaces
     public interface IAiService
     {
         Task<AiChatResponse> AskAsync(AiChatRequest request, string clientKey);
-        IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request);
+        IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request, CancellationToken cancellationToken = default);
         Task<List<string>> DetectPeopleInTextAsync(string content);
         Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt);
         Task<GrammarCheckResponse> CheckGrammarAsync(string content);

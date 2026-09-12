@@ -1,0 +1,168 @@
+@page "/"
+@inject IPostService PostService
+@inject ICategoryService CategoryService
+@inject IUserProgressService UserProgressService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Domů — Tobiso</PageTitle>
+
+<div class="home-page">
+    <div class="home-greeting">
+        <h1>@_greeting, @(_userName ?? "studente").</h1>
+        <p>@_subtitle</p>
+    </div>
+
+    @if (_stats != null || _loading)
+    {
+        <div class="stats-row">
+            <div class="soft stat-card">
+                <span class="stat-card-label">Série</span>
+                <span class="stat-card-value">@(_stats?.StreakDays ?? 0) dní</span>
+                <span class="stat-card-sub">Přečti dnes jeden článek a série pokračuje.</span>
+            </div>
+            <div class="soft stat-card">
+                <span class="stat-card-label">Přečteno celkem</span>
+                <span class="stat-card-value">@(_stats?.TotalRead ?? 0)</span>
+                <span class="stat-card-sub">@TopSubjectText()</span>
+            </div>
+            <div class="stat-card credits-card">
+                <span class="stat-card-label" style="color:var(--color-accent-800)">AI kredity</span>
+                <span class="stat-card-value" style="color:var(--color-accent-800)">@(_credits)</span>
+                <span class="stat-card-sub" style="color:var(--color-accent-800)">Jedna otázka = 1 kredit.</span>
+            </div>
+        </div>
+    }
+
+    <div class="home-cards">
+        @if (_articleOfDay != null)
+        {
+            <a class="home-card-continue lift" href="/post/@(_articleOfDay.Id)">
+                <span class="home-card-tag">
+                    <i data-lucide="sun"></i> Článek dne
+                </span>
+                <span class="home-card-title">@_articleOfDay.Title</span>
+                <span class="pill pill-on" style="align-self:flex-start; margin-top:var(--space-2); font-size:14px; padding:10px 18px;">
+                    Přejít na článek <i data-lucide="arrow-right"></i>
+                </span>
+            </a>
+        }
+        @if (_randomPost != null)
+        {
+            <a class="home-card-artofday sage-tint" href="/post/@(_randomPost.Id)">
+                <span class="home-card-tag" style="color:var(--color-accent-2-800)">
+                    <i data-lucide="shuffle"></i> Náhodný článek
+                </span>
+                <span class="home-card-title" style="color:var(--color-accent-2-900)">@_randomPost.Title</span>
+            </a>
+        }
+    </div>
+
+    <div class="subject-section">
+        <h2>Předměty</h2>
+        <div class="subject-grid">
+            @foreach (var cat in _rootCategories)
+            {
+                <a class="subject-card lift" href="/categories/@(cat.Id)">
+                    <span class="subject-icon"><i data-lucide="@SubjectIcon(cat.Name)"></i></span>
+                    <span class="subject-name">@cat.Name</span>
+                    <span class="subject-count">@CategoryCountLabel(cat)</span>
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private UserStatsDto? _stats;
+    private int _credits;
+    private PostLinkResponse? _articleOfDay;
+    private PostLinkResponse? _randomPost;
+    private List<CategoryTreeResponse> _rootCategories = [];
+    private List<PostSummaryResponse> _summaries = [];
+    private string? _userName;
+    private string _greeting = "Dobrý den";
+    private string _subtitle = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
+            {
+                _stats = await UserProgressService.GetStatsAsync(uid);
+            }
+        }
+
+        _greeting = GetGreeting();
+
+        _articleOfDay = await PostService.GetArticleOfTheDayAsync();
+        _randomPost = await PostService.GetRandomAsync();
+        _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+        _summaries = await PostService.GetSummaries();
+
+        _subtitle = _articleOfDay != null
+            ? $"Dnes tě čeká článek: {_articleOfDay.Title}."
+            : "Vyber si téma a začni studovat.";
+
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
+
+    private int PostCountForCategory(CategoryTreeResponse cat)
+    {
+        var direct = _summaries.Count(s => s.CategoryId == cat.Id);
+        return direct + cat.Children.Sum(PostCountForCategory);
+    }
+
+    private string CategoryCountLabel(CategoryTreeResponse cat)
+    {
+        var posts = $"{PostCountForCategory(cat)} článků";
+        var subCount = cat.Children.Count(c => !IsMore(c.Name));
+        return subCount > 0 ? $"{posts} · {subCount} podkategorií" : posts;
+    }
+
+    private string TopSubjectText()
+    {
+        if (_stats?.PerSubject?.Any() == true)
+        {
+            var top = _stats.PerSubject.OrderByDescending(s => s.Count).First();
+            return $"Nejvíc v {top.SubjectName} — {top.Count} článků.";
+        }
+        return "Začni číst první článek!";
+    }
+
+    private static string GetGreeting()
+    {
+        var h = DateTime.Now.Hour;
+        if (h < 12) return "Dobré ráno";
+        if (h < 17) return "Dobré odpoledne";
+        return "Dobrý večer";
+    }
+
+    public static string SubjectIcon(string name)
+    {
+        var n = name.ToLower();
+        if (n.Contains("mluvnic")) return "pen-line";
+        if (n.Contains("literat")) return "book-open";
+        if (n.Contains("sloh")) return "feather";
+        if (n.Contains("hudeb")) return "music";
+        if (n.Contains("matem")) return "calculator";
+        if (n.Contains("chemi")) return "flask-conical";
+        if (n.Contains("fyzik")) return "magnet";
+        if (n.Contains("přírod") || n.Contains("biolog")) return "flower-2";
+        if (n.Contains("země") || n.Contains("geog")) return "globe";
+        return "book";
+    }
+}

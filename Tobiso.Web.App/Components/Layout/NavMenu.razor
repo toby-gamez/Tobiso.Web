@@ -1,0 +1,149 @@
+@inherits OwningComponentBase
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthState
+
+<aside class="nav-rail">
+    <a href="/" class="brand-link">
+        <span class="brand-logo">T</span>
+        <span class="brand-name">Tobiso</span>
+    </a>
+
+    <button class="rail-item search-btn" @onclick="OpenSearch">
+        <i data-lucide="search"></i>
+        <span>Hledat…</span>
+        <span class="search-shortcut">K</span>
+    </button>
+
+    <nav class="rail-nav">
+        <a href="/" class="rail-item @(IsActive("/") ? "active" : "")"><i data-lucide="home"></i> Domů</a>
+        <a href="/latest" class="rail-item @(IsActive("/latest") ? "active" : "")"><i data-lucide="clock"></i> Nejnovější</a>
+        <a href="/categories" class="rail-item @(IsActive("/categories") ? "active" : "")"><i data-lucide="folder-tree"></i> Předměty</a>
+        <a href="/practice" class="rail-item @(IsActive("/practice") ? "active" : "")"><i data-lucide="dumbbell"></i> Procvičování</a>
+        <a href="/chat" class="rail-item @(IsActive("/chat") ? "active" : "")"><i data-lucide="sparkles"></i> AI chat</a>
+        <a href="/zalozky" class="rail-item @(IsActive("/zalozky") ? "active" : "")"><i data-lucide="bookmark"></i> Záložky</a>
+        <a href="/calendar" class="rail-item @(IsActive("/calendar") ? "active" : "")"><i data-lucide="calendar-days"></i> Kalendář</a>
+    </nav>
+
+    @if (_subjects.Count > 0)
+    {
+        <div class="rail-section">
+            <div class="rail-section-label">Předměty</div>
+            @foreach (var s in _subjects)
+            {
+                <a href="/categories/@s.Id" class="rail-item @(IsActive($"/categories/{s.Id}") ? "active" : "")">
+                    <i data-lucide="@SubjectIcon(s.Name)"></i> @s.Name
+                </a>
+            }
+        </div>
+    }
+
+    <div class="rail-footer">
+        <div class="grade-row">
+            <span class="grade-label">Ročník</span>
+            <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)">
+                @(_selectedGrade?.Name ?? "—") <i data-lucide="chevron-down"></i>
+            </button>
+        </div>
+
+        <div class="theme-row">
+            <span class="grade-label">Tmavý režim</span>
+            <button class="theme-toggle @(_darkMode ? "on" : "")" @onclick="ToggleDark" aria-label="Tmavý režim">
+                <span class="theme-thumb"></span>
+            </button>
+        </div>
+
+        @if (_userName != null)
+        {
+            <a href="/profil" class="rail-item" style="margin-top:var(--space-2); font-size:14px">
+                <span class="avatar-chip">@_initials</span>
+                @_userName
+            </a>
+        }
+
+        <a href="/feedback" class="rail-item" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
+
+        @if (_userName != null)
+        {
+            <a href="/prihlaseni" class="rail-item" style="font-size:14px; color:var(--color-neutral-600)"><i data-lucide="log-out"></i> Odhlásit se</a>
+        }
+        else
+        {
+            <a href="/prihlaseni" class="rail-item" style="font-size:14px"><i data-lucide="log-in"></i> Přihlásit se</a>
+        }
+    </div>
+</aside>
+
+@code {
+    [Parameter] public EventCallback OnSearchOpen { get; set; }
+
+    private List<GradeResponse> _grades = [];
+    private GradeResponse? _selectedGrade;
+    private List<CategoryTreeResponse> _subjects = [];
+    private bool _darkMode;
+    private string? _userName;
+    private string _initials = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var grades = ScopedServices.GetRequiredService<IGradeService>();
+        var categories = ScopedServices.GetRequiredService<ICategoryService>();
+
+        _grades = await grades.GetAll();
+        _selectedGrade = _grades.FirstOrDefault();
+        _subjects = [.. (await categories.GetTree()).Where(c => !string.Equals(c.Name?.Trim(), "More", StringComparison.OrdinalIgnoreCase))];
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrEmpty(_userName))
+                _initials = string.Concat(_userName.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString().ToUpper() : ""));
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+            var saved = await JS.InvokeAsync<string>("getTheme");
+            _darkMode = saved == "dark";
+            StateHasChanged();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("initLucide");
+        }
+    }
+
+    private async Task ToggleDark()
+    {
+        _darkMode = !_darkMode;
+        await JS.InvokeVoidAsync("setTheme", _darkMode ? "dark" : "light");
+    }
+
+    private void OpenSearch() => OnSearchOpen.InvokeAsync();
+
+    private bool IsActive(string path)
+    {
+        var current = new Uri(Nav.Uri).AbsolutePath;
+        return path == "/" ? current == "/" : current.StartsWith(path);
+    }
+
+    private static string SubjectIcon(string name)
+    {
+        var n = name.ToLower();
+        if (n.Contains("mluvnic")) return "pen-line";
+        if (n.Contains("literat")) return "book-open";
+        if (n.Contains("sloh")) return "feather";
+        if (n.Contains("hudeb")) return "music";
+        if (n.Contains("matem")) return "calculator";
+        if (n.Contains("chemi")) return "flask-conical";
+        if (n.Contains("fyzik")) return "magnet";
+        if (n.Contains("přírod") || n.Contains("biolog")) return "flower-2";
+        if (n.Contains("země") || n.Contains("geog")) return "globe";
+        return "book";
+    }
+}

@@ -1,0 +1,173 @@
+@page "/categories"
+@page "/categories/{CategoryId:int}"
+@inject ICategoryService CategoryService
+@inject IPostService PostService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(_currentCategory?.Name ?? "Předměty") — Tobiso</PageTitle>
+
+<div class="category-page">
+    @if (_ancestors.Count > 0 || _currentCategory != null)
+    {
+        <nav class="breadcrumb">
+            <a href="/categories">Předměty</a>
+            @foreach (var anc in _ancestors.SkipLast(1))
+            {
+                <span class="breadcrumb-sep">/</span>
+                <a href="/categories/@anc.Id">@anc.Name</a>
+            }
+            @if (_currentCategory != null)
+            {
+                <span class="breadcrumb-sep">/</span>
+                <span>@_currentCategory.Name</span>
+            }
+        </nav>
+    }
+
+    <div>
+        <h1>@(_currentCategory?.Name ?? "Předměty")</h1>
+        @if (_currentCategory == null)
+        {
+            <p>Vyber si předmět nebo téma, které chceš studovat.</p>
+        }
+        else
+        {
+            <p>@(PostCountFor(_currentCategory!.Id)) článků@(_children.Count > 0 ? $" ve {_children.Count} oblastech" : "").</p>
+        }
+    </div>
+
+    @if (_children.Count > 0)
+    {
+        <div class="subcategory-grid">
+            @foreach (var child in _children)
+            {
+                <a class="subcategory-card lift" href="/categories/@(child.Id)">
+                    <span>
+                        <span class="subcategory-name">@child.Name</span>
+                        <span class="subcategory-count">@CategoryCountLabel(child.Id)</span>
+                    </span>
+                    <i data-lucide="chevron-right"></i>
+                </a>
+            }
+        </div>
+    }
+
+    @if (_postsInCategory.Count > 0)
+    {
+        <div>
+            @if (_children.Count > 0)
+            {
+                <h2>Články v @(_currentCategory?.Name ?? "předmětu")</h2>
+            }
+            <div class="article-list">
+                @foreach (var post in _postsInCategory)
+                {
+                    <a class="article-row lift" href="/post/@(post.Id)">
+                        <i data-lucide="file-text" style="color:var(--color-accent-600)"></i>
+                        @post.Title
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_currentCategory == null && _rootCategories.Count > 0)
+    {
+        <div class="root-grid">
+            @foreach (var root in _rootCategories)
+            {
+                <a class="subject-root-card lift" href="/categories/@(root.Id)">
+                    <span class="subject-icon"><i data-lucide="@SubjectIcon(root.Name)"></i></span>
+                    <span>
+                        <span class="subcategory-name">@root.Name</span>
+                        <span class="subcategory-count">@CategoryCountLabel(root.Id)</span>
+                    </span>
+                    <i data-lucide="chevron-right"></i>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? CategoryId { get; set; }
+
+    private bool _loading = true;
+    private CategoryResponse? _currentCategory;
+    private List<CategoryResponse> _ancestors = [];
+    private List<CategoryResponse> _children = [];
+    private List<PostSummaryResponse> _allPosts = [];
+    private List<PostSummaryResponse> _postsInCategory = [];
+    private List<CategoryResponse> _allCategories = [];
+    private List<CategoryTreeResponse> _rootCategories = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _allCategories = await CategoryService.GetAll();
+        _allPosts = await PostService.GetSummaries();
+
+        if (CategoryId.HasValue)
+        {
+            _currentCategory = _allCategories.FirstOrDefault(c => c.Id == CategoryId);
+            _ancestors = await CategoryService.GetAncestors(CategoryId.Value);
+            _children = [.. _allCategories.Where(c => c.ParentId == CategoryId.Value && !IsMore(c.Name))];
+            _postsInCategory = [.. _allPosts.Where(p => p.CategoryId == CategoryId.Value)];
+        }
+        else
+        {
+            _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+            _currentCategory = null;
+            _ancestors = [];
+            _children = [];
+            _postsInCategory = [];
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
+
+    // Recursively counts posts in this category and every descendant category.
+    private int PostCountFor(int catId)
+    {
+        var direct = _allPosts.Count(p => p.CategoryId == catId);
+        var childIds = _allCategories.Where(c => c.ParentId == catId).Select(c => c.Id);
+        return direct + childIds.Sum(PostCountFor);
+    }
+
+    private int SubcategoryCountFor(int catId)
+        => _allCategories.Count(c => c.ParentId == catId && !IsMore(c.Name));
+
+    private string CategoryCountLabel(int catId)
+    {
+        var posts = $"{PostCountFor(catId)} článků";
+        var subCount = SubcategoryCountFor(catId);
+        return subCount > 0 ? $"{posts} · {subCount} podkategorií" : posts;
+    }
+
+    private static string SubjectIcon(string name)
+    {
+        var n = name.ToLower();
+        if (n.Contains("mluvnic")) return "pen-line";
+        if (n.Contains("literat")) return "book-open";
+        if (n.Contains("sloh")) return "feather";
+        if (n.Contains("hudeb")) return "music";
+        if (n.Contains("matem")) return "calculator";
+        if (n.Contains("chemi")) return "flask-conical";
+        if (n.Contains("fyzik")) return "magnet";
+        if (n.Contains("přírod") || n.Contains("biolog")) return "flower-2";
+        if (n.Contains("země") || n.Contains("geog")) return "globe";
+        return "book";
+    }
+}

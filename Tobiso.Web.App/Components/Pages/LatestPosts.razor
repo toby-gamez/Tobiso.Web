@@ -1,0 +1,109 @@
+@page "/nejnovejsi"
+@page "/latest"
+@inject IPostService PostService
+@inject ICategoryService CategoryService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Nejnovější — Tobiso</PageTitle>
+
+<div class="latest-page">
+    <div>
+        <h1>Nejnovější</h1>
+        <p>Naposledy upravené články napříč předměty.</p>
+    </div>
+
+    <div class="filter-pills">
+        <button class="pill @(_activeFilter == null ? "pill-on" : "")" @onclick="@(() => SetFilter(null))">Vše</button>
+        @foreach (var cat in _rootCategories)
+        {
+            <button class="pill @(_activeFilter == cat.Id ? "pill-on" : "")" @onclick="@(() => SetFilter(cat.Id))">@cat.Name</button>
+        }
+    </div>
+
+    <div class="post-list">
+        @if (_loading)
+        {
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="post-row soft">
+                    <div class="skeleton" style="height:20px; width:60%; border-radius:4px"></div>
+                </div>
+            }
+        }
+        else
+        {
+            @foreach (var post in FilteredPosts)
+            {
+                <a class="post-row lift" href="/post/@post.Id">
+                    <span class="post-row-main">
+                        <span class="post-row-title">@post.Title</span>
+                        <span class="post-row-meta">@CategoryPath(post.CategoryId) · @FormatDate(post.LastEdit)</span>
+                    </span>
+                    <span class="post-row-grades">
+                        @foreach (var g in post.AvailableGradeNames.Take(3))
+                        {
+                            <span class="grade-chip">@g</span>
+                        }
+                    </span>
+                    <span class="post-row-date">@FormatDate(post.LastEdit)</span>
+                </a>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private List<PostSummaryResponse> _posts = [];
+    private List<CategoryTreeResponse> _rootCategories = [];
+    private Dictionary<int, string> _categoryPaths = [];
+    private int? _activeFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cats = await CategoryService.GetAll();
+        _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+
+        var moreIds = cats.Where(c => IsMore(c.Name)).Select(c => c.Id).ToHashSet();
+
+        _posts = await PostService.GetSummaries();
+        _posts = [.. _posts
+            .Where(p => p.CategoryId.HasValue && !moreIds.Contains(p.CategoryId.Value))
+            .OrderByDescending(p => p.LastEdit)];
+
+        // Build category path lookup
+        foreach (var c in cats)
+        {
+            var parent = cats.FirstOrDefault(p => p.Id == c.ParentId);
+            _categoryPaths[c.Id] = parent != null ? $"{parent.Name} · {c.Name}" : c.Name;
+        }
+        _loading = false;
+    }
+
+    private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private void SetFilter(int? catId) => _activeFilter = catId;
+
+    private IEnumerable<PostSummaryResponse> FilteredPosts => _activeFilter == null
+        ? _posts
+        : _posts.Where(p => p.CategoryId == _activeFilter || IsDescendant(p.CategoryId));
+
+    private bool IsDescendant(int? catId)
+    {
+        if (catId == null || _activeFilter == null) return false;
+        var found = _rootCategories.FirstOrDefault(r => r.Id == _activeFilter);
+        return found?.Children?.Any(c => c.Id == catId) == true;
+    }
+
+    private string CategoryPath(int? id) => id.HasValue && _categoryPaths.TryGetValue(id.Value, out var p) ? p : "";
+
+    private static string FormatDate(DateTime? dt) => dt.HasValue
+        ? dt.Value.ToString("d. M. yyyy")
+        : "";
+}

@@ -1,0 +1,147 @@
+.nav-rail {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-4);
+    background: var(--color-surface);
+    scrollbar-width: thin;
+}
+
+.brand-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--color-text);
+    flex-shrink: 0;
+}
+
+.brand-logo {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+    border-radius: 999px;
+    font-family: var(--font-heading);
+    font-size: 17px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.brand-name {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.search-btn {
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    color: var(--color-neutral-600);
+    justify-content: flex-start;
+}
+
+.search-shortcut {
+    margin-left: auto;
+    font-size: 12px;
+    padding: 1px 7px;
+    background: var(--color-surface);
+    border-radius: 6px;
+    color: var(--color-neutral-600);
+}
+
+.rail-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rail-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-neutral-500);
+    padding: 0 14px 8px;
+}
+
+.rail-footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-divider);
+    margin-top: auto;
+}
+
+.grade-row,
+.theme-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.grade-label {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
+.theme-toggle {
+    width: 44px;
+    height: 26px;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    background: var(--color-neutral-300);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 200ms ease;
+}
+
+.theme-toggle.on {
+    background: var(--color-accent-600);
+    justify-content: flex-end;
+}
+
+.theme-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--color-neutral-100);
+    border-radius: 999px;
+    display: block;
+    transition: background 200ms ease;
+}
+
+.avatar-chip {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-800);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .nav-rail {
+        display: none;
+    }
+}

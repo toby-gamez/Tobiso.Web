@@ -1,0 +1,150 @@
+@page "/practice/quiz"
+@page "/practice/quiz/{PostId:int}"
+@inject IQuestionService QuestionService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Ověř si porozumění — Tobiso</PageTitle>
+
+<div class="quiz-page">
+    <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo("/practice"))">
+        <i data-lucide="arrow-left"></i> Zpět na procvičování
+    </button>
+
+    @if (_questions.Count == 0 && !_loading)
+    {
+        <div style="padding:var(--space-8); text-align:center">
+            <p>Pro tento článek zatím nejsou otázky.</p>
+        </div>
+    }
+    else if (_current != null)
+    {
+        <div>
+            <div class="quiz-progress-label">
+                <span>@(_postTitle != null ? $"Ověř si porozumění — {_postTitle}" : "Ověř si porozumění")</span>
+                <span>Otázka @(_currentIndex + 1) ze @_questions.Count</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:@Progress%"></div></div>
+        </div>
+
+        <div class="quiz-card soft">
+            <h2 style="font-size:28px; margin-bottom:var(--space-6)">@_current.QuestionText</h2>
+            <div class="answer-list">
+                @foreach (var a in _current.Answers)
+                {
+                    var isSelected = _selectedAnswerId == a.Id;
+                    var isCorrect = a.Correct == 1;
+                    var showResult = _answered;
+                    var btnClass = GetAnswerClass(a);
+                    <button class="answer-btn @btnClass" @onclick="@(() => SelectAnswer(a))" disabled="@_answered">
+                        @a.AnswerText
+                        @if (showResult && isCorrect)
+                        {
+                            <i data-lucide="check"></i>
+                        }
+                    </button>
+                }
+            </div>
+
+            @if (_answered && _current.Explanations.Count > 0)
+            {
+                <div class="quiz-explanation">
+                    <i data-lucide="lightbulb" style="color:var(--color-accent-2-700); font-size:18px; flex-shrink:0"></i>
+                    <span>@_current.Explanations.First().Text</span>
+                </div>
+            }
+
+            <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-6)">
+                @if (_currentIndex > 0)
+                {
+                    <button class="pill" @onclick="Prev"><i data-lucide="arrow-left"></i> Předchozí</button>
+                }
+                <div style="flex:1"></div>
+                @if (_answered)
+                {
+                    @if (_currentIndex < _questions.Count - 1)
+                    {
+                        <button class="pill pill-on" @onclick="Next">Další otázka <i data-lucide="arrow-right"></i></button>
+                    }
+                    else
+                    {
+                        <button class="pill pill-on" @onclick="Restart">Začít znovu <i data-lucide="rotate-cw"></i></button>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? PostId { get; set; }
+
+    private List<QuestionResponse> _questions = [];
+    private int _currentIndex;
+    private int? _selectedAnswerId;
+    private bool _answered;
+    private bool _loading = true;
+    private string? _postTitle;
+
+    private QuestionResponse? _current => _currentIndex < _questions.Count ? _questions[_currentIndex] : null;
+    private double Progress => _questions.Count == 0 ? 0 : (double)(_currentIndex + 1) / _questions.Count * 100;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _questions = PostId.HasValue
+            ? await QuestionService.GetByPostId(PostId.Value)
+            : await QuestionService.GetAll();
+        _loading = false;
+        _currentIndex = 0;
+        _answered = false;
+        _selectedAnswerId = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private void SelectAnswer(AnswerResponse a)
+    {
+        if (_answered) return;
+        _selectedAnswerId = a.Id;
+        _answered = true;
+    }
+
+    private void Next()
+    {
+        if (_currentIndex < _questions.Count - 1)
+        {
+            _currentIndex++;
+            _answered = false;
+            _selectedAnswerId = null;
+        }
+    }
+
+    private void Prev()
+    {
+        if (_currentIndex > 0)
+        {
+            _currentIndex--;
+            _answered = false;
+            _selectedAnswerId = null;
+        }
+    }
+
+    private void Restart()
+    {
+        _currentIndex = 0;
+        _answered = false;
+        _selectedAnswerId = null;
+    }
+
+    private string GetAnswerClass(AnswerResponse a)
+    {
+        if (!_answered) return "";
+        if (a.Correct == 1) return "answer-correct";
+        if (a.Id == _selectedAnswerId) return "answer-wrong";
+        return "";
+    }
+}

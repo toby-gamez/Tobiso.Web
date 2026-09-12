@@ -1,0 +1,116 @@
+.home-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.home-greeting h1 {
+    font-size: clamp(34px, 4vw, 46px);
+    margin-bottom: var(--space-2);
+}
+
+.home-greeting p {
+    font-size: 17px;
+    color: var(--color-neutral-600);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: var(--space-4);
+}
+
+.credits-card {
+    background: var(--color-accent-200);
+    border-radius: var(--radius-lg);
+}
+
+.home-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+.home-card-continue,
+.home-card-artofday {
+    flex: 1 1 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    text-align: left;
+    font: inherit;
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+}
+
+.home-card-continue {
+    background: var(--color-surface);
+}
+
+.home-card-artofday {
+    background: var(--color-accent-2-200);
+}
+
+.home-card-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-700);
+}
+
+.home-card-artofday .home-card-tag {
+    color: var(--color-accent-2-800);
+}
+
+.home-card-title {
+    font-family: var(--font-heading);
+    font-size: 26px;
+}
+
+.subject-section h2 {
+    font-size: 28px;
+    margin-bottom: var(--space-4);
+}
+
+.subject-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-3);
+}
+
+.subject-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: flex-start;
+    text-align: left;
+    font: inherit;
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+}
+
+.subject-icon {
+    font-size: 24px;
+    color: var(--color-accent-600);
+}
+
+.subject-name {
+    font-family: var(--font-heading);
+    font-size: 18px;
+}
+
+.subject-count {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
