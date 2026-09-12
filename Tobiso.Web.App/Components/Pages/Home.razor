@@ -2,6 +2,7 @@
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject IUserProgressService UserProgressService
+@inject IUserService UserService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -36,25 +37,29 @@
     }
 
     <div class="home-cards">
+        @if (_continueReading != null)
+        {
+            <a class="home-card-continue lift" href="/post/@(_continueReading.PostId)">
+                <span class="home-card-tag">
+                    <i data-lucide="rotate-cw"></i> Pokračovat ve čtení
+                </span>
+                <span class="home-card-title">@_continueReading.Title</span>
+                <span class="home-card-sub">
+                    @(_continueReading.CategoryPath != null ? $"{_continueReading.CategoryPath} · " : "")@(_continueReading.ScrollPercent) % přečteno
+                </span>
+                <div class="progress-bar" style="margin-top:var(--space-2)"><div class="progress-bar-fill" style="width:@(_continueReading.ScrollPercent)%"></div></div>
+            </a>
+        }
         @if (_articleOfDay != null)
         {
-            <a class="home-card-continue lift" href="/post/@(_articleOfDay.Id)">
+            <a class="home-card-artofday" href="/post/@(_articleOfDay.Id)">
                 <span class="home-card-tag">
                     <i data-lucide="sun"></i> Článek dne
                 </span>
                 <span class="home-card-title">@_articleOfDay.Title</span>
-                <span class="pill pill-on" style="align-self:flex-start; margin-top:var(--space-2); font-size:14px; padding:10px 18px;">
+                <span class="pill pill-on home-card-artofday-btn">
                     Přejít na článek <i data-lucide="arrow-right"></i>
                 </span>
-            </a>
-        }
-        @if (_randomPost != null)
-        {
-            <a class="home-card-artofday sage-tint" href="/post/@(_randomPost.Id)">
-                <span class="home-card-tag" style="color:var(--color-accent-2-800)">
-                    <i data-lucide="shuffle"></i> Náhodný článek
-                </span>
-                <span class="home-card-title" style="color:var(--color-accent-2-900)">@_randomPost.Title</span>
             </a>
         }
     </div>
@@ -79,7 +84,7 @@
     private UserStatsDto? _stats;
     private int _credits;
     private PostLinkResponse? _articleOfDay;
-    private PostLinkResponse? _randomPost;
+    private ContinueReadingDto? _continueReading;
     private List<CategoryTreeResponse> _rootCategories = [];
     private List<PostSummaryResponse> _summaries = [];
     private string? _userName;
@@ -96,13 +101,14 @@
             if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
             {
                 _stats = await UserProgressService.GetStatsAsync(uid);
+                _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+                _continueReading = await UserProgressService.GetContinueReadingAsync(uid);
             }
         }
 
         _greeting = GetGreeting();
 
         _articleOfDay = await PostService.GetArticleOfTheDayAsync();
-        _randomPost = await PostService.GetRandomAsync();
         _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
         _summaries = await PostService.GetSummaries();
 
@@ -130,7 +136,7 @@
     {
         var posts = CzechPlural.Clanky(PostCountForCategory(cat));
         var subCount = cat.Children.Count(c => !IsMore(c.Name));
-        return subCount > 0 ? $"{posts} · {CzechPlural.Podkategorie(subCount)}" : posts;
+        return subCount > 0 ? $"{posts} · {CzechPlural.Oblasti(subCount)}" : posts;
     }
 
     private string TopSubjectText()

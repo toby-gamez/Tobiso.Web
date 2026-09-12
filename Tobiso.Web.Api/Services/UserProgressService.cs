@@ -12,6 +12,7 @@ public interface IUserProgressService
     Task AddBookmarkAsync(int userId, int postId);
     Task RemoveBookmarkAsync(int userId, int postId);
     Task<UserStatsDto> GetStatsAsync(int userId);
+    Task<ContinueReadingDto?> GetContinueReadingAsync(int userId);
 }
 
 public class UserProgressService : IUserProgressService
@@ -127,5 +128,23 @@ public class UserProgressService : IUserProgressService
             .ToList();
 
         return new UserStatsDto(streak, totalRead, perSubject, badges);
+    }
+
+    public async Task<ContinueReadingDto?> GetContinueReadingAsync(int userId)
+    {
+        var record = await _db.UserReadPosts
+            .Where(r => r.UserId == userId && r.ScrollPercent < 95)
+            .Include(r => r.Post)
+                .ThenInclude(p => p.Category)
+                    .ThenInclude(c => c!.Parent)
+            .OrderByDescending(r => r.LastReadAt)
+            .FirstOrDefaultAsync();
+
+        if (record?.Post == null) return null;
+
+        var cat = record.Post.Category;
+        var categoryPath = cat == null ? null : cat.Parent == null ? cat.Name : $"{cat.Parent.Name} · {cat.Name}";
+
+        return new ContinueReadingDto(record.PostId, record.Post.Title, record.ScrollPercent, categoryPath);
     }
 }

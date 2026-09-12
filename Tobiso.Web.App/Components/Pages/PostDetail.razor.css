@@ -202,6 +202,121 @@
     color: var(--color-neutral-600);
 }
 
+.facts-toggle {
+    display: flex;
+    width: 100%;
+    max-width: 68ch;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font: inherit;
+    text-align: left;
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 0;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+    transition: background 120ms ease;
+}
+
+.facts-toggle:hover { background: var(--color-neutral-300); }
+
+.facts-toggle span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-heading);
+    font-size: 18px;
+}
+
+.facts-panel {
+    max-width: 68ch;
+    margin: var(--space-3) 0 0;
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.facts-panel ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+}
+
+.facts-panel li { display: flex; gap: 10px; }
+.facts-bullet { color: var(--color-accent-600); flex: none; }
+
+.exercise-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-3);
+}
+
+.exercise-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    text-align: left;
+    font: inherit;
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--color-text);
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.exercise-card:hover, .exercise-card.active {
+    border-color: var(--color-accent-600);
+    background: var(--color-accent-100);
+}
+
+.exercise-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent-2-600);
+}
+
+.exercise-title { font-family: var(--font-heading); font-size: 18px; }
+.exercise-desc { font-size: 14px; color: var(--color-neutral-600); }
+
+.ai-ask-panel {
+    max-width: 68ch;
+    margin-top: var(--space-8);
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+}
+
+.ai-ask-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-family: var(--font-heading);
+    font-size: 20px;
+}
+
+.ai-ask-header > span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
 /* ToC sidebar */
 .post-toc {
     flex: 1 1 228px;

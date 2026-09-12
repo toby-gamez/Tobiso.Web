@@ -1,11 +1,16 @@
 @page "/post/{Id:int}"
 @page "/post/{Slug}"
 @implements IAsyncDisposable
+@using System.Threading
+@using Tobiso.Web.Shared.Interfaces
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject IRelatedPostService RelatedPostService
 @inject IQuestionService QuestionService
 @inject IUserProgressService UserProgressService
+@inject IInteractiveExerciseService ExerciseService
+@inject IUserService UserService
+@inject ITobisoAnonymApi AnonymApi
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
@@ -168,6 +173,78 @@ else
                 }
             </div>
 
+            <button class="facts-toggle" @onclick="ToggleFacts">
+                <span><i data-lucide="lightbulb" style="color:var(--color-accent-600)"></i> Věděl jsi, že…?</span>
+                <i data-lucide="@(_factsOpen ? "chevron-up" : "chevron-down")"></i>
+            </button>
+            @if (_factsOpen)
+            {
+                <div class="facts-panel">
+                    @if (_factsLoading)
+                    {
+                        <div class="skeleton" style="height:16px; width:80%"></div>
+                        <div class="skeleton" style="height:16px; width:60%; margin-top:8px"></div>
+                    }
+                    else if (_factsError != null)
+                    {
+                        <span style="color:var(--color-neutral-600)">@_factsError</span>
+                    }
+                    else
+                    {
+                        <ul>
+                            @foreach (var fact in _facts)
+                            {
+                                <li><span class="facts-bullet">✳</span> @fact</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+
+            @if (_exercises.Count > 0)
+            {
+                <div id="exercises-section" style="margin-top:var(--space-8)">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-3)">
+                        <h2 style="font-size:27px; margin:0"><i data-lucide="puzzle" style="color:var(--color-accent-2-600)"></i> Interaktivní cvičení</h2>
+                        <span style="font-size:13px; color:var(--color-neutral-600)">@CzechPlural.Of(_exercises.Count, "cvičení", "cvičení", "cvičení")</span>
+                    </div>
+                    <div class="exercise-grid">
+                        @foreach (var ex in _exercises)
+                        {
+                            <button class="exercise-card @(_openExerciseId == ex.Id ? "active" : "")" @onclick="@(() => ToggleExercise(ex.Id))">
+                                <span class="exercise-kind"><i data-lucide="@ExerciseTypeIcon(ex.Type)"></i> @ExerciseTypeLabel(ex.Type)</span>
+                                <span class="exercise-title">@ex.Title</span>
+                                @if (!string.IsNullOrWhiteSpace(ex.InstructionsMarkdown))
+                                {
+                                    <span class="exercise-desc">@ex.InstructionsMarkdown</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                    @if (_openExercise != null)
+                    {
+                        <div style="margin-top:var(--space-4)">
+                            @if (_openExercise.Type == ExerciseTypeConstants.DragDrop)
+                            {
+                                <DragDropExercise Exercise="_openExercise" />
+                            }
+                            else if (_openExercise.Type == ExerciseTypeConstants.Matching)
+                            {
+                                <MatchingExercise Exercise="_openExercise" />
+                            }
+                            else if (_openExercise.Type == ExerciseTypeConstants.Timeline)
+                            {
+                                <TimelineExercise Exercise="_openExercise" />
+                            }
+                            else if (_openExercise.Type == ExerciseTypeConstants.Circuit)
+                            {
+                                <CircuitSimulator Exercise="_openExercise" />
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             @if (_questions.Count > 0)
             {
                 <div id="quiz-section" style="margin-top:var(--space-8)">
@@ -177,6 +254,20 @@ else
                     </a>
                 </div>
             }
+
+            <div class="ai-ask-panel">
+                <div class="ai-ask-header">
+                    <span><i data-lucide="sparkles" style="color:var(--color-accent-600)"></i> Zeptej se na článek</span>
+                    @if (_userId.HasValue)
+                    {
+                        <span class="grade-chip"><i data-lucide="coins"></i> @CzechPlural.Kredity(_credits)</span>
+                    }
+                </div>
+                <AiChatBox PostId="@_post.Id"
+                           EmptyTitle="Zeptej se na cokoliv z tohoto článku."
+                           Placeholder="Např. Proč se neshodný přívlastek neskloňuje?"
+                           Suggestions="@(new[] { "Vysvětli jednodušeji", "Dej mi tři příklady", "Zkoušej mě" })" />
+            </div>
 
             @if (_relatedPosts.Count > 0)
             {
@@ -239,6 +330,7 @@ else
     private List<QuestionResponse> _questions = [];
     private List<PostSummaryResponse> _allPosts = [];
     private List<PersonSummaryResponse> _allPeople = [];
+    private List<InteractiveExerciseResponse> _exercises = [];
     private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked;
     private string _readingFont = "figtree";
     private string _readingSize = "md";
@@ -249,14 +341,40 @@ else
     private int _readPercent;
     private int _lastPersistedPercent = -1;
     private int? _userId;
+    private int _credits;
     private bool _needsScrollInit;
     private DotNetObjectReference<PostDetail>? _selfRef;
+    private List<string> _facts = [];
+    private bool _factsLoading;
+    private bool _factsLoaded;
+    private string? _factsError;
+    private int? _openExerciseId;
+
+    private InteractiveExerciseResponse? _openExercise =>
+        _exercises.FirstOrDefault(e => e.Id == _openExerciseId);
+
+    // Blazor reuses this component instance across route-parameter changes, so navigating
+    // again before a previous load finishes would otherwise run two loads concurrently
+    // against the same circuit-scoped DbContext. Serialize loads and drop superseded ones.
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _loadGeneration;
 
     protected override async Task OnParametersSetAsync()
     {
-        _loading = true;
-        await LoadData();
-        _loading = false;
+        var myGeneration = ++_loadGeneration;
+        await _loadGate.WaitAsync();
+        try
+        {
+            if (myGeneration != _loadGeneration) return;
+            _loading = true;
+            await LoadData();
+            if (myGeneration != _loadGeneration) return;
+            _loading = false;
+        }
+        finally
+        {
+            _loadGate.Release();
+        }
     }
 
     private async Task LoadData()
@@ -280,11 +398,17 @@ else
         _relatedPosts = await RelatedPostService.GetByPostId(_post.Id);
         _questions = await QuestionService.GetByPostId(_post.Id);
         _allPosts = await PostService.GetSummaries();
+        _exercises = await ExerciseService.GetByPostIdAsync(_post.Id);
+        _openExerciseId = null;
 
         _activeAnchor = null;
         _readPercent = 0;
         _lastPersistedPercent = -1;
         _needsScrollInit = true;
+        _facts = [];
+        _factsLoaded = false;
+        _factsOpen = false;
+        _factsError = null;
 
         var auth = await AuthState.GetAuthenticationStateAsync();
         if (auth.User.Identity?.IsAuthenticated == true &&
@@ -293,6 +417,7 @@ else
             _userId = uid;
             var bookmarkIds = await UserProgressService.GetBookmarkIdsAsync(uid);
             _bookmarked = bookmarkIds.Contains(_post.Id);
+            _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
         }
         else
         {
@@ -340,6 +465,7 @@ else
     {
         try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
         _selfRef?.Dispose();
+        _loadGate.Dispose();
     }
 
     private void SelectVersion(PostVersionResponse v)
@@ -372,7 +498,57 @@ else
     private void ScrollToQuiz() => Nav.NavigateTo($"/practice/quiz/{_post?.Id}");
 
     private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
-    private void ScrollToExercises() { }
+
+    private async Task ScrollToExercises()
+    {
+        if (_exercises.Count == 0) return;
+        await JS.InvokeVoidAsync("scrollToId", "exercises-section");
+    }
+
+    private void ToggleExercise(int id) => _openExerciseId = _openExerciseId == id ? null : id;
+
+    private static string ExerciseTypeIcon(string type) => type switch
+    {
+        ExerciseTypeConstants.DragDrop => "move",
+        ExerciseTypeConstants.Matching => "link-2",
+        ExerciseTypeConstants.Timeline => "history",
+        ExerciseTypeConstants.Circuit => "zap",
+        ExerciseTypeConstants.Molecule => "atom",
+        _ => "puzzle"
+    };
+
+    private static string ExerciseTypeLabel(string type) => type switch
+    {
+        ExerciseTypeConstants.DragDrop => "Přetahování",
+        ExerciseTypeConstants.Matching => "Párování",
+        ExerciseTypeConstants.Timeline => "Časová osa",
+        ExerciseTypeConstants.Circuit => "Obvod",
+        ExerciseTypeConstants.Molecule => "Molekula",
+        _ => "Cvičení"
+    };
+
+    private async Task ToggleFacts()
+    {
+        _factsOpen = !_factsOpen;
+        if (_factsOpen && !_factsLoaded && _post != null)
+        {
+            _factsLoading = true;
+            try
+            {
+                var response = await AnonymApi.GetFunFacts(_post.Id);
+                _facts = response.Facts;
+                _factsLoaded = true;
+            }
+            catch
+            {
+                _factsError = "Zajímavosti se nepodařilo načíst. Zkus to prosím znovu později.";
+            }
+            finally
+            {
+                _factsLoading = false;
+            }
+        }
+    }
 
     private int WordCount => _currentVersion == null ? 0 : _currentVersion.Content.Split(' ').Length;
     private int ReadTime => Math.Max(1, WordCount / 200);

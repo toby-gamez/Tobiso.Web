@@ -1,673 +1,155 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
-@using Microsoft.AspNetCore.Components.Web
 @inject IInteractiveExerciseService ExerciseService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-
-<div class="matching-exercise" id="@_containerId">
-    <div class="card matching-card">
-        <div class="card-body">
-            <svg class="matching-svg" id="@($"{_containerId}-svg")" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div class="matching-info-banner">
-                <i class="bi bi-info-circle-fill"></i>
-                <div>
-                    <strong>Návod k ovládání:</strong>
-                    <span>Klikni na položku v levém a pravém sloupci pro vytvoření páru • Klikni na koš pro odebrání páru • Zkontroluj řešení tlačítkem</span>
-                </div>
-            </div>
-            <div class="matching-columns">
-                <div class="matching-col">
-                    <div class="matching-header">
-                        <i class="bi bi-list-ol"></i>
-                        <h6 class="matching-title">Levý sloupec (otázky)</h6>
-                        <span class="matching-count">@_left.Count</span>
-                    </div>
-                    <div class="matching-list">
-                        @foreach (var l in _left)
-                        {
-                            <div id="@($"{_containerId}-left-{l.Id}")" class="matching-item @(SelectedLeft == l.Id ? "active" : "") @(GetLeftClass(l.Id))" tabindex="0" role="button" aria-pressed='@(SelectedLeft == l.Id ? "true" : "false")' @onclick="() => SelectLeft(l.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleLeftKey(e, l.Id) )">
-                                @l.Text
-                            </div>
-                        }
-                    </div>
-                </div>
-                <div class="matching-col">
-                    <div class="matching-header">
-                        <i class="bi bi-list-ul"></i>
-                        <h6 class="matching-title">Pravý sloupec (odpovědi)</h6>
-                        <span class="matching-count">@_right.Count</span>
-                    </div>
-                    <div class="matching-list">
-                        @foreach (var r in _right)
-                        {
-                            <div id="@($"{_containerId}-right-{r.Id}")" class="matching-item @(SelectedRight == r.Id ? "active" : "") @(GetRightClass(r.Id))" tabindex="0" role="button" aria-pressed='@(SelectedRight == r.Id ? "true" : "false")' @onclick="() => SelectRight(r.Id)" @onkeydown="@( (KeyboardEventArgs e) => HandleRightKey(e, r.Id) )">
-                                @r.Text
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-            @if (_left.Any() && _right.Any())
+<div class="exercise-shell">
+    <div class="matching-columns">
+        <div class="matching-col">
+            @foreach (var l in _left)
             {
-                <div class="matching-preview-section">
-                    <div class="preview-header">
-                        <i class="bi bi-eye"></i>
-                        <h6 class="preview-title">Náhled párování</h6>
-                    </div>
-                    <div class="preview-pairs">
-                        @foreach (var pair in _userPairs)
-                        {
-                            var l = _left.FirstOrDefault(x => x.Id == pair.LeftId);
-                            var r = _right.FirstOrDefault(x => x.Id == pair.RightId);
-                            if (l != null && r != null)
-                            {
-                                <div class="preview-pair @(GetLeftClass(pair.LeftId))">
-                                    <span class="pair-text"><strong>@l.Text</strong> <i class="bi bi-link-45deg mx-2"></i> @r.Text</span>
-                                    <button class="remove-pair-btn" @onclick="() => RemovePair(pair.LeftId, pair.RightId)" aria-label="Odebrat pár"><i class="bi bi-trash"></i></button>
-                                </div>
-                            }
-                        }
-                        @if (!_userPairs.Any())
-                        {
-                            <div class="preview-empty">
-                                <i class="bi bi-inbox"></i>
-                                <span>Žádné páry zatím nejsou vytvořeny</span>
-                            </div>
-                        }
-                    </div>
-                </div>
+                <button class="chip @(SelectedLeft == l.Id ? "chip-sel" : "")" style="text-align:left" @onclick="() => SelectLeft(l.Id)">@l.Text</button>
             }
-            @if (_validationResult != null)
+        </div>
+        <div class="matching-col">
+            @foreach (var r in _right)
             {
-                <div class="validation-result @(_validationResult.IsCorrect ? "result-success" : "result-warning")">
-                    <div class="result-header">
-                        @if (_validationResult.IsCorrect)
+                <button class="chip @(SelectedRight == r.Id ? "chip-sel" : "")" @onclick="() => SelectRight(r.Id)">@r.Text</button>
+            }
+        </div>
+    </div>
+
+    @if (_userPairs.Count > 0)
+    {
+        <div class="paired-section">
+            <span class="panel-label">Spárováno</span>
+            @foreach (var pair in _userPairs)
+            {
+                var l = _allLeft.FirstOrDefault(x => x.Id == pair.LeftId);
+                var r = _allRight.FirstOrDefault(x => x.Id == pair.RightId);
+                if (l != null && r != null)
+                {
+                    var cls = GetPairClass(pair.LeftId);
+                    <div class="exercise-pill paired-row @cls">
+                        <span class="paired-text">@l.Text → @r.Text</span>
+                        @if (_validationResult != null)
                         {
-                            <i class="bi bi-check-circle-fill"></i>
-                            <h6>Výborně! Všechny páry jsou správně!</h6>
+                            <i data-lucide="@(cls == "correct" ? "check-circle-2" : "x-circle")"></i>
                         }
                         else
                         {
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <h6>Některé páry nejsou správně</h6>
+                            <button class="paired-remove" @onclick="() => RemovePair(pair.LeftId, pair.RightId)" aria-label="Zrušit pár">
+                                <i data-lucide="x"></i>
+                            </button>
                         }
                     </div>
-                    <div class="result-details">
-                        <div class="result-score">
-                            <span class="score-label">Skóre:</span>
-                            <span class="score-value">@_validationResult.Score%</span>
-                        </div>
-                        <div class="result-feedback">@_validationResult.Feedback</div>
-                        @if (!string.IsNullOrEmpty(_validationResult.Explanation))
-                        {
-                            <div class="result-explanation">
-                                <i class="bi bi-lightbulb"></i>
-                                <span>@_validationResult.Explanation</span>
-                            </div>
-                        }
-                    </div>
-                </div>
+                }
             }
-            <div class="matching-actions">
-                <button class="action-btn btn-reset" @onclick="Reset">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Resetovat</span>
-                </button>
-                <button class="action-btn btn-check" @onclick="CheckSolution" disabled="@(_checking || _userPairs.Count != _left.Count)">
-                    @if (_checking)
-                    {
-                        <span class="spinner-border spinner-border-sm"></span>
-                    }
-                    <i class="bi bi-check-circle"></i>
-                    <span>Zkontrolovat</span>
-                </button>
-            </div>
+        </div>
+    }
+
+    <div class="exercise-actions">
+        <button class="pill" @onclick="Reset"><i data-lucide="rotate-ccw"></i> Znovu</button>
+        <button class="pill pill-on" @onclick="CheckSolution" disabled="@(_checking || _userPairs.Count != _allLeft.Count)">
+            @if (_checking)
+            {
+                <i data-lucide="loader-2" class="spin-icon"></i>
+            }
+            Zkontrolovat
+        </button>
+        @if (_validationResult != null)
+        {
+            <span class="exercise-score @(_validationResult.IsCorrect ? "correct" : "incorrect")">@_validationResult.Feedback</span>
+        }
+        <span class="exercise-actions-spacer"></span>
+        <div class="tooltip">
+            <button class="help-btn" type="button" aria-label="Návod k ovládání"><i data-lucide="help-circle"></i></button>
+            <span class="tooltip-text">Klikni na položku vlevo, potom na její pár vpravo. Klikni na křížek pro zrušení páru.</span>
         </div>
     </div>
 </div>
 
 <style>
-    .matching-exercise {
-        width: 100%;
-        position: relative;
-    }
-    .matching-card {
-        background: var(--intro-bg);
-        border: none;
-        border-radius: 12px;
-        box-shadow: none;
-    }
-    .matching-card .card-body {
-        padding: 1.5rem;
-    }
-    .matching-info-banner {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--intro-light-bg);
-        border-radius: 10px;
-        margin-bottom: 1.5rem;
-        align-items: flex-start;
-    }
-    .matching-info-banner i {
-        font-size: 1.5rem;
-        color: var(--color-accent-strong);
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    .matching-info-banner div {
-        flex: 1;
-    }
-    .matching-info-banner strong {
-        display: block;
-        margin-bottom: 0.25rem;
-        color: var(--color-text);
-    }
-    .matching-info-banner span {
-        font-size: 0.9rem;
-        color: var(--color-text);
-        opacity: 0.85;
-    }
     .matching-columns {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-4);
     }
     .matching-col {
-        background: var(--intro-light-bg);
-        border: 3px solid var(--color-accent);
-        border-radius: 10px;
-        padding: 1rem;
-        min-height: 200px;
-        transition: all 0.3s;
         display: flex;
         flex-direction: column;
+        gap: 8px;
     }
-    .matching-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding-bottom: 0.75rem;
-        margin-bottom: 0.75rem;
-        border-bottom: 2px solid var(--color-accent);
-    }
-    .matching-header i {
-        font-size: 1.25rem;
-        color: var(--color-accent-strong);
-    }
-    .matching-title {
-        flex: 1;
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--color-text);
-    }
-    .matching-count {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        height: 28px;
-        background: var(--color-accent);
-        color: var(--color-button-text);
-        border-radius: 50%;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-    .matching-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        min-height: 120px;
-    }
-    .matching-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1rem;
-        background: var(--color-accent);
-        border: 2px solid var(--color-accent);
-        border-radius: 8px;
-        cursor: pointer;
-        user-select: none;
-        transition: all 0.2s;
-        font-weight: 500;
-        color: var(--color-button-text);
-    }
-    .matching-item.active {
-        background: var(--color-accent-2);
-        border-color: var(--color-accent-strong);
-        color: var(--color-text);
-    }
-    .matching-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border-color: var(--color-accent-strong);
-    }
-    .matching-svg {
-        position: absolute;
-        top: 0;
-        left: 0;
+    .matching-col .chip {
         width: 100%;
-        height: 100%;
-        pointer-events: none;
-        overflow: visible;
     }
-    .matching-preview-section {
-        background: var(--intro-light-bg);
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .preview-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding-bottom: 0.75rem;
-        margin-bottom: 0.75rem;
-        border-bottom: 2px solid var(--color-accent);
-    }
-    .preview-header i {
-        font-size: 1.25rem;
-        color: var(--color-accent-strong);
-    }
-    .preview-title {
-        flex: 1;
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--color-text);
-    }
-    .preview-pairs {
+    .paired-section {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        min-height: 60px;
+        gap: 6px;
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--color-divider);
     }
-    .preview-pair {
+    .paired-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        background: var(--color-accent);
-        border: 2px solid var(--color-accent);
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        color: var(--color-button-text);
-        font-weight: 500;
-        gap: 1rem;
+        gap: 10px;
+        padding: 9px 16px;
+        width: 100%;
+        font-size: 15px;
+        cursor: default;
     }
-    .matching-item.correct {
-        background: var(--good-bg);
-        border-color: var(--good-border);
-        color: var(--good-text);
-    }
-    .matching-item.incorrect {
-        background: var(--warning-bg);
-        border-color: var(--warning-border);
-        color: var(--warning-text);
-    }
-    .preview-pair.correct {
-        background: var(--good-bg);
-        border-color: var(--good-border);
-        color: var(--good-text);
-    }
-    .preview-pair.incorrect {
-        background: var(--warning-bg);
-        border-color: var(--warning-border);
-        color: var(--warning-text);
-    }
-    .preview-pair .pair-text {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .remove-pair-btn {
-        background: none;
-        border: none;
-        color: var(--color-button-text);
-        font-size: 1.1rem;
+    .paired-text { flex: 1; }
+    .paired-remove {
+        background: transparent;
+        border: 0;
         cursor: pointer;
+        color: inherit;
+        display: flex;
         opacity: 0.7;
         transition: opacity 0.2s;
     }
-    .remove-pair-btn:hover {
-        opacity: 1;
-        color: var(--warning-text);
-    }
-    .preview-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 2rem 1rem;
-        color: var(--color-text);
-        opacity: 0.5;
-        text-align: center;
-    }
-    .preview-empty i {
-        font-size: 2rem;
-    }
-    .validation-result {
-        border-radius: 10px;
-        padding: 1.25rem;
-        margin-bottom: 1.5rem;
-    }
-    .result-success {
-        background: var(--good-bg);
-        border: 2px solid var(--good-border);
-    }
-    .result-warning {
-        background: var(--warning-bg);
-        border: 2px solid var(--warning-border);
-    }
-    .result-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-    }
-    .result-header i {
-        font-size: 1.5rem;
-    }
-    .result-success .result-header i {
-        color: var(--good);
-    }
-    .result-warning .result-header i {
-        color: var(--warning-text);
-    }
-    .result-header h6 {
-        margin: 0;
-        font-size: 1.1rem;
-    }
-    .result-success .result-header h6 {
-        color: var(--good-text);
-    }
-    .result-warning .result-header h6 {
-        color: var(--warning-text);
-    }
-    .result-details {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    .result-score {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 1rem;
-    }
-    .score-label {
-        font-weight: 600;
-    }
-    .result-success .result-score {
-        color: var(--good-text);
-    }
-    .result-warning .result-score {
-        color: var(--warning-text);
-    }
-    .score-value {
-        font-weight: 700;
-        font-size: 1.2rem;
-    }
-    .result-feedback {
-        font-size: 0.95rem;
-    }
-    .result-success .result-feedback {
-        color: var(--good-text);
-    }
-    .result-warning .result-feedback {
-        color: var(--warning-text);
-    }
-    .result-explanation {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 6px;
-        font-size: 0.9rem;
-    }
-    .result-explanation i {
-        font-size: 1.1rem;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    .matching-actions {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-    }
-    .action-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .action-btn i {
-        font-size: 1.25rem;
-    }
-    /* Dark mode */
-    body.dark-mode .matching-card {
-        background: var(--intro-bg-dark);
-    }
-    body.dark-mode .matching-info-banner {
-        background: var(--intro-light-bg-dark);
-    }
-    body.dark-mode .matching-info-banner strong,
-    body.dark-mode .matching-info-banner span {
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .matching-info-banner i {
-        color: var(--color-accent-strong-dark);
-    }
-    body.dark-mode .matching-col {
-        background: var(--intro-light-bg-dark);
-        border-color: var(--color-accent-dark);
-    }
-    body.dark-mode .matching-header {
-        border-bottom-color: var(--color-accent-dark);
-    }
-    body.dark-mode .matching-header i {
-        color: var(--color-accent-strong-dark);
-    }
-    body.dark-mode .matching-title {
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .matching-count {
-        background: var(--color-accent-dark);
-        color: var(--color-button-text-dark);
-    }
-    body.dark-mode .matching-list {
-        color: var(--color-button-text-dark);
-    }
-    body.dark-mode .matching-item {
-        background: var(--color-accent-dark);
-        border-color: var(--color-accent-dark);
-        color: var(--color-button-text-dark);
-    }
-    body.dark-mode .matching-item.active {
-        background: var(--color-accent-2-dark);
-        border-color: var(--color-accent-strong-dark);
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .matching-item:hover {
-        border-color: var(--color-accent-strong-dark);
-    }
-    body.dark-mode .matching-preview-section {
-        background: var(--intro-light-bg-dark);
-    }
-    body.dark-mode .preview-header {
-        border-bottom-color: var(--color-accent-dark);
-    }
-    body.dark-mode .preview-header i {
-        color: var(--color-accent-strong-dark);
-    }
-    body.dark-mode .preview-title {
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .preview-pair {
-        background: var(--color-accent-dark);
-        border-color: var(--color-accent-dark);
-        color: var(--color-button-text-dark);
-    }
-    body.dark-mode .remove-pair-btn {
-        color: var(--color-button-text-dark);
-    }
-    body.dark-mode .remove-pair-btn:hover {
-        color: var(--warning-text);
-    }
-    body.dark-mode .preview-empty {
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .result-success {
-        background: var(--test-excellent-bg-dark);
-        border-color: var(--test-excellent-border-dark);
-    }
-    body.dark-mode .result-warning {
-        background: var(--test-good-bg-dark);
-        border-color: var(--test-good-border-dark);
-    }
-    body.dark-mode .result-warning .result-header h6,
-    body.dark-mode .result-warning .result-score,
-    body.dark-mode .result-warning .result-feedback {
-        color: var(--test-good-text-dark);
-    }
-    body.dark-mode .result-warning .result-header i {
-        color: var(--test-good-text-dark);
-    }
-    body.dark-mode .matching-item.correct {
-        background: var(--test-excellent-bg-dark);
-        border-color: var(--test-excellent-border-dark);
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .matching-item.incorrect {
-        background: var(--test-poor-bg-dark);
-        border-color: var(--test-poor-border-dark);
-        color: var(--test-poor-text-dark);
-    }
-    body.dark-mode .preview-pair.correct {
-        background: var(--test-excellent-bg-dark);
-        border-color: var(--test-excellent-border-dark);
-        color: var(--color-text-dark);
-    }
-    body.dark-mode .preview-pair.incorrect {
-        background: var(--test-poor-bg-dark);
-        border-color: var(--test-poor-border-dark);
-        color: var(--test-poor-text-dark);
-    }
-    /* Mobile responsiveness */
-    @@media (max-width: 768px) {
-        .matching-card .card-body {
-            padding: 1rem;
-        }
-        .matching-info-banner {
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        .matching-info-banner i {
-            font-size: 1.25rem;
-        }
-        .matching-columns {
-            grid-template-columns: 1fr;
-        }
-        .matching-actions {
-            flex-direction: column;
-        }
-        .action-btn {
-            width: 100%;
-            justify-content: center;
-        }
+    .paired-remove:hover { opacity: 1; }
+    @@media (max-width: 600px) {
+        .matching-columns { grid-template-columns: 1fr; }
     }
 </style>
-
-
-<script>
-    window.drawMatchingLines = (containerId, pairs) => {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            const svg = document.getElementById(containerId + '-svg');
-            if (!svg) return;
-            // size svg to container
-            svg.setAttribute('width', container.clientWidth);
-            svg.setAttribute('height', container.clientHeight);
-            // clear previous
-            while (svg.firstChild) svg.removeChild(svg.firstChild);
-            const containerRect = container.getBoundingClientRect();
-            pairs.forEach(p => {
-                const leftEl = document.getElementById(containerId + '-left-' + p.leftId);
-                const rightEl = document.getElementById(containerId + '-right-' + p.rightId);
-                if (!leftEl || !rightEl) return;
-                const lRect = leftEl.getBoundingClientRect();
-                const rRect = rightEl.getBoundingClientRect();
-                const x1 = lRect.right - containerRect.left;
-                const y1 = (lRect.top + lRect.bottom) / 2 - containerRect.top;
-                const x2 = rRect.left - containerRect.left;
-                const y2 = (rRect.top + rRect.bottom) / 2 - containerRect.top;
-
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x1);
-                line.setAttribute('y1', y1);
-                line.setAttribute('x2', x2);
-                line.setAttribute('y2', y2);
-                const isCorrect = p.isCorrect;
-                const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-strong') || '#0d6efd';
-                const good = getComputedStyle(document.documentElement).getPropertyValue('--good') || '#198754';
-                const bad = getComputedStyle(document.documentElement).getPropertyValue('--warning-text') || '#dc3545';
-                line.setAttribute('stroke', isCorrect === true ? good : (isCorrect === false ? bad : accent));
-                line.setAttribute('stroke-width', '2');
-                line.setAttribute('stroke-linecap', 'round');
-                svg.appendChild(line);
-            });
-        }
-        catch (e) { console.error(e); }
-    }
-</script>
-
 
 @code {
     [Parameter]
     public InteractiveExerciseResponse? Exercise { get; set; }
 
-    private List<MatchingItem> _left = new();
-    private List<MatchingItem> _right = new();
+    private List<MatchingItem> _allLeft = new();
+    private List<MatchingItem> _allRight = new();
+    private List<MatchingItem> _left => _allLeft.Where(l => !_userPairs.Any(p => p.LeftId == l.Id)).ToList();
+    private List<MatchingItem> _right => _allRight.Where(r => !_userPairs.Any(p => p.RightId == r.Id)).ToList();
     private List<Pair> _userPairs = new();
-    private string _containerId = "matching-" + Guid.NewGuid().ToString("N");
     private string? SelectedLeft;
     private string? SelectedRight;
     private bool _checking = false;
     private ValidationResult? _validationResult;
     private Dictionary<string, bool> _pairResults = new();
+    private int? _loadedExerciseId;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await DrawLinesAsync();
-    }
-
-    private async Task DrawLinesAsync()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("drawMatchingLines", _containerId, _userPairs.Select(p => new { leftId = p.LeftId, rightId = p.RightId, isCorrect = _pairResults.ContainsKey(p.LeftId) ? _pairResults[p.LeftId] : (bool?)null }).ToArray());
-        }
-        catch { }
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     protected override void OnParametersSet()
     {
+        if (_loadedExerciseId == Exercise?.Id) return;
+        _loadedExerciseId = Exercise?.Id;
         LoadConfig();
         Reset();
     }
 
     private void LoadConfig()
     {
-        _left.Clear();
-        _right.Clear();
+        _allLeft.Clear();
+        _allRight.Clear();
         if (Exercise?.ConfigJson != null)
         {
             try
@@ -677,19 +159,18 @@
                 {
                     foreach (var item in leftArray.EnumerateArray())
                     {
-                        _left.Add(new MatchingItem { Id = item.GetProperty("id").GetString() ?? "", Text = item.GetProperty("text").GetString() ?? "" });
+                        _allLeft.Add(new MatchingItem { Id = item.GetProperty("id").GetString() ?? "", Text = item.GetProperty("text").GetString() ?? "" });
                     }
                 }
                 if (doc.RootElement.TryGetProperty("right", out var rightArray))
                 {
                     foreach (var item in rightArray.EnumerateArray())
                     {
-                        _right.Add(new MatchingItem { Id = item.GetProperty("id").GetString() ?? "", Text = item.GetProperty("text").GetString() ?? "" });
+                        _allRight.Add(new MatchingItem { Id = item.GetProperty("id").GetString() ?? "", Text = item.GetProperty("text").GetString() ?? "" });
                     }
                 }
-                // randomize order of items in both columns
-                _left = _left.OrderBy(x => Guid.NewGuid()).ToList();
-                _right = _right.OrderBy(x => Guid.NewGuid()).ToList();
+                _allLeft = _allLeft.OrderBy(x => Guid.NewGuid()).ToList();
+                _allRight = _allRight.OrderBy(x => Guid.NewGuid()).ToList();
             }
             catch { }
         }
@@ -705,42 +186,24 @@
         SelectedRight = id;
         TryPair();
     }
-    private void HandleLeftKey(KeyboardEventArgs e, string id)
-    {
-        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
-            SelectLeft(id);
-    }
-    private void HandleRightKey(KeyboardEventArgs e, string id)
-    {
-        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
-            SelectRight(id);
-    }
     private void TryPair()
     {
         if (!string.IsNullOrEmpty(SelectedLeft) && !string.IsNullOrEmpty(SelectedRight))
         {
-            if (!_userPairs.Any(p => p.LeftId == SelectedLeft || p.RightId == SelectedRight))
-            {
-                _userPairs.Add(new Pair { LeftId = SelectedLeft, RightId = SelectedRight });
-            }
+            _userPairs.Add(new Pair { LeftId = SelectedLeft, RightId = SelectedRight });
             SelectedLeft = null;
             SelectedRight = null;
+            _validationResult = null;
         }
     }
     private void RemovePair(string leftId, string rightId)
     {
         _userPairs.RemoveAll(p => p.LeftId == leftId && p.RightId == rightId);
+        _validationResult = null;
     }
-    private string GetLeftClass(string leftId)
+    private string GetPairClass(string leftId)
     {
         if (_pairResults.TryGetValue(leftId, out var ok))
-            return ok ? "correct" : "incorrect";
-        return string.Empty;
-    }
-    private string GetRightClass(string rightId)
-    {
-        var pair = _userPairs.FirstOrDefault(p => p.RightId == rightId);
-        if (pair != null && _pairResults.TryGetValue(pair.LeftId, out var ok))
             return ok ? "correct" : "incorrect";
         return string.Empty;
     }
@@ -759,7 +222,6 @@
         _validationResult = null;
         try
         {
-            // Serializace jako pole objektů (leftId, rightId), aby odpovídalo validátoru
             var request = new ValidateSolutionRequest
             {
                 UserSolutionJson = JsonSerializer.Serialize(
@@ -774,7 +236,6 @@
                 Feedback = result.Feedback,
                 Explanation = result.Explanation ?? ""
             };
-            // populate per-left pair results if provided by server
             _pairResults.Clear();
             if (result.DetailedResults != null)
             {

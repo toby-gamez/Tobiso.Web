@@ -647,7 +647,7 @@ namespace Tobiso.Web.App.Controllers
                 try
                 {
                     var cachedFacts = System.Text.Json.JsonSerializer.Deserialize<List<string>>(cached.FactsJson) ?? new();
-                    return Ok(new { facts = cachedFacts });
+                    return Ok(new FunFactsResponse { Facts = cachedFacts });
                 }
                 catch { }
             }
@@ -672,7 +672,7 @@ namespace Tobiso.Web.App.Controllers
                 }
                 await _db.SaveChangesAsync();
 
-                return Ok(new { facts });
+                return Ok(new FunFactsResponse { Facts = facts });
             }
             catch (Exception ex)
             {

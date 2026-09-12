@@ -1,5 +1,7 @@
 @page "/categories"
 @page "/categories/{CategoryId:int}"
+@using System.Threading
+@implements IDisposable
 @inject ICategoryService CategoryService
 @inject IPostService PostService
 @inject NavigationManager Nav
@@ -102,12 +104,31 @@
     private List<CategoryResponse> _allCategories = [];
     private List<CategoryTreeResponse> _rootCategories = [];
 
+    // Blazor reuses this component instance across route-parameter changes, so navigating
+    // again before a previous load finishes would otherwise run two loads concurrently
+    // against the same circuit-scoped DbContext. Serialize loads and drop superseded ones.
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _loadGeneration;
+
     protected override async Task OnParametersSetAsync()
     {
-        _loading = true;
-        await LoadData();
-        _loading = false;
+        var myGeneration = ++_loadGeneration;
+        await _loadGate.WaitAsync();
+        try
+        {
+            if (myGeneration != _loadGeneration) return;
+            _loading = true;
+            await LoadData();
+            if (myGeneration != _loadGeneration) return;
+            _loading = false;
+        }
+        finally
+        {
+            _loadGate.Release();
+        }
     }
+
+    public void Dispose() => _loadGate.Dispose();
 
     private async Task LoadData()
     {
@@ -153,7 +174,7 @@
     {
         var posts = CzechPlural.Clanky(PostCountFor(catId));
         var subCount = SubcategoryCountFor(catId);
-        return subCount > 0 ? $"{posts} · {CzechPlural.Podkategorie(subCount)}" : posts;
+        return subCount > 0 ? $"{posts} · {CzechPlural.Oblasti(subCount)}" : posts;
     }
 
     private static string SubjectIcon(string name)

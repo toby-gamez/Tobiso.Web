@@ -12,7 +12,6 @@ public static class CzechPlural
 
     public static string Clanky(int count) => Of(count, "článek", "články", "článků");
     public static string Kategorie(int count) => Of(count, "kategorie", "kategorie", "kategorií");
-    public static string Podkategorie(int count) => Of(count, "podkategorie", "podkategorie", "podkategorií");
     public static string Oblasti(int count) => Of(count, "oblast", "oblasti", "oblastí");
     public static string Otazky(int count) => Of(count, "otázka", "otázky", "otázek");
     public static string Odpovedi(int count) => Of(count, "odpověď", "odpovědi", "odpovědí");

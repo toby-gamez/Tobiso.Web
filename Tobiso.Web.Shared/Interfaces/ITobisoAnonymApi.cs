@@ -35,6 +35,9 @@ public interface ITobisoAnonymApi
     [Get("/api/Questions/post/{postId}")]
     Task<List<QuestionResponse>> GetQuestionsByPostId(int postId);
 
+    [Get("/api/ai/fun-facts/{postId}")]
+    Task<FunFactsResponse> GetFunFacts(int postId);
+
     // Events API - anonymní přístup pro čtení
     [Get("/api/Events")]
     Task<List<EventResponse>> GetAllEvents();

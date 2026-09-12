@@ -412,3 +412,193 @@ svg.lucide {
     color: var(--color-text);
     font-weight: 600;
 }
+
+/* Exercise chip — click-to-select item (drag-drop, matching, timeline) */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    font: inherit;
+    font-size: 15px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--color-divider);
+    background: var(--color-neutral-100);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.chip:hover {
+    background: var(--color-neutral-200);
+}
+
+.chip-sel {
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+    border-color: transparent;
+}
+
+.chip-sel:hover {
+    background: var(--color-accent-700);
+}
+
+/* Exercise bucket — click target for a selected chip */
+.bucket {
+    min-height: 120px;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-neutral-100);
+    border: 2px dashed var(--color-divider);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font: inherit;
+    color: var(--color-text);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.bucket:hover {
+    background: var(--color-neutral-200);
+}
+
+.bucket.bucket-target {
+    border-color: var(--color-accent-600);
+}
+
+/* Placed-item pill inside a bucket / paired row */
+.exercise-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 14px;
+    background: var(--color-neutral-200);
+    color: var(--color-text);
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.exercise-pill.correct {
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-900);
+}
+
+.exercise-pill.incorrect {
+    background: var(--color-accent-200);
+    color: var(--color-accent-800);
+}
+
+/* Exercise actions row (Reset / Check / score) */
+.exercise-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.exercise-score {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* Exercise evaluation text — inline next to Reset/Check, not a banner */
+.exercise-score {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.exercise-score.correct {
+    color: var(--color-accent-2-700);
+}
+
+.exercise-score.incorrect {
+    color: var(--color-accent-800);
+}
+
+.exercise-actions-spacer {
+    flex: 1;
+}
+
+/* Help tooltip — icon button that reveals instructions on hover/focus */
+.help-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    line-height: 1;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid var(--color-divider);
+    background: transparent;
+    color: var(--color-neutral-600);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.help-btn svg.lucide {
+    display: block;
+}
+
+.help-btn:hover,
+.help-btn:focus-visible {
+    background: var(--color-neutral-100);
+    color: var(--color-text);
+}
+
+.tooltip {
+    position: relative;
+    display: inline-flex;
+}
+
+.tooltip-text {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    right: 0;
+    width: 260px;
+    max-width: 70vw;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-900);
+    color: var(--color-bg);
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 120ms ease, transform 120ms ease;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.tooltip:hover .tooltip-text,
+.tooltip:focus-within .tooltip-text {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Exercise card shell */
+.exercise-shell {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.spin-icon {
+    animation: exercise-spin 0.9s linear infinite;
+}
+
+@keyframes exercise-spin {
+    to { transform: rotate(360deg); }
+}
