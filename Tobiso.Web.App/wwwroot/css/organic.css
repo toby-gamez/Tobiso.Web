@@ -255,6 +255,7 @@ a.sage-tint {
 
 .rail-item.active {
     background: var(--color-accent-200);
+    color: var(--color-accent-800);
     font-weight: 700;
 }
 

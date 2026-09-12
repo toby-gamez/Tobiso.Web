@@ -1,5 +1,7 @@
 @page "/calendar"
 @page "/kalendar"
+@using System.Threading
+@implements IDisposable
 @inject IEventService EventService
 @inject IJSRuntime JS
 
@@ -89,6 +91,12 @@
 
     private record Cell(DateTime Date, bool InMonth);
 
+    // Clicking the month-nav buttons fires another async load before the previous one
+    // finishes; both would otherwise run concurrently against the same circuit-scoped
+    // DbContext. Serialize loads and drop superseded ones.
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _loadGeneration;
+
     protected override async Task OnInitializedAsync() => await LoadMonth();
 
     protected override async Task OnAfterRenderAsync(bool firstRender) =>
@@ -96,8 +104,22 @@
 
     private async Task LoadMonth()
     {
-        _events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
+        var myGeneration = ++_loadGeneration;
+        await _loadGate.WaitAsync();
+        try
+        {
+            if (myGeneration != _loadGeneration) return;
+            var events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
+            if (myGeneration != _loadGeneration) return;
+            _events = events;
+        }
+        finally
+        {
+            _loadGate.Release();
+        }
     }
+
+    public void Dispose() => _loadGate.Dispose();
 
     private async Task PrevMonth() { _month = _month.AddMonths(-1); await LoadMonth(); }
     private async Task NextMonth() { _month = _month.AddMonths(1); await LoadMonth(); }

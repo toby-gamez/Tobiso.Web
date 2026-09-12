@@ -1,3 +1,5 @@
+@using System.Globalization
+@using System.Text
 @inherits OwningComponentBase
 @implements IAsyncDisposable
 @inject NavigationManager Nav
@@ -9,25 +11,30 @@
         <div class="search-dialog" @onclick:stopPropagation="true">
             <div class="search-input-row">
                 <i data-lucide="search"></i>
-                <input class="search-input" placeholder="Hledej článek…" @bind="_query" @bind:event="oninput"
+                <input class="search-input" placeholder="Hledej článek…" @bind="Query" @bind:event="oninput"
                        @onkeydown="OnKeyDown" @ref="_inputRef" />
                 <kbd>Esc</kbd>
             </div>
 
+            @{ var results = Results; }
             @if (_query.Trim().Length == 0)
             {
                 <p class="search-hint">Piš a hledej napříč všemi články.</p>
             }
-            else if (Results.Count == 0)
+            else if (results.Count == 0)
             {
                 <p class="search-hint">Nic nenalezeno.</p>
             }
             else
             {
+                var selected = SelectedIndexFor(results);
                 <div class="search-results">
-                    @foreach (var p in Results)
+                    @for (var i = 0; i < results.Count; i++)
                     {
-                        <button class="search-result lift" @onclick="@(() => Go(p.Id))">
+                        var p = results[i];
+                        var isSelected = i == selected;
+                        <button class="@(isSelected ? "search-result active lift" : "search-result lift")"
+                                @onclick="@(() => Go(p.Id))">
                             <span class="search-result-title">@p.Title</span>
                             @if (p.AvailableGradeNames.Count > 0)
                             {
@@ -49,21 +56,47 @@
 @code {
     private bool _open;
     private string _query = "";
+    private int _selectedIndex;
     private List<PostSummaryResponse> _posts = [];
     private ElementReference _inputRef;
     private DotNetObjectReference<SearchModal>? _selfRef;
     private bool _pendingFocus;
 
+    private string Query
+    {
+        get => _query;
+        set
+        {
+            _query = value;
+            _selectedIndex = 0;
+        }
+    }
+
     private List<PostSummaryResponse> Results
     {
         get
         {
-            var q = _query.Trim();
+            var q = RemoveDiacritics(_query.Trim());
             if (q.Length == 0) return [];
             return [.. _posts
-                .Where(p => p.Title.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .Where(p => RemoveDiacritics(p.Title).Contains(q, StringComparison.OrdinalIgnoreCase))
                 .Take(8)];
         }
+    }
+
+    private int SelectedIndexFor(List<PostSummaryResponse> results) =>
+        results.Count == 0 ? 0 : Math.Clamp(_selectedIndex, 0, results.Count - 1);
+
+    private static string RemoveDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     protected override async Task OnInitializedAsync()
@@ -126,8 +159,22 @@
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape") Close();
-        else if (e.Key == "Enter" && Results.Count > 0) Go(Results[0].Id);
+        var results = Results;
+        switch (e.Key)
+        {
+            case "Escape":
+                Close();
+                break;
+            case "ArrowDown" when results.Count > 0:
+                _selectedIndex = (SelectedIndexFor(results) + 1) % results.Count;
+                break;
+            case "ArrowUp" when results.Count > 0:
+                _selectedIndex = (SelectedIndexFor(results) - 1 + results.Count) % results.Count;
+                break;
+            case "Enter" when results.Count > 0:
+                Go(results[SelectedIndexFor(results)].Id);
+                break;
+        }
     }
 
     private void Go(int postId)

@@ -75,6 +75,10 @@
     color: var(--color-text);
 }
 
+.search-result.active {
+    background: var(--color-surface);
+}
+
 .search-result-title { font-size: 15px; }
 
 .search-result-grades {
