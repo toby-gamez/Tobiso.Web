@@ -11,6 +11,7 @@ namespace Tobiso.Web.Shared.Interfaces
         IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request, CancellationToken cancellationToken = default);
         Task<List<string>> DetectPeopleInTextAsync(string content);
         Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt);
+        Task<PersonResponse> GetPersonInfoAsync(string name);
         Task<GrammarCheckResponse> CheckGrammarAsync(string content);
         Task<string> GenerateCheatSheetAsync(string title, string content, string ratio = "1x1");
         Task<List<CreateQuestionRequest>> GenerateQuestionsAsync(string content, int count, List<string> existingQuestions);
@@ -34,5 +35,6 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<ConceptMapResponse> GenerateConceptMapAsync(int postId);
         Task<FormulaVarsResponse> ExtractFormulaVarsAsync(int postId);
         Task<CrossConnectionResponse> GetCrossConnectionsAsync(int postId, List<string> allPostTitles);
+        Task<RelatedSuggestionsResponse> SuggestCategoryRelatedAsync(int postId, List<int> excludeIds, int count);
     }
 }

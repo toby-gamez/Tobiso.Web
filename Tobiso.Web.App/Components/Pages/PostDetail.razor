@@ -13,6 +13,7 @@
 @inject ITobisoAnonymApi AnonymApi
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
+@inject IAiService AiService
 
 <PageTitle>@(_post?.Title ?? "Článek") — Tobiso</PageTitle>
 
@@ -269,15 +270,15 @@ else
                            Suggestions="@(new[] { "Vysvětli jednodušeji", "Dej mi tři příklady", "Zkoušej mě" })" />
             </div>
 
-            @if (_relatedPosts.Count > 0)
+            @if (_displayRelated.Count > 0)
             {
                 <div style="margin-top:var(--space-8)">
                     <h2 style="font-size:26px; margin-bottom:var(--space-4)">Souvisí s tímto</h2>
                     <div class="related-grid">
-                        @foreach (var rel in _relatedPosts.Take(3))
+                        @foreach (var rel in _displayRelated)
                         {
-                            <a href="/post/@rel.RelatedPostId" class="related-card lift">
-                                <span class="related-title">@rel.RelatedPostTitle</span>
+                            <a href="/post/@rel.PostId" class="related-card lift">
+                                <span class="related-title">@rel.Title</span>
                                 @if (!string.IsNullOrEmpty(rel.Text))
                                 {
                                     <span class="related-desc">@rel.Text</span>
@@ -290,11 +291,30 @@ else
 
             <div style="margin-top:var(--space-8)">
                 <div class="panel-label" style="margin-bottom:var(--space-3)">Jak těžký je tento článek?</div>
-                <div style="display:flex; gap:var(--space-2)">
-                    <button class="pill @(_rating == 1 ? "pill-on" : "")" @onclick="@(() => _rating = 1)">Snadné</button>
-                    <button class="pill @(_rating == 2 ? "pill-on" : "")" @onclick="@(() => _rating = 2)">Střední</button>
-                    <button class="pill @(_rating == 3 ? "pill-on" : "")" @onclick="@(() => _rating = 3)">Těžké</button>
-                </div>
+                @if (_myDifficultyVote.HasValue)
+                {
+                    <div style="display:flex; flex-direction:column; gap:var(--space-2); max-width:360px">
+                        @foreach (var (label, value) in new[] { ("Snadné", 1), ("Střední", 2), ("Těžké", 3) })
+                        {
+                            <div style="display:flex; align-items:center; gap:var(--space-3)">
+                                <span style="width:60px; font-size:13px; @(value == _myDifficultyVote ? "font-weight:700" : "")">@label</span>
+                                <div class="progress-bar" style="flex:1"><div class="progress-bar-fill" style="width:@(DifficultyPercent(value))%"></div></div>
+                                <span style="width:36px; font-size:13px; text-align:right; color:var(--color-neutral-600)">@(DifficultyPercent(value))%</span>
+                            </div>
+                        }
+                    </div>
+                    <div style="font-size:13px; color:var(--color-neutral-600); margin-top:var(--space-2)">
+                        Děkujeme za hodnocení · @CzechPlural.Hlasy(_difficulty?.Total ?? 0)
+                    </div>
+                }
+                else
+                {
+                    <div style="display:flex; gap:var(--space-2)">
+                        <button class="pill" disabled="@_votingDifficulty" @onclick="@(() => RateDifficulty(1))">Snadné</button>
+                        <button class="pill" disabled="@_votingDifficulty" @onclick="@(() => RateDifficulty(2))">Střední</button>
+                        <button class="pill" disabled="@_votingDifficulty" @onclick="@(() => RateDifficulty(3))">Těžké</button>
+                    </div>
+                }
             </div>
         </div>
 
@@ -327,6 +347,8 @@ else
     private List<PostVersionResponse> _versions = [];
     private List<CategoryResponse> _ancestors = [];
     private List<RelatedPostResponse> _relatedPosts = [];
+    private List<DisplayRelatedPost> _displayRelated = [];
+    private record DisplayRelatedPost(int PostId, string Title, string? Text);
     private List<QuestionResponse> _questions = [];
     private List<PostSummaryResponse> _allPosts = [];
     private List<PersonSummaryResponse> _allPeople = [];
@@ -335,7 +357,10 @@ else
     private string _readingFont = "figtree";
     private string _readingSize = "md";
     private string _readingWidth = "mid";
-    private int _rating;
+    private PostDifficultyResponse? _difficulty;
+    private int? _myDifficultyVote;
+    private bool _votingDifficulty;
+    private bool _needsDifficultyCheck;
     private List<(string Text, string Anchor)> _tocHeaders = [];
     private string? _activeAnchor;
     private int _readPercent;
@@ -401,6 +426,8 @@ else
         _exercises = await ExerciseService.GetByPostIdAsync(_post.Id);
         _openExerciseId = null;
 
+        await BuildDisplayRelated();
+
         _activeAnchor = null;
         _readPercent = 0;
         _lastPersistedPercent = -1;
@@ -409,6 +436,12 @@ else
         _factsLoaded = false;
         _factsOpen = false;
         _factsError = null;
+
+        _myDifficultyVote = null;
+        _votingDifficulty = false;
+        _needsDifficultyCheck = true;
+        try { _difficulty = await AnonymApi.GetPostDifficulty(_post.Id); }
+        catch { _difficulty = null; }
 
         var auth = await AuthState.GetAuthenticationStateAsync();
         if (auth.User.Identity?.IsAuthenticated == true &&
@@ -423,6 +456,84 @@ else
         {
             _userId = null;
         }
+
+        // Fire-and-forget: person mentions are a progressive enhancement, don't block the render.
+        _ = DetectPersonMentions(_loadGeneration);
+    }
+
+    private async Task DetectPersonMentions(int generation)
+    {
+        var content = _currentVersion?.Content;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            _allPeople = [];
+            return;
+        }
+
+        List<string> names;
+        try
+        {
+            names = await AiService.DetectPeopleInTextAsync(content);
+        }
+        catch
+        {
+            names = [];
+        }
+
+        if (generation != _loadGeneration) return;
+        _allPeople = names.Select(n => new PersonSummaryResponse { Name = n }).ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // "Souvisí s tímto" always aims for up to 6 entries: manually curated RelatedPosts first,
+    // then AI-picked posts from the same category with a one-sentence connection (cached
+    // server-side), and finally a plain category fallback if AI is unavailable/exhausted.
+    private const int RelatedTarget = 6;
+
+    private async Task BuildDisplayRelated()
+    {
+        if (_post == null) { _displayRelated = []; return; }
+
+        var display = _relatedPosts
+            .Select(r => new DisplayRelatedPost(r.RelatedPostId, r.RelatedPostTitle ?? "", r.Text))
+            .Take(RelatedTarget)
+            .ToList();
+
+        var usedIds = new HashSet<int>(display.Select(d => d.PostId)) { _post.Id };
+        var needed = RelatedTarget - display.Count;
+
+        if (needed > 0 && _post.CategoryId.HasValue)
+        {
+            List<RelatedSuggestionItem> aiItems = [];
+            try { aiItems = (await AnonymApi.GetRelatedSuggestions(_post.Id, needed)).Items; }
+            catch { /* AI suggestions are a best-effort enhancement; fall back below */ }
+
+            foreach (var item in aiItems)
+            {
+                if (needed <= 0) break;
+                if (usedIds.Contains(item.PostId)) continue;
+                var summary = _allPosts.FirstOrDefault(p => p.Id == item.PostId);
+                if (summary == null) continue;
+
+                display.Add(new DisplayRelatedPost(item.PostId, summary.Title, item.Text));
+                usedIds.Add(item.PostId);
+                needed--;
+            }
+
+            if (needed > 0)
+            {
+                var fallback = _allPosts
+                    .Where(p => p.CategoryId == _post.CategoryId && !usedIds.Contains(p.Id))
+                    .Take(needed);
+                foreach (var p in fallback)
+                {
+                    display.Add(new DisplayRelatedPost(p.Id, p.Title, null));
+                    usedIds.Add(p.Id);
+                }
+            }
+        }
+
+        _displayRelated = display;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -434,6 +545,17 @@ else
             _needsScrollInit = false;
             _selfRef ??= DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("initReadingProgress", _selfRef, "#article-prose");
+        }
+
+        if (_needsDifficultyCheck && _post != null)
+        {
+            _needsDifficultyCheck = false;
+            var stored = await JS.InvokeAsync<string?>("getDifficultyVote", _post.Id);
+            if (int.TryParse(stored, out var vote))
+            {
+                _myDifficultyVote = vote;
+                StateHasChanged();
+            }
         }
     }
 
@@ -476,6 +598,8 @@ else
         _activeAnchor = null;
         _readPercent = 0;
         _lastPersistedPercent = -1;
+        _allPeople = [];
+        _ = DetectPersonMentions(_loadGeneration);
     }
 
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;
@@ -493,6 +617,30 @@ else
         else
             await UserProgressService.AddBookmarkAsync(uid, _post.Id);
         _bookmarked = !_bookmarked;
+    }
+
+    private async Task RateDifficulty(int rating)
+    {
+        if (_post == null || _myDifficultyVote.HasValue || _votingDifficulty) return;
+        _votingDifficulty = true;
+        try
+        {
+            var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+            var result = await AnonymApi.RateDifficulty(_post.Id, new DifficultyRatingRequest { Rating = rating, DeviceId = deviceId });
+            _myDifficultyVote = rating;
+            await JS.InvokeVoidAsync("setDifficultyVote", _post.Id, rating);
+            if (result.Message == "ok")
+                _difficulty = await AnonymApi.GetPostDifficulty(_post.Id);
+        }
+        catch { /* best-effort; buttons just stay clickable again below */ }
+        finally { _votingDifficulty = false; }
+    }
+
+    private int DifficultyPercent(int rating)
+    {
+        if (_difficulty == null || _difficulty.Total == 0) return 0;
+        var count = rating switch { 1 => _difficulty.Easy, 2 => _difficulty.Ok, 3 => _difficulty.Hard, _ => 0 };
+        return (int)Math.Round(count * 100.0 / _difficulty.Total);
     }
 
     private void ScrollToQuiz() => Nav.NavigateTo($"/practice/quiz/{_post?.Id}");

@@ -11,7 +11,7 @@
         <div class="search-dialog" @onclick:stopPropagation="true">
             <div class="search-input-row">
                 <i data-lucide="search"></i>
-                <input class="search-input" placeholder="Hledej článek…" @bind="Query" @bind:event="oninput"
+                <input class="search-input" placeholder="Hledej článek či oblast…" @bind="Query" @bind:event="oninput"
                        @onkeydown="OnKeyDown" @ref="_inputRef" />
                 <kbd>Esc</kbd>
             </div>
@@ -19,7 +19,7 @@
             @{ var results = Results; }
             @if (_query.Trim().Length == 0)
             {
-                <p class="search-hint">Piš a hledej napříč všemi články.</p>
+                <p class="search-hint">Piš a hledej napříč všemi články a oblastmi.</p>
             }
             else if (results.Count == 0)
             {
@@ -31,15 +31,18 @@
                 <div class="search-results">
                     @for (var i = 0; i < results.Count; i++)
                     {
-                        var p = results[i];
+                        var item = results[i];
                         var isSelected = i == selected;
                         <button class="@(isSelected ? "search-result active lift" : "search-result lift")"
-                                @onclick="@(() => Go(p.Id))">
-                            <span class="search-result-title">@p.Title</span>
-                            @if (p.AvailableGradeNames.Count > 0)
+                                @onclick="@(() => Go(item))">
+                            <span class="search-result-main">
+                                <i data-lucide="@(item.IsCategory ? "folder-tree" : "file-text")"></i>
+                                <span class="search-result-title">@item.Title</span>
+                            </span>
+                            @if (item.Grades.Count > 0)
                             {
                                 <span class="search-result-grades">
-                                    @foreach (var g in p.AvailableGradeNames)
+                                    @foreach (var g in item.Grades)
                                     {
                                         <span class="grade-chip">@g</span>
                                     }
@@ -54,10 +57,14 @@
 }
 
 @code {
+    private readonly record struct SearchItem(int Id, string Title, bool IsCategory, List<string> Grades);
+
     private bool _open;
     private string _query = "";
     private int _selectedIndex;
     private List<PostSummaryResponse> _posts = [];
+    private List<CategoryResponse> _categories = [];
+    private Dictionary<int, string> _categoryNames = [];
     private ElementReference _inputRef;
     private DotNetObjectReference<SearchModal>? _selfRef;
     private bool _pendingFocus;
@@ -72,19 +79,31 @@
         }
     }
 
-    private List<PostSummaryResponse> Results
+    private List<SearchItem> Results
     {
         get
         {
             var q = RemoveDiacritics(_query.Trim());
             if (q.Length == 0) return [];
-            return [.. _posts
-                .Where(p => RemoveDiacritics(p.Title).Contains(q, StringComparison.OrdinalIgnoreCase))
-                .Take(8)];
+
+            var categoryMatches = _categories
+                .Where(c => RemoveDiacritics(c.Name).Contains(q, StringComparison.OrdinalIgnoreCase))
+                .Take(3)
+                .Select(c => new SearchItem(c.Id, c.Name, true, []));
+
+            var postMatches = _posts
+                .Where(p => RemoveDiacritics(p.Title).Contains(q, StringComparison.OrdinalIgnoreCase)
+                            || (p.CategoryId.HasValue
+                                && _categoryNames.TryGetValue(p.CategoryId.Value, out var categoryName)
+                                && RemoveDiacritics(categoryName).Contains(q, StringComparison.OrdinalIgnoreCase)))
+                .Take(8)
+                .Select(p => new SearchItem(p.Id, p.Title, false, p.AvailableGradeNames));
+
+            return [.. categoryMatches, .. postMatches];
         }
     }
 
-    private int SelectedIndexFor(List<PostSummaryResponse> results) =>
+    private int SelectedIndexFor(List<SearchItem> results) =>
         results.Count == 0 ? 0 : Math.Clamp(_selectedIndex, 0, results.Count - 1);
 
     private static string RemoveDiacritics(string text)
@@ -102,6 +121,8 @@
     protected override async Task OnInitializedAsync()
     {
         _posts = await ScopedServices.GetRequiredService<IPostService>().GetSummaries();
+        _categories = await ScopedServices.GetRequiredService<ICategoryService>().GetAll();
+        _categoryNames = _categories.ToDictionary(c => c.Id, c => c.Name);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -172,15 +193,15 @@
                 _selectedIndex = (SelectedIndexFor(results) - 1 + results.Count) % results.Count;
                 break;
             case "Enter" when results.Count > 0:
-                Go(results[SelectedIndexFor(results)].Id);
+                Go(results[SelectedIndexFor(results)]);
                 break;
         }
     }
 
-    private void Go(int postId)
+    private void Go(SearchItem item)
     {
         _open = false;
-        Nav.NavigateTo($"/post/{postId}");
+        Nav.NavigateTo(item.IsCategory ? $"/categories/{item.Id}" : $"/post/{item.Id}");
     }
 
     public async ValueTask DisposeAsync()

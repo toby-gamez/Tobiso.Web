@@ -18,4 +18,5 @@ public static class CzechPlural
     public static string Dny(int count) => Of(count, "den", "dny", "dní");
     public static string Kredity(int count) => Of(count, "kredit", "kredity", "kreditů");
     public static string Slova(int count) => Of(count, "slovo", "slova", "slov");
+    public static string Hlasy(int count) => Of(count, "hlas", "hlasy", "hlasů");
 }

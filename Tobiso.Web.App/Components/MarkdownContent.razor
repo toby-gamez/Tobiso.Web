@@ -20,14 +20,19 @@
     private bool _katexLoaded = false;
     private readonly List<(string Text, string Anchor)> _headings = [];
     private string? _lastProcessedContent;
+    private List<PersonSummaryResponse>? _lastProcessedPeople;
 
     protected override async Task OnParametersSetAsync()
     {
         // Blazor calls OnParametersSetAsync on every parent render, not just when Content
         // actually changes. Re-invoking OnHeadingsExtracted unconditionally lets a parent that
         // calls StateHasChanged() from the callback re-render itself into an infinite loop.
-        if (Content == _lastProcessedContent) return;
+        // AllPeople is also checked (by reference) because PostDetail loads it asynchronously
+        // after the initial render, once Content is already set — without this, person mentions
+        // would never get woven into an already-rendered article.
+        if (Content == _lastProcessedContent && ReferenceEquals(AllPeople, _lastProcessedPeople)) return;
         _lastProcessedContent = Content;
+        _lastProcessedPeople = AllPeople;
 
         _renderedHtml = TransformMarkdownContent(Content);
         if (OnHeadingsExtracted.HasDelegate)
@@ -498,16 +503,10 @@
             {
                 // Whole-word match (Unicode aware)
                 var rx = new Regex($"(?<![\\w@#\\-])({Regex.Escape(name)})(?![\\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-                // Use name-based opener: pass canonical name JSON-encoded to JS bridge
-                var escapedName = System.Text.Json.JsonSerializer.Serialize(name);
-                // Emit a data-person-name attribute instead of inline onclick to avoid
-                // quoting/escaping issues and to let the page attach a delegated click
-                // handler that calls into Blazor. HTML-encode the name for safety.
-                // Store a percent-encoded version of the name in the data attribute so
-                // it is safe for HTML attributes and can be decoded reliably in JS.
-                var encodedName = System.Uri.EscapeDataString(name);
-                // Render a non-navigating anchor/button with a data-person-name attribute.
-                result = rx.Replace(result, m => $"<span class=\"person-mention person-link \" data-person-name=\"{encodedName}\">{m.Groups[1].Value}<i class=\"bi bi-search\" style=\"font-size: 12px; margin-left: 3px\"></i></span>");
+                // Pass the canonical name as a JSON string literal so it is safe to embed
+                // directly inside the onclick attribute (mirrors the addendum-btn pattern).
+                var escapedName = System.Text.Json.JsonSerializer.Serialize(name).Replace("\"", "&quot;");
+                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<a class=\"person-link\" href=\"#\" onclick=\"event.preventDefault(); window.requestPerson({escapedName})\" aria-label=\"Zobrazit informace o osobě\"><i class=\"bi bi-search\"></i></a></span>");
             }
             catch { }
         }

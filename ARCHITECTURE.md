@@ -838,48 +838,42 @@ Per-post difficulty ratings (Easy/Medium/Hard counts), searchable and sortable.
 
 ## 15. CSS Architecture
 
-Located in `Tobiso.Web.App/wwwroot/css/`. Zero CSS frameworks — entirely custom.
+Located in `Tobiso.Web.App/wwwroot/css/`. Zero CSS frameworks — entirely custom, built on the **Organic** design system. Full design references (screen mockups, rationale, token catalogue) live in `docs/design/` — read `docs/design/README.md` before any UI work; see `CLAUDE.md`'s Design System section for the summary rule.
 
 ### File Structure
 
 | File | Purpose |
 |------|---------|
-| `style.css` | Master entry point — imports Google Fonts + all other CSS files |
+| `style.css` | Master entry point — Google Fonts import (Baloo 2 + Figtree) + base/reset + heading rules |
 | `variables.css` | All design tokens as CSS custom properties |
-| `grid.css` | Responsive subject card grid |
-| `footer.css` | Footer with sidebar-offset margin |
-| `index-style.css` | Hero section / homepage-specific styles |
-| `tabulkad.css` | Post content table styles |
-| `focus-accessibility.css` | Focus ring styles |
-| `app.css` | Minimal Blazor error UI scaffolding |
+| `organic.css` | Shared component classes: `.pill`/`.pill-on`, `.lift`, `.chip`/`.bucket` (exercise UI), `.grade-chip`, `.skeleton`, `.help-btn`/`.tooltip`, etc. |
 
-Plus Blazor-scoped CSS: `MainLayout.razor.css`, `NavMenu.razor.css` (sidebar transitions), `Home.razor.css`.
+Plus Blazor-scoped CSS per component: `MainLayout.razor.css` (grid shell), `NavMenu.razor.css` (rail + grade-picker dropdown), and one `.razor.css` alongside most page/component files. Note: a scoped `.razor.css` rule never applies to markup injected as raw HTML (e.g. anything rendered by `MarkdownContent.razor` via `MarkupString`) — style that from `organic.css` instead.
 
 ### Design Tokens (`variables.css`)
 
-All values on `:root` as `--color-*` canonical names:
-- Typography: `--font-family-sans` (Poppins), `--font-family-serif` (Zilla Slab), `--font-family-monospace` (JetBrains Mono)
-- Brand: `--color-accent` (#d175a6 pink), `--color-primary` (#c36f9a), `--color-secondary` (#d89dbd)
-- Backgrounds/text: `--color-bg`, `--color-text` with `-dark` variants
-- State: `--good`, `--danger-*`, `--warning-*`, `--color-success-*`, `--color-danger-*`
-- Shadows: `--shadow-sm/md/lg`, `--backdrop`, `--overlay-bg`
-- Semantic: `--color-accent-4` (nav sidebar background), calendar, modal, progress colors
+All values on `:root` as `--color-*` canonical names (Organic system):
+- Ground: `--color-bg` (cream #f5ead8), `--color-surface` (sand #ebddc5), `--color-text`, `--color-divider`
+- Terracotta accent ramp: `--color-accent-100…900` (buttons/links at `-600`, badge tints at `-200`)
+- Sage second-accent ramp: `--color-accent-2-100…900`
+- Warm neutral ramp: `--color-neutral-100…900` (hover states, dividers)
+- Typography: `--font-heading` (Baloo 2 — overrides the design system's default Caprasimo, which lacks Czech diacritics), `--font-body` (Figtree)
+- Spacing: `--space-1…8` (4.4px × n), Radius: `--radius-sm/md/lg` (8/16/28px; pills use `border-radius:999px`), Shadows: `--shadow-sm/md/lg`
 
-Dark mode is toggled by adding `dark-mode` class to `body` via JS. Components use `--color-*-dark` variants directly.
+Dark mode is `[data-theme="dark"]` on `<html>` (explicit toggle) or the `prefers-color-scheme: dark` media query when no explicit choice is set — both redefine the *same* token names. There is no `body.dark-mode` class and no separate `--color-*-dark` variable set; a rule that only uses `var(--color-*)` reacts to theme automatically.
 
-### Sidebar CSS (`NavMenu.razor.css`)
+### Sidebar CSS (`NavMenu.razor.css` + `MainLayout.razor.css`)
 
+CSS grid shell, not a collapsing sidebar:
 ```css
-#MyNavBar { width: 285px; /* expanded */ }
-#MyNavBar.collapsed { width: 60px; }
-/* transition: width 0.3s ease */
+/* MainLayout.razor.css */
+grid-template-columns: 264px minmax(0, 1fr); /* fixed rail + fluid main, max-width 1100px */
 ```
-
-Fixed position, left-anchored. Mobile shows a separate slide-in drawer overlay instead.
+The rail (`.nav-rail`) is always full-width at 264px on desktop; below `767px` it collapses to a mobile layout (no drag-resize, no expand/collapse toggle).
 
 ### Admin CSS
 
-Admin app uses Bootstrap 5 (`wwwroot/lib/bootstrap/`) with no custom design system.
+Admin app uses Bootstrap 5 (`wwwroot/lib/bootstrap/`) with no custom design system — the Organic tokens above are **not** used there.
 
 ---
 

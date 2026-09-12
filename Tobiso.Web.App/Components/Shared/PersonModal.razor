@@ -1,0 +1,128 @@
+@implements IAsyncDisposable
+@using Tobiso.Web.Shared.Interfaces
+@inject IAiService AiService
+@inject IJSRuntime JS
+
+@if (_open)
+{
+    <div class="person-backdrop" @onclick="Close">
+        <div class="person-dialog" @onclick:stopPropagation="true">
+            <button class="person-close" @onclick="Close" aria-label="Zavřít">
+                <i data-lucide="x"></i>
+            </button>
+            @if (_loading)
+            {
+                <div class="person-loading">Načítám informace…</div>
+            }
+            else if (_error)
+            {
+                <div class="person-loading">Informace se nepodařilo načíst.</div>
+            }
+            else if (_person != null)
+            {
+                <h3 class="person-name">
+                    @_person.Name
+                    @if (_person.BirthYear.HasValue || _person.DeathYear.HasValue)
+                    {
+                        <span class="person-years">(@(_person.BirthYear?.ToString() ?? "?")–@(_person.DeathYear?.ToString() ?? ""))</span>
+                    }
+                </h3>
+                @if (!string.IsNullOrEmpty(_person.Role))
+                {
+                    <p class="person-role">@_person.Role</p>
+                }
+                @if (!string.IsNullOrEmpty(_person.Bio))
+                {
+                    <div id="person-bio" class="person-bio">
+                        <MarkdownContent Content="@_person.Bio" ContainerId="person-bio" />
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_person.ExternalLink))
+                {
+                    <a class="pill person-link-out" href="@_person.ExternalLink" target="_blank" rel="noopener noreferrer">
+                        <i data-lucide="external-link"></i> @GetLinkLabel(_person.ExternalLink)
+                    </a>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _open;
+    private bool _loading;
+    private bool _error;
+    private PersonResponse? _person;
+    private DotNetObjectReference<PersonModal>? _selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerPersonModal", _selfRef);
+        }
+
+        if (_open)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+        }
+    }
+
+    [JSInvokable]
+    public async Task Show(string name)
+    {
+        _open = true;
+        _loading = true;
+        _error = false;
+        _person = null;
+        StateHasChanged();
+
+        try
+        {
+            _person = await AiService.GetPersonInfoAsync(name);
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Close()
+    {
+        _open = false;
+    }
+
+    // Known platforms get their own name instead of the generic "Externí odkaz" label,
+    // so the link communicates where it goes before the user clicks it.
+    private static string GetLinkLabel(string? url)
+    {
+        if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return "Externí odkaz";
+
+        var host = uri.Host.ToLowerInvariant();
+        if (host.StartsWith("www.")) host = host[4..];
+
+        if (host.EndsWith("wikipedia.org")) return "Wikipedia";
+        if (host is "youtube.com" or "youtu.be" or "m.youtube.com") return "YouTube";
+        if (host.EndsWith("britannica.com")) return "Encyclopaedia Britannica";
+        if (host is "twitter.com" or "x.com") return "X (Twitter)";
+        if (host.EndsWith("facebook.com")) return "Facebook";
+        if (host.EndsWith("instagram.com")) return "Instagram";
+        if (host.EndsWith("imdb.com")) return "IMDb";
+        if (host.EndsWith("linkedin.com")) return "LinkedIn";
+
+        return "Externí odkaz";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("unregisterPersonModal"); } catch { }
+        _selfRef?.Dispose();
+    }
+}

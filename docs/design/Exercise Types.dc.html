@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-fe932e9c-d227-4e89-9267-03efe55a708f/styles.css">
+<script src="_ds/organic-fe932e9c-d227-4e89-9267-03efe55a708f/_ds_bundle.js"></script>
+<script src="https://unpkg.com/lucide@0.453.0/dist/umd/lucide.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&display=swap');
+  :root { --font-heading: "Baloo 2", system-ui, sans-serif; }
+  svg.lucide { width: 1em; height: 1em; }
+  .pill { display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14px; padding:9px 18px; border-radius:999px; border:1px solid var(--color-divider); background:transparent; color:var(--color-text); cursor:pointer; }
+  .pill:hover { background: var(--color-neutral-100); }
+  .chip { font:inherit; font-size:15px; padding:10px 18px; border-radius:999px; border:1px solid var(--color-divider); background:var(--color-neutral-100); color:var(--color-text); cursor:pointer; }
+  .chip:hover { background: var(--color-neutral-200); }
+  .chip-sel { background: var(--color-accent-600); color: var(--color-bg); border-color: transparent; }
+  .chip-sel:hover { background: var(--color-accent-700); }
+  .bucket { min-height:120px; padding:var(--space-4); border-radius:var(--radius-lg); background:var(--color-neutral-100); border:2px dashed var(--color-divider); display:flex; flex-direction:column; gap:8px; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:var(--color-bg); font-family:var(--font-body); color:var(--color-text); padding:var(--space-8); display:flex; justify-content:center">
+<div style="width:100%; max-width:880px; display:flex; flex-direction:column; gap:var(--space-8)">
+
+  <div>
+    <h1 style="font-size:clamp(32px,4vw,44px); margin:0 0 var(--space-2)">Typy cvičení</h1>
+    <p style="margin:0; font-size:16px; color:#5c5349; max-width:64ch">Přehled tří typů interaktivních cvičení, které se běžně vkládají na konec článku (viz „Interaktivní cvičení" v renderu příspěvku). Tady jsou vyzkoušitelné na ukázkových datech.</p>
+  </div>
+
+  <!-- Drag & drop -->
+  <div style="background:var(--color-surface); border-radius:var(--radius-lg); padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4)">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3)">
+      <div>
+        <span style="display:inline-flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--color-accent-2-700)"><i data-lucide="move"></i> Přetahování · drag-drop</span>
+        <h2 style="font-size:22px; margin:6px 0 0">Rostlina, nebo houba?</h2>
+      </div>
+      <button onClick="{{ resetDD }}" class="pill"><i data-lucide="rotate-ccw"></i> Znovu</button>
+    </div>
+    <p style="margin:0; font-size:14px; color:#7a6f6a">Klikni na slovo, potom na správný koš. (V reálné appce se přetahuje myší/prstem — princip je stejný.)</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px">
+      <sc-for list="{{ ddUnplaced }}" as="it" hint-placeholder-count="4">
+        <button class="{{ it.chipClass }}" onClick="{{ it.onSelect }}">{{ it.text }}</button>
+      </sc-for>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:var(--space-3)">
+      <sc-for list="{{ ddCatsView }}" as="cat" hint-placeholder-count="2">
+        <button onClick="{{ cat.onDrop }}" class="bucket" style="text-align:left; font:inherit; cursor:pointer; border:0; border:2px dashed {{ cat.borderColor }}">
+          <span style="font-family:var(--font-heading); font-size:17px">{{ cat.label }}</span>
+          <sc-for list="{{ cat.items }}" as="pi" hint-placeholder-count="0">
+            <span style="padding:6px 12px; border-radius:999px; font-size:14px; background:{{ pi.bg }}; color:{{ pi.fg }}; align-self:flex-start">{{ pi.text }}</span>
+          </sc-for>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex; align-items:center; gap:var(--space-3)">
+      <button onClick="{{ checkDD }}" class="pill" style="background:var(--color-accent-600); color:var(--color-bg); border-color:transparent">Zkontrolovat</button>
+      <sc-if value="{{ ddChecked }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:15px; font-weight:600">{{ ddScoreText }}</span>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- Matching -->
+  <div style="background:var(--color-surface); border-radius:var(--radius-lg); padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4)">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3)">
+      <div>
+        <span style="display:inline-flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--color-accent-2-700)"><i data-lucide="link-2"></i> Párování · matching</span>
+        <h2 style="font-size:22px; margin:6px 0 0">Přiřaď vzorec k látce</h2>
+      </div>
+      <button onClick="{{ resetMatch }}" class="pill"><i data-lucide="rotate-ccw"></i> Znovu</button>
+    </div>
+    <p style="margin:0; font-size:14px; color:#7a6f6a">Klikni na vzorec vlevo, pak na jeho český název vpravo.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4)">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <sc-for list="{{ matchLeftView }}" as="l" hint-placeholder-count="4">
+          <button onClick="{{ l.onSelect }}" class="{{ l.chipClass }}" style="text-align:left">{{ l.text }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <sc-for list="{{ matchRightView }}" as="r" hint-placeholder-count="4">
+          <button onClick="{{ r.onSelect }}" class="{{ r.chipClass }}">{{ r.text }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{ hasPairs }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:6px; padding-top:var(--space-2); border-top:1px solid var(--color-divider)">
+        <span style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8c8175">Spárováno</span>
+        <sc-for list="{{ pairedView }}" as="p" hint-placeholder-count="0">
+          <div style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-radius:999px; background:{{ p.bg }}; color:{{ p.fg }}; font-size:15px">
+            <span style="flex:1">{{ p.leftText }} → {{ p.rightText }}</span>
+            <sc-if value="{{ p.checked }}" hint-placeholder-val="{{ false }}">
+              <i data-lucide="{{ p.statusIcon }}" style="color:inherit"></i>
+            </sc-if>
+            <sc-if value="{{ p.showRemove }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ p.onRemove }}" aria-label="Zrušit pár" style="background:transparent; border:0; cursor:pointer; color:inherit; display:flex"><i data-lucide="x"></i></button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <div style="display:flex; align-items:center; gap:var(--space-3)">
+      <button onClick="{{ checkMatch }}" class="pill" style="background:var(--color-accent-600); color:var(--color-bg); border-color:transparent">Zkontrolovat</button>
+      <sc-if value="{{ matchChecked }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:15px; font-weight:600">{{ matchScoreText }}</span>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div style="background:var(--color-surface); border-radius:var(--radius-lg); padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4)">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3)">
+      <div>
+        <span style="display:inline-flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--color-accent-2-700)"><i data-lucide="history"></i> Časová osa · timeline</span>
+        <h2 style="font-size:22px; margin:6px 0 0">Umísti události na jejich rok</h2>
+      </div>
+      <button onClick="{{ resetTL }}" class="pill"><i data-lucide="rotate-ccw"></i> Znovu</button>
+    </div>
+    <p style="margin:0; font-size:14px; color:#7a6f6a">Klikni na událost, potom na rok, kdy se stala.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px">
+      <sc-for list="{{ tlUnplaced }}" as="ev" hint-placeholder-count="4">
+        <button onClick="{{ ev.onSelect }}" class="{{ ev.chipClass }}">{{ ev.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--space-3)">
+      <sc-for list="{{ tlDatesView }}" as="d" hint-placeholder-count="4">
+        <button onClick="{{ d.onDrop }}" class="bucket" style="text-align:center; align-items:center; font:inherit; cursor:pointer; border:2px dashed {{ d.borderColor }}">
+          <span style="font-family:var(--font-heading); font-size:19px">{{ d.year }}</span>
+          <sc-for list="{{ d.items }}" as="pi" hint-placeholder-count="0">
+            <span style="padding:6px 12px; border-radius:999px; font-size:14px; background:{{ pi.bg }}; color:{{ pi.fg }}">{{ pi.label }}</span>
+          </sc-for>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex; align-items:center; gap:var(--space-3)">
+      <button onClick="{{ checkTL }}" class="pill" style="background:var(--color-accent-600); color:var(--color-bg); border-color:transparent">Zkontrolovat</button>
+      <sc-if value="{{ tlChecked }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:15px; font-weight:600">{{ tlScoreText }}</span>
+      </sc-if>
+    </div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:960,&quot;height&quot;:1600}}">
+class Component extends DCLogic {
+  state = {
+    ddPlacements: {}, ddSelected: null, ddChecked: false,
+    matchPairs: {}, matchSelectedLeft: null, matchChecked: false,
+    tlPlacements: {}, tlSelected: null, tlChecked: false
+  };
+
+  ddItems = [
+    { id: 'i1', text: 'Dub', correct: 'rostliny' },
+    { id: 'i2', text: 'Muchomůrka', correct: 'houby' },
+    { id: 'i3', text: 'Kopřiva', correct: 'rostliny' },
+    { id: 'i4', text: 'Hřib', correct: 'houby' }
+  ];
+  ddCats = [{ id: 'rostliny', label: 'Rostliny' }, { id: 'houby', label: 'Houby' }];
+
+  matchLeft = [
+    { id: 'l1', text: 'H₂O', answer: 'r1' },
+    { id: 'l2', text: 'NaCl', answer: 'r2' },
+    { id: 'l3', text: 'CO₂', answer: 'r3' },
+    { id: 'l4', text: 'O₂', answer: 'r4' }
+  ];
+  matchRightData = { r1: 'Voda', r2: 'Sůl', r3: 'Oxid uhličitý', r4: 'Kyslík' };
+  matchRightOrder = ['r3', 'r1', 'r4', 'r2'];
+
+  tlEvents = [
+    { id: 'e1', label: 'Založení Karlovy univerzity', year: 1348 },
+    { id: 'e2', label: 'Upálení Jana Husa', year: 1415 },
+    { id: 'e3', label: 'Nástup Habsburků na český trůn', year: 1526 },
+    { id: 'e4', label: 'Bitva na Bílé hoře', year: 1620 }
+  ];
+  tlDisplayOrder = ['e3', 'e1', 'e4', 'e2'];
+
+  icons() { try { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 2.75 } }); } catch (e) {} }
+  componentDidMount() { this.icons(); this._t = setInterval(() => this.icons(), 500); setTimeout(() => { clearInterval(this._t); this._t = null; }, 6000); }
+  componentDidUpdate() { this.icons(); }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  selectDD(id) { this.setState({ ddSelected: id, ddChecked: false }); }
+  dropDD(catId) {
+    const sel = this.state.ddSelected;
+    if (!sel) return;
+    this.setState(s => ({ ddPlacements: { ...s.ddPlacements, [sel]: catId }, ddSelected: null, ddChecked: false }));
+  }
+  resetDD() { this.setState({ ddPlacements: {}, ddSelected: null, ddChecked: false }); }
+  checkDD() { this.setState({ ddChecked: true }); }
+
+  selectLeft(id) {
+    if (this.state.matchPairs[id]) return;
+    this.setState({ matchSelectedLeft: id, matchChecked: false });
+  }
+  selectRight(id) {
+    const sel = this.state.matchSelectedLeft;
+    if (!sel) return;
+    if (Object.values(this.state.matchPairs).includes(id)) return;
+    this.setState(s => ({ matchPairs: { ...s.matchPairs, [sel]: id }, matchSelectedLeft: null, matchChecked: false }));
+  }
+  resetMatch() { this.setState({ matchPairs: {}, matchSelectedLeft: null, matchChecked: false }); }
+  checkMatch() { this.setState({ matchChecked: true }); }
+
+  selectTL(id) { this.setState({ tlSelected: id, tlChecked: false }); }
+  dropTL(year) {
+    const sel = this.state.tlSelected;
+    if (!sel) return;
+    this.setState(s => ({ tlPlacements: { ...s.tlPlacements, [sel]: year }, tlSelected: null, tlChecked: false }));
+  }
+  resetTL() { this.setState({ tlPlacements: {}, tlSelected: null, tlChecked: false }); }
+  checkTL() { this.setState({ tlChecked: true }); }
+  removePair(leftId) {
+    this.setState(s => { const p = { ...s.matchPairs }; delete p[leftId]; return { matchPairs: p, matchChecked: false }; });
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const placedIds = new Set(Object.keys(s.ddPlacements));
+    const ddUnplaced = this.ddItems.filter(it => !placedIds.has(it.id)).map(it => ({
+      text: it.text,
+      chipClass: s.ddSelected === it.id ? 'chip chip-sel' : 'chip',
+      onSelect: () => this.selectDD(it.id)
+    }));
+    const ddCatsView = this.ddCats.map(cat => ({
+      label: cat.label,
+      borderColor: s.ddSelected ? 'var(--color-accent-600)' : 'var(--color-divider)',
+      onDrop: () => this.dropDD(cat.id),
+      items: this.ddItems.filter(it => s.ddPlacements[it.id] === cat.id).map(it => {
+        const isRight = !s.ddChecked || it.correct === cat.id;
+        return { text: it.text, bg: s.ddChecked ? (isRight ? 'var(--color-accent-2-200)' : '#f6d4c4') : 'var(--color-neutral-200)', fg: s.ddChecked ? (isRight ? 'var(--color-accent-2-900)' : '#7a2e12') : 'var(--color-text)' };
+      })
+    }));
+    const ddTotal = this.ddItems.length;
+    const ddCorrect = this.ddItems.filter(it => s.ddPlacements[it.id] === it.correct).length;
+    const ddScoreText = `Skóre: ${Math.round((ddCorrect / ddTotal) * 100)} % (${ddCorrect}/${ddTotal} správně)`;
+
+    const pairedLeftIds = new Set(Object.keys(s.matchPairs));
+    const pairedRightIds = new Set(Object.values(s.matchPairs));
+    const matchLeftView = this.matchLeft.filter(l => !pairedLeftIds.has(l.id)).map(l => ({
+      text: l.text,
+      chipClass: s.matchSelectedLeft === l.id ? 'chip chip-sel' : 'chip',
+      onSelect: () => this.selectLeft(l.id)
+    }));
+    const matchRightView = this.matchRightOrder.filter(rid => !pairedRightIds.has(rid)).map(rid => ({
+      text: this.matchRightData[rid],
+      chipClass: 'chip',
+      onSelect: () => this.selectRight(rid)
+    }));
+    const matchTotal = this.matchLeft.length;
+    const matchCorrect = this.matchLeft.filter(l => s.matchPairs[l.id] === l.answer).length;
+    const matchScoreText = `Skóre: ${Math.round((matchCorrect / matchTotal) * 100)} % (${matchCorrect}/${matchTotal} správně)`;
+    const pairedView = Object.keys(s.matchPairs).map(lid => {
+      const rid = s.matchPairs[lid];
+      const l = this.matchLeft.find(x => x.id === lid);
+      const isRight = !s.matchChecked || l.answer === rid;
+      return {
+        leftText: l.text, rightText: this.matchRightData[rid],
+        bg: s.matchChecked ? (isRight ? 'var(--color-accent-2-200)' : '#f6d4c4') : 'var(--color-neutral-200)',
+        fg: s.matchChecked ? (isRight ? 'var(--color-accent-2-900)' : '#7a2e12') : 'var(--color-text)',
+        checked: s.matchChecked, showRemove: !s.matchChecked,
+        statusIcon: isRight ? 'check-circle-2' : 'x-circle',
+        onRemove: () => this.removePair(lid)
+      };
+    });
+
+    const tlPlacedIds = new Set(Object.keys(s.tlPlacements));
+    const tlUnplaced = this.tlEvents.filter(ev => !tlPlacedIds.has(ev.id)).sort((a, b) => this.tlDisplayOrder.indexOf(a.id) - this.tlDisplayOrder.indexOf(b.id)).map(ev => ({
+      label: ev.label,
+      chipClass: s.tlSelected === ev.id ? 'chip chip-sel' : 'chip',
+      onSelect: () => this.selectTL(ev.id)
+    }));
+    const tlYears = [...this.tlEvents.map(e => e.year)].sort((a, b) => a - b);
+    const tlDatesView = tlYears.map(year => ({
+      year,
+      borderColor: s.tlSelected ? 'var(--color-accent-600)' : 'var(--color-divider)',
+      onDrop: () => this.dropTL(year),
+      items: this.tlEvents.filter(ev => s.tlPlacements[ev.id] === year).map(ev => {
+        const isRight = !s.tlChecked || ev.year === year;
+        return { label: ev.label, bg: s.tlChecked ? (isRight ? 'var(--color-accent-2-200)' : '#f6d4c4') : 'var(--color-neutral-200)', fg: s.tlChecked ? (isRight ? 'var(--color-accent-2-900)' : '#7a2e12') : 'var(--color-text)' };
+      })
+    }));
+    const tlTotal = this.tlEvents.length;
+    const tlCorrect = this.tlEvents.filter(ev => s.tlPlacements[ev.id] === ev.year).length;
+    const tlScoreText = `Skóre: ${Math.round((tlCorrect / tlTotal) * 100)} % (${tlCorrect}/${tlTotal} správně)`;
+
+    return {
+      ddUnplaced, ddCatsView, ddChecked: s.ddChecked, ddScoreText,
+      resetDD: () => this.resetDD(), checkDD: () => this.checkDD(),
+      matchLeftView, matchRightView, matchChecked: s.matchChecked, matchScoreText, hasPairs: Object.keys(s.matchPairs).length > 0, pairedView,
+      resetMatch: () => this.resetMatch(), checkMatch: () => this.checkMatch(),
+      tlUnplaced, tlDatesView, tlChecked: s.tlChecked, tlScoreText,
+      resetTL: () => this.resetTL(), checkTL: () => this.checkTL()
+    };
+  }
+}
+</script>
+</body>
+</html>

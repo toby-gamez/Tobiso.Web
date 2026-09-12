@@ -88,6 +88,21 @@ window.requestAddendum = (id) => {
     addendumModalRef?.invokeMethodAsync('Show', id);
 };
 
+let personModalRef = null;
+
+window.registerPersonModal = (dotNetRef) => {
+    personModalRef = dotNetRef;
+};
+
+window.unregisterPersonModal = () => {
+    personModalRef = null;
+};
+
+// Called via onclick from raw HTML emitted by MarkdownContent for detected person mentions.
+window.requestPerson = (name) => {
+    personModalRef?.invokeMethodAsync('Show', name);
+};
+
 window.scrollToId = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -176,4 +191,28 @@ window.acceptCookieConsent = () => {
 window.declineCookieConsent = () => {
     try { localStorage.setItem('tobiso-cookie-consent', 'declined'); } catch (e) { /* ignore */ }
     window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+};
+
+// Difficulty rating (PostDetail "Jak těžký je tento článek?"): a stable per-browser
+// id lets the API dedupe votes server-side, and the post's own vote is cached
+// locally so a refresh shows results instead of the vote buttons again.
+window.getDeviceId = () => {
+    try {
+        let id = localStorage.getItem('tobiso-device-id');
+        if (!id) {
+            id = crypto.randomUUID();
+            localStorage.setItem('tobiso-device-id', id);
+        }
+        return id;
+    } catch (e) {
+        return '';
+    }
+};
+
+window.getDifficultyVote = (postId) => {
+    try { return localStorage.getItem(`tobiso-difficulty-${postId}`); } catch (e) { return null; }
+};
+
+window.setDifficultyVote = (postId, rating) => {
+    try { localStorage.setItem(`tobiso-difficulty-${postId}`, String(rating)); } catch (e) { /* ignore */ }
 };

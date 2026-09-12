@@ -38,6 +38,15 @@ public interface ITobisoAnonymApi
     [Get("/api/ai/fun-facts/{postId}")]
     Task<FunFactsResponse> GetFunFacts(int postId);
 
+    [Get("/api/ai/related-suggestions/{postId}")]
+    Task<RelatedSuggestionsResponse> GetRelatedSuggestions(int postId, [Query] int count = 6);
+
+    [Get("/api/Posts/{id}/difficulty")]
+    Task<PostDifficultyResponse> GetPostDifficulty(int id);
+
+    [Post("/api/Posts/{id}/rate-difficulty")]
+    Task<DifficultyRatingResult> RateDifficulty(int id, [Body] DifficultyRatingRequest request);
+
     // Events API - anonymní přístup pro čtení
     [Get("/api/Events")]
     Task<List<EventResponse>> GetAllEvents();

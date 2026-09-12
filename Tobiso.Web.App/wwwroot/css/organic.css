@@ -318,6 +318,32 @@ a.sage-tint {
     color: #fff8f3;
 }
 
+/* Person mention, emitted inline in article content for AI-detected person names */
+.person-mention {
+    white-space: nowrap;
+}
+
+.person-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 2px;
+    border-radius: 999px;
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-600);
+    cursor: pointer;
+    vertical-align: middle;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+.person-link:hover {
+    background: var(--color-accent-600);
+    color: #fff8f3;
+}
+
 /* Callout tip */
 .callout-tip {
     display: flex;

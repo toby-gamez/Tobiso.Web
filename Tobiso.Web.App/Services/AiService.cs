@@ -174,6 +174,63 @@ namespace Tobiso.Web.App.Services
             return string.Empty;
         }
 
+        public async Task<PersonResponse> GetPersonInfoAsync(string name)
+        {
+            var systemPrompt = _configuration["OpenAI:PersonSystemPrompt"]
+                ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object — no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";
+
+            var userPrompt = $"Return a JSON object for the person \"{name}\" with exactly these keys: " +
+                "name (string, full name), " +
+                "role (string, short description, e.g. \"český skladatel a pianista\"), " +
+                "birthYear (integer or null), " +
+                "deathYear (integer or null), " +
+                "bio (string, 2-3 factual sentences), " +
+                "externalLink (string, Wikipedia URL or empty string). " +
+                "Write the values of role and bio in Czech (čeština), regardless of the language of the person's name.";
+
+            var raw = await AskRawJsonAsync(systemPrompt, userPrompt);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                Serilog.Log.Warning("Person generation returned empty response for {Name}", name);
+                throw new InvalidOperationException("AI returned an empty response");
+            }
+
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(raw);
+            }
+            catch (JsonException ex)
+            {
+                Serilog.Log.Error(ex, "Person JSON parse failed for {Name}. Raw: {Raw}", name, raw);
+                throw;
+            }
+
+            var root = doc.RootElement;
+
+            string GetProp(string prop) => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() ?? string.Empty : string.Empty;
+            int? GetInt(string prop)
+            {
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null)
+                {
+                    if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)) return i;
+                    if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var j)) return j;
+                }
+                return null;
+            }
+
+            return new PersonResponse
+            {
+                Name         = string.IsNullOrEmpty(GetProp("name")) ? name : GetProp("name"),
+                Bio          = GetProp("bio"),
+                Role         = GetProp("role"),
+                BirthYear    = GetInt("birthYear"),
+                DeathYear    = GetInt("deathYear"),
+                ExternalLink = GetProp("externalLink"),
+                AiGenerated  = true
+            };
+        }
+
         public async Task<List<string>> DetectPeopleInTextAsync(string content)
         {
             if (string.IsNullOrWhiteSpace(content)) return new List<string>();
@@ -1669,6 +1726,58 @@ namespace Tobiso.Web.App.Services
                 return new CrossConnectionResponse { Connections = connections };
             }
             catch { return new CrossConnectionResponse(); }
+        }
+
+        public async Task<RelatedSuggestionsResponse> SuggestCategoryRelatedAsync(int postId, List<int> excludeIds, int count)
+        {
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            if (string.IsNullOrEmpty(apiKey)) return new RelatedSuggestionsResponse();
+
+            var post = await _postService.GetById(postId);
+            if (post?.CategoryId == null) return new RelatedSuggestionsResponse();
+
+            var versionContent = post.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var articleContext = PrepareArticleContext(versionContent);
+            var title = post.Title ?? string.Empty;
+
+            var allPosts = await _postService.GetAll();
+            var candidates = allPosts
+                .Where(p => p.CategoryId == post.CategoryId && p.Id != postId && !excludeIds.Contains(p.Id))
+                .ToList();
+
+            if (candidates.Count == 0) return new RelatedSuggestionsResponse();
+
+            var candidateList = string.Join("\n", candidates.Select(p => $"ID:{p.Id} – {p.Title}"));
+            var systemPrompt = $"Jsi kurátor obsahu pro český vzdělávací web. Ze seznamu článků ze stejné kategorie vyber až {count} nejvíce souvisejících se zdrojovým článkem a pro každý napiš JEDNU krátkou českou větu (max 12 slov) popisující souvislost se zdrojovým článkem. " +
+                "Vrať výhradně platný JSON objekt: {\"items\":[{\"id\":123,\"text\":\"...\"}]}. Použij pouze ID ze seznamu.";
+            var userPrompt = $"Zdrojový článek: \"{title}\"\n\nÚryvek:\n{articleContext.Substring(0, Math.Min(articleContext.Length, 2000))}\n\nČlánky ze stejné kategorie:\n{candidateList}";
+
+            var raw = await AskRawJsonAsync(systemPrompt, userPrompt);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                if (doc.RootElement.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+                {
+                    var validIds = candidates.Select(c => c.Id).ToHashSet();
+                    var items = new List<RelatedSuggestionItem>();
+                    foreach (var el in itemsEl.EnumerateArray())
+                    {
+                        if (items.Count >= count) break;
+                        var id = el.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number ? idEl.GetInt32() : 0;
+                        var text = el.TryGetProperty("text", out var txtEl) ? txtEl.GetString() ?? string.Empty : string.Empty;
+                        if (id > 0 && validIds.Contains(id) && !string.IsNullOrWhiteSpace(text))
+                            items.Add(new RelatedSuggestionItem { PostId = id, Text = text.Trim() });
+                    }
+                    return new RelatedSuggestionsResponse { Items = items };
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse related-suggestions response for postId={PostId}", postId);
+            }
+
+            return new RelatedSuggestionsResponse();
         }
     }
 }

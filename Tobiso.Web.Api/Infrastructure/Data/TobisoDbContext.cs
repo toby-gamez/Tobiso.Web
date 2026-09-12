@@ -39,6 +39,7 @@ public class TobisoDbContext : DbContext
     public DbSet<PostConceptMap> PostConceptMaps { get; set; }
     public DbSet<PostCrossConnection> PostCrossConnections { get; set; }
     public DbSet<PostAiDemo> PostAiDemos { get; set; }
+    public DbSet<PostRelatedSuggestion> PostRelatedSuggestions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

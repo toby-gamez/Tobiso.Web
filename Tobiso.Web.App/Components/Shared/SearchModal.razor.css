@@ -79,7 +79,26 @@
     background: var(--color-surface);
 }
 
-.search-result-title { font-size: 15px; }
+.search-result-main {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.search-result-main i {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    color: var(--color-neutral-600);
+}
+
+.search-result-title {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 .search-result-grades {
     display: flex;

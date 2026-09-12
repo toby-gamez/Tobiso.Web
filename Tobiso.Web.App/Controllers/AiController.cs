@@ -27,8 +27,9 @@ namespace Tobiso.Web.App.Controllers
         private readonly IAiChatHistoryService _chatHistory;
         private readonly IUserService _userService;
         private readonly TobisoDbContext _db;
+        private readonly IRelatedPostService _relatedPostService;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -38,6 +39,7 @@ namespace Tobiso.Web.App.Controllers
             _chatHistory = chatHistory;
             _userService = userService;
             _db = db;
+            _relatedPostService = relatedPostService;
         }
 
         [HttpGet("diag")]
@@ -524,61 +526,9 @@ namespace Tobiso.Web.App.Controllers
             if (!TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
-            var systemPrompt = _configuration["OpenAI:PersonSystemPrompt"]
-                ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object — no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";
-
-            var userPrompt = $"Return a JSON object for the person \"{name}\" with exactly these keys: " +
-                "name (string, full name), " +
-                "role (string, short description, e.g. \"Czech composer and pianist\"), " +
-                "birthYear (integer or null), " +
-                "deathYear (integer or null), " +
-                "bio (string, 2-3 factual sentences), " +
-                "externalLink (string, Wikipedia URL or empty string).";
-
             try
             {
-                var raw = await _aiService.AskRawJsonAsync(systemPrompt, userPrompt);
-
-                if (string.IsNullOrWhiteSpace(raw))
-                {
-                    Serilog.Log.Warning("Person generation returned empty response for {Name}", name);
-                    return StatusCode(502, new { message = "AI returned an empty response" });
-                }
-
-                JsonDocument doc;
-                try
-                {
-                    doc = JsonDocument.Parse(raw);
-                }
-                catch (JsonException ex)
-                {
-                    Serilog.Log.Error(ex, "Person JSON parse failed for {Name}. Raw: {Raw}", name, raw);
-                    return StatusCode(502, new { message = "AI response was not valid JSON", raw });
-                }
-
-                var root = doc.RootElement;
-
-                string GetProp(string prop) => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() ?? string.Empty : string.Empty;
-                int? GetInt(string prop)
-                {
-                    if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(prop, out var v) && v.ValueKind != JsonValueKind.Null)
-                    {
-                        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)) return i;
-                        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var j)) return j;
-                    }
-                    return null;
-                }
-
-                var resp = new Tobiso.Web.Shared.DTOs.PersonResponse
-                {
-                    Name         = string.IsNullOrEmpty(GetProp("name")) ? name : GetProp("name"),
-                    Bio          = GetProp("bio"),
-                    Role         = GetProp("role"),
-                    BirthYear    = GetInt("birthYear"),
-                    DeathYear    = GetInt("deathYear"),
-                    ExternalLink = GetProp("externalLink"),
-                    AiGenerated  = true
-                };
+                var resp = await _aiService.GetPersonInfoAsync(name);
                 return Ok(resp);
             }
             catch (Exception ex)
@@ -1016,6 +966,64 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Cross-connections failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // ── "Souvisí s tímto" auto-fill: when a post has fewer than `count` manually
+        // curated RelatedPosts, AI picks the rest from the same category and writes a
+        // one-sentence connection. Results are cached per post (like fun-facts/cross-connections)
+        // so this doesn't hit OpenAI on every page view.
+        [HttpGet("related-suggestions/{postId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRelatedSuggestions(int postId, [FromQuery] int count = 6)
+        {
+            if (postId <= 0) return BadRequest();
+            count = Math.Clamp(count, 1, 6);
+
+            var post = await _postService.GetById(postId);
+            if (post?.CategoryId == null) return Ok(new RelatedSuggestionsResponse());
+
+            var postLastEdit = post.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostRelatedSuggestions.FirstOrDefaultAsync(c => c.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try
+                {
+                    var cachedResp = System.Text.Json.JsonSerializer.Deserialize<RelatedSuggestionsResponse>(cached.SuggestionsJson);
+                    if (cachedResp != null)
+                        return Ok(new RelatedSuggestionsResponse { Items = cachedResp.Items.Take(count).ToList() });
+                }
+                catch { }
+            }
+
+            var rateKey = GetRateKey();
+            if (!TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var manualRelated = await _relatedPostService.GetByPostId(postId);
+                var excludeIds = manualRelated.Select(r => r.RelatedPostId).ToList();
+
+                var result = await _aiService.SuggestCategoryRelatedAsync(postId, excludeIds, 6);
+                var json = System.Text.Json.JsonSerializer.Serialize(result);
+                if (cached != null)
+                {
+                    cached.SuggestionsJson = json;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostRelatedSuggestions.Add(new PostRelatedSuggestion { PostId = postId, SuggestionsJson = json });
+                }
+                await _db.SaveChangesAsync();
+
+                return Ok(new RelatedSuggestionsResponse { Items = result.Items.Take(count).ToList() });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Related-suggestions failed for PostId={PostId}", postId);
                 return StatusCode(502, new { message = ex.Message });
             }
         }

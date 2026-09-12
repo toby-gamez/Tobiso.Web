@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-fe932e9c-d227-4e89-9267-03efe55a708f/styles.css">
+<script src="_ds/organic-fe932e9c-d227-4e89-9267-03efe55a708f/_ds_bundle.js"></script>
+<script src="https://unpkg.com/lucide@0.453.0/dist/umd/lucide.min.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&display=swap');
+  :root { --font-heading: "Baloo 2", system-ui, sans-serif; }
+  svg.lucide { width: 1em; height: 1em; }
+  .rail-item { display:flex; align-items:center; gap:12px; padding:9px 14px; border-radius:999px; text-decoration:none; color:var(--color-text); font-size:15px; font:inherit; font-size:15px; background:transparent; border:0; cursor:pointer; text-align:left; width:100%; }
+  .rail-item:hover { background: var(--color-neutral-200); }
+  .rail-item[data-on="true"] { background: var(--color-accent-200); font-weight:700; }
+  .pill { display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14px; padding:9px 18px; border-radius:999px; border:1px solid var(--color-divider); background:transparent; color:var(--color-text); cursor:pointer; }
+  .pill:hover { background: var(--color-neutral-100); }
+  .pill-on { background: var(--color-accent-600); color: var(--color-bg); border-color: transparent; }
+  .pill-on:hover { background: var(--color-accent-700); }
+  .soft { background: var(--color-neutral-100); border-radius: var(--radius-lg); }
+  .lift:hover { background: var(--color-surface); }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:var(--color-bg); font-family:var(--font-body); color:var(--color-text)">
+<sc-if value="{{ showApp }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid; grid-template-columns:264px minmax(0,1fr); align-items:start">
+
+  <aside style="position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; display:flex; flex-direction:column; gap:var(--space-6); padding:var(--space-6) var(--space-4); background:var(--color-surface)">
+    <button onClick="{{ goHome }}" style="display:flex; align-items:center; gap:10px; background:transparent; border:0; padding:0; cursor:pointer; color:var(--color-text)">
+      <span style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:var(--color-accent-600); color:var(--color-bg); border-radius:999px; font-family:var(--font-heading); font-size:17px">T</span>
+      <span style="font-family:var(--font-heading); font-size:22px">Tobiso</span>
+    </button>
+    <button class="rail-item" style="justify-content:flex-start; background:var(--color-neutral-100); border:1px solid var(--color-divider); color:#7a6f6a">
+      <i data-lucide="search"></i> Hledat… <span style="margin-left:auto; font-size:12px; padding:1px 7px; background:var(--color-surface); border-radius:6px">K</span>
+    </button>
+    <nav style="display:flex; flex-direction:column; gap:2px">
+      <button class="rail-item" data-on="{{ onHome }}" onClick="{{ goHome }}"><i data-lucide="home"></i> Domů</button>
+      <button class="rail-item" data-on="{{ onLatest }}" onClick="{{ goLatest }}"><i data-lucide="clock"></i> Nejnovější</button>
+      <button class="rail-item" data-on="{{ onCats }}" onClick="{{ goCats }}"><i data-lucide="folder-tree"></i> Předměty</button>
+      <button class="rail-item" data-on="{{ onPractice }}" onClick="{{ goPractice }}"><i data-lucide="dumbbell"></i> Procvičování</button>
+      <button class="rail-item" data-on="{{ onChat }}" onClick="{{ goChat }}"><i data-lucide="sparkles"></i> AI chat</button>
+      <button class="rail-item" data-on="{{ onMarks }}" onClick="{{ goMarks }}"><i data-lucide="bookmark"></i> Záložky</button>
+      <button class="rail-item" data-on="{{ onCal }}" onClick="{{ goCal }}"><i data-lucide="calendar-days"></i> Kalendář</button>
+    </nav>
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#8c8175; padding:0 14px 8px">Předměty</div>
+      <button class="rail-item" data-on="{{ onPost }}" onClick="{{ goPost }}"><i data-lucide="pen-line"></i> Mluvnice</button>
+      <button class="rail-item"><i data-lucide="book-open"></i> Literatura</button>
+      <button class="rail-item"><i data-lucide="feather"></i> Sloh</button>
+      <button class="rail-item"><i data-lucide="music"></i> Hudební výchova</button>
+      <button class="rail-item"><i data-lucide="calculator"></i> Matematika</button>
+      <button class="rail-item"><i data-lucide="flask-conical"></i> Chemie</button>
+      <button class="rail-item"><i data-lucide="magnet"></i> Fyzika</button>
+      <button class="rail-item"><i data-lucide="flower-2"></i> Přírodopis</button>
+      <button class="rail-item"><i data-lucide="globe"></i> Zeměpis</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:var(--space-2); padding-top:var(--space-4); border-top:1px solid var(--color-divider)">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-2)">
+        <span style="font-size:13px; color:#7a6f6a">Ročník</span>
+        <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)">7. <i data-lucide="chevron-down"></i></button>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-2)">
+        <span style="font-size:13px; color:#7a6f6a">Tmavý režim</span>
+        <button aria-label="Tmavý režim" style="width:44px; height:26px; padding:3px; display:flex; align-items:center; background:var(--color-neutral-300); border:0; border-radius:999px; cursor:pointer">
+          <span style="width:20px; height:20px; background:var(--color-neutral-100); border-radius:999px; display:block"></span>
+        </button>
+      </div>
+      <button class="rail-item" data-on="{{ onProfile }}" onClick="{{ goProfile }}" style="margin-top:var(--space-2); font-size:14px">
+        <span style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:var(--color-accent-2-200); color:var(--color-accent-2-800); border-radius:999px; font-size:13px; font-weight:700">TH</span> Tobiáš H.
+      </button>
+      <button class="rail-item" data-on="{{ onFeedback }}" onClick="{{ goFeedback }}" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</button>
+      <button class="rail-item" onClick="{{ goLogin }}" style="font-size:14px; color:#7a6f6a"><i data-lucide="log-out"></i> Odhlásit se</button>
+    </div>
+  </aside>
+
+  <main style="min-width:0; padding:var(--space-8) var(--space-8) 80px; max-width:1100px">
+
+    <sc-if value="{{ onHome }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-8)">
+        <div>
+          <h1 style="font-size:clamp(34px,4vw,46px); margin:0 0 var(--space-2)">Dobré odpoledne, Tobiáši.</h1>
+          <p style="margin:0; font-size:17px; color:#5c5349">Máš rozečtený jeden článek a v kalendáři si na pátek naplánoval mluvnici.</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:var(--space-4)">
+          <div class="soft" style="padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-2)">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Série</span>
+            <span style="font-family:var(--font-heading); font-size:38px; line-height:1">4 dny</span>
+            <span style="font-size:14px; color:#7a6f6a">Přečti dnes jeden článek a série pokračuje.</span>
+          </div>
+          <div class="soft" style="padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-2)">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Přečteno celkem</span>
+            <span style="font-family:var(--font-heading); font-size:38px; line-height:1">37</span>
+            <span style="font-size:14px; color:#7a6f6a">Nejvíc v mluvnici — 14 článků.</span>
+          </div>
+          <div style="padding:var(--space-6); background:var(--color-accent-200); border-radius:var(--radius-lg); display:flex; flex-direction:column; gap:var(--space-2)">
+            <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-800)">AI kredity</span>
+            <span style="font-family:var(--font-heading); font-size:38px; line-height:1; color:var(--color-accent-800)">18</span>
+            <span style="font-size:14px; color:var(--color-accent-800)">Jedna otázka = 1 kredit.</span>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:var(--space-4)">
+          <button onClick="{{ goPost }}" class="lift" style="flex:1 1 320px; display:flex; flex-direction:column; gap:var(--space-2); text-align:left; font:inherit; padding:var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)">
+            <span style="display:inline-flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)"><i data-lucide="rotate-cw"></i> Pokračovat ve čtení</span>
+            <span style="font-family:var(--font-heading); font-size:26px">Přívlastek</span>
+            <span style="font-size:14px; color:#5c5349">Mluvnice · Skladba · 38 % přečteno</span>
+            <span style="display:block; height:6px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden; margin-top:var(--space-2)"><span style="display:block; width:38%; height:100%; background:var(--color-accent-600)"></span></span>
+          </button>
+          <div style="flex:1 1 320px; display:flex; flex-direction:column; gap:var(--space-3); padding:var(--space-6); background:var(--color-accent-2-200); border-radius:var(--radius-lg)">
+            <span style="display:inline-flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-2-800)"><i data-lucide="sun"></i> Článek dne</span>
+            <span style="font-family:var(--font-heading); font-size:26px; color:var(--color-accent-2-900)">Vedlejší věta přísudková</span>
+            <span style="font-size:15px; color:var(--color-accent-2-900); opacity:.85">Kdy je věta přísudková a jak ji poznáš od doplňkové.</span>
+            <button onClick="{{ goPost }}" style="align-self:flex-start; margin-top:var(--space-2); display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14px; padding:10px 18px; border:0; border-radius:999px; background:var(--color-accent-2-800); color:#f4f8ec; cursor:pointer">Přejít na článek <i data-lucide="arrow-right"></i></button>
+          </div>
+        </div>
+        <div>
+          <h2 style="font-size:28px; margin:0 0 var(--space-4)">Předměty</h2>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:var(--space-3)">
+            <button onClick="{{ goCats }}" class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="pen-line"></i></span><span style="font-family:var(--font-heading); font-size:18px">Mluvnice</span><span style="font-size:13px; color:#7a6f6a">48 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="book-open"></i></span><span style="font-family:var(--font-heading); font-size:18px">Literatura</span><span style="font-size:13px; color:#7a6f6a">31 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="feather"></i></span><span style="font-family:var(--font-heading); font-size:18px">Sloh</span><span style="font-size:13px; color:#7a6f6a">12 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="music"></i></span><span style="font-family:var(--font-heading); font-size:18px">Hudební výchova</span><span style="font-size:13px; color:#7a6f6a">9 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="calculator"></i></span><span style="font-family:var(--font-heading); font-size:18px">Matematika</span><span style="font-size:13px; color:#7a6f6a">52 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="flask-conical"></i></span><span style="font-family:var(--font-heading); font-size:18px">Chemie</span><span style="font-size:13px; color:#7a6f6a">27 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="magnet"></i></span><span style="font-family:var(--font-heading); font-size:18px">Fyzika</span><span style="font-size:13px; color:#7a6f6a">34 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="flower-2"></i></span><span style="font-family:var(--font-heading); font-size:18px">Přírodopis</span><span style="font-size:13px; color:#7a6f6a">29 článků</span></button>
+            <button class="lift" style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span style="font-size:24px; color:var(--color-accent-600)"><i data-lucide="globe"></i></span><span style="font-family:var(--font-heading); font-size:18px">Zeměpis</span><span style="font-size:13px; color:#7a6f6a">22 článků</span></button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onLatest }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:800px">
+        <div>
+          <h1 style="font-size:42px; margin:0 0 var(--space-2)">Nejnovější</h1>
+          <p style="margin:0; font-size:16px; color:#5c5349">Naposledy upravené články napříč předměty.</p>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:var(--space-2)">
+          <button class="pill pill-on">Vše</button>
+          <button class="pill">Mluvnice</button>
+          <button class="pill">Matematika</button>
+          <button class="pill">Chemie</button>
+          <button class="pill">Fyzika</button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:var(--space-2)">
+          <button onClick="{{ goPost }}" class="lift" style="display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)">
+            <span style="flex:1 1 240px; min-width:0"><span style="display:block; font-family:var(--font-heading); font-size:20px">Přívlastek</span><span style="display:block; font-size:13px; color:#7a6f6a; margin-top:2px">Mluvnice · Skladba</span></span>
+            <span style="display:inline-flex; gap:6px"><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">6.</span><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">7.</span><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">9.</span></span>
+            <span style="font-size:13px; color:#7a6f6a; width:96px; text-align:right">3. 9. 2026</span>
+          </button>
+          <button class="lift" style="display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)">
+            <span style="flex:1 1 240px; min-width:0"><span style="display:block; font-family:var(--font-heading); font-size:20px">Halogeny</span><span style="display:block; font-size:13px; color:#7a6f6a; margin-top:2px">Chemie · Periodická tabulka</span></span>
+            <span style="display:inline-flex; gap:6px"><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">8.</span><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">9.</span></span>
+            <span style="font-size:13px; color:#7a6f6a; width:96px; text-align:right">1. 9. 2026</span>
+          </button>
+          <button class="lift" style="display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)">
+            <span style="flex:1 1 240px; min-width:0"><span style="display:block; font-family:var(--font-heading); font-size:20px">Obsah trojúhelníku</span><span style="display:block; font-size:13px; color:#7a6f6a; margin-top:2px">Matematika · Geometrie</span></span>
+            <span style="display:inline-flex; gap:6px"><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">7.</span></span>
+            <span style="font-size:13px; color:#7a6f6a; width:96px; text-align:right">28. 8. 2026</span>
+          </button>
+          <button class="lift" style="display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4); background:var(--color-neutral-100); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)">
+            <span style="flex:1 1 240px; min-width:0"><span style="display:block; font-family:var(--font-heading); font-size:20px">Balada</span><span style="display:block; font-size:13px; color:#7a6f6a; margin-top:2px">Literatura · Literární žánry</span></span>
+            <span style="display:inline-flex; gap:6px"><span style="font-size:12px; padding:4px 10px; background:var(--color-accent-200); color:var(--color-accent-800); border-radius:999px">8.</span></span>
+            <span style="font-size:13px; color:#7a6f6a; width:96px; text-align:right">24. 8. 2026</span>
+          </button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onCats }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:860px">
+        <nav style="display:flex; gap:8px; font-size:13px; color:#7a6f6a">
+          <button onClick="{{ goCats }}" style="background:transparent; border:0; padding:0; font:inherit; font-size:13px; color:var(--color-accent-700); cursor:pointer">Předměty</button>
+          <span style="opacity:.45">/</span>
+          <span>Mluvnice</span>
+        </nav>
+        <div>
+          <h1 style="font-size:42px; margin:0 0 var(--space-2)">Mluvnice</h1>
+          <p style="margin:0; font-size:16px; color:#5c5349">48 článků ve čtyřech oblastech.</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:var(--space-3)">
+          <button class="lift" style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4) var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span><span style="display:block; font-family:var(--font-heading); font-size:20px">Skladba</span><span style="display:block; font-size:13px; color:#7a6f6a">14 článků</span></span><i data-lucide="chevron-right"></i></button>
+          <button class="lift" style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4) var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span><span style="display:block; font-family:var(--font-heading); font-size:20px">Tvarosloví</span><span style="display:block; font-size:13px; color:#7a6f6a">18 článků</span></span><i data-lucide="chevron-right"></i></button>
+          <button class="lift" style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4) var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span><span style="display:block; font-family:var(--font-heading); font-size:20px">Pravopis</span><span style="display:block; font-size:13px; color:#7a6f6a">11 článků</span></span><i data-lucide="chevron-right"></i></button>
+          <button class="lift" style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); text-align:left; font:inherit; padding:var(--space-4) var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><span><span style="display:block; font-family:var(--font-heading); font-size:20px">Zvuková stránka</span><span style="display:block; font-size:13px; color:#7a6f6a">5 článků</span></span><i data-lucide="chevron-right"></i></button>
+        </div>
+        <div>
+          <h2 style="font-size:26px; margin:0 0 var(--space-3)">Články ve Skladbě</h2>
+          <div style="display:flex; flex-direction:column; gap:var(--space-1)">
+            <button onClick="{{ goPost }}" class="lift" style="display:flex; align-items:center; gap:var(--space-3); text-align:left; font:inherit; font-size:16px; padding:12px var(--space-4); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><i data-lucide="file-text" style="color:var(--color-accent-600)"></i> Přívlastek</button>
+            <button class="lift" style="display:flex; align-items:center; gap:var(--space-3); text-align:left; font:inherit; font-size:16px; padding:12px var(--space-4); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><i data-lucide="file-text" style="color:var(--color-accent-600)"></i> Předmět</button>
+            <button class="lift" style="display:flex; align-items:center; gap:var(--space-3); text-align:left; font:inherit; font-size:16px; padding:12px var(--space-4); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><i data-lucide="file-text" style="color:var(--color-accent-600)"></i> Příslovečné určení</button>
+            <button class="lift" style="display:flex; align-items:center; gap:var(--space-3); text-align:left; font:inherit; font-size:16px; padding:12px var(--space-4); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><i data-lucide="file-text" style="color:var(--color-accent-600)"></i> Doplněk</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onPost }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-wrap:wrap; gap:var(--space-8)">
+        <div style="flex:1 1 420px; min-width:0">
+          <dc-import name="PostBody" tools-placement="top" hint-size="100%,1600px"></dc-import>
+        </div>
+        <aside style="flex:1 1 228px; max-width:228px; align-self:start; position:sticky; top:var(--space-6); display:flex; flex-direction:column; gap:var(--space-2)">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#8c8175; margin-bottom:var(--space-1)">Obsah</div>
+          <a href="#" style="padding:7px 12px; border-left:2px solid var(--color-accent-600); text-decoration:none; color:var(--color-text); font-size:14px; font-weight:600">Shodný přívlastek</a>
+          <a href="#" style="padding:7px 12px; border-left:2px solid var(--color-divider); text-decoration:none; color:#5c5349; font-size:14px">Neshodný přívlastek</a>
+          <a href="#" style="padding:7px 12px; border-left:2px solid var(--color-divider); text-decoration:none; color:#5c5349; font-size:14px">Přehled</a>
+          <a href="#" style="padding:7px 12px; border-left:2px solid var(--color-divider); text-decoration:none; color:#5c5349; font-size:14px">Interaktivní cvičení</a>
+          <a href="#" style="padding:7px 12px; border-left:2px solid var(--color-divider); text-decoration:none; color:#5c5349; font-size:14px">Souvisí s tímto</a>
+          <div style="margin-top:var(--space-6); padding:var(--space-4); background:var(--color-surface); border-radius:var(--radius-lg)">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#8c8175; margin-bottom:6px">Přečteno</div>
+            <div style="height:6px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden"><div style="width:38%; height:100%; background:var(--color-accent-600)"></div></div>
+            <div style="font-size:13px; color:#7a6f6a; margin-top:8px">38 % · série 4 dny</div>
+          </div>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onPractice }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:800px">
+        <div>
+          <h1 style="font-size:42px; margin:0 0 var(--space-2)">Procvičování</h1>
+          <p style="margin:0; font-size:16px; color:#5c5349">„Ověř si porozumění" najdeš přímo na konci každého článku — tady jsou všechny otázky na jednom místě.</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:var(--space-3)">
+          <button class="lift" style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-2); text-align:left; font:inherit; padding:var(--space-6); background:var(--color-accent-200); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-accent-900)"><i data-lucide="layers" style="font-size:24px"></i><span style="font-family:var(--font-heading); font-size:20px">Kartičky</span><span style="font-size:14px">Rychlé opakování pojmů.</span></button>
+          <button onClick="{{ goQuiz }}" class="lift" style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-2); text-align:left; font:inherit; padding:var(--space-6); background:var(--color-surface); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-text)"><i data-lucide="file-check-2" style="font-size:24px; color:var(--color-accent-600)"></i><span style="font-family:var(--font-heading); font-size:20px">Ověř si porozumění</span><span style="font-size:14px; color:#5c5349">Otázky s výběrem odpovědi z jednotlivých článků.</span></button>
+          <button class="lift" style="display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-2); text-align:left; font:inherit; padding:var(--space-6); background:var(--color-accent-2-200); border:0; border-radius:var(--radius-lg); cursor:pointer; color:var(--color-accent-2-900)"><i data-lucide="sparkles" style="font-size:24px"></i><span style="font-family:var(--font-heading); font-size:20px">AI zkoušení</span><span style="font-size:14px">Odpovídáš vlastními slovy.</span></button>
+        </div>
+        <div>
+          <h2 style="font-size:26px; margin:0 0 var(--space-3)">Zásoba otázek</h2>
+          <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-bottom:var(--space-4)">
+            <button class="pill pill-on">Mluvnice · 34</button>
+            <button class="pill">Matematika · 41</button>
+            <button class="pill">Chemie · 18</button>
+            <button class="pill">Fyzika · 22</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2)">
+            <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+              <span style="flex:1 1 240px; font-size:16px">Na který větný člen se ptáme otázkou „jaký“?</span>
+              <span style="font-size:13px; color:#7a6f6a">Přívlastek · 4 odpovědi</span>
+            </div>
+            <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+              <span style="flex:1 1 240px; font-size:16px">Který přívlastek se při skloňování nemění?</span>
+              <span style="font-size:13px; color:#7a6f6a">Přívlastek · 3 odpovědi</span>
+            </div>
+            <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+              <span style="flex:1 1 240px; font-size:16px">Urči větné členy ve spojení „staré české město“.</span>
+              <span style="font-size:13px; color:#7a6f6a">Přívlastek · 4 odpovědi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onQuiz }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:720px">
+        <button onClick="{{ goPractice }}" class="pill" style="align-self:flex-start"><i data-lucide="arrow-left"></i> Zpět na procvičování</button>
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); font-size:13px; color:#7a6f6a; margin-bottom:8px">
+            <span>Ověř si porozumění — Přívlastek</span>
+            <span>Otázka 2 ze 8</span>
+          </div>
+          <div style="height:8px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden"><div style="width:25%; height:100%; background:var(--color-accent-600)"></div></div>
+        </div>
+        <div style="padding:var(--space-8); background:var(--color-surface); border-radius:var(--radius-lg)">
+          <h2 style="font-size:28px; margin:0 0 var(--space-6)">Který z těchto přívlastků je neshodný?</h2>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2)">
+            <button class="lift" style="text-align:left; font:inherit; font-size:17px; padding:var(--space-4); background:var(--color-neutral-100); border:1px solid var(--color-divider); border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)">malý dům</button>
+            <button style="text-align:left; font:inherit; font-size:17px; padding:var(--space-4); background:var(--color-accent-2-200); border:1px solid var(--color-accent-2-500); border-radius:var(--radius-md); cursor:pointer; color:var(--color-accent-2-900); display:flex; align-items:center; justify-content:space-between; gap:var(--space-3)">cesta domů <i data-lucide="check"></i></button>
+            <button class="lift" style="text-align:left; font:inherit; font-size:17px; padding:var(--space-4); background:var(--color-neutral-100); border:1px solid var(--color-divider); border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)">tři jabloně</button>
+            <button class="lift" style="text-align:left; font:inherit; font-size:17px; padding:var(--space-4); background:var(--color-neutral-100); border:1px solid var(--color-divider); border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)">naše škola</button>
+          </div>
+          <div style="display:flex; gap:var(--space-3); padding:var(--space-4); margin-top:var(--space-6); background:var(--color-accent-2-100); border-radius:var(--radius-md); font-size:15px; line-height:1.6">
+            <i data-lucide="lightbulb" style="color:var(--color-accent-2-700); font-size:18px"></i>
+            <span><strong>Správně.</strong> „Domů“ je příslovce — při skloňování spojení se nemění, proto je přívlastek neshodný.</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-6)">
+            <button class="pill"><i data-lucide="arrow-left"></i> Předchozí</button>
+            <div style="flex:1"></div>
+            <button class="pill pill-on">Další otázka <i data-lucide="arrow-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onChat }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-wrap:wrap; gap:var(--space-8)">
+        <div style="flex:1 1 420px; display:flex; flex-direction:column; gap:var(--space-4); min-width:0">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3)">
+            <h1 style="font-size:42px; margin:0">AI chat</h1>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; background:var(--color-accent-200); color:var(--color-accent-800); padding:7px 14px; border-radius:999px"><i data-lucide="coins"></i> 18 kreditů</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:var(--space-4); padding:var(--space-6); background:var(--color-surface); border-radius:var(--radius-lg)">
+            <div style="align-self:flex-end; max-width:78%; padding:var(--space-3) var(--space-4); background:var(--color-accent-600); color:var(--color-bg); border-radius:var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg); font-size:16px; line-height:1.6">Proč se neshodný přívlastek neskloňuje?</div>
+            <div style="align-self:flex-start; max-width:82%; padding:var(--space-4); background:var(--color-neutral-100); border-radius:var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm); font-size:16px; line-height:1.7">
+              Protože není přídavným jménem, které by se muselo řídit podstatným jménem. Bývá to podstatné jméno v jiném pádě, příslovce nebo infinitiv — a ty si svůj tvar drží samy.
+              <div style="margin-top:var(--space-3); padding-top:var(--space-3); border-top:1px solid var(--color-divider); font-size:14px; color:#5c5349">Zkus si to na spojení <em>chuť cestovat</em>: ať skloňuješ <em>chuť</em> jakkoli, <em>cestovat</em> zůstává.</div>
+            </div>
+            <div style="align-self:flex-start; display:flex; gap:6px; font-size:13px; color:#7a6f6a"><i data-lucide="sparkles"></i> Odpověď vychází z článku Přívlastek</div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:var(--space-2)">
+            <input class="input" placeholder="Napiš otázku…" style="flex:1 1 260px; min-height:46px; border-radius:999px; background:var(--color-neutral-100); padding:10px 18px; font-size:15px">
+            <button class="pill pill-on" style="padding:11px 22px">Odeslat <i data-lucide="arrow-right"></i></button>
+          </div>
+        </div>
+        <aside style="flex:1 1 240px; max-width:240px; display:flex; flex-direction:column; gap:var(--space-2)">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#8c8175">Moje chaty</div>
+          <button class="lift" style="text-align:left; font:inherit; padding:var(--space-3); background:var(--color-accent-200); border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-accent-900)"><span style="display:block; font-size:14px; font-weight:700">Přívlastek</span><span style="display:block; font-size:12px; opacity:.8">dnes 14:20</span></button>
+          <button class="lift" style="text-align:left; font:inherit; padding:var(--space-3); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><span style="display:block; font-size:14px">Halogeny</span><span style="display:block; font-size:12px; color:#7a6f6a">včera</span></button>
+          <button class="lift" style="text-align:left; font:inherit; padding:var(--space-3); background:transparent; border:0; border-radius:var(--radius-md); cursor:pointer; color:var(--color-text)"><span style="display:block; font-size:14px">Obsah trojúhelníku</span><span style="display:block; font-size:12px; color:#7a6f6a">3. 9.</span></button>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onMarks }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:860px">
+        <div>
+          <h1 style="font-size:42px; margin:0 0 var(--space-2)">Záložky</h1>
+          <p style="margin:0; font-size:16px; color:#5c5349">Na stránce článku klikni na <i data-lucide="bookmark"></i> a uloží se sem.</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:var(--space-3)">
+          <div class="soft" style="padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-2)">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-2)">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Mluvnice</span>
+              <button aria-label="Odebrat" class="pill" style="width:30px; height:30px; padding:0; justify-content:center; border-color:transparent"><i data-lucide="x"></i></button>
+            </div>
+            <button onClick="{{ goPost }}" style="text-align:left; font:inherit; font-family:var(--font-heading); font-size:19px; background:transparent; border:0; padding:0; cursor:pointer; color:var(--color-text)">Přívlastek</button>
+            <span style="font-size:13px; color:#7a6f6a">Uloženo 3. 9. 2026</span>
+          </div>
+          <div class="soft" style="padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-2)">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-2)">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Chemie</span>
+              <button aria-label="Odebrat" class="pill" style="width:30px; height:30px; padding:0; justify-content:center; border-color:transparent"><i data-lucide="x"></i></button>
+            </div>
+            <span style="font-family:var(--font-heading); font-size:19px">Halogeny</span>
+            <span style="font-size:13px; color:#7a6f6a">Uloženo 1. 9. 2026</span>
+          </div>
+          <div class="soft" style="padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-2)">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-2)">
+              <span style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Literatura</span>
+              <button aria-label="Odebrat" class="pill" style="width:30px; height:30px; padding:0; justify-content:center; border-color:transparent"><i data-lucide="x"></i></button>
+            </div>
+            <span style="font-family:var(--font-heading); font-size:19px">Balada</span>
+            <span style="font-size:13px; color:#7a6f6a">Uloženo 24. 8. 2026</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onCal }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:900px">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3)">
+          <div>
+            <h1 style="font-size:42px; margin:0 0 4px">Září 2026</h1>
+            <p style="margin:0; font-size:14px; color:#7a6f6a">Vlastní připomenutí a svátky/prázdniny — bez rozvrhu, ten Tobiso nezná.</p>
+          </div>
+          <div style="display:flex; gap:var(--space-2)">
+            <button aria-label="Předchozí měsíc" class="pill" style="width:40px; height:40px; padding:0; justify-content:center"><i data-lucide="chevron-left"></i></button>
+            <button aria-label="Další měsíc" class="pill" style="width:40px; height:40px; padding:0; justify-content:center"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:var(--space-2)">
+          <div style="font-size:12px; color:#8c8175; text-align:center">Po</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">Út</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">St</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">Čt</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">Pá</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">So</div>
+          <div style="font-size:12px; color:#8c8175; text-align:center">Ne</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); opacity:.5"></div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">1</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">2</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">3</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">4</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px; opacity:.6">5</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px; opacity:.6">6</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">7</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">8</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-accent-200); padding:8px; font-size:13px; color:var(--color-accent-900); display:flex; flex-direction:column; gap:4px"><span style="font-weight:700">9</span><span style="font-size:11px; line-height:1.3">Moje připomenutí: mluvnice</span></div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px">10</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-accent-2-200); padding:8px; font-size:13px; color:var(--color-accent-2-900); display:flex; flex-direction:column; gap:4px"><span style="font-weight:700">11</span><span style="font-size:11px; line-height:1.3">Podzimní prázdniny</span></div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px; opacity:.6">12</div>
+          <div style="aspect-ratio:1; border-radius:var(--radius-md); background:var(--color-neutral-100); padding:8px; font-size:13px; opacity:.6">13</div>
+        </div>
+        <div>
+          <h2 style="font-size:26px; margin:0 0 var(--space-3)">Nejbližší</h2>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2)">
+            <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+              <span style="width:52px; height:52px; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--color-accent-200); color:var(--color-accent-900); border-radius:var(--radius-md)"><span style="font-family:var(--font-heading); font-size:18px">9</span><span style="font-size:10px">zář</span></span>
+              <span style="flex:1 1 200px"><span style="display:block; font-family:var(--font-heading); font-size:18px">Moje připomenutí: mluvnice</span><span style="display:block; font-size:13px; color:#7a6f6a">Přívlastek a přísudek · sám sis to naplánoval</span></span>
+              <button onClick="{{ goQuiz }}" class="pill">Ověřit si porozumění</button>
+            </div>
+            <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
+              <span style="width:52px; height:52px; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--color-accent-2-200); color:var(--color-accent-2-900); border-radius:var(--radius-md)"><span style="font-family:var(--font-heading); font-size:18px">11</span><span style="font-size:10px">zář</span></span>
+              <span style="flex:1 1 200px"><span style="display:block; font-family:var(--font-heading); font-size:18px">Podzimní prázdniny</span><span style="display:block; font-size:13px; color:#7a6f6a">Státní svátek — školy zavřené</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onProfile }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-8); max-width:860px">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-6)">
+          <span style="width:96px; height:96px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--color-accent-2-200); color:var(--color-accent-2-800); border-radius:999px; font-family:var(--font-heading); font-size:34px">TH</span>
+          <div style="min-width:0">
+            <h1 style="font-size:38px; margin:0 0 4px">Tobiáš Heneman</h1>
+            <p style="margin:0; font-size:15px; color:#5c5349">tobias@example.cz · 7. ročník</p>
+          </div>
+          <div style="flex:1"></div>
+          <button class="pill">Odhlásit se <i data-lucide="log-out"></i></button>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:var(--space-3)">
+          <div class="soft" style="padding:var(--space-4)"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Série</div><div style="font-family:var(--font-heading); font-size:32px">4 dny</div></div>
+          <div class="soft" style="padding:var(--space-4)"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Přečteno</div><div style="font-family:var(--font-heading); font-size:32px">37</div></div>
+          <div class="soft" style="padding:var(--space-4)"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Kredity</div><div style="font-family:var(--font-heading); font-size:32px">18</div></div>
+          <div class="soft" style="padding:var(--space-4)"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--color-accent-700)">Odznaky</div><div style="font-family:var(--font-heading); font-size:32px">3</div></div>
+        </div>
+        <div>
+          <h2 style="font-size:26px; margin:0 0 var(--space-4)">Podle předmětu</h2>
+          <div style="display:flex; flex-direction:column; gap:var(--space-4)">
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:6px"><span>Mluvnice</span><span style="color:#7a6f6a">14 / 48</span></div>
+              <div style="height:8px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden"><div style="width:29%; height:100%; background:var(--color-accent-600)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:6px"><span>Matematika</span><span style="color:#7a6f6a">11 / 52</span></div>
+              <div style="height:8px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden"><div style="width:21%; height:100%; background:var(--color-accent-600)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:6px"><span>Chemie</span><span style="color:#7a6f6a">7 / 27</span></div>
+              <div style="height:8px; background:var(--color-neutral-300); border-radius:999px; overflow:hidden"><div style="width:26%; height:100%; background:var(--color-accent-600)"></div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 style="font-size:26px; margin:0 0 var(--space-4)">Odznaky</h2>
+          <div style="display:flex; flex-wrap:wrap; gap:var(--space-3)">
+            <div style="display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:var(--color-accent-2-200); border-radius:999px; color:var(--color-accent-2-900)"><i data-lucide="sprout"></i> Začátečník · Mluvnice</div>
+            <div style="display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:var(--color-accent-2-200); border-radius:999px; color:var(--color-accent-2-900)"><i data-lucide="sprout"></i> Začátečník · Matematika</div>
+            <div style="display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:var(--color-accent-200); border-radius:999px; color:var(--color-accent-900)"><i data-lucide="trees"></i> Pokročilý · Mluvnice</div>
+            <div style="display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:transparent; border:1px dashed var(--color-neutral-400); border-radius:999px; color:#8c8175"><i data-lucide="lock"></i> Expert · 30 článků</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onFeedback }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:var(--space-6); max-width:620px">
+        <div>
+          <h1 style="font-size:42px; margin:0 0 var(--space-2)">Zpětná vazba</h1>
+          <p style="margin:0; font-size:16px; color:#5c5349">Našel jsi chybu v článku nebo něco nefunguje? Napiš to sem.</p>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:var(--space-2)">
+          <button class="pill pill-on">Chyba v obsahu</button>
+          <button class="pill">Technický problém</button>
+          <button class="pill">Návrh</button>
+        </div>
+        <div class="field">
+          <label for="fb-post">Kterého článku se to týká?</label>
+          <input id="fb-post" class="input" value="Přívlastek" style="min-height:44px; border-radius:999px; padding:10px 18px">
+        </div>
+        <div class="field">
+          <label for="fb-text">Co se stalo?</label>
+          <textarea id="fb-text" class="input" rows="6" placeholder="Např. v tabulce je u postupně rozvíjejícího přívlastku špatný příklad." style="border-radius:var(--radius-md); padding:14px 16px"></textarea>
+        </div>
+        <button class="pill pill-on" style="align-self:flex-start; padding:12px 24px">Odeslat <i data-lucide="send"></i></button>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ showLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:var(--space-8)">
+    <div style="width:100%; max-width:420px; display:flex; flex-direction:column; gap:var(--space-6); padding:var(--space-8); background:var(--color-surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-md)">
+      <div style="display:flex; align-items:center; gap:10px">
+        <span style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:var(--color-accent-600); color:var(--color-bg); border-radius:999px; font-family:var(--font-heading); font-size:17px">T</span>
+        <span style="font-family:var(--font-heading); font-size:22px">Tobiso</span>
+      </div>
+      <div>
+        <h1 style="font-size:32px; margin:0 0 6px">Přihlášení</h1>
+        <p style="margin:0; font-size:15px; color:#5c5349">Účet ti uloží záložky, poznámky a kredity na všech zařízeních.</p>
+      </div>
+      <div class="field">
+        <label for="log-mail">E-mail</label>
+        <input id="log-mail" class="input" placeholder="tvuj@email.cz" style="min-height:44px; border-radius:999px; padding:10px 18px; background:var(--color-neutral-100)">
+      </div>
+      <div class="field">
+        <label for="log-pass">Heslo</label>
+        <input id="log-pass" class="input" type="password" placeholder="••••••••" style="min-height:44px; border-radius:999px; padding:10px 18px; background:var(--color-neutral-100)">
+      </div>
+      <button onClick="{{ goHome }}" class="pill pill-on" style="justify-content:center; padding:13px 24px; font-size:15px">Přihlásit se</button>
+      <div style="display:flex; align-items:center; gap:var(--space-3); font-size:13px; color:#8c8175"><span style="flex:1; height:1px; background:var(--color-divider)"></span> nebo <span style="flex:1; height:1px; background:var(--color-divider)"></span></div>
+      <button class="pill" style="justify-content:center; padding:12px 24px; background:var(--color-neutral-100)">Pokračovat přes Google</button>
+      <p style="margin:0; font-size:14px; color:#5c5349; text-align:center">Nemáš účet? <a href="#" style="color:var(--color-accent-700)">Zaregistruj se</a> — dostaneš 20 kreditů.</p>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  state = { screen: 'home' };
+
+  icons() { try { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 2.75 } }); } catch (e) {} }
+  componentDidMount() {
+    this.icons();
+    this._t = setInterval(() => this.icons(), 600);
+    setTimeout(() => { clearInterval(this._t); this._t = null; }, 8000);
+  }
+  componentDidUpdate() { this.icons(); }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  go(screen) {
+    return () => {
+      this.setState({ screen });
+      try { window.scrollTo({ top: 0 }); } catch (e) {}
+    };
+  }
+
+  renderVals() {
+    const s = this.state.screen;
+    const on = k => (s === k ? '1' : '0');
+    return {
+      showApp: s !== 'login',
+      showLogin: s === 'login',
+      onHome: s === 'home', onLatest: s === 'latest', onCats: s === 'cats', onPost: s === 'post',
+      onPractice: s === 'practice', onQuiz: s === 'quiz', onChat: s === 'chat', onMarks: s === 'marks',
+      onCal: s === 'cal', onProfile: s === 'profile', onFeedback: s === 'feedback',
+      navHome: on('home'), navLatest: on('latest'),
+      goHome: this.go('home'), goLatest: this.go('latest'), goCats: this.go('cats'), goPost: this.go('post'),
+      goPractice: this.go('practice'), goQuiz: this.go('quiz'), goChat: this.go('chat'), goMarks: this.go('marks'),
+      goCal: this.go('cal'), goProfile: this.go('profile'), goFeedback: this.go('feedback'), goLogin: this.go('login')
+    };
+  }
+}
+</script>
+</body>
+</html>

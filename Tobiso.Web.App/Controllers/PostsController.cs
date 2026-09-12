@@ -85,7 +85,7 @@ public class PostsController : ControllerBase
     public async Task<IActionResult> GetDifficulty(int id)
     {
         var ratings = await _db.PostDifficultyRatings.Where(r => r.PostId == id).ToListAsync();
-        return Ok(new
+        return Ok(new PostDifficultyResponse
         {
             Easy  = ratings.Count(r => r.Rating == 1),
             Ok    = ratings.Count(r => r.Rating == 2),
@@ -101,14 +101,14 @@ public class PostsController : ControllerBase
         if (req == null || req.Rating < 1 || req.Rating > 3) return BadRequest();
         var deviceId = req.DeviceId ?? Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
         var existing = await _db.PostDifficultyRatings.FirstOrDefaultAsync(r => r.PostId == id && r.DeviceId == deviceId);
-        if (existing != null) return Ok(new { message = "already_rated" });
+        if (existing != null) return Ok(new DifficultyRatingResult { Message = "already_rated" });
 
         _db.PostDifficultyRatings.Add(new PostDifficultyRating
         {
             PostId = id, Rating = req.Rating, DeviceId = deviceId
         });
         await _db.SaveChangesAsync();
-        return Ok(new { message = "ok" });
+        return Ok(new DifficultyRatingResult { Message = "ok" });
     }
 
     [AllowAnonymous]

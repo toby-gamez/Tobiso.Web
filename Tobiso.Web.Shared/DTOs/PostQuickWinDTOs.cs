@@ -6,6 +6,19 @@ public class DifficultyRatingRequest
     public string? DeviceId { get; set; }
 }
 
+public class DifficultyRatingResult
+{
+    public string Message { get; set; } = "";
+}
+
+public class PostDifficultyResponse
+{
+    public int Easy { get; set; }
+    public int Ok { get; set; }
+    public int Hard { get; set; }
+    public int Total { get; set; }
+}
+
 public class PostVideoRequest
 {
     public string? YoutubeUrl { get; set; }
