@@ -1,4 +1,7 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject StudentCredentialStore CredentialStore
+@inject StudentAuthStateProvider AuthStateProvider
 
 <div class="app-shell">
     <NavMenu OnSearchOpen="OpenSearch" />
@@ -8,9 +11,21 @@
 </div>
 
 <SearchModal @ref="_search" />
+<CookieConsentBanner />
 
 @code {
     private SearchModal? _search;
 
     private void OpenSearch() => _search?.Open();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // The JWT lives in localStorage, unreachable until the interactive circuit
+            // connects — nothing restores it into StudentCredentialStore before this.
+            await CredentialStore.InitializeAsync(JS);
+            AuthStateProvider.NotifyStateChanged();
+        }
+    }
 }

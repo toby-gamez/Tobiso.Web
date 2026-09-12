@@ -33,7 +33,7 @@
         }
         else
         {
-            <p>@(PostCountFor(_currentCategory!.Id)) článků@(_children.Count > 0 ? $" ve {_children.Count} oblastech" : "").</p>
+            <p>@(CzechPlural.Clanky(PostCountFor(_currentCategory!.Id)))@(_children.Count > 0 ? $" · {CzechPlural.Oblasti(_children.Count)}" : "").</p>
         }
     </div>
 
@@ -151,9 +151,9 @@
 
     private string CategoryCountLabel(int catId)
     {
-        var posts = $"{PostCountFor(catId)} článků";
+        var posts = CzechPlural.Clanky(PostCountFor(catId));
         var subCount = SubcategoryCountFor(catId);
-        return subCount > 0 ? $"{posts} · {subCount} podkategorií" : posts;
+        return subCount > 0 ? $"{posts} · {CzechPlural.Podkategorie(subCount)}" : posts;
     }
 
     private static string SubjectIcon(string name)

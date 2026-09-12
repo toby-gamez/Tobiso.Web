@@ -7,8 +7,8 @@
 <PageTitle>Ověř si porozumění — Tobiso</PageTitle>
 
 <div class="quiz-page">
-    <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo("/practice"))">
-        <i data-lucide="arrow-left"></i> Zpět na procvičování
+    <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo(BackHref))">
+        <i data-lucide="arrow-left"></i> @BackLabel
     </button>
 
     @if (_questions.Count == 0 && !_loading)
@@ -88,6 +88,10 @@
 
     private QuestionResponse? _current => _currentIndex < _questions.Count ? _questions[_currentIndex] : null;
     private double Progress => _questions.Count == 0 ? 0 : (double)(_currentIndex + 1) / _questions.Count * 100;
+
+    // Opened from a specific post's "Ověř si porozumění" button → return there, not to the generic question bank.
+    private string BackHref => PostId.HasValue ? $"/post/{PostId}" : "/practice";
+    private string BackLabel => PostId.HasValue ? "Zpět na článek" : "Zpět na procvičování";
 
     protected override async Task OnParametersSetAsync()
     {

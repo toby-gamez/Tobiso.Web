@@ -1,0 +1,48 @@
+@inject IJSRuntime JS
+
+@if (_visible)
+{
+    <div class="cookie-banner" role="dialog" aria-label="Souhlas s cookies">
+        <i data-lucide="cookie" class="cookie-icon"></i>
+        <p class="cookie-text">
+            Používáme cookies pro měření návštěvnosti přes Google Analytics. Pomáhá nám to Tobiso vylepšovat.
+        </p>
+        <div class="cookie-actions">
+            <button class="pill" @onclick="Decline">Odmítnout</button>
+            <button class="pill pill-on" @onclick="Accept">Souhlasím</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _visible;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var consent = await JS.InvokeAsync<string?>("getCookieConsent");
+            if (string.IsNullOrEmpty(consent))
+            {
+                _visible = true;
+                StateHasChanged();
+            }
+        }
+        else if (_visible)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+        }
+    }
+
+    private async Task Accept()
+    {
+        await JS.InvokeVoidAsync("acceptCookieConsent");
+        _visible = false;
+    }
+
+    private async Task Decline()
+    {
+        await JS.InvokeVoidAsync("declineCookieConsent");
+        _visible = false;
+    }
+}

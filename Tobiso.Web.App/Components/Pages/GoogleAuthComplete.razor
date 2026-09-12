@@ -1,0 +1,49 @@
+@page "/google-auth-complete"
+@layout AuthLayout
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject StudentCredentialStore CredentialStore
+
+<PageTitle>Přihlašuji… — Tobiso</PageTitle>
+
+<div class="login-card" style="text-align:center; align-items:center">
+    @if (_error)
+    {
+        <h1 class="login-title">Přihlášení přes Google se nezdařilo</h1>
+        <p class="login-sub">Zkus to prosím znovu.</p>
+        <a class="pill pill-on" href="/prihlaseni">Zpět na přihlášení</a>
+    }
+    else
+    {
+        <h1 class="login-title">Přihlašuji tě…</h1>
+        <p class="login-sub">Chvilku strpení.</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private bool _error;
+    private bool _done;
+
+    protected override void OnInitialized()
+    {
+        if (string.IsNullOrWhiteSpace(Token)) _error = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Storing the token needs real JS interop (localStorage), which only exists once
+        // the interactive circuit connects — doing this in OnInitialized during static
+        // prerender would silently drop it, since the redirect would fire before any
+        // browser ever received it.
+        if (firstRender && !_error && !_done)
+        {
+            _done = true;
+            await CredentialStore.SetAsync(Token!, JS);
+            Nav.NavigateTo("/", forceLoad: true);
+        }
+    }
+}

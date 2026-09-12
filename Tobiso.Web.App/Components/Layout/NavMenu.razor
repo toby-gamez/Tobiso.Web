@@ -2,6 +2,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthState
+@inject StudentCredentialStore CredentialStore
 
 <aside class="nav-rail">
     <a href="/" class="brand-link">
@@ -12,7 +13,7 @@
     <button class="rail-item search-btn" @onclick="OpenSearch">
         <i data-lucide="search"></i>
         <span>Hledat…</span>
-        <span class="search-shortcut">K</span>
+        <span class="search-shortcut">/</span>
     </button>
 
     <nav class="rail-nav">
@@ -39,11 +40,23 @@
     }
 
     <div class="rail-footer">
-        <div class="grade-row">
+        <div class="grade-row" style="position:relative">
             <span class="grade-label">Ročník</span>
-            <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)">
+            <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)" @onclick="ToggleGradeMenu">
                 @(_selectedGrade?.Name ?? "—") <i data-lucide="chevron-down"></i>
             </button>
+            @if (_gradeMenuOpen)
+            {
+                <div class="version-dropdown" style="bottom:36px; top:auto">
+                    @foreach (var g in _grades)
+                    {
+                        <button class="version-item @(g.Id == _selectedGrade?.Id ? "active" : "")"
+                                @onclick="@(() => SelectGrade(g))">
+                            @g.Name
+                        </button>
+                    }
+                </div>
+            }
         </div>
 
         <div class="theme-row">
@@ -65,7 +78,7 @@
 
         @if (_userName != null)
         {
-            <a href="/prihlaseni" class="rail-item" style="font-size:14px; color:var(--color-neutral-600)"><i data-lucide="log-out"></i> Odhlásit se</a>
+            <button @onclick="Logout" class="rail-item" style="font-size:14px; color:var(--color-neutral-600); background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="log-out"></i> Odhlásit se</button>
         }
         else
         {
@@ -79,6 +92,7 @@
 
     private List<GradeResponse> _grades = [];
     private GradeResponse? _selectedGrade;
+    private bool _gradeMenuOpen;
     private List<CategoryTreeResponse> _subjects = [];
     private bool _darkMode;
     private string? _userName;
@@ -122,6 +136,20 @@
     {
         _darkMode = !_darkMode;
         await JS.InvokeVoidAsync("setTheme", _darkMode ? "dark" : "light");
+    }
+
+    private async Task Logout()
+    {
+        await CredentialStore.ClearAsync(JS);
+        Nav.NavigateTo("/prihlaseni", forceLoad: true);
+    }
+
+    private void ToggleGradeMenu() => _gradeMenuOpen = !_gradeMenuOpen;
+
+    private void SelectGrade(GradeResponse g)
+    {
+        _selectedGrade = g;
+        _gradeMenuOpen = false;
     }
 
     private void OpenSearch() => OnSearchOpen.InvokeAsync();

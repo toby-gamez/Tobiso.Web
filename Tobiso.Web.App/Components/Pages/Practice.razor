@@ -45,7 +45,7 @@
             {
                 <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
                     <span style="flex:1 1 240px; font-size:16px">@q.QuestionText</span>
-                    <span style="font-size:13px; color:var(--color-neutral-600)">@q.Answers.Count odpovědí</span>
+                    <span style="font-size:13px; color:var(--color-neutral-600)">@CzechPlural.Odpovedi(q.Answers.Count)</span>
                 </div>
             }
         </div>

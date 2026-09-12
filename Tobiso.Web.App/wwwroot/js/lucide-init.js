@@ -36,10 +36,24 @@ window.getTheme = () => {
 
 let searchShortcutHandler = null;
 
+const isEditableElement = (el) =>
+    !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+
 window.registerSearchShortcut = (dotNetRef) => {
     window.unregisterSearchShortcut();
     searchShortcutHandler = (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        // e.code is layout-independent (physical key), e.key can differ across
+        // keyboard layouts/browsers — check both so Ctrl+K is caught reliably.
+        const isK = e.key?.toLowerCase() === 'k' || e.code === 'KeyK';
+        if ((e.ctrlKey || e.metaKey) && isK) {
+            // Best-effort: some browsers (notably Firefox) treat Ctrl/Cmd+K as a
+            // reserved shortcut that page JS cannot override, so it may not fire.
+            e.preventDefault();
+            e.stopPropagation();
+            dotNetRef.invokeMethodAsync('ToggleFromJs');
+        } else if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isEditableElement(document.activeElement)) {
+            // Guaranteed-to-work fallback (no browser reserves a bare "/"), same
+            // convention GitHub/docs sites use.
             e.preventDefault();
             dotNetRef.invokeMethodAsync('ToggleFromJs');
         } else if (e.key === 'Escape') {
@@ -47,12 +61,14 @@ window.registerSearchShortcut = (dotNetRef) => {
             dotNetRef.invokeMethodAsync('CloseFromJs');
         }
     };
-    document.addEventListener('keydown', searchShortcutHandler);
+    // Capture phase + non-passive so preventDefault reliably beats the browser's
+    // own reserved Ctrl+K/Cmd+K (focus address bar) handling in some browsers.
+    document.addEventListener('keydown', searchShortcutHandler, { capture: true, passive: false });
 };
 
 window.unregisterSearchShortcut = () => {
     if (searchShortcutHandler) {
-        document.removeEventListener('keydown', searchShortcutHandler);
+        document.removeEventListener('keydown', searchShortcutHandler, { capture: true });
         searchShortcutHandler = null;
     }
 };
@@ -74,11 +90,16 @@ window.initReadingProgress = (dotNetRef, articleSelector) => {
         const article = document.querySelector(articleSelector);
         if (!article) return;
 
+        // Progress = how far scrolled past the article's top, normalized to the
+        // range that actually needs scrolling. Using viewport-overlap instead (how
+        // much of the article the viewport already covers at rest) gave a nonzero
+        // reading — e.g. 28% — the instant the page loaded, before any scrolling.
         const rect = article.getBoundingClientRect();
         const articleTop = rect.top + window.scrollY;
         const articleHeight = article.scrollHeight || 1;
-        const viewportBottom = window.scrollY + window.innerHeight;
-        const percent = Math.max(0, Math.min(100, Math.round(((viewportBottom - articleTop) / articleHeight) * 100)));
+        const scrollableRange = Math.max(1, articleHeight - window.innerHeight);
+        const scrolled = window.scrollY - articleTop;
+        const percent = Math.max(0, Math.min(100, Math.round((scrolled / scrollableRange) * 100)));
 
         let activeId = null;
         const probe = window.scrollY + 140;
@@ -120,3 +141,24 @@ window.disposeReadingProgress = () => {
         document.documentElement.setAttribute('data-theme', saved);
     }
 })();
+
+// Cookie consent (Google Analytics). The default-denied Consent Mode signal is
+// set inline in App.razor's <head>, before gtag.js loads; these just persist
+// the visitor's choice and flip the signal to granted/denied afterward.
+window.getCookieConsent = () => {
+    try {
+        return localStorage.getItem('tobiso-cookie-consent');
+    } catch (e) {
+        return null;
+    }
+};
+
+window.acceptCookieConsent = () => {
+    try { localStorage.setItem('tobiso-cookie-consent', 'accepted'); } catch (e) { /* ignore */ }
+    window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+};
+
+window.declineCookieConsent = () => {
+    try { localStorage.setItem('tobiso-cookie-consent', 'declined'); } catch (e) { /* ignore */ }
+    window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+};

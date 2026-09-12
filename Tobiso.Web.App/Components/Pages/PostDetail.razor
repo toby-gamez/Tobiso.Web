@@ -48,7 +48,7 @@ else
                 <div class="grade-selector">
                     @if (_currentVersion != null)
                     {
-                        <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "—") ročník</span>
+                        <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "—")</span>
                         @if (_versions.Count > 1)
                         {
                             <button class="icon-btn" @onclick="ToggleVersions" aria-label="Vybrat ročník">
@@ -63,7 +63,7 @@ else
                             {
                                 <button class="version-item @(v.Id == _currentVersion?.Id ? "active" : "")"
                                         @onclick="@(() => SelectVersion(v))">
-                                    @v.GradeName ročník
+                                    @v.GradeName
                                 </button>
                             }
                         </div>
@@ -72,7 +72,7 @@ else
             </div>
 
             <div class="post-meta">
-                <span><i data-lucide="book-open"></i> @WordCount slov · @ReadTime min čtení</span>
+                <span><i data-lucide="book-open"></i> @CzechPlural.Slova(WordCount) · @ReadTime min čtení</span>
                 <span style="opacity:.4">·</span>
                 <span>Upraveno @FormatDateTime(MostRecentEdit)</span>
                 @if (_currentVersion?.LastFix.HasValue == true)
@@ -173,7 +173,7 @@ else
                 <div id="quiz-section" style="margin-top:var(--space-8)">
                     <h2 style="font-size:28px; margin-bottom:var(--space-4)">Ověř si porozumění</h2>
                     <a href="/practice/quiz/@_post.Id" class="pill pill-on" style="font-size:15px; padding:11px 22px">
-                        Spustit kvíz (@_questions.Count otázek) <i data-lucide="arrow-right"></i>
+                        Spustit kvíz (@CzechPlural.Otazky(_questions.Count)) <i data-lucide="arrow-right"></i>
                     </a>
                 </div>
             }
