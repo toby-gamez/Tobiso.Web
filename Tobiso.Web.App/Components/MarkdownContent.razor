@@ -5,16 +5,6 @@
 
 @((MarkupString)_renderedHtml)
 
-@if (_addendumIds.Count > 0)
-{
-    <div style="display:none;">
-        @foreach (var addendumId in _addendumIds)
-        {
-            <AddendumButton AddendumId="@addendumId" />
-        }
-    </div>
-}
-
 @code {
     [Parameter] public string? Content { get; set; }
     [Parameter] public List<PostSummaryResponse>? AllPosts { get; set; }
@@ -23,7 +13,6 @@
     [Parameter] public string ContainerId { get; set; } = "content";
 
     private string _renderedHtml = string.Empty;
-    private List<int> _addendumIds = new();
     private bool _katexLoaded = false;
 
     protected override void OnParametersSet()
@@ -130,13 +119,10 @@
         var html = Markdig.Markdown.ToHtml(content);
 
         // Process addendum markers (--DOD-x--) AFTER HTML conversion
-        _addendumIds.Clear();
         var addendumRegex = new Regex(@"\(--DOD-(\d+)--\)", RegexOptions.IgnoreCase);
         html = addendumRegex.Replace(html, match =>
         {
             var addendumId = int.Parse(match.Groups[1].Value);
-            if (!_addendumIds.Contains(addendumId))
-                _addendumIds.Add(addendumId);
             return $"<a class='addendum-btn' onclick='window.requestAddendum({addendumId})'><i class=\"bi bi-patch-question\"></i></a>";
         });
 
