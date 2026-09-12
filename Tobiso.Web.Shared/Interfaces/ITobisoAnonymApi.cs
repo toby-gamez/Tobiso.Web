@@ -58,6 +58,9 @@ public interface ITobisoAnonymApi
     [Get("/api/Grades")]
     Task<List<Tobiso.Web.Shared.DTOs.GradeResponse>> GetGrades();
 
+    [Get("/api/Addendums/{id}")]
+    Task<AddendumResponse> GetAddendumById(int id);
+
     //[Get("/api/Persons/summaries")]
     //Task<List<PersonSummaryResponse>> GetPersonSummaries();
 

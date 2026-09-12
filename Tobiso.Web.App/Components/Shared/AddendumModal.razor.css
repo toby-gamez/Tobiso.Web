@@ -1,0 +1,52 @@
+.addendum-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(32, 30, 29, .45);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh var(--space-4) var(--space-4);
+}
+
+.addendum-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--color-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-6);
+}
+
+.addendum-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-neutral-600);
+    cursor: pointer;
+}
+
+.addendum-close:hover {
+    background: var(--color-neutral-200);
+}
+
+.addendum-title {
+    margin: 0 var(--space-6) var(--space-4) 0;
+}
+
+.addendum-loading {
+    padding: var(--space-6) 0;
+    text-align: center;
+    color: var(--color-neutral-600);
+}

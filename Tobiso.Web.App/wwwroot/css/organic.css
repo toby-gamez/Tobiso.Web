@@ -296,6 +296,27 @@ a.sage-tint {
     opacity: 0.45;
 }
 
+/* Addendum marker button, emitted inline in article content for (--DOD-x--) markers */
+.addendum-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin: 0 2px;
+    border-radius: 999px;
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-600);
+    cursor: pointer;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.addendum-btn:hover {
+    background: var(--color-accent-600);
+    color: #fff8f3;
+}
+
 /* Callout tip */
 .callout-tip {
     display: flex;

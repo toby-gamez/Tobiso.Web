@@ -1,0 +1,87 @@
+@implements IAsyncDisposable
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoAnonymApi Api
+@inject IJSRuntime JS
+
+@if (_open)
+{
+    <div class="addendum-backdrop" @onclick="Close">
+        <div class="addendum-dialog" @onclick:stopPropagation="true">
+            <button class="addendum-close" @onclick="Close" aria-label="Zavřít">
+                <i data-lucide="x"></i>
+            </button>
+            @if (_loading)
+            {
+                <div class="addendum-loading">Načítám dodatek…</div>
+            }
+            else if (_error)
+            {
+                <div class="addendum-loading">Dodatek se nepodařilo načíst.</div>
+            }
+            else if (_addendum != null)
+            {
+                <h3 class="addendum-title">@_addendum.Name</h3>
+                <div id="addendum-content" class="addendum-body">
+                    <MarkdownContent Content="@_addendum.Content" ContainerId="addendum-content" />
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _open;
+    private bool _loading;
+    private bool _error;
+    private AddendumResponse? _addendum;
+    private DotNetObjectReference<AddendumModal>? _selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerAddendumModal", _selfRef);
+        }
+
+        if (_open)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+        }
+    }
+
+    [JSInvokable]
+    public async Task Show(int id)
+    {
+        _open = true;
+        _loading = true;
+        _error = false;
+        _addendum = null;
+        StateHasChanged();
+
+        try
+        {
+            _addendum = await Api.GetAddendumById(id);
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Close()
+    {
+        _open = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("unregisterAddendumModal"); } catch { }
+        _selfRef?.Dispose();
+    }
+}

@@ -73,6 +73,21 @@ window.unregisterSearchShortcut = () => {
     }
 };
 
+let addendumModalRef = null;
+
+window.registerAddendumModal = (dotNetRef) => {
+    addendumModalRef = dotNetRef;
+};
+
+window.unregisterAddendumModal = () => {
+    addendumModalRef = null;
+};
+
+// Called via onclick from raw HTML emitted by MarkdownContent for (--DOD-x--) markers.
+window.requestAddendum = (id) => {
+    addendumModalRef?.invokeMethodAsync('Show', id);
+};
+
 window.scrollToId = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };

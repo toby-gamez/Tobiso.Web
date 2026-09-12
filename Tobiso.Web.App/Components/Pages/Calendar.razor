@@ -8,17 +8,16 @@
 <div class="calendar-page">
     <div class="calendar-header">
         <div>
-            <h1>Kalendář</h1>
-            <p>Prázdniny, státní svátky a tvoje připomínky.</p>
+            <h1>@MonthLabel</h1>
+            <p>Kalendář různých událostí, kdy se nechodí do školy.</p>
         </div>
         <div class="calendar-nav">
-            <button class="pill" @onclick="PrevMonth" aria-label="Předchozí měsíc"><i data-lucide="chevron-left"></i></button>
-            <span class="calendar-month-label">@MonthLabel</span>
-            <button class="pill" @onclick="NextMonth" aria-label="Další měsíc"><i data-lucide="chevron-right"></i></button>
+            <button class="pill calendar-nav-btn" @onclick="PrevMonth" aria-label="Předchozí měsíc"><i data-lucide="chevron-left"></i></button>
+            <button class="pill calendar-nav-btn" @onclick="NextMonth" aria-label="Další měsíc"><i data-lucide="chevron-right"></i></button>
         </div>
     </div>
 
-    <div class="soft calendar-grid-wrap">
+    <div class="calendar-grid-wrap">
         <div class="calendar-weekdays">
             @foreach (var d in Weekdays)
             {
@@ -29,11 +28,15 @@
             @foreach (var cell in Cells)
             {
                 var dayEvents = EventsOn(cell.Date);
-                <div class="calendar-cell @(cell.InMonth ? "" : "calendar-cell-muted") @(cell.Date.Date == DateTime.Today ? "calendar-cell-today" : "")">
-                    <span class="calendar-daynum">@cell.Date.Day</span>
+                var primary = dayEvents.FirstOrDefault();
+                var isWeekend = cell.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                var cellClass = !cell.InMonth ? "calendar-cell-muted" : primary is null && isWeekend ? "calendar-cell-weekend" : "";
+                <div class="calendar-cell @cellClass @(cell.Date.Date == DateTime.Today ? "calendar-cell-today" : "")"
+                     style="@(primary is not null ? $"background:color-mix(in srgb, {primary.Color} 22%, var(--color-neutral-100))" : "")">
+                    <span class="calendar-daynum" style="@(primary is not null ? $"color:color-mix(in srgb, {primary.Color} 65%, black)" : "")">@cell.Date.Day</span>
                     @foreach (var e in dayEvents.Take(2))
                     {
-                        <span class="calendar-event" style="background:@e.Color" title="@e.Title">@e.Title</span>
+                        <span class="calendar-event" style="color:color-mix(in srgb, @e.Color 65%, black)" title="@e.Title">@e.Title</span>
                     }
                     @if (dayEvents.Count > 2)
                     {
@@ -45,7 +48,7 @@
     </div>
 
     <div>
-        <h2>Nejbližší události</h2>
+        <h2>Nejbližší</h2>
         @if (Upcoming.Count == 0)
         {
             <p style="color:var(--color-neutral-600)">Žádné nadcházející události.</p>
@@ -56,9 +59,21 @@
                 @foreach (var e in Upcoming)
                 {
                     <div class="soft calendar-upcoming-row">
-                        <span class="calendar-dot" style="background:@e.Color"></span>
-                        <span class="calendar-upcoming-title">@e.Title</span>
-                        <span class="calendar-upcoming-date">@FormatRange(e)</span>
+                        <span class="calendar-datebadge" style="background:color-mix(in srgb, @e.Color 22%, var(--color-surface)); color:color-mix(in srgb, @e.Color 70%, black)">
+                            <span class="calendar-datebadge-day">@e.StartDate.Day</span>
+                            <span class="calendar-datebadge-month">@MonthAbbrev(e.StartDate.Month)</span>
+                        </span>
+                        <span class="calendar-upcoming-text">
+                            <span class="calendar-upcoming-title">@e.Title</span>
+                            @if (!string.IsNullOrWhiteSpace(e.Description))
+                            {
+                                <span class="calendar-upcoming-sub">@e.Description</span>
+                            }
+                            @if (string.IsNullOrWhiteSpace(e.Description) || IsMultiDay(e))
+                            {
+                                <span class="calendar-upcoming-sub">@FormatRange(e)</span>
+                            }
+                        </span>
                     </div>
                 }
             </div>
@@ -89,6 +104,11 @@
 
     private string MonthLabel => _month.ToString("MMMM yyyy", new System.Globalization.CultureInfo("cs-CZ"));
 
+    private static readonly string[] MonthAbbrevs =
+        ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
+
+    private static string MonthAbbrev(int month) => MonthAbbrevs[month - 1];
+
     private List<Cell> Cells
     {
         get
@@ -109,8 +129,11 @@
             .OrderBy(e => e.StartDate)
             .Take(6)];
 
+    private static bool IsMultiDay(EventResponse e) =>
+        e.EndDate.HasValue && e.EndDate.Value.Date != e.StartDate.Date;
+
     private static string FormatRange(EventResponse e) =>
-        e.EndDate.HasValue && e.EndDate.Value.Date != e.StartDate.Date
-            ? $"{e.StartDate:d. M.} – {e.EndDate.Value:d. M. yyyy}"
+        IsMultiDay(e)
+            ? $"{e.StartDate:d. M.} – {e.EndDate!.Value:d. M. yyyy}"
             : e.StartDate.ToString("d. M. yyyy");
 }
