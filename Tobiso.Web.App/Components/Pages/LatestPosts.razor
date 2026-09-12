@@ -1,5 +1,6 @@
 @page "/nejnovejsi"
 @page "/latest"
+@implements IDisposable
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject NavigationManager Nav
@@ -60,26 +61,36 @@
     private Dictionary<int, string> _categoryPaths = [];
     private int? _activeFilter;
 
+    private bool _disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        var cats = await CategoryService.GetAll();
-        _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
-
-        var moreIds = cats.Where(c => IsMore(c.Name)).Select(c => c.Id).ToHashSet();
-
-        _posts = await PostService.GetSummaries();
-        _posts = [.. _posts
-            .Where(p => p.CategoryId.HasValue && !moreIds.Contains(p.CategoryId.Value))
-            .OrderByDescending(p => p.LastEdit)];
-
-        // Build category path lookup
-        foreach (var c in cats)
+        try
         {
-            var parent = cats.FirstOrDefault(p => p.Id == c.ParentId);
-            _categoryPaths[c.Id] = parent != null ? $"{parent.Name} · {c.Name}" : c.Name;
+            var cats = await CategoryService.GetAll();
+            _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+
+            var moreIds = cats.Where(c => IsMore(c.Name)).Select(c => c.Id).ToHashSet();
+
+            _posts = await PostService.GetSummaries();
+            _posts = [.. _posts
+                .Where(p => p.CategoryId.HasValue && !moreIds.Contains(p.CategoryId.Value))
+                .OrderByDescending(p => p.LastEdit)];
+
+            // Build category path lookup
+            foreach (var c in cats)
+            {
+                var parent = cats.FirstOrDefault(p => p.Id == c.ParentId);
+                _categoryPaths[c.Id] = parent != null ? $"{parent.Name} · {c.Name}" : c.Name;
+            }
+            _loading = false;
         }
-        _loading = false;
+        catch (Exception) when (_disposed)
+        {
+        }
     }
+
+    public void Dispose() => _disposed = true;
 
     private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
 

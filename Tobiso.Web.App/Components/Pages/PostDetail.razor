@@ -89,9 +89,6 @@ else
             </div>
 
             <div class="toolbar">
-                <button class="toolbar-btn" @onclick="GoBack">
-                    <i data-lucide="arrow-left"></i> Zpět
-                </button>
                 <button class="toolbar-btn" @onclick="ScrollToQuiz">
                     <i data-lucide="file-check-2"></i> Ověř si porozumění
                 </button>
@@ -213,7 +210,7 @@ else
                         @foreach (var ex in _exercises)
                         {
                             <button class="exercise-card @(_openExerciseId == ex.Id ? "active" : "")" @onclick="@(() => ToggleExercise(ex.Id))">
-                                <span class="exercise-kind"><i data-lucide="@ExerciseTypeIcon(ex.Type)"></i> @ExerciseTypeLabel(ex.Type)</span>
+                                <span class="exercise-kind"><i data-lucide="@ExerciseTypeDisplay.Icon(ex.Type)"></i> @ExerciseTypeDisplay.Label(ex.Type)</span>
                                 <span class="exercise-title">@ex.Title</span>
                                 @if (!string.IsNullOrWhiteSpace(ex.InstructionsMarkdown))
                                 {
@@ -340,6 +337,7 @@ else
 @code {
     [Parameter] public int Id { get; set; }
     [Parameter] public string? Slug { get; set; }
+    [SupplyParameterFromQuery] public int? Exercise { get; set; }
 
     private bool _loading = true;
     private PostResponse? _post;
@@ -374,6 +372,7 @@ else
     private bool _factsLoaded;
     private string? _factsError;
     private int? _openExerciseId;
+    private bool _needsExerciseScroll;
 
     private InteractiveExerciseResponse? _openExercise =>
         _exercises.FirstOrDefault(e => e.Id == _openExerciseId);
@@ -383,22 +382,29 @@ else
     // against the same circuit-scoped DbContext. Serialize loads and drop superseded ones.
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private int _loadGeneration;
+    private bool _disposed;
 
     protected override async Task OnParametersSetAsync()
     {
         var myGeneration = ++_loadGeneration;
-        await _loadGate.WaitAsync();
         try
         {
-            if (myGeneration != _loadGeneration) return;
-            _loading = true;
-            await LoadData();
-            if (myGeneration != _loadGeneration) return;
-            _loading = false;
+            await _loadGate.WaitAsync();
+            try
+            {
+                if (myGeneration != _loadGeneration) return;
+                _loading = true;
+                await LoadData();
+                if (myGeneration != _loadGeneration) return;
+                _loading = false;
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
         }
-        finally
+        catch (Exception) when (_disposed)
         {
-            _loadGate.Release();
         }
     }
 
@@ -424,7 +430,8 @@ else
         _questions = await QuestionService.GetByPostId(_post.Id);
         _allPosts = await PostService.GetSummaries();
         _exercises = await ExerciseService.GetByPostIdAsync(_post.Id);
-        _openExerciseId = null;
+        _openExerciseId = Exercise.HasValue && _exercises.Any(e => e.Id == Exercise.Value) ? Exercise.Value : null;
+        _needsExerciseScroll = _openExerciseId.HasValue;
 
         await BuildDisplayRelated();
 
@@ -480,9 +487,9 @@ else
             names = [];
         }
 
-        if (generation != _loadGeneration) return;
+        if (generation != _loadGeneration || _disposed) return;
         _allPeople = names.Select(n => new PersonSummaryResponse { Name = n }).ToList();
-        await InvokeAsync(StateHasChanged);
+        try { await InvokeAsync(StateHasChanged); } catch (Exception) when (_disposed) { }
     }
 
     // "Souvisí s tímto" always aims for up to 6 entries: manually curated RelatedPosts first,
@@ -547,6 +554,12 @@ else
             await JS.InvokeVoidAsync("initReadingProgress", _selfRef, "#article-prose");
         }
 
+        if (_needsExerciseScroll && _exercises.Count > 0)
+        {
+            _needsExerciseScroll = false;
+            await JS.InvokeVoidAsync("scrollToId", "exercises-section");
+        }
+
         if (_needsDifficultyCheck && _post != null)
         {
             _needsDifficultyCheck = false;
@@ -572,19 +585,27 @@ else
     [JSInvokable]
     public async Task OnReadingProgress(string? activeAnchor, int percent)
     {
-        _activeAnchor = activeAnchor;
-        _readPercent = percent;
-        StateHasChanged();
-
-        if (_userId.HasValue && _post != null && percent >= _lastPersistedPercent + 5)
+        if (_disposed) return;
+        try
         {
-            _lastPersistedPercent = percent;
-            await UserProgressService.UpsertReadProgressAsync(_userId.Value, _post.Id, percent);
+            _activeAnchor = activeAnchor;
+            _readPercent = percent;
+            StateHasChanged();
+
+            if (_userId.HasValue && _post != null && percent >= _lastPersistedPercent + 5)
+            {
+                _lastPersistedPercent = percent;
+                await UserProgressService.UpsertReadProgressAsync(_userId.Value, _post.Id, percent);
+            }
+        }
+        catch (Exception) when (_disposed)
+        {
         }
     }
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
         _selfRef?.Dispose();
         _loadGate.Dispose();
@@ -645,8 +666,6 @@ else
 
     private void ScrollToQuiz() => Nav.NavigateTo($"/practice/quiz/{_post?.Id}");
 
-    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
-
     private async Task ScrollToExercises()
     {
         if (_exercises.Count == 0) return;
@@ -654,26 +673,6 @@ else
     }
 
     private void ToggleExercise(int id) => _openExerciseId = _openExerciseId == id ? null : id;
-
-    private static string ExerciseTypeIcon(string type) => type switch
-    {
-        ExerciseTypeConstants.DragDrop => "move",
-        ExerciseTypeConstants.Matching => "link-2",
-        ExerciseTypeConstants.Timeline => "history",
-        ExerciseTypeConstants.Circuit => "zap",
-        ExerciseTypeConstants.Molecule => "atom",
-        _ => "puzzle"
-    };
-
-    private static string ExerciseTypeLabel(string type) => type switch
-    {
-        ExerciseTypeConstants.DragDrop => "Přetahování",
-        ExerciseTypeConstants.Matching => "Párování",
-        ExerciseTypeConstants.Timeline => "Časová osa",
-        ExerciseTypeConstants.Circuit => "Obvod",
-        ExerciseTypeConstants.Molecule => "Molekula",
-        _ => "Cvičení"
-    };
 
     private async Task ToggleFacts()
     {

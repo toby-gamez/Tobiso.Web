@@ -1,0 +1,204 @@
+@page "/practice/ai"
+@page "/practice/ai/{PostId:int}"
+@implements IDisposable
+@using Tobiso.Web.App.Services
+@inject IPostService PostService
+@inject IAiService AiService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>AI zkoušení — Tobiso</PageTitle>
+
+<div class="quiz-page">
+    <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo(PostId.HasValue ? "/practice/ai" : "/practice"))">
+        <i data-lucide="arrow-left"></i> @(PostId.HasValue ? "Vybrat jiný článek" : "Zpět na procvičování")
+    </button>
+
+    @if (!PostId.HasValue)
+    {
+        <div class="soft" style="padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4)">
+            <h2 style="margin:0">Vyber si článek</h2>
+            <select @bind="_selectedPostId" class="ai-post-select">
+                <option value="">— Vyber článek —</option>
+                @foreach (var p in _posts)
+                {
+                    <option value="@p.Id">@p.Title</option>
+                }
+            </select>
+            <button class="pill pill-on" style="align-self:flex-start" @onclick="StartWithSelected" disabled="@(!_selectedPostId.HasValue)">
+                <i data-lucide="sparkles"></i> Spustit AI zkoušení
+            </button>
+        </div>
+    }
+    else if (_generating)
+    {
+        <div style="padding:var(--space-8); text-align:center">
+            <p>Generuji úlohy…</p>
+        </div>
+    }
+    else if (_error != null)
+    {
+        <div style="padding:var(--space-8); text-align:center">
+            <p>@_error</p>
+            <button class="pill" @onclick="@(() => LoadProblems(PostId!.Value))">Zkusit znovu</button>
+        </div>
+    }
+    else if (_current != null)
+    {
+        <div>
+            <div class="quiz-progress-label">
+                <span>@(_postTitle != null ? $"AI zkoušení — {_postTitle}" : "AI zkoušení")</span>
+                <span>Úloha @(_currentIndex + 1) z @_problems.Count</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:@Progress%"></div></div>
+        </div>
+
+        <div class="quiz-card soft">
+            <h2 style="font-size:24px; margin-bottom:var(--space-6)">@_current.ProblemText</h2>
+
+            <textarea class="ai-answer-input" rows="4" placeholder="Napiš svou odpověď…"
+                      @bind="_studentAnswer" @bind:event="oninput" disabled="@(_feedback != null)"></textarea>
+
+            @if (_feedback == null)
+            {
+                <button class="pill pill-on" style="margin-top:var(--space-4)" @onclick="SubmitAnswer"
+                        disabled="@(_submitting || string.IsNullOrWhiteSpace(_studentAnswer))">
+                    @(_submitting ? "Vyhodnocuji…" : "Odeslat odpověď")
+                </button>
+            }
+            else
+            {
+                <div class="quiz-explanation">
+                    <i data-lucide="@(_feedback.IsCorrect ? "check-circle-2" : "lightbulb")" style="color:var(--color-accent-2-700); font-size:18px; flex-shrink:0"></i>
+                    <span>@_feedback.Feedback</span>
+                </div>
+                <p style="font-size:14px; color:var(--color-neutral-600); margin-top:var(--space-3)">Očekávané řešení: @_current.Solution</p>
+
+                <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-6)">
+                    <div style="flex:1"></div>
+                    @if (_currentIndex < _problems.Count - 1)
+                    {
+                        <button class="pill pill-on" @onclick="Next">Další úloha <i data-lucide="arrow-right"></i></button>
+                    }
+                    else
+                    {
+                        <button class="pill pill-on" @onclick="@(() => LoadProblems(PostId!.Value))">Nové úlohy <i data-lucide="rotate-cw"></i></button>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? PostId { get; set; }
+
+    private List<PostSummaryResponse> _posts = [];
+    private int? _selectedPostId;
+
+    private List<PracticeProblem> _problems = [];
+    private int _currentIndex;
+    private string _studentAnswer = "";
+    private EvaluateAnswerResponse? _feedback;
+    private bool _generating;
+    private bool _submitting;
+    private string? _error;
+    private string? _postTitle;
+    private int? _loadedForPostId;
+    private bool _disposed;
+
+    private PracticeProblem? _current => _currentIndex < _problems.Count ? _problems[_currentIndex] : null;
+    private double Progress => _problems.Count == 0 ? 0 : (double)(_currentIndex + 1) / _problems.Count * 100;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _posts = await PostService.GetSummaries();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PostId.HasValue && PostId != _loadedForPostId)
+        {
+            _loadedForPostId = PostId;
+            await LoadProblems(PostId.Value);
+        }
+    }
+
+    public void Dispose() => _disposed = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) => await JS.InvokeVoidAsync("initLucide");
+
+    private void StartWithSelected()
+    {
+        if (_selectedPostId.HasValue) Nav.NavigateTo($"/practice/ai/{_selectedPostId.Value}");
+    }
+
+    private async Task LoadProblems(int postId)
+    {
+        try
+        {
+            _generating = true;
+            _error = null;
+            _problems = [];
+            _currentIndex = 0;
+            _feedback = null;
+            _studentAnswer = "";
+
+            var post = await PostService.GetById(postId);
+            if (_disposed) return;
+            _postTitle = post?.Title;
+
+            var response = await AiService.GeneratePracticeProblemsAsync(postId, 5);
+            if (_disposed) return;
+            _problems = response.Problems;
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+        catch (Exception)
+        {
+            _error = "Nepodařilo se vygenerovat úlohy. Zkus to prosím znovu.";
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private async Task SubmitAnswer()
+    {
+        if (_submitting || string.IsNullOrWhiteSpace(_studentAnswer) || _current == null || !PostId.HasValue) return;
+        _submitting = true;
+        try
+        {
+            _feedback = await AiService.EvaluateAnswerAsync(new EvaluateAnswerRequest
+            {
+                PostId = PostId.Value,
+                QuestionText = _current.ProblemText,
+                StudentAnswer = _studentAnswer,
+                CorrectAnswer = _current.Solution
+            });
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+        catch (Exception)
+        {
+            _error = "Nepodařilo se vyhodnotit odpověď.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void Next()
+    {
+        if (_currentIndex < _problems.Count - 1)
+        {
+            _currentIndex++;
+            _studentAnswer = "";
+            _feedback = null;
+        }
+    }
+}

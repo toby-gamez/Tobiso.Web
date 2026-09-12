@@ -10,7 +10,10 @@ public interface IQuestionService
 {
     Task<List<QuestionResponse>> GetAll();
     Task<List<QuestionResponse>> GetByPostId(int postId);
+    Task<QuestionSearchResult> SearchAsync(QuestionSearchRequest request);
+    Task<List<CategoryQuestionCount>> GetCategoryCountsAsync();
     Task<QuestionResponse?> GetById(int id);
+    Task<List<QuestionResponse>> GetByIds(List<int> ids);
     Task<QuestionResponse?> Create(CreateQuestionRequest request);
     Task<bool> Update(UpdateQuestionRequest request);
     Task<bool> Delete(int id);
@@ -103,6 +106,90 @@ public class QuestionService : IQuestionService
         }
     }
 
+    public async Task<QuestionSearchResult> SearchAsync(QuestionSearchRequest request)
+    {
+        try
+        {
+            var query = _context.Questions.AsNoTracking().AsQueryable();
+
+            if (request.CategoryIds is { Count: > 0 })
+            {
+                query = query.Where(q => q.Post != null && q.Post.CategoryId != null
+                    && request.CategoryIds.Contains(q.Post.CategoryId.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var search = request.Search.Trim();
+                query = query.Where(q => q.QuestionText.Contains(search));
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var take = Math.Clamp(request.Take <= 0 ? 20 : request.Take, 1, 100);
+            var questions = await query
+                .OrderBy(q => q.Id)
+                .Skip(Math.Max(request.Skip, 0))
+                .Take(take)
+                .Include(q => q.Answers)
+                .Include(q => q.Explanations)
+                .ToListAsync();
+
+            return new QuestionSearchResult
+            {
+                TotalCount = totalCount,
+                Questions = questions.Select(q => new QuestionResponse
+                {
+                    Id = q.Id,
+                    QuestionText = q.QuestionText,
+                    PostId = q.PostId,
+                    Answers = q.Answers.Select(a => new AnswerResponse
+                    {
+                        Id = a.Id,
+                        AnswerText = a.AnswerText,
+                        Correct = a.Correct,
+                        QuestionId = a.QuestionId
+                    }).ToList(),
+                    Explanations = q.Explanations.Select(e => new ExplanationResponse
+                    {
+                        Id = e.Id,
+                        Text = e.Text,
+                        QuestionId = e.QuestionId
+                    }).ToList()
+                }).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při vyhledávání otázek");
+            throw;
+        }
+    }
+
+    public async Task<List<CategoryQuestionCount>> GetCategoryCountsAsync()
+    {
+        try
+        {
+            return await _context.Questions
+                .AsNoTracking()
+                .Where(q => q.Post != null && q.Post.CategoryId != null && q.Post.Category != null)
+                .GroupBy(q => new { q.Post!.CategoryId, q.Post.Category!.Name })
+                .Select(g => new CategoryQuestionCount
+                {
+                    CategoryId = g.Key.CategoryId!.Value,
+                    Name = g.Key.Name,
+                    Count = g.Count()
+                })
+                .OrderByDescending(c => c.Count)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chyba při počítání otázek podle kategorie");
+            throw;
+        }
+    }
+
     public async Task<QuestionResponse?> GetById(int id)
     {
         var question = await _context.Questions
@@ -132,6 +219,38 @@ public class QuestionService : IQuestionService
                 QuestionId = e.QuestionId
             }).ToList()
         };
+    }
+
+    public async Task<List<QuestionResponse>> GetByIds(List<int> ids)
+    {
+        if (ids.Count == 0) return new List<QuestionResponse>();
+
+        var questions = await _context.Questions
+            .AsNoTracking()
+            .Include(q => q.Answers)
+            .Include(q => q.Explanations)
+            .Where(q => ids.Contains(q.Id))
+            .ToListAsync();
+
+        return questions.Select(q => new QuestionResponse
+        {
+            Id = q.Id,
+            QuestionText = q.QuestionText,
+            PostId = q.PostId,
+            Answers = q.Answers.Select(a => new AnswerResponse
+            {
+                Id = a.Id,
+                AnswerText = a.AnswerText,
+                Correct = a.Correct,
+                QuestionId = a.QuestionId
+            }).ToList(),
+            Explanations = q.Explanations.Select(e => new ExplanationResponse
+            {
+                Id = e.Id,
+                Text = e.Text,
+                QuestionId = e.QuestionId
+            }).ToList()
+        }).ToList();
     }
 
     public async Task<QuestionResponse?> Create(CreateQuestionRequest request)

@@ -1,7 +1,11 @@
 @using Tobiso.Web.App.Services
 @using System.Threading
+@using Markdig
 @implements IDisposable
 @inject IAiService AiService
+@inject IPostService PostService
+@inject IAiChatHistoryService ChatHistory
+@inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 
 <div class="chat-box">
@@ -24,7 +28,16 @@
             @foreach (var m in _messages)
             {
                 <div class="chat-msg @(m.Role == "user" ? "chat-msg-user" : "chat-msg-ai")">
-                    <div class="chat-bubble">@m.Content</div>
+                    <div class="chat-bubble">
+                        @if (m.Role == "user")
+                        {
+                            @m.Content
+                        }
+                        else
+                        {
+                            <div class="chat-markdown">@RenderMarkdown(m.Content)</div>
+                        }
+                    </div>
                 </div>
             }
             @if (_streaming)
@@ -37,7 +50,7 @@
                         }
                         else
                         {
-                            @_pending.ToString()
+                            <div class="chat-markdown">@RenderMarkdown(_pending.ToString())</div>
                         }
                     </div>
                 </div>
@@ -50,7 +63,51 @@
         <div class="chat-error">@_error</div>
     }
 
+    @if (_attachedPosts.Count > 0)
+    {
+        <div class="chat-attachments">
+            @foreach (var p in _attachedPosts)
+            {
+                <span class="chat-attachment-chip">
+                    <i data-lucide="file-text"></i>
+                    <span class="chat-attachment-title">@p.Title</span>
+                    <button type="button" class="chat-attachment-remove" @onclick="@(() => RemoveAttachment(p.Id))" aria-label="Odebrat článek">
+                        <i data-lucide="x"></i>
+                    </button>
+                </span>
+            }
+        </div>
+    }
+
+    @if (_showAttachPicker)
+    {
+        <div class="chat-attach-picker">
+            <input class="input" placeholder="Hledat článek…" @bind="_attachSearch" @bind:event="oninput" />
+            <div class="chat-attach-results">
+                @if (_attachPickerLoading)
+                {
+                    <div class="chat-attach-empty">Načítám…</div>
+                }
+                else if (FilteredAttachablePosts.Count == 0)
+                {
+                    <div class="chat-attach-empty">Nic nenalezeno</div>
+                }
+                else
+                {
+                    @foreach (var p in FilteredAttachablePosts.Take(8))
+                    {
+                        <button type="button" class="chat-attach-result" @onclick="@(() => AttachPost(p))">@p.Title</button>
+                    }
+                }
+            </div>
+        </div>
+    }
+
     <div class="chat-input-row">
+        <button class="chat-attach-btn @(_showAttachPicker ? "active" : "")" type="button"
+                @onclick="ToggleAttachPicker" disabled="@_streaming" aria-label="Připojit článek k otázce" title="Připojit článek k otázce">
+            <i data-lucide="paperclip"></i>
+        </button>
         <input class="input" placeholder="@Placeholder" @bind="_draft" @bind:event="oninput"
                @onkeydown="OnKeyDown" disabled="@_streaming" />
         <button class="pill pill-on chat-send" @onclick="Send" disabled="@(_streaming || string.IsNullOrWhiteSpace(_draft))">
@@ -73,6 +130,83 @@
     private string _draft = "";
     private bool _streaming;
     private string? _error;
+
+    private static readonly MarkdownPipeline _markdownPipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
+
+    private static MarkupString RenderMarkdown(string? content) =>
+        (MarkupString)Markdown.ToHtml(content ?? string.Empty, _markdownPipeline);
+
+    private readonly List<PostSummaryResponse> _attachedPosts = [];
+    private List<PostSummaryResponse> _availablePosts = [];
+    private bool _availablePostsLoaded;
+    private bool _attachPickerLoading;
+    private bool _showAttachPicker;
+    private string _attachSearch = "";
+
+    private List<PostSummaryResponse> FilteredAttachablePosts
+    {
+        get
+        {
+            var excluded = new HashSet<int>(_attachedPosts.Select(p => p.Id)) { PostId };
+            IEnumerable<PostSummaryResponse> query = _availablePosts.Where(p => !excluded.Contains(p.Id));
+            if (!string.IsNullOrWhiteSpace(_attachSearch))
+                query = query.Where(p => p.Title.Contains(_attachSearch, StringComparison.OrdinalIgnoreCase));
+            return query.ToList();
+        }
+    }
+
+    private async Task ToggleAttachPicker()
+    {
+        _showAttachPicker = !_showAttachPicker;
+        if (_showAttachPicker && !_availablePostsLoaded)
+        {
+            _attachPickerLoading = true;
+            try { _availablePosts = await PostService.GetSummaries(); }
+            finally { _attachPickerLoading = false; _availablePostsLoaded = true; }
+        }
+    }
+
+    private void AttachPost(PostSummaryResponse post)
+    {
+        if (_attachedPosts.Any(p => p.Id == post.Id)) return;
+        _attachedPosts.Add(post);
+        _attachSearch = "";
+        _showAttachPicker = false;
+    }
+
+    private void RemoveAttachment(int postId) => _attachedPosts.RemoveAll(p => p.Id == postId);
+
+    // Sentinel so the very first parameter set (PostId defaults to 0, same as "no post") still triggers a load.
+    private const int NotYetLoaded = int.MinValue;
+    private int _historyLoadedForPostId = NotYetLoaded;
+    private int? _userId;
+
+    private int? ContextPostId => PostId > 0 ? PostId : null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Blazor Server can reuse this component instance across route-parameter changes (e.g.
+        // navigating from one post to another), so history has to reload whenever PostId actually
+        // changes rather than only once at construction.
+        if (PostId == _historyLoadedForPostId) return;
+        _historyLoadedForPostId = PostId;
+
+        _messages.Clear();
+        _userId = null;
+
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated != true ||
+            !int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid))
+            return;
+
+        _userId = uid;
+        var session = await ChatHistory.FindSessionAsync(uid, ContextPostId);
+        if (session == null) return;
+
+        var history = await ChatHistory.GetSessionMessagesAsync(session.Id, uid);
+        _messages.AddRange(history.Select(m => new AiMessage { Role = m.Role, Content = m.Content }));
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -106,7 +240,8 @@
             PostId = PostId,
             Question = question,
             SocraticMode = SocraticMode,
-            ConversationHistory = [.. _messages.Take(_messages.Count - 1)]
+            ConversationHistory = [.. _messages.Take(_messages.Count - 1)],
+            AttachedPostIds = _attachedPosts.Select(p => p.Id).ToList()
         };
 
         try
@@ -135,6 +270,7 @@
         {
             _messages.Add(new AiMessage { Role = "assistant", Content = answer });
             if (OnAnswered.HasDelegate) await OnAnswered.InvokeAsync(answer);
+            await SaveHistoryAsync(question, answer);
         }
         else if (_error == null)
         {
@@ -142,6 +278,23 @@
         }
 
         StateHasChanged();
+    }
+
+    private async Task SaveHistoryAsync(string question, string answer)
+    {
+        if (_userId is not { } uid) return;
+
+        try
+        {
+            var session = await ChatHistory.GetOrCreateSessionAsync(uid, ContextPostId);
+            await ChatHistory.SaveMessageAsync(session.Id, "user", question);
+            await ChatHistory.SaveMessageAsync(session.Id, "assistant", answer);
+        }
+        catch (Exception ex)
+        {
+            // History is a nice-to-have; don't surface a save failure as a chat error to the user.
+            Serilog.Log.Warning(ex, "Failed to save AI chat history for user {UserId}", uid);
+        }
     }
 
     public void Dispose()

@@ -10,6 +10,7 @@ public interface ICategoryService
     Task<List<CategoryResponse>> GetAll();
     Task<List<CategoryTreeResponse>> GetTree();
     Task<List<CategoryResponse>> GetAncestors(int categoryId);
+    Task<List<int>> GetDescendantIds(int categoryId);
     Task<CategoryResponse> Create(CategoryResponse category);
     Task<CategoryResponse> Update(int id, CategoryResponse category);
     Task Delete(int id);
@@ -76,6 +77,29 @@ public class CategoryService : ICategoryService
             currentId = cat.ParentId.Value;
         }
 
+        return result;
+    }
+
+    public async Task<List<int>> GetDescendantIds(int categoryId)
+    {
+        var categories = await _context.Categories
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.ParentId })
+            .ToListAsync();
+        var lookup = categories.ToLookup(c => c.ParentId);
+
+        var result = new List<int> { categoryId };
+        var queue = new Queue<int>();
+        queue.Enqueue(categoryId);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            foreach (var child in lookup[current])
+            {
+                result.Add(child.Id);
+                queue.Enqueue(child.Id);
+            }
+        }
         return result;
     }
 

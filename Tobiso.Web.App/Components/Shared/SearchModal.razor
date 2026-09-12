@@ -118,11 +118,19 @@
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
+    private bool _disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        _posts = await ScopedServices.GetRequiredService<IPostService>().GetSummaries();
-        _categories = await ScopedServices.GetRequiredService<ICategoryService>().GetAll();
-        _categoryNames = _categories.ToDictionary(c => c.Id, c => c.Name);
+        try
+        {
+            _posts = await ScopedServices.GetRequiredService<IPostService>().GetSummaries();
+            _categories = await ScopedServices.GetRequiredService<ICategoryService>().GetAll();
+            _categoryNames = _categories.ToDictionary(c => c.Id, c => c.Name);
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -206,6 +214,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         try { await JS.InvokeVoidAsync("unregisterSearchShortcut"); } catch { }
         _selfRef?.Dispose();
     }

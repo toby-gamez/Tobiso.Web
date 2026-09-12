@@ -1,8 +1,12 @@
 @page "/practice/quiz"
 @page "/practice/quiz/{PostId:int}"
+@page "/practice/quiz/category/{CategoryId:int}"
 @using System.Threading
 @implements IDisposable
 @inject IQuestionService QuestionService
+@inject IQuestionAttemptService AttemptService
+@inject ICategoryService CategoryService
+@inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -16,7 +20,7 @@
     @if (_questions.Count == 0 && !_loading)
     {
         <div style="padding:var(--space-8); text-align:center">
-            <p>Pro tento článek zatím nejsou otázky.</p>
+            <p>@NoQuestionsMessage</p>
         </div>
     }
     else if (_current != null)
@@ -79,7 +83,11 @@
 </div>
 
 @code {
+    private const int SessionSize = 25;
+
     [Parameter] public int? PostId { get; set; }
+    [Parameter] public int? CategoryId { get; set; }
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
 
     private List<QuestionResponse> _questions = [];
     private int _currentIndex;
@@ -87,6 +95,8 @@
     private bool _answered;
     private bool _loading = true;
     private string? _postTitle;
+    private int? _userId;
+    private bool _userChecked;
 
     private QuestionResponse? _current => _currentIndex < _questions.Count ? _questions[_currentIndex] : null;
     private double Progress => _questions.Count == 0 ? 0 : (double)(_currentIndex + 1) / _questions.Count * 100;
@@ -94,6 +104,9 @@
     // Opened from a specific post's "Ověř si porozumění" button → return there, not to the generic question bank.
     private string BackHref => PostId.HasValue ? $"/post/{PostId}" : "/practice";
     private string BackLabel => PostId.HasValue ? "Zpět na článek" : "Zpět na procvičování";
+    private string NoQuestionsMessage => PostId.HasValue
+        ? "Pro tento článek zatím nejsou otázky."
+        : "Pro tento výběr zatím nejsou k dispozici žádné otázky.";
 
     // Blazor reuses this component instance across route-parameter changes, so navigating
     // again before a previous load finishes would otherwise run two loads concurrently
@@ -101,42 +114,99 @@
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private int _loadGeneration;
 
+    private bool _disposed;
+
     protected override async Task OnParametersSetAsync()
     {
         var myGeneration = ++_loadGeneration;
-        await _loadGate.WaitAsync();
         try
         {
-            if (myGeneration != _loadGeneration) return;
-            _loading = true;
-            var questions = PostId.HasValue
-                ? await QuestionService.GetByPostId(PostId.Value)
-                : await QuestionService.GetAll();
-            if (myGeneration != _loadGeneration) return;
-            _questions = questions;
-            _loading = false;
-            _currentIndex = 0;
-            _answered = false;
-            _selectedAnswerId = null;
+            await _loadGate.WaitAsync();
+            try
+            {
+                if (myGeneration != _loadGeneration) return;
+                _loading = true;
+                var questions = await LoadQuestions();
+                if (myGeneration != _loadGeneration) return;
+                _questions = questions;
+                _loading = false;
+                _currentIndex = 0;
+                _answered = false;
+                _selectedAnswerId = null;
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
         }
-        finally
+        catch (Exception) when (_disposed)
         {
-            _loadGate.Release();
         }
     }
 
-    public void Dispose() => _loadGate.Dispose();
+    public void Dispose()
+    {
+        _disposed = true;
+        _loadGate.Dispose();
+    }
+
+    private async Task<List<QuestionResponse>> LoadQuestions()
+    {
+        if (PostId.HasValue)
+            return await QuestionService.GetByPostId(PostId.Value);
+
+        var userId = await GetUserIdAsync();
+
+        if (CategoryId.HasValue)
+        {
+            var categoryIds = await CategoryService.GetDescendantIds(CategoryId.Value);
+            return await AttemptService.GetSessionAsync(userId, categoryIds, SessionSize, preferUnmastered: true);
+        }
+
+        if (Mode == "recommended")
+        {
+            var weakCategoryIds = userId.HasValue ? await AttemptService.GetWeakCategoryIds(userId.Value) : [];
+            return await AttemptService.GetSessionAsync(userId, weakCategoryIds, SessionSize, preferUnmastered: true);
+        }
+
+        return await AttemptService.GetSessionAsync(userId, null, SessionSize, preferUnmastered: true);
+    }
+
+    private async Task<int?> GetUserIdAsync()
+    {
+        if (_userChecked) return _userId;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true &&
+            int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid))
+        {
+            _userId = uid;
+        }
+        _userChecked = true;
+        return _userId;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JS.InvokeVoidAsync("initLucide");
     }
 
-    private void SelectAnswer(AnswerResponse a)
+    private async Task SelectAnswer(AnswerResponse a)
     {
-        if (_answered) return;
+        if (_answered || _current == null) return;
         _selectedAnswerId = a.Id;
         _answered = true;
+
+        var userId = await GetUserIdAsync();
+        if (userId.HasValue)
+        {
+            _ = RecordAttemptSafe(userId.Value, _current.Id, a.Correct == 1);
+        }
+    }
+
+    private async Task RecordAttemptSafe(int userId, int questionId, bool correct)
+    {
+        try { await AttemptService.RecordAttemptAsync(userId, questionId, correct); }
+        catch (Exception) when (_disposed) { }
     }
 
     private void Next()

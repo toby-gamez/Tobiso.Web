@@ -102,24 +102,36 @@
     protected override async Task OnAfterRenderAsync(bool firstRender) =>
         await JS.InvokeVoidAsync("initLucide");
 
+    private bool _disposed;
+
     private async Task LoadMonth()
     {
         var myGeneration = ++_loadGeneration;
-        await _loadGate.WaitAsync();
         try
         {
-            if (myGeneration != _loadGeneration) return;
-            var events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
-            if (myGeneration != _loadGeneration) return;
-            _events = events;
+            await _loadGate.WaitAsync();
+            try
+            {
+                if (myGeneration != _loadGeneration) return;
+                var events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
+                if (myGeneration != _loadGeneration) return;
+                _events = events;
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
         }
-        finally
+        catch (Exception) when (_disposed)
         {
-            _loadGate.Release();
         }
     }
 
-    public void Dispose() => _loadGate.Dispose();
+    public void Dispose()
+    {
+        _disposed = true;
+        _loadGate.Dispose();
+    }
 
     private async Task PrevMonth() { _month = _month.AddMonths(-1); await LoadMonth(); }
     private async Task NextMonth() { _month = _month.AddMonths(1); await LoadMonth(); }

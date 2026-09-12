@@ -6,6 +6,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@implements IDisposable
 
 <PageTitle>Domů — Tobiso</PageTitle>
 
@@ -52,7 +53,7 @@
         }
         @if (_articleOfDay != null)
         {
-            <a class="home-card-artofday" href="/post/@(_articleOfDay.Id)">
+            <a class="home-card-artofday sage-tint" href="/post/@(_articleOfDay.Id)">
                 <span class="home-card-tag">
                     <i data-lucide="sun"></i> Článek dne
                 </span>
@@ -91,37 +92,50 @@
     private string _greeting = "Dobrý den";
     private string _subtitle = "";
 
+    private bool _disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        var user = auth.User;
-        if (user.Identity?.IsAuthenticated == true)
+        try
         {
-            _userName = user.FindFirst(ClaimTypes.Name)?.Value;
-            if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var user = auth.User;
+            if (user.Identity?.IsAuthenticated == true)
             {
-                _stats = await UserProgressService.GetStatsAsync(uid);
-                _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
-                _continueReading = await UserProgressService.GetContinueReadingAsync(uid);
+                _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+                if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
+                {
+                    _stats = await UserProgressService.GetStatsAsync(uid);
+                    _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+                    _continueReading = await UserProgressService.GetContinueReadingAsync(uid);
+                }
             }
+
+            _greeting = GetGreeting();
+
+            _articleOfDay = await PostService.GetArticleOfTheDayAsync();
+            _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+            _summaries = await PostService.GetSummaries();
+
+            _subtitle = _articleOfDay != null
+                ? $"Dnes tě čeká článek: {_articleOfDay.Title}."
+                : "Vyber si téma a začni studovat.";
+
+            _loading = false;
         }
-
-        _greeting = GetGreeting();
-
-        _articleOfDay = await PostService.GetArticleOfTheDayAsync();
-        _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
-        _summaries = await PostService.GetSummaries();
-
-        _subtitle = _articleOfDay != null
-            ? $"Dnes tě čeká článek: {_articleOfDay.Title}."
-            : "Vyber si téma a začni studovat.";
-
-        _loading = false;
+        catch (Exception) when (_disposed)
+        {
+        }
     }
+
+    public void Dispose() => _disposed = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+        // Not gated on firstRender: the actual first paint happens before the
+        // awaited data (_rootCategories, _articleOfDay) loads, so the icons that
+        // depend on it only exist in the DOM from the second render onward.
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);

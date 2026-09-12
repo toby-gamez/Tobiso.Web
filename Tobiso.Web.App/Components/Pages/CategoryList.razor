@@ -110,25 +110,37 @@
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private int _loadGeneration;
 
+    private bool _disposed;
+
     protected override async Task OnParametersSetAsync()
     {
         var myGeneration = ++_loadGeneration;
-        await _loadGate.WaitAsync();
         try
         {
-            if (myGeneration != _loadGeneration) return;
-            _loading = true;
-            await LoadData();
-            if (myGeneration != _loadGeneration) return;
-            _loading = false;
+            await _loadGate.WaitAsync();
+            try
+            {
+                if (myGeneration != _loadGeneration) return;
+                _loading = true;
+                await LoadData();
+                if (myGeneration != _loadGeneration) return;
+                _loading = false;
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
         }
-        finally
+        catch (Exception) when (_disposed)
         {
-            _loadGate.Release();
         }
     }
 
-    public void Dispose() => _loadGate.Dispose();
+    public void Dispose()
+    {
+        _disposed = true;
+        _loadGate.Dispose();
+    }
 
     private async Task LoadData()
     {

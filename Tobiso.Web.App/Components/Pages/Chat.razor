@@ -1,4 +1,5 @@
 @page "/chat"
+@implements IDisposable
 @inject IAiChatHistoryService ChatHistory
 @inject IPostService PostService
 @inject IUserService UserService
@@ -43,7 +44,7 @@
             <div class="chat-history-list">
                 @foreach (var s in _sessions)
                 {
-                    <a class="chat-history-item lift" href="/post/@(s.PostId)">
+                    <a class="chat-history-item lift" href="@(s.PostId.HasValue ? $"/post/{s.PostId}" : "/chat")">
                         <span class="chat-history-title">@PostTitle(s.PostId)</span>
                         <span class="chat-history-date">@s.UpdatedAt.ToLocalTime().ToString("d. M. yyyy")</span>
                     </a>
@@ -60,25 +61,35 @@
     private List<Tobiso.Web.Domain.Entities.AiChatSession> _sessions = [];
     private Dictionary<int, string> _postTitles = [];
 
+    private bool _disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        _isAuth = auth.User.Identity?.IsAuthenticated == true;
-        if (!_isAuth) return;
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            _isAuth = auth.User.Identity?.IsAuthenticated == true;
+            if (!_isAuth) return;
 
-        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
+            if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
 
-        _sessions = await ChatHistory.GetUserSessionsAsync(_userId);
-        var summaries = await PostService.GetSummaries();
-        foreach (var p in summaries) _postTitles[p.Id] = p.Title;
-        _credits = (await UserService.GetByIdAsync(_userId))?.Credits ?? 0;
+            _sessions = await ChatHistory.GetUserSessionsAsync(_userId);
+            var summaries = await PostService.GetSummaries();
+            foreach (var p in summaries) _postTitles[p.Id] = p.Title;
+            _credits = (await UserService.GetByIdAsync(_userId))?.Credits ?? 0;
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
     }
+
+    public void Dispose() => _disposed = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await JS.InvokeVoidAsync("initLucide");
     }
 
-    private string PostTitle(int postId) =>
-        _postTitles.TryGetValue(postId, out var t) ? t : "Obecná konverzace";
+    private string PostTitle(int? postId) =>
+        postId.HasValue && _postTitles.TryGetValue(postId.Value, out var t) ? t : "Obecná konverzace";
 }

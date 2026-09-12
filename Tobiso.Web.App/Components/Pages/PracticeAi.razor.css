@@ -1,0 +1,54 @@
+.quiz-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 720px;
+}
+
+.quiz-progress-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    margin-bottom: 8px;
+}
+
+.quiz-card {
+    padding: var(--space-8);
+    border-radius: var(--radius-lg);
+}
+
+.quiz-explanation {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    margin-top: var(--space-6);
+    background: var(--color-accent-2-100);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.ai-answer-input {
+    width: 100%;
+    font: inherit;
+    font-size: 15px;
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    resize: vertical;
+}
+
+.ai-post-select {
+    font: inherit;
+    font-size: 15px;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+}

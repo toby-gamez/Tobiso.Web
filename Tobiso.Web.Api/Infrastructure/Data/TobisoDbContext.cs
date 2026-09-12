@@ -30,6 +30,7 @@ public class TobisoDbContext : DbContext
     public DbSet<AiCreditTransaction> AiCreditTransactions { get; set; }
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
+    public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
 
     public DbSet<PostFunFact> PostFunFacts { get; set; }
     public DbSet<PostDifficultyRating> PostDifficultyRatings { get; set; }
@@ -313,6 +314,25 @@ public class TobisoDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.UserId, e.PostId }).IsUnique();
+        });
+
+        // Configure QuestionAttempt
+        modelBuilder.Entity<QuestionAttempt>(entity =>
+        {
+            entity.Property(e => e.FirstAttemptedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.LastAttemptedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.QuestionAttempts)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Question)
+                .WithMany()
+                .HasForeignKey(e => e.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.QuestionId }).IsUnique();
         });
     }
 }

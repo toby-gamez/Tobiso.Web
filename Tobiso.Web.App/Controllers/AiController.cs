@@ -119,7 +119,7 @@ namespace Tobiso.Web.App.Controllers
                 if (!deducted)
                     return StatusCode(402, new { message = "Nemáš dostatek kreditů." });
 
-                var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId);
+                var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId > 0 ? request.PostId : null);
                 await _chatHistory.SaveMessageAsync(session.Id, "user", request.Question ?? "");
                 await _chatHistory.SaveMessageAsync(session.Id, "assistant", resp.Answer ?? "", creditsUsed: 1);
             }

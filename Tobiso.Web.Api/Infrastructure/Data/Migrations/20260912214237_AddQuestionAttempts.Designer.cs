@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260912214237_AddQuestionAttempts")]
+    partial class AddQuestionAttempts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,7 +100,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<int?>("PostId")
+                    b.Property<int>("PostId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -969,7 +972,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
                         .WithMany()
                         .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
                         .WithMany("ChatSessions")

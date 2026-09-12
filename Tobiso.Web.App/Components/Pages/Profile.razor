@@ -1,4 +1,5 @@
 @page "/profil"
+@implements IDisposable
 @inject IUserProgressService UserProgressService
 @inject IUserService UserService
 @inject AuthenticationStateProvider AuthState
@@ -116,20 +117,30 @@
         }
     }
 
+    private bool _disposed;
+
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        _isAuth = auth.User.Identity?.IsAuthenticated == true;
-        if (!_isAuth) return;
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            _isAuth = auth.User.Identity?.IsAuthenticated == true;
+            if (!_isAuth) return;
 
-        _displayName = auth.User.FindFirst(ClaimTypes.Name)?.Value ?? "Student";
-        if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
+            _displayName = auth.User.FindFirst(ClaimTypes.Name)?.Value ?? "Student";
+            if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
 
-        _stats = await UserProgressService.GetStatsAsync(_userId);
-        var user = await UserService.GetByIdAsync(_userId);
-        _credits = user?.Credits ?? 0;
-        _email = user?.Email ?? "";
+            _stats = await UserProgressService.GetStatsAsync(_userId);
+            var user = await UserService.GetByIdAsync(_userId);
+            _credits = user?.Credits ?? 0;
+            _email = user?.Email ?? "";
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
     }
+
+    public void Dispose() => _disposed = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender) =>
         await JS.InvokeVoidAsync("initLucide");

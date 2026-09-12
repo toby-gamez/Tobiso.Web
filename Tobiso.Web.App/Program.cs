@@ -42,6 +42,14 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+// Separate factory so components that can run DB calls concurrently with the rest of a Blazor
+// circuit (e.g. AiChatBox's history lookups alongside its host page's own queries) get their own
+// short-lived DbContext instead of racing everyone else on the circuit's single scoped instance.
+// A plain singleton wrapper (not EF's AddDbContextFactory helper) because that helper's own
+// DbContextOptions<TobisoDbContext> registration conflicts with the scoped one AddDbContext above
+// already added for the same TContext.
+services.AddSingleton<IDbContextFactory<TobisoDbContext>, TobisoDbContextFactory>();
+
 // Add Authentication and Authorization
 var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
 if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
@@ -164,6 +172,7 @@ services.AddScoped<JwtTokenService>();
 services.AddScoped<IUserService, UserService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddScoped<IUserProgressService, UserProgressService>();
+services.AddScoped<IQuestionAttemptService, QuestionAttemptService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls
 services.AddScoped<PdfJsInterop>();

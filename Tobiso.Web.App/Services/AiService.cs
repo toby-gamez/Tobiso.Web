@@ -45,6 +45,26 @@ namespace Tobiso.Web.App.Services
             return content;
         }
 
+        // Adds one system message per post the user attached to their question, so the model
+        // sees each attached article as additional context alongside the primary PostId article.
+        // Capped to avoid unbounded prompt size from a chatty client.
+        private async Task AddAttachedPostContextAsync(List<object> messages, AiChatRequest request)
+        {
+            if (request.AttachedPostIds is not { Count: > 0 }) return;
+
+            foreach (var postId in request.AttachedPostIds.Distinct().Take(5))
+            {
+                if (postId == request.PostId) continue;
+
+                var attached = await _postService.GetById(postId);
+                var attachedContent = attached?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content;
+                if (string.IsNullOrWhiteSpace(attachedContent)) continue;
+
+                var attachedContext = PrepareArticleContext(attachedContent);
+                messages.Add(new { role = "system", content = $"Additional attached article \"{attached!.Title}\":\n{attachedContext}" });
+            }
+        }
+
         public async Task<AiChatResponse> AskAsync(AiChatRequest request, string clientKey)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
@@ -65,6 +85,8 @@ namespace Tobiso.Web.App.Services
                 new { role = "system", content = systemPrompt },
                 new { role = "system", content = $"Article context:\n{articleContext}" }
             };
+
+            await AddAttachedPostContextAsync(messages, request);
 
             if (request.ConversationHistory != null)
             {
@@ -567,6 +589,8 @@ namespace Tobiso.Web.App.Services
                 new { role = "system", content = systemPrompt },
                 new { role = "system", content = $"Article context:\n{articleContext}" }
             };
+
+            await AddAttachedPostContextAsync(messages, request);
 
             if (request.ConversationHistory != null)
             {

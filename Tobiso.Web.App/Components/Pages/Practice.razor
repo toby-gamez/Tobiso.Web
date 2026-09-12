@@ -1,7 +1,12 @@
 @page "/practice"
+@implements IDisposable
+@using Tobiso.Web.Shared.Interfaces
 @inject IQuestionService QuestionService
 @inject ICategoryService CategoryService
 @inject IPostService PostService
+@inject IInteractiveExerciseService ExerciseService
+@inject IQuestionAttemptService AttemptService
+@inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -14,7 +19,7 @@
     </div>
 
     <div class="practice-mode-grid">
-        <button class="practice-mode-card" style="background:var(--color-accent-200); color:var(--color-accent-900)">
+        <button class="practice-mode-card lift" style="background:var(--color-accent-200); color:var(--color-accent-900)" @onclick="@(() => Nav.NavigateTo("/practice/flashcards"))">
             <i data-lucide="layers" style="font-size:24px"></i>
             <span class="practice-mode-title">Kartičky</span>
             <span class="practice-mode-desc">Rychlé opakování pojmů.</span>
@@ -24,64 +29,249 @@
             <span class="practice-mode-title">Ověř si porozumění</span>
             <span class="practice-mode-desc" style="color:var(--color-neutral-600)">Otázky s výběrem odpovědi z jednotlivých článků.</span>
         </button>
-        <button class="practice-mode-card sage-tint">
+        <button class="practice-mode-card lift sage-tint" @onclick="@(() => Nav.NavigateTo("/practice/ai"))">
             <i data-lucide="sparkles" style="font-size:24px"></i>
             <span class="practice-mode-title">AI zkoušení</span>
             <span class="practice-mode-desc">Odpovídáš vlastními slovy.</span>
         </button>
     </div>
 
+    @if (_isAuth)
+    {
+        <div class="soft recommended-box">
+            <div>
+                <h2 style="margin-bottom:4px">Doporučeno pro tebe</h2>
+                @if (_stats == null || _stats.AttemptedCount == 0)
+                {
+                    <p style="margin:0; color:var(--color-neutral-600)">Zatím nemáš žádnou historii — spusť první session a uvidíš tu svůj pokrok.</p>
+                }
+                else
+                {
+                    <p style="margin:0; color:var(--color-neutral-600)">
+                        Zodpovězeno @_stats.AttemptedCount z @CzechPlural.Otazky(_stats.TotalQuestions) · @_stats.AccuracyPercent % úspěšnost · @_stats.MasteredCount zvládnuto
+                    </p>
+                }
+            </div>
+            <button class="pill pill-on" @onclick="@(() => Nav.NavigateTo("/practice/quiz?mode=recommended"))">
+                <i data-lucide="target"></i> Spustit doporučené procvičování
+            </button>
+        </div>
+    }
+
     <div>
         <h2>Zásoba otázek</h2>
-        <div class="filter-pills" style="margin-bottom:var(--space-4)">
-            <button class="pill @(_activeFilter == null ? "pill-on" : "")" @onclick="@(() => _activeFilter = null)">Vše · @_questions.Count</button>
-            @foreach (var (name, count) in CategoryCounts)
+
+        <div class="search-row">
+            <i data-lucide="search"></i>
+            <input type="search" placeholder="Hledat v otázkách…" value="@_searchInput" @oninput="OnSearchInput" />
+        </div>
+
+        <div class="filter-pills" style="margin:var(--space-3) 0">
+            <button class="pill @(_activeCategoryId == null ? "pill-on" : "")" @onclick="@(() => SelectCategory(null))">Vše · @_allCount</button>
+            @foreach (var c in _categoryCounts.Take(8))
             {
-                <button class="pill @(_activeFilter == name ? "pill-on" : "")" @onclick="@(() => _activeFilter = name)">@name · @count</button>
+                <button class="pill @(_activeCategoryId == c.CategoryId ? "pill-on" : "")" @onclick="@(() => SelectCategory(c.CategoryId))">@c.Name · @c.Count</button>
+            }
+            @if (_categoryCounts.Count > 8)
+            {
+                <button class="pill" @onclick="@(() => _showAllCategories = !_showAllCategories)">
+                    @(_showAllCategories ? "Skrýt kategorie" : "Všechny kategorie")
+                </button>
             }
         </div>
+
+        @if (_showAllCategories)
+        {
+            <div class="filter-pills" style="margin-bottom:var(--space-3)">
+                @foreach (var c in _flatCategories)
+                {
+                    if (!_categoryCountMap.TryGetValue(c.Id, out var count)) continue;
+                    <button class="pill @(_activeCategoryId == c.Id ? "pill-on" : "")" style="margin-left:@(c.Depth * 12)px" @onclick="@(() => SelectCategory(c.Id))">@c.Name · @count</button>
+                }
+            </div>
+        }
+
+        @if (_activeCategoryId is int activeId)
+        {
+            <button class="pill pill-on" style="margin-bottom:var(--space-3)" @onclick="@(() => Nav.NavigateTo($"/practice/quiz/category/{activeId}"))">
+                <i data-lucide="play"></i> Procvičit tuto kategorii
+            </button>
+        }
+
         <div class="question-list">
-            @foreach (var q in FilteredQuestions.Take(20))
+            @foreach (var q in _questions)
             {
                 <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
                     <span style="flex:1 1 240px; font-size:16px">@q.QuestionText</span>
                     <span style="font-size:13px; color:var(--color-neutral-600)">@CzechPlural.Odpovedi(q.Answers.Count)</span>
                 </div>
             }
+            @if (_questions.Count == 0 && !_loading)
+            {
+                <p style="color:var(--color-neutral-600)">Žádné otázky neodpovídají zadanému filtru.</p>
+            }
         </div>
+
+        @if (_questions.Count < _totalCount)
+        {
+            <button class="pill" style="margin-top:var(--space-3)" @onclick="LoadMore" disabled="@_loadingMore">Načíst další</button>
+        }
     </div>
+
+    @if (_exercises.Count > 0)
+    {
+        <div>
+            <h2><i data-lucide="puzzle" style="color:var(--color-accent-2-600)"></i> Interaktivní cvičení</h2>
+            <div class="exercise-grid">
+                @foreach (var ex in _exercises)
+                {
+                    <a class="exercise-card" href="@ExerciseHref(ex)">
+                        <span class="exercise-kind"><i data-lucide="@ExerciseTypeDisplay.Icon(ex.Type)"></i> @ExerciseTypeDisplay.Label(ex.Type)</span>
+                        <span class="exercise-title">@ex.Title</span>
+                        <span class="exercise-desc">@ExercisePostTitle(ex)</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 @code {
+    private bool _isAuth;
+    private int _userId;
+    private PracticeStatsDto? _stats;
+
+    private List<CategoryQuestionCount> _categoryCounts = [];
+    private List<CategoryTreeResponse> _categoryTree = [];
+    private List<(int Id, string Name, int Depth)> _flatCategories = [];
+    private Dictionary<int, int> _categoryCountMap = [];
+    private bool _showAllCategories;
+    private int? _activeCategoryId;
+    private int _allCount;
+
+    private string _searchInput = "";
+    private string? _search;
+    private int _searchGeneration;
+
     private List<QuestionResponse> _questions = [];
-    private string? _activeFilter;
-    private readonly Dictionary<int, string> _postCategory = [];
+    private int _totalCount;
+    private int _skip;
+    private const int PageSize = 20;
+    private bool _loading = true;
+    private bool _loadingMore;
+
+    private List<InteractiveExerciseResponse> _exercises = [];
+    private Dictionary<int, string> _postTitles = [];
+
+    private bool _disposed;
 
     protected override async Task OnInitializedAsync()
     {
-        _questions = await QuestionService.GetAll();
-        var categories = await CategoryService.GetAll();
-        var catNames = categories.ToDictionary(c => c.Id, c => c.Name);
-        foreach (var p in await PostService.GetSummaries())
+        try
         {
-            if (p.CategoryId is int catId && catNames.TryGetValue(catId, out var name))
-                _postCategory[p.Id] = name;
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            _isAuth = auth.User.Identity?.IsAuthenticated == true;
+            if (_isAuth) int.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out _userId);
+
+            _categoryCounts = await QuestionService.GetCategoryCountsAsync();
+            _categoryCountMap = _categoryCounts.ToDictionary(c => c.CategoryId, c => c.Count);
+            _categoryTree = await CategoryService.GetTree();
+            _flatCategories = FlattenTree(_categoryTree);
+
+            var posts = await PostService.GetSummaries();
+            _postTitles = posts.ToDictionary(p => p.Id, p => p.Title);
+
+            _exercises = await ExerciseService.GetAllAsync(includeInactive: false);
+
+            if (_isAuth)
+                _stats = await AttemptService.GetStatsAsync(_userId);
+
+            await ReloadQuestions(reset: true);
+            _allCount = _totalCount;
+        }
+        catch (Exception) when (_disposed)
+        {
         }
     }
 
+    public void Dispose() => _disposed = true;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await JS.InvokeVoidAsync("initLucide");
+        await JS.InvokeVoidAsync("initLucide");
     }
 
-    private IEnumerable<QuestionResponse> FilteredQuestions => _activeFilter == null
-        ? _questions
-        : _questions.Where(q => _postCategory.TryGetValue(q.PostId, out var n) && n == _activeFilter);
+    private static List<(int Id, string Name, int Depth)> FlattenTree(List<CategoryTreeResponse> nodes, int depth = 0)
+    {
+        var result = new List<(int, string, int)>();
+        foreach (var n in nodes)
+        {
+            result.Add((n.Id, n.Name, depth));
+            result.AddRange(FlattenTree(n.Children, depth + 1));
+        }
+        return result;
+    }
 
-    private IEnumerable<(string Name, int Count)> CategoryCounts =>
-        _questions
-            .GroupBy(q => _postCategory.TryGetValue(q.PostId, out var n) ? n : "Ostatní")
-            .Select(g => (Name: g.Key, Count: g.Count()))
-            .OrderByDescending(x => x.Count)
-            .Take(5);
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchInput = e.Value?.ToString() ?? "";
+        var gen = ++_searchGeneration;
+        await Task.Delay(350);
+        if (gen != _searchGeneration || _disposed) return;
+        _search = string.IsNullOrWhiteSpace(_searchInput) ? null : _searchInput.Trim();
+        await ReloadQuestions(reset: true);
+    }
+
+    private async Task SelectCategory(int? categoryId)
+    {
+        _activeCategoryId = categoryId;
+        await ReloadQuestions(reset: true);
+    }
+
+    private async Task LoadMore()
+    {
+        _loadingMore = true;
+        await ReloadQuestions(reset: false);
+        _loadingMore = false;
+    }
+
+    private async Task ReloadQuestions(bool reset)
+    {
+        try
+        {
+            if (reset)
+            {
+                _questions = [];
+                _skip = 0;
+                _loading = true;
+            }
+
+            var categoryIds = _activeCategoryId.HasValue
+                ? await CategoryService.GetDescendantIds(_activeCategoryId.Value)
+                : null;
+
+            var result = await QuestionService.SearchAsync(new QuestionSearchRequest
+            {
+                CategoryIds = categoryIds,
+                Search = _search,
+                Skip = _skip,
+                Take = PageSize
+            });
+
+            if (_disposed) return;
+            _questions.AddRange(result.Questions);
+            _totalCount = result.TotalCount;
+            _skip += result.Questions.Count;
+            _loading = false;
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    private string ExerciseHref(InteractiveExerciseResponse ex) =>
+        ex.PostIds.Count > 0 ? $"/post/{ex.PostIds[0]}?exercise={ex.Id}" : "#";
+
+    private string ExercisePostTitle(InteractiveExerciseResponse ex) =>
+        ex.PostIds.Count > 0 && _postTitles.TryGetValue(ex.PostIds[0], out var title) ? title : "";
 }

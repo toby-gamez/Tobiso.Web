@@ -1,0 +1,139 @@
+@page "/practice/flashcards"
+@page "/practice/flashcards/{CategoryId:int}"
+@implements IDisposable
+@inject IQuestionAttemptService AttemptService
+@inject ICategoryService CategoryService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Kartičky — Tobiso</PageTitle>
+
+<div class="quiz-page">
+    <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo("/practice"))">
+        <i data-lucide="arrow-left"></i> Zpět na procvičování
+    </button>
+
+    @if (_loading)
+    {
+        <div style="padding:var(--space-8); text-align:center"><p>Načítám kartičky…</p></div>
+    }
+    else if (_cards.Count == 0)
+    {
+        <div style="padding:var(--space-8); text-align:center"><p>Pro tento výběr nejsou k dispozici žádné otázky.</p></div>
+    }
+    else if (_currentIndex >= _cards.Count)
+    {
+        <div class="soft" style="padding:var(--space-8); text-align:center; display:flex; flex-direction:column; gap:var(--space-4); align-items:center">
+            <i data-lucide="check-circle-2" style="font-size:40px; color:var(--color-accent-2-600)"></i>
+            <h2 style="margin:0">Hotovo!</h2>
+            <p style="color:var(--color-neutral-600)">Prošel/prošla jsi @_cards.Count kartiček.</p>
+            <button class="pill pill-on" @onclick="Restart"><i data-lucide="rotate-cw"></i> Projít znovu</button>
+        </div>
+    }
+    else
+    {
+        <div>
+            <div class="quiz-progress-label">
+                <span>Kartičky</span>
+                <span>@(_currentIndex + 1) z @_cards.Count</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:@Progress%"></div></div>
+        </div>
+
+        <button class="flashcard @(_flipped ? "flipped" : "")" @onclick="Flip">
+            <div class="flashcard-face flashcard-front">
+                <span>@_current!.QuestionText</span>
+                <span class="flashcard-hint">Klikni pro odpověď</span>
+            </div>
+            <div class="flashcard-face flashcard-back">
+                <span>@CorrectAnswerText</span>
+                @if (_current.Explanations.Count > 0)
+                {
+                    <span class="flashcard-explanation">@_current.Explanations.First().Text</span>
+                }
+            </div>
+        </button>
+
+        @if (_flipped)
+        {
+            <div style="display:flex; gap:var(--space-2)">
+                <button class="pill" style="flex:1; justify-content:center" @onclick="@(() => Advance(false))">
+                    <i data-lucide="rotate-ccw"></i> Musím zopakovat
+                </button>
+                <button class="pill pill-on" style="flex:1; justify-content:center" @onclick="@(() => Advance(true))">
+                    <i data-lucide="check"></i> Umím
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int? CategoryId { get; set; }
+
+    private const int SessionSize = 20;
+
+    private List<QuestionResponse> _cards = [];
+    private int _currentIndex;
+    private bool _flipped;
+    private bool _loading = true;
+    private int? _userId;
+    private bool _disposed;
+
+    private QuestionResponse? _current => _currentIndex < _cards.Count ? _cards[_currentIndex] : null;
+    private double Progress => _cards.Count == 0 ? 0 : (double)(_currentIndex + 1) / _cards.Count * 100;
+    private string CorrectAnswerText => _current?.Answers.FirstOrDefault(a => a.Correct == 1)?.AnswerText ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            if (auth.User.Identity?.IsAuthenticated == true &&
+                int.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid))
+            {
+                _userId = uid;
+            }
+
+            List<int>? categoryIds = CategoryId.HasValue
+                ? await CategoryService.GetDescendantIds(CategoryId.Value)
+                : null;
+
+            _cards = await AttemptService.GetSessionAsync(_userId, categoryIds, SessionSize, preferUnmastered: true);
+            _loading = false;
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    public void Dispose() => _disposed = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) => await JS.InvokeVoidAsync("initLucide");
+
+    private void Flip() => _flipped = !_flipped;
+
+    private void Advance(bool knewIt)
+    {
+        if (_current != null && _userId.HasValue)
+        {
+            var questionId = _current.Id;
+            _ = RecordAttemptSafe(_userId.Value, questionId, knewIt);
+        }
+        _currentIndex++;
+        _flipped = false;
+    }
+
+    private async Task RecordAttemptSafe(int userId, int questionId, bool correct)
+    {
+        try { await AttemptService.RecordAttemptAsync(userId, questionId, correct); }
+        catch (Exception) when (_disposed) { }
+    }
+
+    private void Restart()
+    {
+        _currentIndex = 0;
+        _flipped = false;
+    }
+}
