@@ -90,7 +90,7 @@
         }
         catch (InvalidOperationException)
         {
-            return; // Prerendering — will retry after circuit connects
+            return; // Prerendering - will retry after circuit connects
         }
 
         _tokenChecked = true;
@@ -115,7 +115,7 @@
             if (token == null)
             {
                 errorMessage = "Invalid username or password.";
-                Logger.LogWarning("Login failed — invalid credentials for user: {Username}", loginModel.Username);
+                Logger.LogWarning("Login failed - invalid credentials for user: {Username}", loginModel.Username);
                 return;
             }
 

@@ -238,7 +238,7 @@ public class TobisoDbContext : DbContext
                 .HasFilter("[GoogleId] IS NOT NULL");
         });
 
-        // Configure AnonymousAiUsage — the persistent, per-device counter backing the anonymous
+        // Configure AnonymousAiUsage - the persistent, per-device counter backing the anonymous
         // free-AI allowance (a one-time lifetime pool, unlike the renewing per-account quota).
         modelBuilder.Entity<AnonymousAiUsage>(entity =>
         {

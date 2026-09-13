@@ -24,7 +24,7 @@ public class AuthenticationHeaderHandler : DelegatingHandler
         }
         else
         {
-            _logger.LogWarning("[AuthHandler] No JWT token present — request will be unauthenticated");
+            _logger.LogWarning("[AuthHandler] No JWT token present - request will be unauthenticated");
         }
 
         return await base.SendAsync(request, cancellationToken);

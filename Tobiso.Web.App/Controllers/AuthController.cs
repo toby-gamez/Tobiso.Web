@@ -48,12 +48,12 @@ public class AuthController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "Login failed — configuration error");
+            _logger.LogError(ex, "Login failed - configuration error");
             return StatusCode(503, new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Login failed — unexpected error");
+            _logger.LogError(ex, "Login failed - unexpected error");
             return StatusCode(500, new { message = ex.Message });
         }
     }

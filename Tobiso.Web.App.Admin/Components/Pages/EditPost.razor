@@ -49,7 +49,7 @@ else
         </div>
         <div class="mb-3">
             <label for="grade" class="form-label">Ročník (verze)</label>
-            @* Use Value+ValueChanged instead of @bind-Value+@onchange — Blazor's @bind-Value already
+            @* Use Value+ValueChanged instead of @bind-Value+@onchange - Blazor's @bind-Value already
                subscribes the change event internally, so adding @onchange would fire twice and conflict.
                ValueExpression is required when splitting @bind-Value into Value+ValueChanged manually. *@
             <InputSelect id="grade" class="form-select" TValue="int?"
@@ -159,8 +159,8 @@ else
                                     }
                                 </td>
                                 <td class="text-muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@Truncate(version.Content, 80)</td>
-                                <td>@(version.LastEdit?.ToString("g") ?? "—")</td>
-                                <td>@(version.LastFix?.ToString("g") ?? "—")</td>
+                                <td>@(version.LastEdit?.ToString("g") ?? "-")</td>
+                                <td>@(version.LastFix?.ToString("g") ?? "-")</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary me-1"
                                             @onclick="() => SelectVersion(version.GradeId)"
@@ -481,7 +481,7 @@ else
             }
             else
             {
-                // No version exists for this grade yet — clear editor
+                // No version exists for this grade yet - clear editor
                 _editContent = string.Empty;
                 _editLastEdit = null;
                 _editLastFix = null;

@@ -156,7 +156,7 @@
                             </div>
                         </div>
                         <div class="fb-card-right" @onclick:stopPropagation="true">
-                            <!-- status dropdown — does not toggle expand -->
+                            <!-- status dropdown - does not toggle expand -->
                             <select class="status-select @(state.SavingStatus ? "saving" : "")"
                                     value="@item.Status.ToString()"
                                     @onchange="e => OnStatusSelect(item, e)"

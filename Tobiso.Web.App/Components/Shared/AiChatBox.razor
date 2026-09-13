@@ -249,7 +249,7 @@
 
         // Mark the reset state as already "loaded" for a null SessionId so that when the host page
         // navigates to clear the ?session= query string, OnParametersSetAsync's guard sees no change
-        // and doesn't re-run FindSessionAsync — which would otherwise reload the same most-recent
+        // and doesn't re-run FindSessionAsync - which would otherwise reload the same most-recent
         // session from the DB and silently undo this reset.
         _historyEverLoaded = true;
         _loadedForPostId = PostId;
@@ -356,7 +356,7 @@
             }
 
             _messages.Add(new AiMessage { Role = "assistant", Content = answer });
-            // Save before notifying the host — Chat.razor's OnAnswered refreshes the history
+            // Save before notifying the host - Chat.razor's OnAnswered refreshes the history
             // sidebar from the DB, so it needs the new/updated session to already be written.
             await SaveHistoryAsync(question, answer, creditsUsed > 0 ? creditsUsed : null);
             if (OnAnswered.HasDelegate) await OnAnswered.InvokeAsync(answer);

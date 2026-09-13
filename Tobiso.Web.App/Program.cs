@@ -224,7 +224,7 @@ services.AddRefitClient<ITobisoWebApi>()
     })
     .AddHttpMessageHandler<HttpLoggingHandler>();
 
-// PDF API is called via raw HTTP or existing clients — no additional Refit interface registered.
+// PDF API is called via raw HTTP or existing clients - no additional Refit interface registered.
 
 services.AddSwaggerGen(options =>
 {
@@ -269,7 +269,7 @@ if (!string.IsNullOrEmpty(firebaseCreds))
     if (File.Exists(fullPath))
         FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fullPath) });
     else
-        Log.Warning("Firebase credentials file not found at {Path} — push notifications disabled", fullPath);
+        Log.Warning("Firebase credentials file not found at {Path} - push notifications disabled", fullPath);
 }
 
 var app = builder.Build();

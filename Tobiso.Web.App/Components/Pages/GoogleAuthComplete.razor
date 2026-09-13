@@ -4,7 +4,7 @@
 @inject IJSRuntime JS
 @inject StudentCredentialStore CredentialStore
 
-<PageTitle>Přihlašuji… — Tobiso</PageTitle>
+<PageTitle>Přihlašuji… - Tobiso</PageTitle>
 
 <div class="login-card" style="text-align:center; align-items:center">
     @if (_error)
@@ -36,7 +36,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Storing the token needs real JS interop (localStorage), which only exists once
-        // the interactive circuit connects — doing this in OnInitialized during static
+        // the interactive circuit connects - doing this in OnInitialized during static
         // prerender would silently drop it, since the redirect would fire before any
         // browser ever received it.
         if (firstRender && !_error && !_done)

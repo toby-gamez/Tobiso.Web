@@ -10,7 +10,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>AI zkoušení — Tobiso</PageTitle>
+<PageTitle>AI zkoušení - Tobiso</PageTitle>
 
 <div class="quiz-page">
     <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo(PostId.HasValue ? "/practice/ai" : "/practice"))">
@@ -86,7 +86,7 @@
         </div>
 
         <div class="quiz-card soft">
-            <h2 style="font-size:24px; margin-bottom:var(--space-6)">@_current.ProblemText</h2>
+            <h2 style="font-size:24px; margin-bottom:var(--space-6)"><MathText Text="@_current.ProblemText" /></h2>
 
             <textarea class="ai-answer-input" rows="4" placeholder="Napiš svou odpověď…"
                       @bind="_studentAnswer" @bind:event="oninput" disabled="@(_feedback != null)"></textarea>
@@ -102,9 +102,9 @@
             {
                 <div class="quiz-explanation">
                     <i data-lucide="@(_feedback.IsCorrect ? "check-circle-2" : "lightbulb")" style="color:var(--color-accent-2-700); font-size:18px; flex-shrink:0"></i>
-                    <span>@_feedback.Feedback</span>
+                    <span><MathText Text="@_feedback.Feedback" /></span>
                 </div>
-                <p style="font-size:14px; color:var(--color-neutral-600); margin-top:var(--space-3)">Očekávané řešení: @_current.Solution</p>
+                <p style="font-size:14px; color:var(--color-neutral-600); margin-top:var(--space-3)">Očekávané řešení: <MathText Text="@_current.Solution" /></p>
 
                 <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-6)">
                     <div style="flex:1"></div>
@@ -165,7 +165,7 @@
     private double Progress => _problems.Count == 0 ? 0 : (double)(_currentIndex + 1) / _problems.Count * 100;
     private string HeaderLabel => _postTitle == null
         ? "AI zkoušení"
-        : _gradeName == null ? $"AI zkoušení — {_postTitle}" : $"AI zkoušení — {_postTitle} ({_gradeName})";
+        : _gradeName == null ? $"AI zkoušení - {_postTitle}" : $"AI zkoušení - {_postTitle} ({_gradeName})";
 
     protected override async Task OnInitializedAsync()
     {

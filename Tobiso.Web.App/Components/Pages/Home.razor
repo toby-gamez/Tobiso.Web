@@ -8,7 +8,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<PageTitle>Domů — Tobiso</PageTitle>
+<PageTitle>Domů - Tobiso</PageTitle>
 
 <div class="home-page">
     <div class="home-greeting">
@@ -158,7 +158,7 @@
         if (_stats?.PerSubject?.Any() == true)
         {
             var top = _stats.PerSubject.OrderByDescending(s => s.Count).First();
-            return $"Nejvíc v {top.SubjectName} — {CzechPlural.Clanky(top.Count)}.";
+            return $"Nejvíc v {top.SubjectName} - {CzechPlural.Clanky(top.Count)}.";
         }
         return "Začni číst první článek!";
     }

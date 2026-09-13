@@ -7,7 +7,7 @@ namespace Tobiso.Web.App.Services
         void AddBonusQuestions(string rateKey, int count, DateTime validUntil);
         int GetBonusTotal(string rateKey);
 
-        // Lifetime (never-renewing) counters — used for the anonymous free allowance, which is
+        // Lifetime (never-renewing) counters - used for the anonymous free allowance, which is
         // "N requests, ever," not "N requests per day" like TryConsume/GetRemaining above.
         bool TryConsumeOnce(string key, int limit);
         int GetRemainingOnce(string key, int limit);

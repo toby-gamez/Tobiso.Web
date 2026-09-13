@@ -29,7 +29,7 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse student JWT — treating as unauthenticated");
+            _logger.LogWarning(ex, "Failed to parse student JWT - treating as unauthenticated");
             return Anonymous();
         }
     }

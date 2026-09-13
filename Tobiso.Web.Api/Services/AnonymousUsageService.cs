@@ -30,7 +30,7 @@ public class AnonymousUsageService : IAnonymousUsageService
             }
             catch (DbUpdateException)
             {
-                // Another concurrent request for the same device inserted first — fine, the
+                // Another concurrent request for the same device inserted first - fine, the
                 // unique index on DeviceId means exactly one row exists either way.
                 _db.ChangeTracker.Clear();
             }
@@ -38,7 +38,7 @@ public class AnonymousUsageService : IAnonymousUsageService
 
         // A single conditional UPDATE (guarded by the limit check in the WHERE clause) so two
         // concurrent requests for the same device can't both read Count=19, both pass an
-        // in-memory check, and both consume — running the device past its allowance.
+        // in-memory check, and both consume - running the device past its allowance.
         var rows = await _db.AnonymousAiUsages
             .Where(a => a.DeviceId == deviceId && a.Count < limit)
             .ExecuteUpdateAsync(s => s

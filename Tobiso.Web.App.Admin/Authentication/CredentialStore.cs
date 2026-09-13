@@ -11,7 +11,7 @@ namespace Tobiso.Web.App.Authentication;
 public class CredentialStore
 {
     private const string TokenStorageKey    = "tobiso_jwt";
-    // Old keys — removed on next logout to clean up plaintext passwords
+    // Old keys - removed on next logout to clean up plaintext passwords
     private const string LegacyUsernameKey = "blinked_username";
     private const string LegacyPasswordKey  = "blinked_password";
 
@@ -70,7 +70,7 @@ public class CredentialStore
     /// <summary>Returns the current JWT token, or null if not authenticated.</summary>
     public string? GetToken() => _asyncToken.Value ?? _directToken;
 
-    /// <summary>Static accessor for AuthenticationHeaderHandler — reads the per-circuit token without DI.</summary>
+    /// <summary>Static accessor for AuthenticationHeaderHandler - reads the per-circuit token without DI.</summary>
     public static string? CurrentToken => _asyncToken.Value;
 
     /// <summary>Clears the token from memory and localStorage, and removes legacy Basic-auth keys.</summary>

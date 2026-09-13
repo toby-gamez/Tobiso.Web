@@ -1,4 +1,4 @@
-/* Organic Design System — Tobiso.Web */
+/* Organic Design System - Tobiso.Web */
 :root {
     /* Ground */
     --color-bg: #f5ead8;
@@ -67,7 +67,7 @@
                  0 4px 8px color-mix(in srgb, #201e1d 10%, transparent);
 }
 
-/* Dark mode — system preference */
+/* Dark mode - system preference */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
         --color-bg: #1f1c18;
@@ -87,7 +87,7 @@
     }
 }
 
-/* Dark mode — explicit toggle */
+/* Dark mode - explicit toggle */
 [data-theme="dark"] {
     --color-bg: #1f1c18;
     --color-surface: #2a2520;
@@ -105,7 +105,7 @@
     --color-neutral-900: #ecdecb;
 }
 
-/* Light mode — explicit toggle */
+/* Light mode - explicit toggle */
 [data-theme="light"] {
     --color-bg: #f5ead8;
     --color-surface: #ebddc5;

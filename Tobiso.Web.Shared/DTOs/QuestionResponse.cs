@@ -22,6 +22,7 @@ public class UpdateQuestionRequest
 {
     public int Id { get; set; }
     public string QuestionText { get; set; } = string.Empty;
+    public int? PostId { get; set; }
     public List<UpdateAnswerRequest> Answers { get; set; } = new();
     public List<UpdateExplanationRequest> Explanations { get; set; } = new();
 }

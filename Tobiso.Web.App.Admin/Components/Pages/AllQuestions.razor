@@ -1,0 +1,447 @@
+@page "/questions"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Api.Services
+@inject IQuestionService QuestionService
+@inject IPostService PostService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Všechny otázky - Admin</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Všechny otázky</h2>
+        <button class="btn btn-primary" @onclick="OpenCreateModal">+ Nová otázka</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-5">
+            <input type="text" class="form-control" placeholder="Hledat v textu otázky..."
+                   @bind="_searchText" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" value="@_selectedPostId" @onchange="OnPostFilterChanged">
+                <option value="">Všechny posty</option>
+                @foreach (var p in _posts.OrderBy(p => p.Title))
+                {
+                    <option value="@p.Id">@p.Title</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-outline-secondary flex-fill" @onclick="() => ApplyFilters()">Hledat</button>
+            <button class="btn btn-outline-secondary" @onclick="ResetFilters">Reset</button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+    }
+    else if (!_result.Questions.Any())
+    {
+        <div class="alert alert-info">Žádné otázky neodpovídají zadaným kritériím.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Otázka</th>
+                        <th>Post</th>
+                        <th>Odpovědi</th>
+                        <th>Flashcard</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var q in _result.Questions)
+                    {
+                        var correctCount = q.Answers.Count(a => a.Correct == 1);
+                        var totalCount = q.Answers.Count;
+                        <tr>
+                            <td>@q.Id</td>
+                            <td>@q.QuestionText</td>
+                            <td>
+                                @if (_postNames.TryGetValue(q.PostId, out var title))
+                                {
+                                    <a href="/posts/edit/@q.PostId">@title</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">#@q.PostId</span>
+                                }
+                            </td>
+                            <td>
+                                @if (totalCount == 1 && correctCount == 1)
+                                {
+                                    <span class="badge bg-secondary">text (@totalCount)</span>
+                                }
+                                else if (correctCount > 1)
+                                {
+                                    <span class="badge bg-primary">multi (@totalCount)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark">@totalCount</span>
+                                }
+                            </td>
+                            <td>
+                                @if (q.IsFlashcardEligible == true)
+                                {
+                                    <span class="badge bg-success">Ano</span>
+                                }
+                                else if (q.IsFlashcardEligible == false)
+                                {
+                                    <span class="badge bg-secondary">Ne</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(q)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteQuestion(q.Id)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+                Zobrazeno @(_result.Questions.Count == 0 ? 0 : _skip + 1)–@(_skip + _result.Questions.Count) z @_result.TotalCount
+            </small>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" disabled="@(_skip <= 0)" @onclick="PrevPage">Předchozí</button>
+                <button class="btn btn-outline-secondary btn-sm" disabled="@(_skip + _pageSize >= _result.TotalCount)" @onclick="NextPage">Další</button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editingId is null ? "Nová otázka" : "Editace otázky")</h5>
+                    <button class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger">@_modalError</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Post:</label>
+                        <select class="form-select" value="@_formPostId" @onchange="@((ChangeEventArgs e) => _formPostId = int.Parse((string)e.Value!))">
+                            <option value="0" disabled>-- Vyberte post --</option>
+                            @foreach (var p in _posts.OrderBy(p => p.Title))
+                            {
+                                <option value="@p.Id">@p.Title</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Text otázky:</label>
+                        <input type="text" class="form-control" @bind="_formQuestionText" />
+                    </div>
+
+                    <h6>Odpovědi:</h6>
+                    @for (int i = 0; i < _formAnswers.Count; i++)
+                    {
+                        var index = i;
+                        <div class="row mb-2">
+                            <div class="col-8">
+                                <input type="text" class="form-control" @bind="_formAnswers[index].AnswerText" placeholder="Text odpovědi" />
+                            </div>
+                            <div class="col-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           checked="@(_formAnswers[index].Correct == 1)"
+                                           @onchange="@((ChangeEventArgs e) => _formAnswers[index].Correct = (bool)e.Value! ? 1 : 0)" />
+                                    <label class="form-check-label">Správná</label>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveFormAnswer(index)">Odstranit</button>
+                            </div>
+                        </div>
+                    }
+                    <button type="button" class="btn btn-sm btn-secondary mb-3" @onclick="AddFormAnswer">Přidat odpověď</button>
+
+                    <h6>Vysvětlení:</h6>
+                    @for (int i = 0; i < _formExplanations.Count; i++)
+                    {
+                        var index = i;
+                        <div class="row mb-2">
+                            <div class="col-10">
+                                <textarea class="form-control" rows="2" @bind="_formExplanations[index].Text" placeholder="Text vysvětlení"></textarea>
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveFormExplanation(index)">Odstranit</button>
+                            </div>
+                        </div>
+                    }
+                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddFormExplanation">+ Přidat vysvětlení</button>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Zrušit</button>
+                    <button class="btn btn-primary" @onclick="SaveModal">Uložit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private QuestionSearchResult _result = new();
+    private List<PostLinkResponse> _posts = new();
+    private Dictionary<int, string> _postNames = new();
+    private bool _loading = true;
+    private string? _error;
+
+    private string _searchText = "";
+    private string _appliedSearch = "";
+    private string _selectedPostId = "";
+    private int? _appliedPostId;
+    private int _skip = 0;
+    private readonly int _pageSize = 20;
+
+    private bool _showModal = false;
+    private int? _editingId = null;
+    private int _formPostId = 0;
+    private string _formQuestionText = "";
+    private List<UpdateAnswerRequest> _formAnswers = new();
+    private List<UpdateExplanationRequest> _formExplanations = new();
+    private string? _modalError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _posts = await PostService.GetLinks();
+            _postNames = _posts.ToDictionary(p => p.Id, p => p.Title);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při načítání postů: {ex.Message}";
+        }
+        await LoadQuestions();
+    }
+
+    private async Task LoadQuestions()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _result = await QuestionService.SearchAsync(new QuestionSearchRequest
+            {
+                Search = string.IsNullOrWhiteSpace(_appliedSearch) ? null : _appliedSearch,
+                PostId = _appliedPostId,
+                Skip = _skip,
+                Take = _pageSize
+            });
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při načítání otázek: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await ApplyFilters();
+    }
+
+    private async Task OnPostFilterChanged(ChangeEventArgs e)
+    {
+        _selectedPostId = (string)(e.Value ?? "");
+        await ApplyFilters();
+    }
+
+    private async Task ApplyFilters()
+    {
+        _appliedSearch = _searchText;
+        _appliedPostId = int.TryParse(_selectedPostId, out var pid) ? pid : null;
+        _skip = 0;
+        await LoadQuestions();
+    }
+
+    private async Task ResetFilters()
+    {
+        _searchText = "";
+        _appliedSearch = "";
+        _selectedPostId = "";
+        _appliedPostId = null;
+        _skip = 0;
+        await LoadQuestions();
+    }
+
+    private async Task PrevPage()
+    {
+        _skip = Math.Max(0, _skip - _pageSize);
+        await LoadQuestions();
+    }
+
+    private async Task NextPage()
+    {
+        _skip += _pageSize;
+        await LoadQuestions();
+    }
+
+    private void OpenCreateModal()
+    {
+        _editingId = null;
+        _formPostId = int.TryParse(_selectedPostId, out var pid) ? pid : (_posts.FirstOrDefault()?.Id ?? 0);
+        _formQuestionText = "";
+        _formAnswers = new List<UpdateAnswerRequest>
+        {
+            new() { AnswerText = "", Correct = 0 },
+            new() { AnswerText = "", Correct = 0 }
+        };
+        _formExplanations = new List<UpdateExplanationRequest>();
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void OpenEditModal(QuestionResponse q)
+    {
+        _editingId = q.Id;
+        _formPostId = q.PostId;
+        _formQuestionText = q.QuestionText;
+        _formAnswers = q.Answers.Select(a => new UpdateAnswerRequest
+        {
+            Id = a.Id,
+            AnswerText = a.AnswerText,
+            Correct = a.Correct,
+            QuestionId = a.QuestionId
+        }).ToList();
+        _formExplanations = q.Explanations.Select(ex => new UpdateExplanationRequest
+        {
+            Id = ex.Id,
+            Text = ex.Text,
+            QuestionId = ex.QuestionId
+        }).ToList();
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showModal = false;
+    }
+
+    private void AddFormAnswer()
+    {
+        _formAnswers.Add(new UpdateAnswerRequest { AnswerText = "", Correct = 0 });
+    }
+
+    private void RemoveFormAnswer(int index)
+    {
+        if (_formAnswers.Count > 1)
+            _formAnswers.RemoveAt(index);
+    }
+
+    private void AddFormExplanation()
+    {
+        _formExplanations.Add(new UpdateExplanationRequest { Text = "" });
+    }
+
+    private void RemoveFormExplanation(int index)
+    {
+        _formExplanations.RemoveAt(index);
+    }
+
+    private async Task SaveModal()
+    {
+        var answers = _formAnswers.Where(a => !string.IsNullOrWhiteSpace(a.AnswerText)).ToList();
+        var explanations = _formExplanations.Where(e => !string.IsNullOrWhiteSpace(e.Text)).ToList();
+
+        if (_formPostId <= 0)
+        {
+            _modalError = "Vyberte post, ke kterému otázka patří.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_formQuestionText))
+        {
+            _modalError = "Text otázky je povinný.";
+            return;
+        }
+        if (!answers.Any())
+        {
+            _modalError = "Otázka musí mít alespoň jednu odpověď.";
+            return;
+        }
+
+        try
+        {
+            if (_editingId is null)
+            {
+                await QuestionService.Create(new CreateQuestionRequest
+                {
+                    QuestionText = _formQuestionText,
+                    PostId = _formPostId,
+                    Answers = answers.Select(a => new CreateAnswerRequest { AnswerText = a.AnswerText, Correct = a.Correct }).ToList(),
+                    Explanations = explanations.Select(e => new CreateExplanationRequest { Text = e.Text }).ToList()
+                });
+            }
+            else
+            {
+                await QuestionService.Update(new UpdateQuestionRequest
+                {
+                    Id = _editingId.Value,
+                    QuestionText = _formQuestionText,
+                    PostId = _formPostId,
+                    Answers = answers,
+                    Explanations = explanations
+                });
+            }
+
+            _showModal = false;
+            await LoadQuestions();
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Chyba při ukládání: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteQuestion(int id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Opravdu chcete smazat tuto otázku?"))
+            return;
+
+        try
+        {
+            await QuestionService.Delete(id);
+            await LoadQuestions();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba při mazání otázky: {ex.Message}";
+        }
+    }
+}

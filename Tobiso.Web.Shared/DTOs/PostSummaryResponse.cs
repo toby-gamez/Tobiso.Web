@@ -1,7 +1,7 @@
 namespace Tobiso.Web.Shared.DTOs;
 
 /// <summary>
-/// Lightweight summary of a post — metadata plus the most recent edit/fix dates
+/// Lightweight summary of a post - metadata plus the most recent edit/fix dates
 /// (aggregated across all versions) for display in list views.
 /// </summary>
 public class PostSummaryResponse

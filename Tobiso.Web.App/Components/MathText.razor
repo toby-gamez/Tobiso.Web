@@ -1,0 +1,109 @@
+@using System.Text.RegularExpressions
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
+
+@((MarkupString)_renderedHtml)
+
+@code {
+    /// <summary>Plain (non-markdown) text that may contain inline fractions like "1/2" or "{n+1}/{n-1}" -
+    /// rendered the same way MarkdownContent renders fractions in post bodies, via KaTeX.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    private string _renderedHtml = string.Empty;
+    private string? _lastProcessedText;
+
+    protected override void OnParametersSet()
+    {
+        if (Text == _lastProcessedText) return;
+        _lastProcessedText = Text;
+        _renderedHtml = RenderFractions(Text);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Same lazy KaTeX (CDN) bootstrap as MarkdownContent.razor. The katex-render step targets
+        // every [data-math] span in the document (not just this component's), so it's safe for
+        // multiple MathText instances on one page to share the single window.__katexLoaded load.
+        await Js.InvokeVoidAsync("eval", @"
+            (function(){
+                function renderMath(){
+                    try{
+                        document.querySelectorAll('[data-math]').forEach(function(el){
+                            try{
+                                var math = el.getAttribute('data-math');
+                                if(math && window.katex && typeof window.katex.render === 'function'){
+                                    katex.render(math, el, {throwOnError:false, displayMode:false});
+                                }
+                            }catch(_){ }
+                        });
+                    }catch(_){ }
+                }
+                if (window.__katexLoaded) {
+                    renderMath();
+                    return;
+                }
+                window.__katexLoaded = true;
+                try{
+                    var link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
+                    document.head.appendChild(link);
+
+                    var s1 = document.createElement('script');
+                    s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
+                    s1.defer = true;
+                    s1.onload = function(){ renderMath(); };
+                    document.head.appendChild(s1);
+                }catch(e){}
+            })();
+        ");
+    }
+
+    // Mirrors MarkdownContent.ReplaceFractionsInText, but operates on already-HTML-encoded plain
+    // text (this component's input is a raw DB string, not markdown that Markdig will encode).
+    private static string RenderFractions(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+
+        var encoded = System.Net.WebUtility.HtmlEncode(text);
+
+        var fracRegex = new Regex(
+            @"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
+            RegexOptions.CultureInvariant);
+
+        var replaced = fracRegex.Replace(encoded, match =>
+        {
+            try
+            {
+                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
+                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
+
+                var fracStrikeRx = new Regex(@"#s#(.*?)#s#");
+                num = fracStrikeRx.Replace(num, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
+                den = fracStrikeRx.Replace(den, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
+
+                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
+                    return match.Value;
+
+                num = num.Trim().Replace(',', '.');
+                den = den.Trim().Replace(',', '.');
+
+                var math = $"\\frac{{{num}}}{{{den}}}";
+                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+
+        // Absorb a leading hyphen separated by space into the math span so that patterns like
+        // "- 1/2" become negative fractions: "-\frac{1}{2}".
+        replaced = Regex.Replace(replaced, "-\\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
+
+        return replaced;
+    }
+}

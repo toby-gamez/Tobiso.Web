@@ -8,7 +8,7 @@ public interface IAiChatHistoryService
 {
     /// <summary>Continues the most recently active session for (userId, postId), or creates one if none exists yet.</summary>
     Task<AiChatSession> GetOrCreateSessionAsync(int userId, int? postId);
-    /// <summary>Always starts a brand-new session, even if one already exists for (userId, postId) — backs the "new chat" action.</summary>
+    /// <summary>Always starts a brand-new session, even if one already exists for (userId, postId) - backs the "new chat" action.</summary>
     Task<AiChatSession> CreateSessionAsync(int userId, int? postId);
     /// <summary>Reads the most recently active existing session without creating one, so opening a chat box doesn't spawn empty history rows.</summary>
     Task<AiChatSession?> FindSessionAsync(int userId, int? postId);
@@ -22,7 +22,7 @@ public interface IAiChatHistoryService
 public class AiChatHistoryService : IAiChatHistoryService
 {
     // A pooled factory (rather than the circuit-scoped TobisoDbContext) so a Blazor component using
-    // this service can't collide with concurrent DB calls made elsewhere on the same circuit — e.g.
+    // this service can't collide with concurrent DB calls made elsewhere on the same circuit - e.g.
     // AiChatBox's history lookups running alongside its host page's own OnInitializedAsync queries,
     // which previously threw "A second operation was started on this context instance...".
     private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
@@ -33,7 +33,7 @@ public class AiChatHistoryService : IAiChatHistoryService
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
 
-        // Multiple sessions can now exist per (userId, postId) — "new chat" starts an extra one —
+        // Multiple sessions can now exist per (userId, postId) - "new chat" starts an extra one -
         // so pick the most recently active one rather than an arbitrary match.
         var session = await db.AiChatSessions
             .Where(s => s.UserId == userId && s.PostId == postId)
@@ -95,7 +95,7 @@ public class AiChatHistoryService : IAiChatHistoryService
         {
             session.UpdatedAt = DateTime.UtcNow;
 
-            // Name the conversation after its opening question, once, the first time one is saved —
+            // Name the conversation after its opening question, once, the first time one is saved -
             // "Obecná konverzace" for every general chat regardless of content made the history list
             // useless for telling conversations apart.
             if (role == "user" && string.IsNullOrWhiteSpace(session.Title))

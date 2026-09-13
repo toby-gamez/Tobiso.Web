@@ -173,7 +173,7 @@ namespace Tobiso.Web.App.Controllers
 
             var validUntil = DateTimeOffset.FromUnixTimeSeconds(request.ValidUntilUtc).UtcDateTime;
 
-            // Reject replays of an already-consumed signed grant — otherwise the exact same
+            // Reject replays of an already-consumed signed grant - otherwise the exact same
             // signed payload (e.g. captured from the requesting device's own traffic) could be
             // resubmitted repeatedly before it expires to accumulate unlimited bonus quota.
             if (!_rateLimitService.TryRegisterCreditGrant(request.Signature ?? string.Empty, validUntil))
@@ -399,7 +399,7 @@ namespace Tobiso.Web.App.Controllers
         }
 
         // Admin-only content-curation tool (Tobiso.Web.App.Admin RelatedPosts.razor). [Authorize]
-        // alone accepts any authenticated principal, including a self-registered student — and
+        // alone accepts any authenticated principal, including a self-registered student - and
         // this endpoint has no rate limit or credit cost, so it must not be reachable by students.
         [HttpGet("suggest-related/{postId:int}")]
         [Authorize]
@@ -461,7 +461,7 @@ namespace Tobiso.Web.App.Controllers
             var post = await _postService.GetById(postId);
             if (post == null) return NotFound();
             // Choose the most appropriate version: prefer highest grade-level if available, else first.
-            // GradeId is non-nullable int — order directly; highest grade = most advanced content.
+            // GradeId is non-nullable int - order directly; highest grade = most advanced content.
             var versionContent = post.Versions?.OrderByDescending(v => v.GradeId)
                 .FirstOrDefault()?.Content ?? string.Empty;
             var names = await _aiService.DetectPeopleInTextAsync(versionContent);
@@ -488,7 +488,7 @@ namespace Tobiso.Web.App.Controllers
             }
             catch (Exception ex)
             {
-                // Log but do not fail the request — fall back to empty result so editor remains usable offline.
+                // Log but do not fail the request - fall back to empty result so editor remains usable offline.
                 Serilog.Log.Warning(ex, "Grammar check failed; returning empty issues to keep editor usable");
                 return Ok(new GrammarCheckResponse());
             }

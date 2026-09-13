@@ -16,7 +16,7 @@
 @inject IAiService AiService
 @inject Tobiso.Web.App.Services.IAiUsageGuard UsageGuard
 
-<PageTitle>@(_post?.Title ?? "Článek") — Tobiso</PageTitle>
+<PageTitle>@(_post?.Title ?? "Článek") - Tobiso</PageTitle>
 
 @if (_loading)
 {
@@ -55,7 +55,7 @@ else
                 <div class="grade-selector">
                     @if (_currentVersion != null)
                     {
-                        <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "—")</span>
+                        <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "-")</span>
                         @if (_versions.Count > 1)
                         {
                             <button class="icon-btn" @onclick="ToggleVersions" aria-label="Vybrat ročník">

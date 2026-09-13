@@ -20,6 +20,7 @@ public interface IQuestionService
     Task<List<QuestionResponse>> GetUnclassifiedForFlashcardEligibility(int take);
     Task<FlashcardEligibilityStats> GetFlashcardEligibilityStatsAsync();
     Task SetFlashcardEligibilityAsync(Dictionary<int, bool> results);
+    Task ResetAllFlashcardEligibilityAsync();
 }
 
 public class QuestionService : IQuestionService
@@ -121,6 +122,11 @@ public class QuestionService : IQuestionService
             {
                 query = query.Where(q => q.Post != null && q.Post.CategoryId != null
                     && request.CategoryIds.Contains(q.Post.CategoryId.Value));
+            }
+
+            if (request.PostId is int postId)
+            {
+                query = query.Where(q => q.PostId == postId);
             }
 
             if (!string.IsNullOrWhiteSpace(request.Search))
@@ -304,6 +310,8 @@ public class QuestionService : IQuestionService
             if (question == null) return false;
 
             question.QuestionText = request.QuestionText;
+            if (request.PostId is int postId)
+                question.PostId = postId;
 
             _context.Answers.RemoveRange(question.Answers);
             _context.Explanations.RemoveRange(question.Explanations);
@@ -420,5 +428,10 @@ public class QuestionService : IQuestionService
         }
 
         await _context.SaveChangesAsync();
+    }
+
+    public async Task ResetAllFlashcardEligibilityAsync()
+    {
+        await _context.Questions.ExecuteUpdateAsync(s => s.SetProperty(q => q.IsFlashcardEligible, (bool?)null));
     }
 }

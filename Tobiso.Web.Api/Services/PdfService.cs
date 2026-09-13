@@ -794,7 +794,7 @@ namespace Tobiso.Web.Api.Services
                     
                     // Special-case: KaTeX math placeholders rendered client-side are
                     // represented as empty <span class='math-inline' data-math="..."></span>.
-                    // These spans carry the LaTeX in the data-math attribute — extract
+                    // These spans carry the LaTeX in the data-math attribute - extract
                     // and render a textual fallback into the PDF (e.g. (a)/(b)).
                     if (childTag == "span")
                     {

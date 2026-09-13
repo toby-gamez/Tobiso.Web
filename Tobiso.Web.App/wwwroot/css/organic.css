@@ -1,4 +1,4 @@
-/* Organic utility classes — Tobiso.Web */
+/* Organic utility classes - Tobiso.Web */
 
 /* Pills */
 .pill {
@@ -461,7 +461,7 @@ svg.lucide {
     font-weight: 600;
 }
 
-/* Exercise chip — click-to-select item (drag-drop, matching, timeline) */
+/* Exercise chip - click-to-select item (drag-drop, matching, timeline) */
 .chip {
     display: inline-flex;
     align-items: center;
@@ -490,7 +490,7 @@ svg.lucide {
     background: var(--color-accent-700);
 }
 
-/* Exercise bucket — click target for a selected chip */
+/* Exercise bucket - click target for a selected chip */
 .bucket {
     min-height: 120px;
     padding: var(--space-4);
@@ -554,7 +554,7 @@ svg.lucide {
     font-weight: 600;
 }
 
-/* Exercise evaluation text — inline next to Reset/Check, not a banner */
+/* Exercise evaluation text - inline next to Reset/Check, not a banner */
 .exercise-score {
     font-size: 15px;
     font-weight: 600;
@@ -572,7 +572,7 @@ svg.lucide {
     flex: 1;
 }
 
-/* Help tooltip — icon button that reveals instructions on hover/focus */
+/* Help tooltip - icon button that reveals instructions on hover/focus */
 .help-btn {
     width: 36px;
     height: 36px;

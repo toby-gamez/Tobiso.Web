@@ -46,6 +46,11 @@
 .answer-btn:hover:not(:disabled) { background: var(--color-neutral-200); }
 .answer-btn:disabled { cursor: default; }
 
+.answer-selected {
+    background: var(--color-accent-100) !important;
+    border-color: var(--color-accent-400);
+}
+
 .answer-correct {
     background: var(--color-accent-2-200) !important;
     border-color: var(--color-accent-2-500);
@@ -56,6 +61,36 @@
     background: #fde3ca !important;
     border-color: var(--color-accent-400);
     color: var(--color-accent-800);
+}
+
+.text-answer-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.text-answer-input {
+    font: inherit;
+    font-size: 17px;
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    width: 100%;
+}
+
+.text-answer-input:focus:not(:disabled) {
+    outline: none;
+    border-color: var(--color-accent-500);
+}
+
+.text-answer-input:disabled { cursor: default; }
+
+.text-answer-hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-neutral-600);
 }
 
 .quiz-explanation {

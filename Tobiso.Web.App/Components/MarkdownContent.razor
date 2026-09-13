@@ -13,7 +13,7 @@
     [Parameter] public List<PersonSummaryResponse>? AllPeople { get; set; }
     /// <summary>ID of the container element that wraps this component's output – used by KaTeX to target math rendering.</summary>
     [Parameter] public string ContainerId { get; set; } = "content";
-    /// <summary>Raised after each render with the level-2 headings found in the content, in document order, as (Text, Anchor id) — lets a host page build a table of contents that links to real element ids.</summary>
+    /// <summary>Raised after each render with the level-2 headings found in the content, in document order, as (Text, Anchor id) - lets a host page build a table of contents that links to real element ids.</summary>
     [Parameter] public EventCallback<List<(string Text, string Anchor)>> OnHeadingsExtracted { get; set; }
 
     private string _renderedHtml = string.Empty;
@@ -28,7 +28,7 @@
         // actually changes. Re-invoking OnHeadingsExtracted unconditionally lets a parent that
         // calls StateHasChanged() from the callback re-render itself into an infinite loop.
         // AllPeople is also checked (by reference) because PostDetail loads it asynchronously
-        // after the initial render, once Content is already set — without this, person mentions
+        // after the initial render, once Content is already set - without this, person mentions
         // would never get woven into an already-rendered article.
         if (Content == _lastProcessedContent && ReferenceEquals(AllPeople, _lastProcessedPeople)) return;
         _lastProcessedContent = Content;

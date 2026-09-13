@@ -52,7 +52,7 @@ public class UserProgressService : IUserProgressService
 
         // Best-effort: reading progress on any article extends the streak, so award the
         // 20-credit bonus once per day. ClaimReadBonusAsync is idempotent (atomic conditional
-        // UPDATE) so calling it on every scroll-progress tick is safe — it only ever succeeds once.
+        // UPDATE) so calling it on every scroll-progress tick is safe - it only ever succeeds once.
         await _userService.ClaimReadBonusAsync(userId, 20);
     }
 

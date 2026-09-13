@@ -204,7 +204,7 @@ namespace Tobiso.Web.App.Services
         public async Task<PersonResponse> GetPersonInfoAsync(string name)
         {
             var systemPrompt = _configuration["OpenAI:PersonSystemPrompt"]
-                ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object — no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";
+                ?? "You are a factual knowledge assistant that generates person information cards. Respond ONLY with a raw JSON object - no markdown, no prose, no code fences. For fields you are not certain about use null for numeric fields and an empty string for text fields. Do not invent or speculate.";
 
             var userPrompt = $"Return a JSON object for the person \"{name}\" with exactly these keys: " +
                 "name (string, full name), " +
@@ -857,8 +857,18 @@ namespace Tobiso.Web.App.Services
             var systemPrompt =
                 "Dostaneš seznam otázek z kvízové banky spolu se správnou odpovědí. Rozhodni, zda otázka dává smysl jako SAMOSTATNÁ kartička " +
                 "(zobrazí se JEN otázka a JEN správná odpověď, BEZ zbytku článku a BEZ zobrazených možností). " +
-                "Označ eligible=false, pokud otázka odkazuje na 'článek', 'text', 'obrázek', 'graf' nebo na 'následující možnosti/tvrzení/informace' " +
-                "a bez nich nedává smysl. Jinak eligible=true. " +
+                "Označ eligible=false v TĚCHTO případech:\n" +
+                "1) Otázka odkazuje na 'článek', 'text', 'obrázek' nebo 'graf' a bez nich nedává smysl.\n" +
+                "2) Otázka je tvaru '(Který/Která/Které/Co/Kolik) z následujících/uvedených/zmíněných ...?' - NEZÁLEŽÍ na tom, jaké podstatné jméno " +
+                "po této frázi následuje (možnosti, tvrzení, informace, iontů, prvků, čísel, událostí, ...). Tento vzor VŽDY znamená, že otázka " +
+                "vyžaduje viditelný seznam možností, který kartička nezobrazuje, takže je VŽDY eligible=false. " +
+                "Příklad: 'Které z následujících iontů jsou divalentní?' → eligible=false (protože bez seznamu iontů k výběru nedává smysl).\n" +
+                "3) Otázka odkazuje na 'následující tvrzení je pravdivé/nepravdivé' nebo podobnou konstrukci vyžadující více zobrazených možností.\n" +
+                "4) Otázka je formulovaná jako PŘÍKAZ/úkol k napsání či vypracování, ne jako skutečná otázka - např. začíná slovy 'Napiš...', " +
+                "'Vyjmenuj...', 'Vypočítej...', 'Nakresli...', 'Sestav...', 'Doplň...', 'Popiš...', 'Odvoď...'. Takové zadání je psané pro písemné " +
+                "cvičení/kvíz, ne pro kartičku typu otázka-odpověď, takže je eligible=false.\n" +
+                "Ve všech ostatních případech (otázka je formulovaná jako skutečná otázka a dává smysl sama o sobě, i bez vidění možností) " +
+                "označ eligible=true. " +
                 "Vrať POUZE platný JSON objekt (bez markdown) pro KAŽDÉ zadané id: {\"results\":[{\"id\":1,\"eligible\":true}]}";
 
             var userPromptBuilder = new StringBuilder();
@@ -1182,7 +1192,7 @@ namespace Tobiso.Web.App.Services
 
             var postList = string.Join("\n", otherPosts.Select(p => $"ID:{p.Id} – {p.Title}"));
 
-            var systemPrompt = "You are a content curator for a Czech educational platform. Given a source article and a list of articles, select the 5 IDs that are most conceptually related — by topic overlap, prerequisites, or complementary knowledge. Return ONLY valid JSON: {\"ids\":[1,2,3,4,5]}. Use integer IDs from the list.";
+            var systemPrompt = "You are a content curator for a Czech educational platform. Given a source article and a list of articles, select the 5 IDs that are most conceptually related - by topic overlap, prerequisites, or complementary knowledge. Return ONLY valid JSON: {\"ids\":[1,2,3,4,5]}. Use integer IDs from the list.";
             var userPrompt = $"Source article: \"{title}\"\n\nExcerpt:\n{articleContext.Substring(0, Math.Min(articleContext.Length, 2000))}\n\nAll articles:\n{postList}";
 
             var messages = new List<object>

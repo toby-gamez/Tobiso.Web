@@ -62,6 +62,12 @@
     color: var(--color-neutral-600);
 }
 
+/* Optically nudge the search glyph up to match the input text baseline - see
+   NavMenu.razor.css .search-btn i[data-lucide] for the full rationale. */
+.search-row i[data-lucide] {
+    transform: translateY(-1.5px);
+}
+
 .search-row input {
     flex: 1;
     border: 0;

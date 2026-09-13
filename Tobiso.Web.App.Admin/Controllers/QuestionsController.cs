@@ -18,6 +18,20 @@ public class QuestionsController : ControllerBase
         _questionService = questionService;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAllQuestions()
+    {
+        var questions = await _questionService.GetAll();
+        return Ok(questions);
+    }
+
+    [HttpPost("search")]
+    public async Task<IActionResult> SearchQuestions([FromBody] QuestionSearchRequest request)
+    {
+        var result = await _questionService.SearchAsync(request);
+        return Ok(result);
+    }
+
     [HttpGet("post/{postId}")]
     public async Task<IActionResult> GetQuestionsByPostId(int postId)
     {

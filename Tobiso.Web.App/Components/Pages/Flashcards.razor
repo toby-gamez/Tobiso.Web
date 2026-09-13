@@ -7,7 +7,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>Kartičky — Tobiso</PageTitle>
+<PageTitle>Kartičky - Tobiso</PageTitle>
 
 <div class="quiz-page">
     <button class="pill" style="align-self:flex-start" @onclick="@(() => Nav.NavigateTo("/practice"))">
@@ -43,14 +43,14 @@
 
         <button class="flashcard @(_flipped ? "flipped" : "")" @onclick="Flip">
             <div class="flashcard-face flashcard-front">
-                <span>@_current!.QuestionText</span>
+                <span><MathText Text="@_current!.QuestionText" /></span>
                 <span class="flashcard-hint">Klikni pro odpověď</span>
             </div>
             <div class="flashcard-face flashcard-back">
-                <span>@CorrectAnswerText</span>
+                <span><MathText Text="@CorrectAnswerText" /></span>
                 @if (_current.Explanations.Count > 0)
                 {
-                    <span class="flashcard-explanation">@_current.Explanations.First().Text</span>
+                    <span class="flashcard-explanation"><MathText Text="@_current.Explanations.First().Text" /></span>
                 }
             </div>
         </button>

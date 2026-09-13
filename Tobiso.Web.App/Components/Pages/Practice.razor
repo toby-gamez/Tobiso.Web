@@ -10,12 +10,12 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<PageTitle>Procvičování — Tobiso</PageTitle>
+<PageTitle>Procvičování - Tobiso</PageTitle>
 
 <div class="practice-page">
     <div>
         <h1>Procvičování</h1>
-        <p>„Ověř si porozumění" najdeš přímo na konci každého článku — tady jsou všechny otázky na jednom místě.</p>
+        <p>„Ověř si porozumění" najdeš přímo na konci každého článku - tady jsou všechny otázky na jednom místě.</p>
     </div>
 
     <div class="practice-mode-grid">
@@ -43,7 +43,7 @@
                 <h2 style="margin-bottom:4px">Doporučeno pro tebe</h2>
                 @if (_stats == null || _stats.AttemptedCount == 0)
                 {
-                    <p style="margin:0; color:var(--color-neutral-600)">Zatím nemáš žádnou historii — spusť první session a uvidíš tu svůj pokrok.</p>
+                    <p style="margin:0; color:var(--color-neutral-600)">Zatím nemáš žádnou historii - spusť první session a uvidíš tu svůj pokrok.</p>
                 }
                 else
                 {
@@ -119,7 +119,7 @@
             @foreach (var q in _questions)
             {
                 <div class="soft" style="padding:var(--space-4); display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-3)">
-                    <span style="flex:1 1 240px; font-size:16px">@q.QuestionText</span>
+                    <span style="flex:1 1 240px; font-size:16px"><MathText Text="@q.QuestionText" /></span>
                     <span style="font-size:13px; color:var(--color-neutral-600)">@CzechPlural.Odpovedi(q.Answers.Count)</span>
                 </div>
             }

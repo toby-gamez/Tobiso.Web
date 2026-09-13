@@ -44,14 +44,14 @@ public class JwtTokenService
 
         if (username != expectedUsername || password != expectedPassword)
         {
-            _logger.LogWarning("JWT login failed — invalid credentials for user {Username}", username);
+            _logger.LogWarning("JWT login failed - invalid credentials for user {Username}", username);
             return null;
         }
 
         var secret = _config["Auth:Jwt:Secret"];
         if (string.IsNullOrWhiteSpace(secret))
         {
-            _logger.LogError("Auth:Jwt:Secret is not configured — JWT login unavailable");
+            _logger.LogError("Auth:Jwt:Secret is not configured - JWT login unavailable");
             throw new InvalidOperationException("JWT secret is not configured.");
         }
 

@@ -1,14 +1,66 @@
 ﻿@page "/"
 @using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Api.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @inject ITobisoWebApi Api
+@inject IQuestionService QuestionService
 @inject NavigationManager Navigation
 @inject ILogger<Home> Logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IConfiguration Configuration
 
 <PageTitle>Home - Posts</PageTitle>
+
+<div class="card mb-3">
+    <div class="card-body d-flex align-items-center gap-3 flex-wrap py-2">
+        <strong class="me-1">Způsobilost kartiček</strong>
+        @if (flashcardStatsError != null)
+        {
+            <span class="text-danger small">@flashcardStatsError</span>
+        }
+        else if (flashcardStats == null)
+        {
+            <span class="text-muted small">Načítám…</span>
+        }
+        else
+        {
+            <span class="badge bg-success-subtle text-success-emphasis">@flashcardStats.Eligible způsobilé</span>
+            <span class="badge bg-danger-subtle text-danger-emphasis">@flashcardStats.Ineligible nezpůsobilé</span>
+            <span class="badge bg-warning-subtle text-warning-emphasis">@flashcardStats.Unclassified neklasifikováno</span>
+
+            <button type="button" class="btn btn-sm btn-primary ms-auto" @onclick="StartClassifying" disabled="@(isClassifying || flashcardStats.Unclassified == 0)">
+                @if (isClassifying)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <span>Klasifikuji… (@classifiedThisRun)</span>
+                }
+                else if (flashcardStats.Unclassified == 0)
+                {
+                    <span>Vše zkontrolováno</span>
+                }
+                else
+                {
+                    <span>Klasifikovat</span>
+                }
+            </button>
+            @if (isClassifying)
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StopClassifying">Zastavit</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Zruší všechny dosavadní klasifikace a nechá AI posoudit otázky znovu (podle aktuálního promptu)" @onclick="ResetAndReclassify">
+                    Reklasifikovat vše znovu
+                </button>
+            }
+        }
+        @if (!string.IsNullOrEmpty(classifyError))
+        {
+            <span class="text-danger small">@classifyError</span>
+        }
+    </div>
+</div>
 
 <h1>Posts</h1>
 <div class="d-flex flex-wrap align-items-center mb-3">
@@ -242,6 +294,91 @@ else
 
         await LoadCategories();
         await LoadPosts();
+        await LoadFlashcardStats();
+    }
+
+    private FlashcardEligibilityStats? flashcardStats;
+    private string? flashcardStatsError;
+    private string? classifyError;
+    private bool isClassifying;
+    private bool stopClassifyingRequested;
+    private int classifiedThisRun;
+
+    private async Task LoadFlashcardStats()
+    {
+        try
+        {
+            flashcardStats = await QuestionService.GetFlashcardEligibilityStatsAsync();
+            flashcardStatsError = null;
+        }
+        catch (Exception ex)
+        {
+            flashcardStatsError = $"Chyba: {ex.Message}";
+        }
+    }
+
+    private async Task StartClassifying()
+    {
+        isClassifying = true;
+        stopClassifyingRequested = false;
+        classifyError = null;
+        classifiedThisRun = 0;
+        StateHasChanged();
+
+        try
+        {
+            while (!stopClassifyingRequested)
+            {
+                var result = await Api.ClassifyFlashcardEligibilityBatch(new ClassifyFlashcardEligibilityRequest { BatchSize = 30 });
+
+                if (!string.IsNullOrEmpty(result.Error))
+                {
+                    classifyError = result.Error;
+                    break;
+                }
+
+                classifiedThisRun += result.Processed;
+                flashcardStats = new FlashcardEligibilityStats
+                {
+                    Total = flashcardStats?.Total ?? 0,
+                    Eligible = (flashcardStats?.Eligible ?? 0) + result.EligibleCount,
+                    Ineligible = (flashcardStats?.Ineligible ?? 0) + result.IneligibleCount,
+                    Unclassified = result.RemainingUnclassified
+                };
+                StateHasChanged();
+
+                if (result.Processed == 0 || result.RemainingUnclassified == 0)
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            classifyError = $"Chyba při klasifikaci: {ex.Message}";
+        }
+        finally
+        {
+            isClassifying = false;
+            await LoadFlashcardStats();
+        }
+    }
+
+    private void StopClassifying() => stopClassifyingRequested = true;
+
+    private async Task ResetAndReclassify()
+    {
+        if (!await JsConfirm("Opravdu zrušit všechny dosavadní klasifikace a nechat AI posoudit VŠECHNY otázky znovu? Může to chvíli trvat."))
+            return;
+
+        try
+        {
+            await QuestionService.ResetAllFlashcardEligibilityAsync();
+            await LoadFlashcardStats();
+            await StartClassifying();
+        }
+        catch (Exception ex)
+        {
+            classifyError = $"Chyba při resetu klasifikace: {ex.Message}";
+        }
     }
 
     private async Task LoadCategories()

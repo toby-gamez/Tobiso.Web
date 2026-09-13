@@ -247,7 +247,7 @@
     private int generatingCount = 0;
     private string? aiErrorMessage;
     private string? aiSuccessMessage;
-    // question texts generated/saved this session — passed to AI to avoid duplicates
+    // question texts generated/saved this session - passed to AI to avoid duplicates
     private readonly HashSet<string> _sessionQuestionTexts = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()

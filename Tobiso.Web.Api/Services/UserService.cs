@@ -104,7 +104,7 @@ public class UserService : IUserService
 
     // Deduct is a single conditional UPDATE (guarded by the balance check in the WHERE
     // clause) rather than read-then-write, so two concurrent requests can't both read a
-    // Credits=1 balance, both pass an in-memory check, and both deduct — overspending
+    // Credits=1 balance, both pass an in-memory check, and both deduct - overspending
     // beyond what the account actually has.
     public async Task<bool> DeductCreditsAsync(int userId, int amount, string reason)
     {
@@ -128,8 +128,8 @@ public class UserService : IUserService
 
     // Same conditional-UPDATE approach: the "already claimed today" check and the credit
     // grant happen in one atomic statement, guarded by LastDailyBonusAt in the WHERE clause,
-    // so it can't be claimed twice via two concurrent requests, and — unlike checking
-    // LastLoginAt — claiming always advances the stamp, so the endpoint can't be replayed
+    // so it can't be claimed twice via two concurrent requests, and - unlike checking
+    // LastLoginAt - claiming always advances the stamp, so the endpoint can't be replayed
     // all day on a single long-lived JWT without ever logging in again.
     public async Task<bool> ClaimDailyBonusAsync(int userId, int amount)
     {
@@ -155,7 +155,7 @@ public class UserService : IUserService
     }
 
     // Reading an article extends the daily streak; award once per calendar day regardless of
-    // how many articles or scroll-progress updates happen afterward — same atomic-UPDATE
+    // how many articles or scroll-progress updates happen afterward - same atomic-UPDATE
     // idempotency pattern as ClaimDailyBonusAsync, tracked on a separate stamp so the two
     // bonuses don't interfere with each other.
     public async Task<bool> ClaimReadBonusAsync(int userId, int amount)

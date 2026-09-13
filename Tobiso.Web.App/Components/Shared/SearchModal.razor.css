@@ -26,6 +26,12 @@
     border-bottom: 1px solid var(--color-divider);
 }
 
+/* Optically nudge the search glyph up to match the label text baseline - see
+   NavMenu.razor.css .search-btn i[data-lucide] for the full rationale. */
+.search-input-row i[data-lucide] {
+    transform: translateY(-1.5px);
+}
+
 .search-input {
     flex: 1;
     font: inherit;

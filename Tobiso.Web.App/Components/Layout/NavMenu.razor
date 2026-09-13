@@ -45,7 +45,7 @@
         <div class="grade-row" style="position:relative">
             <span class="grade-label">Ročník</span>
             <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)" @onclick="ToggleGradeMenu">
-                @(_selectedGrade?.Name ?? "—") <i data-lucide="chevron-down"></i>
+                @(_selectedGrade?.Name ?? "-") <i data-lucide="chevron-down"></i>
             </button>
             @if (_gradeMenuOpen)
             {

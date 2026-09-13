@@ -115,7 +115,7 @@ else
             <div class="col-auto">
                 <label class="form-label mb-1">Zdrojový článek</label>
                 <select class="form-select" @bind="_aiSourcePostId">
-                    <option value="0">— vyberte článek —</option>
+                    <option value="0">- vyberte článek -</option>
                     @foreach (var kv in postTitles.OrderBy(p => p.Value))
                     {
                         <option value="@kv.Key">@kv.Value</option>

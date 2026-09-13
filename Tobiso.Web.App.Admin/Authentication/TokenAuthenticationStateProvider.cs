@@ -31,7 +31,7 @@ public class TokenAuthenticationStateProvider : AuthenticationStateProvider
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse JWT token — treating as unauthenticated");
+            _logger.LogWarning(ex, "Failed to parse JWT token - treating as unauthenticated");
             return Anonymous();
         }
     }

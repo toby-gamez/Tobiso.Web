@@ -9,7 +9,7 @@ public class CreatePostRequest
     public string FilePath { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
 
-    // Initial version data — when GradeId is null no version is created (e.g. bulk import)
+    // Initial version data - when GradeId is null no version is created (e.g. bulk import)
     public int? GradeId { get; set; }
     public string Content { get; set; } = string.Empty;
     /// <summary>True = minor fix (LastFix), false = major edit (LastEdit).</summary>

@@ -27,7 +27,7 @@ public class PushNotificationService : IPushNotificationService
     {
         if (FirebaseApp.DefaultInstance == null)
         {
-            _logger.LogDebug("Firebase not configured — skipping push notification");
+            _logger.LogDebug("Firebase not configured - skipping push notification");
             return;
         }
 

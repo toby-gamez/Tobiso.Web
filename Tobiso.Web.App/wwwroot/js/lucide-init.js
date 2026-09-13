@@ -9,7 +9,7 @@
 //
 // The lucide <script> tag loads from a CDN in parallel with the Blazor circuit
 // connecting. Pages that only call initLucide() once, on firstRender, can lose
-// that race — window.lucide isn't defined yet, so this silently no-ops and the
+// that race - window.lucide isn't defined yet, so this silently no-ops and the
 // icons stay blank forever since nothing calls it again. Retry with backoff
 // until lucide is actually available instead of relying on every caller to
 // re-invoke it.
@@ -60,7 +60,7 @@ window.registerSearchShortcut = (dotNetRef) => {
     window.unregisterSearchShortcut();
     searchShortcutHandler = (e) => {
         // e.code is layout-independent (physical key), e.key can differ across
-        // keyboard layouts/browsers — check both so Ctrl+K is caught reliably.
+        // keyboard layouts/browsers - check both so Ctrl+K is caught reliably.
         const isK = e.key?.toLowerCase() === 'k' || e.code === 'KeyK';
         if ((e.ctrlKey || e.metaKey) && isK) {
             // Best-effort: some browsers (notably Firefox) treat Ctrl/Cmd+K as a
@@ -140,7 +140,7 @@ window.initReadingProgress = (dotNetRef, articleSelector) => {
         // Progress = how far scrolled past the article's top, normalized to the
         // range that actually needs scrolling. Using viewport-overlap instead (how
         // much of the article the viewport already covers at rest) gave a nonzero
-        // reading — e.g. 28% — the instant the page loaded, before any scrolling.
+        // reading - e.g. 28% - the instant the page loaded, before any scrolling.
         const rect = article.getBoundingClientRect();
         const articleTop = rect.top + window.scrollY;
         const articleHeight = article.scrollHeight || 1;

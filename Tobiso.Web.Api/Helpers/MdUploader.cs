@@ -25,7 +25,7 @@ public class MdUploader
             var title = titleLine.StartsWith("title:") ? titleLine[6..].Trim() : "";
             var content = string.Join("\n", lines.Skip(3));
 
-            // GradeId = null: no initial version — admin assigns grade content later
+            // GradeId = null: no initial version - admin assigns grade content later
             var req = new CreatePostRequest
             {
                 Title = title,
