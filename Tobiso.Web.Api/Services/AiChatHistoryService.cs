@@ -15,6 +15,10 @@ public interface IAiChatHistoryService
     /// <summary>Reads one specific session by id, scoped to its owner.</summary>
     Task<AiChatSession?> GetSessionByIdAsync(int sessionId, int userId);
     Task SaveMessageAsync(int sessionId, string role, string content, int? creditsUsed = null);
+    /// <summary>Replaces the set of attached posts for a session with the given IDs (the session's own PostId is never stored here).</summary>
+    Task SaveAttachedPostsAsync(int sessionId, IEnumerable<int> postIds);
+    /// <summary>Returns the IDs of posts attached to a session, scoped to its owner.</summary>
+    Task<List<int>> GetAttachedPostIdsAsync(int sessionId, int userId);
     Task<List<AiChatSession>> GetUserSessionsAsync(int userId);
     Task<List<AiChatMessage>> GetSessionMessagesAsync(int sessionId, int userId);
 }
@@ -118,12 +122,52 @@ public class AiChatHistoryService : IAiChatHistoryService
         return cut.TrimEnd() + "…";
     }
 
+    // Replaces the whole set of attached posts for a session with the given IDs. Called on every
+    // sent message so add/remove changes made in the chat UI are persisted alongside the Q&A text.
+    public async Task SaveAttachedPostsAsync(int sessionId, IEnumerable<int> postIds)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        var distinct = postIds.Distinct().ToList();
+        var existing = await db.AiChatSessionPosts
+            .Where(x => x.AiChatSessionId == sessionId)
+            .Select(x => x.PostId)
+            .ToListAsync();
+
+        var added = distinct.Except(existing).ToList();
+        var removed = existing.Except(distinct).ToList();
+
+        if (removed.Count > 0)
+            db.AiChatSessionPosts.RemoveRange(
+                db.AiChatSessionPosts.Where(x => x.AiChatSessionId == sessionId && removed.Contains(x.PostId)));
+
+        if (added.Count > 0)
+            db.AiChatSessionPosts.AddRange(
+                added.Select(pid => new AiChatSessionPost { AiChatSessionId = sessionId, PostId = pid }));
+
+        if (added.Count > 0 || removed.Count > 0)
+            await db.SaveChangesAsync();
+    }
+
+    public async Task<List<int>> GetAttachedPostIdsAsync(int sessionId, int userId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var owned = await db.AiChatSessions.AnyAsync(s => s.Id == sessionId && s.UserId == userId);
+        if (!owned) return [];
+
+        return await db.AiChatSessionPosts
+            .Where(x => x.AiChatSessionId == sessionId)
+            .Select(x => x.PostId)
+            .ToListAsync();
+    }
+
     public async Task<List<AiChatSession>> GetUserSessionsAsync(int userId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
         return await db.AiChatSessions
             .Where(s => s.UserId == userId)
             .Include(s => s.Post)
+            .Include(s => s.AttachedPosts)
             .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync();
     }

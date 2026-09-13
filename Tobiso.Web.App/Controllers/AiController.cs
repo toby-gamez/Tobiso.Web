@@ -105,6 +105,7 @@ namespace Tobiso.Web.App.Controllers
                 var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId > 0 ? request.PostId : null);
                 await _chatHistory.SaveMessageAsync(session.Id, "user", request.Question ?? "");
                 await _chatHistory.SaveMessageAsync(session.Id, "assistant", resp.Answer ?? "", creditsUsed: 1);
+                await _chatHistory.SaveAttachedPostsAsync(session.Id, request.AttachedPostIds);
             }
 
             return Ok(resp);
@@ -125,7 +126,8 @@ namespace Tobiso.Web.App.Controllers
                 PostTitle = s.Post?.Title,
                 s.Title,
                 s.CreatedAt,
-                s.UpdatedAt
+                s.UpdatedAt,
+                AttachedPostIds = s.AttachedPosts.Select(a => a.PostId).ToList()
             }));
         }
 
@@ -257,6 +259,7 @@ namespace Tobiso.Web.App.Controllers
                 var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId > 0 ? request.PostId : null);
                 await _chatHistory.SaveMessageAsync(session.Id, "user", request.Question ?? "");
                 await _chatHistory.SaveMessageAsync(session.Id, "assistant", answer.ToString(), creditsUsed: 1);
+                await _chatHistory.SaveAttachedPostsAsync(session.Id, request.AttachedPostIds);
             }
 
             await Response.WriteAsync("data: [DONE]\n\n");

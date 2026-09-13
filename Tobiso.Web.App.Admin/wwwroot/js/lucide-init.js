@@ -41,3 +41,21 @@ window.initLucide = () => {
         // Icons may not be loaded yet; safe to ignore
     }
 };
+
+window.setTheme = (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('tobiso-admin-theme', theme);
+};
+
+window.getTheme = () => {
+    return localStorage.getItem('tobiso-admin-theme') || 'system';
+};
+
+// Apply saved theme before Blazor's circuit connects, so the page doesn't
+// flash the OS-preference theme first and then jump to the saved choice.
+(function () {
+    const saved = localStorage.getItem('tobiso-admin-theme');
+    if (saved && saved !== 'system') {
+        document.documentElement.setAttribute('data-theme', saved);
+    }
+})();

@@ -17,9 +17,12 @@ Předpokládaná struktura JSON (dle `Shared/DTOs`):
   "question": "Jak funguje potenciální energie?",
   "conversationHistory": [
     { "role": "user", "content": "Dřívější otázka..." }
-  ]
+  ],
+  "attachedPostIds": [ 45, 67 ]
 }
 ```
+
+- `attachedPostIds` — volitelné ID článků připojených k dotazu (kromě `postId`); jejich obsah se přidá do kontextu modelu. Maximálně 5, `postId` se mezi nimi neopakuje.
 
 ## Headers
 
@@ -55,7 +58,8 @@ Server použije `OpenAI:ClientLimits:trusted-app` jako denní limit pro tento `c
 var payload = new {
     postId = 123,
     question = "Jak funguje potenciální energie?",
-    conversationHistory = new[] { new { role = "user", content = "Předchozí" } }
+    conversationHistory = new[] { new { role = "user", content = "Předchozí" } },
+    attachedPostIds = new[] { 45, 67 }
 };
 
 var json = JsonSerializer.Serialize(payload);

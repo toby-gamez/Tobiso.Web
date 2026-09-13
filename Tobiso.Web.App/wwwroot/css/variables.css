@@ -84,6 +84,16 @@
         --color-neutral-700: #b3a08d;
         --color-neutral-800: #d0bfa9;
         --color-neutral-900: #ecdecb;
+
+        --color-accent-2-100: #1d2218;
+        --color-accent-2-200: #262d1e;
+        --color-accent-2-300: #323b27;
+        --color-accent-2-400: #414d33;
+        --color-accent-2-500: #536240;
+        --color-accent-2-600: #68794f;
+        --color-accent-2-700: #819260;
+        --color-accent-2-800: #9cae77;
+        --color-accent-2-900: #bacb99;
     }
 }
 
@@ -103,6 +113,16 @@
     --color-neutral-700: #b3a08d;
     --color-neutral-800: #d0bfa9;
     --color-neutral-900: #ecdecb;
+
+    --color-accent-2-100: #1d2218;
+    --color-accent-2-200: #262d1e;
+    --color-accent-2-300: #323b27;
+    --color-accent-2-400: #414d33;
+    --color-accent-2-500: #536240;
+    --color-accent-2-600: #68794f;
+    --color-accent-2-700: #819260;
+    --color-accent-2-800: #9cae77;
+    --color-accent-2-900: #bacb99;
 }
 
 /* Light mode - explicit toggle */

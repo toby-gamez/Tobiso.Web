@@ -1,0 +1,99 @@
+.circuit-columns {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-4);
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .circuit-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.canvas-panel {
+    min-width: 0;
+}
+
+.canvas-container {
+    border: 2px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    background: var(--color-neutral-100);
+    min-height: 400px;
+}
+
+.sidebar-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.component-palette {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.component-palette .btn {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.properties-body {
+    gap: var(--space-3);
+}
+
+.properties-remove {
+    width: 100%;
+    justify-content: center;
+    margin-top: var(--space-2);
+}
+
+.actions-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.actions-body .btn {
+    width: 100%;
+}
+
+.circuit-component {
+    padding: 10px;
+    background: var(--color-bg);
+    border: 2px solid var(--color-neutral-500);
+    border-radius: var(--radius-sm);
+    cursor: move;
+    user-select: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.circuit-component:hover {
+    border-color: var(--color-accent-600);
+    box-shadow: var(--shadow-md);
+    transform: scale(1.05);
+}
+
+.circuit-component.selected {
+    border-color: var(--color-accent-600);
+    border-width: 3px;
+    box-shadow: 0 0 15px color-mix(in srgb, var(--color-accent-600) 45%, transparent);
+}
+
+.component-visual {
+    text-align: center;
+}
+
+.component-visual i {
+    display: block;
+    margin-bottom: 5px;
+    width: 2rem;
+    height: 2rem;
+}
+
+.component-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-neutral-700);
+}

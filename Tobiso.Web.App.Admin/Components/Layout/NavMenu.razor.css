@@ -70,6 +70,47 @@
     font-family: inherit;
 }
 
+.theme-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 14px;
+}
+
+.grade-label {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
+.theme-toggle {
+    width: 44px;
+    height: 26px;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    background: var(--color-neutral-300);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 200ms ease;
+    flex-shrink: 0;
+}
+
+.theme-toggle.on {
+    background: var(--color-accent-600);
+    justify-content: flex-end;
+}
+
+.theme-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--color-neutral-100);
+    border-radius: 999px;
+    display: block;
+    transition: background 200ms ease;
+}
+
 @media (max-width: 767px) {
     .nav-rail {
         display: none;

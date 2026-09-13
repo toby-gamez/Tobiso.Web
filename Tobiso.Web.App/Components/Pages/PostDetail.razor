@@ -263,6 +263,8 @@ else
                     }
                 </div>
                 <AiChatBox PostId="@_post.Id"
+                           AllowAttachPosts="false"
+                           PinnedPostTitle="@_post.Title"
                            EmptyTitle="Zeptej se na cokoliv z tohoto článku."
                            Placeholder="Např. Proč se neshodný přívlastek neskloňuje?"
                            Suggestions="@(new[] { "Vysvětli jednodušeji", "Dej mi tři příklady", "Zkoušej mě" })"

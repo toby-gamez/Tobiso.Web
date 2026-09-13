@@ -1,47 +1,46 @@
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoWebApi Api
+@inject IJSRuntime JS
 
-<div class="position-relative">
-    <div class="input-group">
-        <span class="input-group-text">
-            <i class="bi bi-search"></i>
-        </span>
-        <input type="text" 
-               class="form-control @(IsValid ? "" : "is-invalid")" 
+<div class="search-select-wrap">
+    <div class="search-input-row">
+        <i data-lucide="search" class="search-icon"></i>
+        <input type="text"
+               class="input @(IsValid ? "" : "input-invalid")"
                placeholder="@Placeholder"
-               @bind="searchText" 
+               @bind="searchText"
                @oninput="OnSearchTextChanged"
                @onfocus="ShowDropdown"
                @onblur="HideDropdownDelayed" />
         @if (SelectedPost != null)
         {
-            <button type="button" 
-                    class="btn btn-outline-secondary" 
+            <button type="button"
+                    class="btn btn-ghost btn-sm"
                     @onclick="ClearSelection">
-                <i class="bi bi-x"></i>
+                <i data-lucide="x"></i>
             </button>
         }
     </div>
-    
+
     @if (!IsValid)
     {
-        <div class="invalid-feedback d-block">
+        <div class="field-error">
             @ErrorMessage
         </div>
     }
 
     @if (showDropdown && searchResults?.Any() == true)
     {
-        <div class="dropdown-menu show position-absolute w-100 mt-1 post-search-dropdown">
+        <div class="post-search-dropdown search-dropdown-panel">
             @foreach (var post in searchResults)
             {
-                <button type="button" 
-                        class="dropdown-item d-flex flex-column align-items-start"
+                <button type="button"
+                        class="dropdown-item"
                         @onmousedown:preventDefault="true"
                         @onclick="() => SelectPost(post)">
-                    <div class="fw-bold">@post.Title</div>
-                    <small class="text-muted">ID: @post.Id</small>
+                    <div class="dropdown-item-title">@post.Title</div>
+                    <small class="dropdown-item-sub">ID: @post.Id</small>
                 </button>
             }
         </div>
@@ -49,9 +48,9 @@
 
     @if (showDropdown && !string.IsNullOrEmpty(searchText) && searchResults?.Any() != true && !isLoading)
     {
-        <div class="dropdown-menu show position-absolute w-100 mt-1">
-            <div class="dropdown-item-text text-muted">
-                <i class="bi bi-info-circle"></i>
+        <div class="post-search-dropdown search-dropdown-panel">
+            <div class="dropdown-empty">
+                <i data-lucide="info"></i>
                 Žádné posty nenalezeny
             </div>
         </div>
@@ -59,12 +58,10 @@
 
     @if (isLoading)
     {
-        <div class="dropdown-menu show position-absolute w-100 mt-1">
-            <div class="dropdown-item-text">
-                <div class="d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    Vyhledávání...
-                </div>
+        <div class="post-search-dropdown search-dropdown-panel">
+            <div class="dropdown-empty">
+                <i data-lucide="loader-2" class="spinner"></i>
+                Vyhledávání...
             </div>
         </div>
     }
@@ -92,10 +89,15 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
     private async Task OnSearchTextChanged(ChangeEventArgs e)
     {
         searchText = e.Value?.ToString() ?? "";
-        
+
         // Zrušit předchozí výběr pokud se text změnil
         if (SelectedPost != null && SelectedPost.Title != searchText)
         {
@@ -106,7 +108,7 @@
         // Debounce search
         searchTimer?.Dispose();
         searchTimer = new Timer(async _ => await InvokeAsync(PerformSearch), null, 300, Timeout.Infinite);
-        
+
         showDropdown = !string.IsNullOrEmpty(searchText);
     }
 
@@ -124,7 +126,7 @@
             StateHasChanged();
 
             var allPosts = await Api.GetPostLinks();
-            
+
             searchResults = allPosts
                 .Where(p => (ExcludePostId == null || p.Id != ExcludePostId) &&
                            p.Title?.Contains(searchText, StringComparison.OrdinalIgnoreCase) == true)

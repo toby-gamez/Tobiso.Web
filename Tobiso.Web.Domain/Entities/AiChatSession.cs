@@ -14,4 +14,6 @@ public class AiChatSession
     public AppUser User { get; set; } = null!;
     public Post? Post { get; set; }
     public ICollection<AiChatMessage> Messages { get; set; } = [];
+    /// <summary>Additional posts the student attached to this conversation (the primary pinned post is the session's PostId).</summary>
+    public ICollection<AiChatSessionPost> AttachedPosts { get; set; } = [];
 }

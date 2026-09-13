@@ -1,115 +1,98 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
+@inject IJSRuntime JS
 
 <div class="dragdrop-editor">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0"><i class="bi bi-box"></i> Kategorie</h6>
-                </div>
-                <div class="card-body">
-                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddCategory">
-                        <i class="bi bi-plus"></i> Přidat kategorii
-                    </button>
+    <div class="editor-columns">
+        <div class="panel">
+            <div class="panel-header"><i data-lucide="package"></i> Kategorie</div>
+            <div class="panel-body">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddCategory">
+                    <i data-lucide="plus"></i> Přidat kategorii
+                </button>
 
-                    @if (!_categories.Any())
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Přidejte kategorie (např. "Podstatné jméno", "Sloveso")
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="list-group">
-                            @foreach (var category in _categories)
-                            {
-                                <div class="list-group-item">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" @bind="category.Label" @bind:after="GenerateJson" placeholder="Název kategorie" />
-                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveCategory(category.Id)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">ID: @category.Id</small>
+                @if (!_categories.Any())
+                {
+                    <div class="callout-tip">
+                        <i data-lucide="info"></i> Přidejte kategorie (např. "Podstatné jméno", "Sloveso")
+                    </div>
+                }
+                else
+                {
+                    <div class="editor-list">
+                        @foreach (var category in _categories)
+                        {
+                            <div class="editor-list-item">
+                                <div class="editor-list-row">
+                                    <input type="text" class="input" @bind="category.Label" @bind:after="GenerateJson" placeholder="Název kategorie" />
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveCategory(category.Id)">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
                                 </div>
-                            }
-                        </div>
-                    }
-                </div>
+                                <small class="editor-item-id">ID: @category.Id</small>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0"><i class="bi bi-card-text"></i> Prvky k zařazení</h6>
-                </div>
-                <div class="card-body">
-                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddItem">
-                        <i class="bi bi-plus"></i> Přidat prvek
-                    </button>
+        <div class="panel">
+            <div class="panel-header"><i data-lucide="file-text"></i> Prvky k zařazení</div>
+            <div class="panel-body">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddItem">
+                    <i data-lucide="plus"></i> Přidat prvek
+                </button>
 
-                    @if (!_items.Any())
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Přidejte prvky, které budou přiřazeny ke kategoriím
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="list-group">
-                            @foreach (var item in _items)
-                            {
-                                <div class="list-group-item">
-                                    <div class="row g-2 align-items-center">
-                                        <div class="col-7">
-                                            <input type="text" class="form-control form-control-sm" @bind="item.Text" @bind:after="GenerateJson" placeholder="Text prvku" />
-                                        </div>
-                                        <div class="col-4">
-                                            <select class="form-select form-select-sm" @bind-Value="item.CorrectCategory" @bind-Value:event="onchange" @bind-Value:after="GenerateJson">
-                                                <option value="">-- Kategorie --</option>
-                                                @foreach (var cat in _categories)
-                                                {
-                                                    <option value="@cat.Id">@cat.Label</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-1">
-                                            <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveItem(item.Id)">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">ID: @item.Id</small>
+                @if (!_items.Any())
+                {
+                    <div class="callout-tip">
+                        <i data-lucide="info"></i> Přidejte prvky, které budou přiřazeny ke kategoriím
+                    </div>
+                }
+                else
+                {
+                    <div class="editor-list">
+                        @foreach (var item in _items)
+                        {
+                            <div class="editor-list-item">
+                                <div class="editor-list-row editor-list-row--item">
+                                    <input type="text" class="input" @bind="item.Text" @bind:after="GenerateJson" placeholder="Text prvku" />
+                                    <select class="select" @bind-Value="item.CorrectCategory" @bind-Value:event="onchange" @bind-Value:after="GenerateJson">
+                                        <option value="">-- Kategorie --</option>
+                                        @foreach (var cat in _categories)
+                                        {
+                                            <option value="@cat.Id">@cat.Label</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveItem(item.Id)">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
                                 </div>
-                            }
-                        </div>
-                    }
-                </div>
+                                <small class="editor-item-id">ID: @item.Id</small>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
     </div>
 
     @if (_categories.Any() && _items.Any())
     {
-        <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h6 class="mb-0"><i class="bi bi-eye"></i> Náhled</h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
+        <div class="panel preview-panel">
+            <div class="panel-header"><i data-lucide="eye"></i> Náhled</div>
+            <div class="panel-body">
+                <div class="preview-grid">
                     @foreach (var category in _categories)
                     {
-                        <div class="col-md-4 mb-3">
-                            <div class="category-box p-3 border rounded bg-light">
-                                <h6 class="text-center mb-3">@category.Label</h6>
-                                <div class="category-items">
-                                    @foreach (var item in _items.Where(i => i.CorrectCategory == category.Id))
-                                    {
-                                        <div class="badge bg-primary m-1">@item.Text</div>
-                                    }
-                                </div>
+                        <div class="bucket">
+                            <strong class="preview-category-label">@category.Label</strong>
+                            <div class="preview-category-items">
+                                @foreach (var item in _items.Where(i => i.CorrectCategory == category.Id))
+                                {
+                                    <span class="exercise-pill">@item.Text</span>
+                                }
                             </div>
                         </div>
                     }
@@ -118,12 +101,12 @@
         </div>
     }
 
-    <div class="mt-3 d-flex justify-content-between">
-        <button type="button" class="btn btn-success" @onclick="GenerateJson">
-            <i class="bi bi-code-square"></i> Aktualizovat JSON
+    <div class="editor-actions">
+        <button type="button" class="btn btn-secondary" @onclick="GenerateJson">
+            <i data-lucide="code-2"></i> Aktualizovat JSON
         </button>
-        <button type="button" class="btn btn-warning" @onclick="ClearAll">
-            <i class="bi bi-x-circle"></i> Vymazat vše
+        <button type="button" class="btn btn-danger" @onclick="ClearAll">
+            <i data-lucide="x-circle"></i> Vymazat vše
         </button>
     </div>
 </div>
@@ -159,6 +142,11 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
     private void LoadFromJson()
     {
         try
@@ -179,7 +167,7 @@
                         Id = id,
                         Label = item.GetProperty("label").GetString() ?? ""
                     });
-                    
+
                     // Aktualizovat čítač podle načtených ID (např. "cat-5" -> 5)
                     if (id.StartsWith("cat-") && int.TryParse(id.Substring(4), out var num))
                     {
@@ -192,7 +180,7 @@
             {
                 _items.Clear();
                 _itemCounter = 0;
-                
+
                 // Načíst solution pro správné kategorie
                 var correctPlacements = new Dictionary<string, string>();
                 if (!string.IsNullOrWhiteSpace(SolutionJson) && SolutionJson != "{}")
@@ -216,7 +204,7 @@
                         Text = item.GetProperty("text").GetString() ?? "",
                         CorrectCategory = correctPlacements.ContainsKey(id) ? correctPlacements[id] : ""
                     });
-                    
+
                     // Aktualizovat čítač podle načtených ID (např. "item-5" -> 5)
                     if (id.StartsWith("item-") && int.TryParse(id.Substring(5), out var num))
                     {
@@ -315,7 +303,7 @@
         var solutionJson = JsonSerializer.Serialize(solution, new JsonSerializerOptions { WriteIndented = true });
         _lastLoadedSolutionJson = solutionJson; // Aktualizovat před odesláním, aby se zabránilo reload
         SolutionJsonChanged.InvokeAsync(solutionJson);
-        
+
         StateHasChanged();
     }
 

@@ -48,27 +48,6 @@
     color: var(--color-neutral-600);
 }
 
-.article-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.article-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    text-align: left;
-    font: inherit;
-    font-size: 16px;
-    padding: 12px var(--space-4);
-    background: transparent;
-    border: 0;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    color: var(--color-text);
-}
-
 .category-page h2 {
     font-size: 26px;
     margin-bottom: var(--space-3);

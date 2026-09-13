@@ -1,0 +1,34 @@
+.search-select-wrap {
+    position: relative;
+}
+
+.search-input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.search-input-row .input {
+    flex: 1;
+}
+
+.search-dropdown-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 40;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.dropdown-item-active {
+    background: var(--color-accent-200);
+    color: var(--color-accent-800);
+    font-weight: 700;
+}
+
+.dropdown-empty {
+    padding: 0.75rem 1rem;
+    color: var(--color-neutral-600);
+}

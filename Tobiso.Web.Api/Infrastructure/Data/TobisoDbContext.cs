@@ -27,6 +27,7 @@ public class TobisoDbContext : DbContext
     public DbSet<AppUser> Users { get; set; }
     public DbSet<AiChatSession> AiChatSessions { get; set; }
     public DbSet<AiChatMessage> AiChatMessages { get; set; }
+    public DbSet<AiChatSessionPost> AiChatSessionPosts { get; set; }
     public DbSet<AiCreditTransaction> AiCreditTransactions { get; set; }
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
@@ -264,6 +265,25 @@ public class TobisoDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.PostId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure join table AiChatSessionPost (attached posts per chat session)
+        modelBuilder.Entity<AiChatSessionPost>(entity =>
+        {
+            entity.HasKey(e => new { e.AiChatSessionId, e.PostId });
+
+            entity.HasOne(e => e.AiChatSession)
+                .WithMany(s => s.AttachedPosts)
+                .HasForeignKey(e => e.AiChatSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                // NoAction (not Cascade): a cascade here plus the cascade already leaving
+                // AiChatSessions for Posts would create two cascade paths to Posts, which SQL
+                // Server rejects. Orphaned join rows are cleaned up manually in PostService.Delete.
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // Configure AiChatMessage

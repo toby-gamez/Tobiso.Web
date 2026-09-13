@@ -1,55 +1,48 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
+@inject IJSRuntime JS
 
 <div class="circuit-editor">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Editor obvodu</h5>
-                </div>
-                <div class="card-body">
-                    <div class="canvas-container" style="position: relative; border: 2px solid #dee2e6; min-height: 400px; background: #f8f9fa;">
-                        @foreach (var component in _components)
-                        {
-                            <div class="circuit-component @(component.Id == _selectedComponentId ? "selected" : "")"
-                                 style="position: absolute; left: @(component.X)px; top: @(component.Y)px; cursor: move;"
-                                 @onclick="() => SelectComponent(component.Id)"
-                                 draggable="true">
-                                <div class="component-visual">
-                                    @GetComponentIcon(component.Type)
-                                    <div class="component-label">@component.Type</div>
-                                </div>
+    <div class="circuit-columns">
+        <div class="panel canvas-panel">
+            <div class="panel-header"><i data-lucide="zap"></i> Editor obvodu</div>
+            <div class="panel-body">
+                <div class="canvas-container" style="position: relative;">
+                    @foreach (var component in _components)
+                    {
+                        <div class="circuit-component @(component.Id == _selectedComponentId ? "selected" : "")"
+                             style="position: absolute; left: @(component.X)px; top: @(component.Y)px;"
+                             @onclick="() => SelectComponent(component.Id)"
+                             draggable="true">
+                            <div class="component-visual">
+                                @GetComponentIcon(component.Type)
+                                <div class="component-label">@component.Type</div>
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h6 class="mb-0">Dostupné komponenty</h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-outline-warning" @onclick='() => AddComponent("battery")'>
-                            <i class="bi bi-battery-charging"></i> Baterie
-                        </button>
-                        <button class="btn btn-outline-warning" @onclick='() => AddComponent("bulb")'>
-                            <i class="bi bi-lightbulb"></i> Žárovka
-                        </button>
-                        <button class="btn btn-outline-primary" @onclick='() => AddComponent("switch")'>
-                            <i class="bi bi-toggle-on"></i> Přepínač
-                        </button>
-                        <button class="btn btn-outline-secondary" @onclick='() => AddComponent("resistor")'>
-                            <i class="bi bi-activity"></i> Odpor
-                        </button>
-                        <button class="btn btn-outline-info" @onclick='() => AddComponent("wire")'>
-                            <i class="bi bi-dash-lg"></i> Vodič
-                        </button>
-                    </div>
+
+        <div class="sidebar-stack">
+            <div class="panel">
+                <div class="panel-header">Dostupné komponenty</div>
+                <div class="panel-body component-palette">
+                    <button class="btn btn-secondary" @onclick='() => AddComponent("battery")'>
+                        <i data-lucide="battery-charging"></i> Baterie
+                    </button>
+                    <button class="btn btn-secondary" @onclick='() => AddComponent("bulb")'>
+                        <i data-lucide="lightbulb"></i> Žárovka
+                    </button>
+                    <button class="btn btn-secondary" @onclick='() => AddComponent("switch")'>
+                        <i data-lucide="toggle-right"></i> Přepínač
+                    </button>
+                    <button class="btn btn-secondary" @onclick='() => AddComponent("resistor")'>
+                        <i data-lucide="activity"></i> Odpor
+                    </button>
+                    <button class="btn btn-secondary" @onclick='() => AddComponent("wire")'>
+                        <i data-lucide="minus"></i> Vodič
+                    </button>
                 </div>
             </div>
 
@@ -58,103 +51,60 @@
                 var component = _components.FirstOrDefault(c => c.Id == _selectedComponentId);
                 if (component != null)
                 {
-                    <div class="card mb-3">
-                        <div class="card-header bg-primary text-white">
-                            <h6 class="mb-0">Vlastnosti: @component.Type</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-2">
-                                <label class="form-label">ID</label>
-                                <input type="text" class="form-control form-control-sm" @bind="component.Id" disabled />
+                    <div class="panel">
+                        <div class="panel-header">Vlastnosti: @component.Type</div>
+                        <div class="panel-body properties-body">
+                            <div class="field">
+                                <label>ID</label>
+                                <input type="text" class="input" @bind="component.Id" disabled />
                             </div>
-                            
+
                             @if (component.Type == "battery")
                             {
-                                <div class="mb-2">
-                                    <label class="form-label">Napětí (V)</label>
-                                    <input type="number" class="form-control form-control-sm" @bind="component.Voltage" />
+                                <div class="field">
+                                    <label>Napětí (V)</label>
+                                    <input type="number" class="input" @bind="component.Voltage" />
                                 </div>
                             }
                             else if (component.Type == "bulb" || component.Type == "resistor")
                             {
-                                <div class="mb-2">
-                                    <label class="form-label">Odpor (Ω)</label>
-                                    <input type="number" class="form-control form-control-sm" @bind="component.Resistance" />
+                                <div class="field">
+                                    <label>Odpor (Ω)</label>
+                                    <input type="number" class="input" @bind="component.Resistance" />
                                 </div>
                             }
-                            
-                            <div class="mb-2">
-                                <label class="form-label">X pozice</label>
-                                <input type="number" class="form-control form-control-sm" @bind="component.X" />
+
+                            <div class="field">
+                                <label>X pozice</label>
+                                <input type="number" class="input" @bind="component.X" />
                             </div>
-                            <div class="mb-2">
-                                <label class="form-label">Y pozice</label>
-                                <input type="number" class="form-control form-control-sm" @bind="component.Y" />
+                            <div class="field">
+                                <label>Y pozice</label>
+                                <input type="number" class="input" @bind="component.Y" />
                             </div>
-                            
-                            <button class="btn btn-danger btn-sm w-100 mt-2" @onclick="RemoveSelectedComponent">
-                                <i class="bi bi-trash"></i> Odstranit
+
+                            <button class="btn btn-danger btn-sm properties-remove" @onclick="RemoveSelectedComponent">
+                                <i data-lucide="trash-2"></i> Odstranit
                             </button>
                         </div>
                     </div>
                 }
             }
 
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">Akce</h6>
-                </div>
-                <div class="card-body">
-                    <button class="btn btn-success btn-sm w-100 mb-2" @onclick="GenerateJson">
-                        <i class="bi bi-code-square"></i> Generovat JSON
+            <div class="panel">
+                <div class="panel-header">Akce</div>
+                <div class="panel-body actions-body">
+                    <button class="btn btn-secondary btn-sm" @onclick="GenerateJson">
+                        <i data-lucide="code-2"></i> Generovat JSON
                     </button>
-                    <button class="btn btn-warning btn-sm w-100" @onclick="ClearAll">
-                        <i class="bi bi-x-circle"></i> Vymazat vše
+                    <button class="btn btn-danger btn-sm" @onclick="ClearAll">
+                        <i data-lucide="x-circle"></i> Vymazat vše
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    .circuit-component {
-        padding: 10px;
-        background: white;
-        border: 2px solid #6c757d;
-        border-radius: 8px;
-        transition: all 0.2s;
-        user-select: none;
-    }
-    
-    .circuit-component:hover {
-        border-color: #0d6efd;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        transform: scale(1.05);
-    }
-    
-    .circuit-component.selected {
-        border-color: #0d6efd;
-        border-width: 3px;
-        box-shadow: 0 0 15px rgba(13, 110, 253, 0.5);
-    }
-    
-    .component-visual {
-        text-align: center;
-    }
-    
-    .component-visual i {
-        font-size: 2rem;
-        display: block;
-        margin-bottom: 5px;
-    }
-    
-    .component-label {
-        font-size: 0.75rem;
-        font-weight: bold;
-        color: #495057;
-    }
-</style>
 
 @code {
     [Parameter]
@@ -170,6 +120,11 @@
     protected override void OnParametersSet()
     {
         LoadFromJson();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private void LoadFromJson()
@@ -280,26 +235,16 @@
     {
         var icon = type switch
         {
-            "battery" => "bi-battery-charging",
-            "bulb" => "bi-lightbulb",
-            "switch" => "bi-toggle-on",
-            "resistor" => "bi-activity",
-            "wire" => "bi-dash-lg",
-            _ => "bi-question-circle"
-        };
-        
-        var color = type switch
-        {
-            "battery" => "text-warning",
-            "bulb" => "text-warning",
-            "switch" => "text-primary",
-            "resistor" => "text-secondary",
-            "wire" => "text-info",
-            _ => ""
+            "battery" => "battery-charging",
+            "bulb" => "lightbulb",
+            "switch" => "toggle-right",
+            "resistor" => "activity",
+            "wire" => "minus",
+            _ => "help-circle"
         };
 
         builder.OpenElement(0, "i");
-        builder.AddAttribute(1, "class", $"bi {icon} {color}");
+        builder.AddAttribute(1, "data-lucide", icon);
         builder.CloseElement();
     };
 

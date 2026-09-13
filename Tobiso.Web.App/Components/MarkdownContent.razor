@@ -17,7 +17,6 @@
     [Parameter] public EventCallback<List<(string Text, string Anchor)>> OnHeadingsExtracted { get; set; }
 
     private string _renderedHtml = string.Empty;
-    private bool _katexLoaded = false;
     private readonly List<(string Text, string Anchor)> _headings = [];
     private string? _lastProcessedContent;
     private List<PersonSummaryResponse>? _lastProcessedPeople;
@@ -39,73 +38,12 @@
             await OnHeadingsExtracted.InvokeAsync([.. _headings]);
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool _)
     {
-        if (firstRender)
-        {
-            // Dynamically load KaTeX (CSS + JS) and auto-render inline $...$ math
-            await Js.InvokeVoidAsync("eval", $@"
-                (function(){{
-                    var containerId = '{ContainerId}';
-                    function renderMath(){{
-                        try{{ renderMathInElement(document.getElementById(containerId), {{delimiters: [{{left:'$$', right:'$$', display:true}},{{left:'$', right:'$', display:false}}]}}); }}catch(e){{}}
-                        try{{
-                            document.querySelectorAll('[data-math]').forEach(function(el){{
-                                try{{
-                                    var math = el.getAttribute('data-math');
-                                    if(math && window.katex && typeof window.katex.render === 'function'){{
-                                        katex.render(math, el, {{throwOnError:false, displayMode:false}});
-                                    }}
-                                }}catch(_){{ }}
-                            }});
-                        }}catch(_){{ }}
-                    }}
-                    if (window.__katexLoaded) {{
-                        renderMath();
-                        return;
-                    }}
-                    window.__katexLoaded = true;
-                    try{{
-                        var link = document.createElement('link');
-                        link.rel = 'stylesheet';
-                        link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
-                        document.head.appendChild(link);
-
-                        var s1 = document.createElement('script');
-                        s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js';
-                        s1.defer = true;
-                        document.head.appendChild(s1);
-
-                        var s2 = document.createElement('script');
-                        s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js';
-                        s2.defer = true;
-                        s2.onload = function(){{ renderMath(); }};
-                        document.head.appendChild(s2);
-                    }}catch(e){{}}
-                }})();
-            ");
-        }
-        else
-        {
-            // On subsequent renders re-run math rendering if KaTeX is already available
-            await Js.InvokeVoidAsync("eval", $@"
-                try{{
-                    if(window.renderMathInElement){{
-                        renderMathInElement(document.getElementById('{ContainerId}'), {{delimiters: [{{left:'$$', right:'$$', display:true}},{{left:'$', right:'$', display:false}}]}});
-                    }}
-                    try{{
-                        document.querySelectorAll('[data-math]').forEach(function(el){{
-                            try{{
-                                var math = el.getAttribute('data-math');
-                                if(math && window.katex && typeof window.katex.render === 'function'){{
-                                    katex.render(math, el, {{throwOnError:false, displayMode:false}});
-                                }}
-                            }}catch(_){{ }}
-                        }});
-                    }}catch(_){{ }}
-                }}catch(e){{}}
-            ");
-        }
+        // Dynamically load KaTeX (CSS + JS) and auto-render inline $...$ math.
+        // Loads on first render; on subsequent renders it re-runs against the
+        // already-loaded KaTeX. Implemented in wwwroot/js/katex-init.js.
+        await Js.InvokeVoidAsync("renderMarkdownMath", ContainerId);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

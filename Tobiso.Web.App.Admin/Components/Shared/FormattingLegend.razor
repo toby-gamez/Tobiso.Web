@@ -2,15 +2,17 @@
    (Tobiso.Web.App/Components/MarkdownContent.razor) understands, so authors don't
    have to read the source to remember them. *@
 
+@inject IJSRuntime JS
+
 @if (Visible)
 {
-    <div class="fl-modal-backdrop" @onclick="Close">
-        <div class="fl-modal-dialog" @onclick:stopPropagation>
-            <div class="fl-modal-header">
-                <span><i class="bi bi-info-circle"></i> Nápověda k formátování obsahu</span>
-                <button type="button" class="fl-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-panel modal-panel--lg" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i data-lucide="info"></i> Nápověda k formátování obsahu</h3>
+                <button type="button" class="modal-close" aria-label="Zavřít" @onclick="Close"><i data-lucide="x"></i></button>
             </div>
-            <div class="fl-modal-body">
+            <div class="modal-body">
 
                 <section class="fl-section">
                     <h6>Základní Markdown</h6>
@@ -135,19 +137,9 @@ Zdroj: Wikipedia</pre>
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
     private Task Close() => VisibleChanged.InvokeAsync(false);
-}
 
-<style>
-    .fl-modal-backdrop { position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem; }
-    .fl-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;width:720px;max-width:100%;max-height:88vh;overflow-y:auto; }
-    .fl-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1.05rem;margin-bottom:1rem;position:sticky;top:0;background:#fff; }
-    .fl-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
-    .fl-section { margin-bottom:1.1rem; }
-    .fl-section h6 { font-weight:700;margin-bottom:.5rem;color:#333; }
-    .fl-table { width:100%;border-collapse:collapse;font-size:.86rem; }
-    .fl-table td { padding:.32rem .5rem;border-bottom:1px solid #eee;vertical-align:top; }
-    .fl-table td:first-child { white-space:nowrap;width:1%; }
-    .fl-table code { background:#f5f5f5;padding:.1rem .35rem;border-radius:4px;color:#c36f9a; }
-    .fl-pre { background:#f5f5f5;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;white-space:pre-wrap;margin-bottom:.4rem; }
-    .fl-note { font-size:.82rem;color:#666;margin:.3rem 0 0; }
-</style>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+}

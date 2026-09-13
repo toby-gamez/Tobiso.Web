@@ -1,0 +1,80 @@
+.range-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.events-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.events-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.timeline-preview {
+    position: relative;
+    height: 100px;
+    background: linear-gradient(to right, var(--color-neutral-200) 0%, var(--color-neutral-300) 100%);
+    border-radius: var(--radius-md);
+    margin: var(--space-4) 0;
+}
+
+.timeline-range-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 700;
+    color: var(--color-neutral-700);
+}
+
+.timeline-range-start {
+    left: 10px;
+}
+
+.timeline-range-end {
+    right: 10px;
+}
+
+.timeline-marker-wrap {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.timeline-event-marker {
+    cursor: pointer;
+    transition: transform 120ms ease;
+}
+
+.timeline-event-marker:hover {
+    transform: scale(1.3);
+}
+
+.timeline-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--color-accent-600);
+    border: 2px solid var(--color-bg);
+    box-shadow: var(--shadow-sm);
+}
+
+.reorder-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.editor-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-top: var(--space-4);
+}

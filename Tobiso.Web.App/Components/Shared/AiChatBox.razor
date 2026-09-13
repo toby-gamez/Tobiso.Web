@@ -72,9 +72,16 @@
         </div>
     }
 
-    @if (_attachedPosts.Count > 0)
+    @if (AllowAttachPosts && _attachedPosts.Count > 0 || !string.IsNullOrEmpty(PinnedPostTitle))
     {
         <div class="chat-attachments">
+            @if (!string.IsNullOrEmpty(PinnedPostTitle))
+            {
+                <span class="chat-attachment-chip chat-attachment-pinned">
+                    <i data-lucide="pin"></i>
+                    <span class="chat-attachment-title">@PinnedPostTitle</span>
+                </span>
+            }
             @foreach (var p in _attachedPosts)
             {
                 <span class="chat-attachment-chip">
@@ -88,7 +95,7 @@
         </div>
     }
 
-    @if (_showAttachPicker)
+    @if (AllowAttachPosts && _showAttachPicker)
     {
         <div class="chat-attach-picker">
             <input class="input" placeholder="Hledat článek…" @bind="_attachSearch" @bind:event="oninput" />
@@ -113,10 +120,13 @@
     }
 
     <div class="chat-input-row">
-        <button class="chat-attach-btn @(_showAttachPicker ? "active" : "")" type="button"
-                @onclick="ToggleAttachPicker" disabled="@_streaming" aria-label="Připojit článek k otázce" title="Připojit článek k otázce">
-            <i data-lucide="paperclip"></i>
-        </button>
+        @if (AllowAttachPosts)
+        {
+            <button class="chat-attach-btn @(_showAttachPicker ? "active" : "")" type="button"
+                    @onclick="ToggleAttachPicker" disabled="@_streaming" aria-label="Připojit článek k otázce" title="Připojit článek k otázce">
+                <i data-lucide="paperclip"></i>
+            </button>
+        }
         <input class="input" placeholder="@Placeholder" @bind="_draft" @bind:event="oninput"
                @onkeydown="OnKeyDown" disabled="@_streaming" />
         <button class="pill pill-on chat-send" @onclick="Send" disabled="@(_streaming || string.IsNullOrWhiteSpace(_draft))">
@@ -130,6 +140,10 @@
     /// <summary>Optional: load one specific past conversation instead of the most recent one for PostId. Used by the standalone /chat page's "new chat" / history navigation.</summary>
     [Parameter] public int? SessionId { get; set; }
     [Parameter] public bool SocraticMode { get; set; }
+    [Parameter] public string? PinnedPostTitle { get; set; }
+    /// <summary>When false (e.g. a chat embedded in an article page), hides the picker that attaches additional
+    /// posts — the article itself is the only pinned context.</summary>
+    [Parameter] public bool AllowAttachPosts { get; set; } = true;
     [Parameter] public string EmptyTitle { get; set; } = "Zeptej se na cokoliv z učiva.";
     [Parameter] public string Placeholder { get; set; } = "Napiš otázku…";
     [Parameter] public string[] Suggestions { get; set; } = ["Vysvětli mi to jednodušeji", "Dej mi příklad", "Na co se mě můžou zeptat?"];
@@ -170,6 +184,7 @@
 
     private async Task ToggleAttachPicker()
     {
+        if (!AllowAttachPosts) return;
         _showAttachPicker = !_showAttachPicker;
         if (_showAttachPicker && !_availablePostsLoaded)
         {
@@ -194,8 +209,14 @@
     private int? _loadedForSessionId;
     private int? _userId;
     private int? _currentSessionId;
+    private int? _activePostId;
+    private bool _newChatResetPending;
 
     private int? ContextPostId => PostId > 0 ? PostId : null;
+
+    /// <summary>The post whose content the current conversation is scoped to: either the box's own
+    /// PostId, or the post pinned to a conversation loaded by SessionId on the standalone /chat page.</summary>
+    private int? EffectivePostId => _activePostId ?? ContextPostId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -204,6 +225,20 @@
         // history sidebar), so history has to reload whenever PostId/SessionId actually change
         // rather than only once at construction.
         if (_historyEverLoaded && PostId == _loadedForPostId && SessionId == _loadedForSessionId) return;
+
+        if (_newChatResetPending)
+        {
+            // A "new chat" reset is in flight: the host page navigates right after resetting to
+            // strip the ?session= query string. Until that parameter settles to null, don't reload
+            // anything - otherwise the just-cleared conversation gets silently restored from the DB
+            // (the re-entered OnParametersSetAsync would otherwise auto-load the most recent session).
+            if (SessionId != null) return;
+            _newChatResetPending = false;
+            _loadedForPostId = PostId;
+            _loadedForSessionId = null;
+            return;
+        }
+
         _historyEverLoaded = true;
         _loadedForPostId = PostId;
         _loadedForSessionId = SessionId;
@@ -211,6 +246,8 @@
         _messages.Clear();
         _userId = null;
         _currentSessionId = null;
+        _activePostId = null;
+        _attachedPosts.Clear();
 
         var auth = await AuthState.GetAuthenticationStateAsync();
         if (auth.User.Identity?.IsAuthenticated != true ||
@@ -224,8 +261,9 @@
         {
             session = await ChatHistory.GetSessionByIdAsync(sid, uid);
             // Ignore a session id that doesn't belong to this box's context (e.g. a stale/tampered
-            // query string) rather than leaking a different conversation into view.
-            if (session != null && session.PostId != ContextPostId) session = null;
+            // query string) rather than leaking a different conversation into view. A post-pinned
+            // session is fair game on the standalone /chat page (PostId == 0, no context constraint).
+            if (session != null && ContextPostId != null && session.PostId != ContextPostId) session = null;
         }
         else
         {
@@ -235,8 +273,25 @@
         if (session == null) return;
 
         _currentSessionId = session.Id;
+        // When the conversation is pinned to a post (started from an article, or attached there),
+        // keep that post as the AI context for follow-ups even on the standalone /chat page so the
+        // model stays anchored to the article instead of answering from general knowledge.
+        _activePostId = session.PostId;
         var history = await ChatHistory.GetSessionMessagesAsync(session.Id, uid);
         _messages.AddRange(history.Select(m => new AiMessage { Role = m.Role, Content = m.Content }));
+
+        // Restore the extra posts the student attached earlier so follow-up questions keep sending
+        // their content to the AI even after a reload or history navigation wiped the in-memory chips.
+        var attachedPostIds = await ChatHistory.GetAttachedPostIdsAsync(session.Id, uid);
+        if (attachedPostIds.Count > 0)
+        {
+            if (!_availablePostsLoaded)
+            {
+                _availablePosts = await PostService.GetSummaries();
+                _availablePostsLoaded = true;
+            }
+            _attachedPosts.AddRange(_availablePosts.Where(p => attachedPostIds.Contains(p.Id)));
+        }
     }
 
     /// <summary>Clears the visible conversation; the next question lazily starts a brand-new session. Used by the host page's "new chat" action.</summary>
@@ -244,16 +299,18 @@
     {
         _messages.Clear();
         _currentSessionId = null;
+        _activePostId = null;
+        _attachedPosts.Clear();
         _error = null;
         _draft = "";
 
-        // Mark the reset state as already "loaded" for a null SessionId so that when the host page
-        // navigates to clear the ?session= query string, OnParametersSetAsync's guard sees no change
-        // and doesn't re-run FindSessionAsync - which would otherwise reload the same most-recent
-        // session from the DB and silently undo this reset.
-        _historyEverLoaded = true;
-        _loadedForPostId = PostId;
-        _loadedForSessionId = null;
+        // When a conversation is open the host also navigates to strip the ?session= query string,
+        // which re-enters OnParametersSetAsync. Flag the reset so that re-entry swallows any
+        // auto-load until the parameter has settled to null, instead of restoring the thread we
+        // just cleared. When nothing was loaded (_loadedForSessionId is null) there is no
+        // navigation-driven re-entry and the guard keeps the cleared state as-is.
+        if (_loadedForSessionId != null)
+            _newChatResetPending = true;
 
         StateHasChanged();
     }
@@ -313,7 +370,7 @@
 
         var request = new AiChatRequest
         {
-            PostId = PostId,
+            PostId = EffectivePostId ?? 0,
             Question = question,
             SocraticMode = SocraticMode,
             ConversationHistory = [.. _messages.Take(_messages.Count - 1)],
@@ -386,6 +443,7 @@
 
             await ChatHistory.SaveMessageAsync(sid, "user", question);
             await ChatHistory.SaveMessageAsync(sid, "assistant", answer, creditsUsed);
+            await ChatHistory.SaveAttachedPostsAsync(sid, _attachedPosts.Select(p => p.Id));
         }
         catch (Exception ex)
         {

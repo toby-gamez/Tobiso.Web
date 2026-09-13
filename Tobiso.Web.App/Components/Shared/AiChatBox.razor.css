@@ -6,10 +6,21 @@
     flex: 1;
 }
 
+/* Center Lucide SVGs inside their <i> placeholders — the inline SVG sits in
+   a line box whose baseline alignment doesn't perfectly center the glyph.
+   Making <i> a flex container forces exact centering. */
+.chat-box i[data-lucide] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .chat-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    flex: 1;
     gap: var(--space-3);
     padding: var(--space-8) var(--space-4);
     text-align: center;
@@ -26,6 +37,18 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: var(--space-2);
+}
+
+/* Suggestion chips: neutral-200 hover reads in both themes (neutral-100 blends into the
+   surface panel in dark mode). Text color stays --color-text so dark mode stays readable. */
+.chat-suggestions .pill {
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.chat-suggestions .pill:hover,
+.chat-suggestions .pill:focus-visible {
+    background: var(--color-neutral-200);
+    border-color: var(--color-accent-600);
 }
 
 .chat-thread {
@@ -150,6 +173,12 @@
 }
 
 .chat-attachment-chip i[data-lucide] { width: 14px; height: 14px; flex-shrink: 0; }
+
+.chat-attachment-pinned {
+    background: var(--color-accent-2-100);
+    color: var(--color-accent-2-800);
+    border: 1px dashed var(--color-accent-2-400);
+}
 
 .chat-attachment-title {
     overflow: hidden;

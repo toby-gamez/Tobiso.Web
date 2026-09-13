@@ -203,6 +203,14 @@ public class PostService : IPostService
             if (relatedRefs.Any())
                 _context.RelatedPosts.RemoveRange(relatedRefs);
 
+            // Remove any AI chat attachments referencing this post - its AiChatSessionPosts FK is
+            // NoAction (SQL Server forbids it being cascade), so the join rows need manual cleanup.
+            var chatAttachedRefs = await _context.AiChatSessionPosts
+                .Where(x => x.PostId == id)
+                .ToListAsync();
+            if (chatAttachedRefs.Count > 0)
+                _context.AiChatSessionPosts.RemoveRange(chatAttachedRefs);
+
             var entity = await _context.Posts
                 .Include(p => p.Questions)
                     .ThenInclude(q => q.Answers)

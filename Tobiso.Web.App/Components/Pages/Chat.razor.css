@@ -30,6 +30,12 @@
     flex-shrink: 0;
 }
 
+.chat-header-actions i[data-lucide] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .new-chat-btn {
     font-size: 14px;
     white-space: nowrap;
@@ -40,6 +46,10 @@
     flex-direction: column;
     padding: var(--space-5);
     min-height: 460px;
+    /* Surface (not soft's neutral-100): keeps pill hovers (neutral-100) visible,
+       matching the chat box on article pages. */
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
 }
 
 .chat-history h2 {

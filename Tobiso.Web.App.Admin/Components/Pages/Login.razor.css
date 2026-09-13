@@ -1,0 +1,25 @@
+.login-card {
+    width: 100%;
+    max-width: 380px;
+}
+
+.login-header {
+    justify-content: center;
+    text-align: center;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.field-error {
+    font-size: 13px;
+    color: var(--color-accent-800);
+}
+
+.login-submit {
+    width: 100%;
+    margin-top: var(--space-2);
+}

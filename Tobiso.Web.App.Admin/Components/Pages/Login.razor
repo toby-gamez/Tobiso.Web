@@ -13,55 +13,41 @@
 
 <PageTitle>Login</PageTitle>
 
-<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="text-center mb-0">Login</h4>
-                    </div>
-                    <div class="card-body p-4">
-                        @if (!string.IsNullOrEmpty(errorMessage))
-                        {
-                            <div class="alert alert-danger" role="alert">
-                                @errorMessage
-                            </div>
-                        }
+<div class="login-card panel">
+    <div class="panel-header login-header">Login</div>
+    <div class="panel-body">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert-error">@errorMessage</div>
+        }
 
-                        <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
-                            <DataAnnotationsValidator />
+        <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm" class="login-form">
+            <DataAnnotationsValidator />
 
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <InputText id="username" @bind-Value="loginModel.Username" class="form-control" placeholder="Enter username" />
-                                <ValidationMessage For="() => loginModel.Username" class="text-danger" />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <InputText id="password" @bind-Value="loginModel.Password" type="password" class="form-control" placeholder="Enter password" />
-                                <ValidationMessage For="() => loginModel.Password" class="text-danger" />
-                            </div>
-
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary" disabled="@isLoggingIn">
-                                    @if (isLoggingIn)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                        <span>Logging in...</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Login</span>
-                                    }
-                                </button>
-                            </div>
-                        </EditForm>
-                    </div>
-                </div>
+            <div class="field">
+                <label for="username">Username</label>
+                <InputText id="username" @bind-Value="loginModel.Username" class="input" placeholder="Enter username" />
+                <ValidationMessage For="() => loginModel.Username" class="field-error" />
             </div>
-        </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <InputText id="password" @bind-Value="loginModel.Password" type="password" class="input" placeholder="Enter password" />
+                <ValidationMessage For="() => loginModel.Password" class="field-error" />
+            </div>
+
+            <button type="submit" class="btn btn-primary login-submit" disabled="@isLoggingIn">
+                @if (isLoggingIn)
+                {
+                    <i data-lucide="loader-2" class="spinner"></i>
+                    <span>Logging in...</span>
+                }
+                else
+                {
+                    <span>Login</span>
+                }
+            </button>
+        </EditForm>
     </div>
 </div>
 
@@ -83,6 +69,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await JSRuntime.InvokeVoidAsync("initLucide");
+
         if (_tokenChecked) return;
         try
         {

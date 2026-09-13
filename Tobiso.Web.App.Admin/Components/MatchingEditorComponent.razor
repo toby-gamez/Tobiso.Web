@@ -1,137 +1,122 @@
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components
+@inject IJSRuntime JS
 
 <div class="matching-editor">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0"><i class="bi bi-list-ol"></i> Levý sloupec (otázky)</h6>
-                </div>
-                <div class="card-body">
-                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddLeft">
-                        <i class="bi bi-plus"></i> Přidat položku
-                    </button>
-                    @if (!_left.Any())
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Přidejte položky do levého sloupce (např. otázky, pojmy)
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="list-group">
-                            @foreach (var l in _left)
-                            {
-                                <div class="list-group-item">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" @bind="l.Text" @bind:after="GenerateJson" placeholder="Text položky" />
-                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveLeft(l.Id)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">ID: @l.Id</small>
+    <div class="editor-columns">
+        <div class="panel">
+            <div class="panel-header"><i data-lucide="list-ordered"></i> Levý sloupec (otázky)</div>
+            <div class="panel-body">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddLeft">
+                    <i data-lucide="plus"></i> Přidat položku
+                </button>
+                @if (!_left.Any())
+                {
+                    <div class="callout-tip">
+                        <i data-lucide="info"></i> Přidejte položky do levého sloupce (např. otázky, pojmy)
+                    </div>
+                }
+                else
+                {
+                    <div class="editor-list">
+                        @foreach (var l in _left)
+                        {
+                            <div class="editor-list-item">
+                                <div class="editor-list-row">
+                                    <input type="text" class="input" @bind="l.Text" @bind:after="GenerateJson" placeholder="Text položky" />
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLeft(l.Id)">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
                                 </div>
-                            }
-                        </div>
-                    }
-                </div>
+                                <small class="editor-item-id">ID: @l.Id</small>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> Pravý sloupec (odpovědi)</h6>
-                </div>
-                <div class="card-body">
-                    <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddRight">
-                        <i class="bi bi-plus"></i> Přidat položku
-                    </button>
-                    @if (!_right.Any())
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Přidejte položky do pravého sloupce (např. odpovědi, definice)
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="list-group">
-                            @foreach (var r in _right)
-                            {
-                                <div class="list-group-item">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" @bind="r.Text" @bind:after="GenerateJson" placeholder="Text položky" />
-                                        <button type="button" class="btn btn-outline-danger" @onclick="() => RemoveRight(r.Id)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">ID: @r.Id</small>
+        <div class="panel">
+            <div class="panel-header"><i data-lucide="list"></i> Pravý sloupec (odpovědi)</div>
+            <div class="panel-body">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddRight">
+                    <i data-lucide="plus"></i> Přidat položku
+                </button>
+                @if (!_right.Any())
+                {
+                    <div class="callout-tip">
+                        <i data-lucide="info"></i> Přidejte položky do pravého sloupce (např. odpovědi, definice)
+                    </div>
+                }
+                else
+                {
+                    <div class="editor-list">
+                        @foreach (var r in _right)
+                        {
+                            <div class="editor-list-item">
+                                <div class="editor-list-row">
+                                    <input type="text" class="input" @bind="r.Text" @bind:after="GenerateJson" placeholder="Text položky" />
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveRight(r.Id)">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
                                 </div>
-                            }
-                        </div>
-                    }
-                </div>
+                                <small class="editor-item-id">ID: @r.Id</small>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
     </div>
-    <div class="card mb-3">
-        <div class="card-header bg-dark text-white">
-            <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Páry (řešení)</h6>
-        </div>
-        <div class="card-body">
-            <button type="button" class="btn btn-sm btn-success mb-3" @onclick="AddPair">
-                <i class="bi bi-plus"></i> Přidat pár
+    <div class="panel pairs-panel">
+        <div class="panel-header"><i data-lucide="link"></i> Páry (řešení)</div>
+        <div class="panel-body">
+            <button type="button" class="btn btn-primary btn-sm" @onclick="AddPair">
+                <i data-lucide="plus"></i> Přidat pár
             </button>
             @if (!_pairs.Any())
             {
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Přidejte páry (propojení mezi levou a pravou položkou)
+                <div class="callout-tip">
+                    <i data-lucide="info"></i> Přidejte páry (propojení mezi levou a pravou položkou)
                 </div>
             }
             else
             {
-                <div class="list-group">
+                <div class="editor-list">
                     @foreach (var pair in _pairs)
                     {
-                        <div class="list-group-item">
-                            <div class="row g-2 align-items-center">
-                                <div class="col-5">
-                                    <select class="form-select form-select-sm" @bind="pair.LeftId" @bind:after="GenerateJson">
-                                        <option value="">-- Levá položka --</option>
-                                        @foreach (var l in _left)
-                                        {
-                                            <option value="@l.Id">@l.Text</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-5">
-                                    <select class="form-select form-select-sm" @bind="pair.RightId" @bind:after="GenerateJson">
-                                        <option value="">-- Pravá položka --</option>
-                                        @foreach (var r in _right)
-                                        {
-                                            <option value="@r.Id">@r.Text</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-2">
-                                    <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemovePair(pair.Id)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
+                        <div class="editor-list-item">
+                            <div class="editor-list-row editor-list-row--pair">
+                                <select class="select" @bind="pair.LeftId" @bind:after="GenerateJson">
+                                    <option value="">-- Levá položka --</option>
+                                    @foreach (var l in _left)
+                                    {
+                                        <option value="@l.Id">@l.Text</option>
+                                    }
+                                </select>
+                                <select class="select" @bind="pair.RightId" @bind:after="GenerateJson">
+                                    <option value="">-- Pravá položka --</option>
+                                    @foreach (var r in _right)
+                                    {
+                                        <option value="@r.Id">@r.Text</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemovePair(pair.Id)">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
                             </div>
-                            <small class="text-muted">ID: @pair.Id</small>
+                            <small class="editor-item-id">ID: @pair.Id</small>
                         </div>
                     }
                 </div>
             }
         </div>
     </div>
-    <div class="mt-3 d-flex justify-content-between">
-        <button type="button" class="btn btn-success" @onclick="GenerateJson">
-            <i class="bi bi-code-square"></i> Aktualizovat JSON
+    <div class="editor-actions">
+        <button type="button" class="btn btn-secondary" @onclick="GenerateJson">
+            <i data-lucide="code-2"></i> Aktualizovat JSON
         </button>
-        <button type="button" class="btn btn-warning" @onclick="ClearAll">
-            <i class="bi bi-x-circle"></i> Vymazat vše
+        <button type="button" class="btn btn-danger" @onclick="ClearAll">
+            <i data-lucide="x-circle"></i> Vymazat vše
         </button>
     </div>
 </div>
@@ -166,6 +151,11 @@
             _lastLoadedConfigJson = ConfigJson;
             _lastLoadedSolutionJson = SolutionJson;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private void LoadFromJson()

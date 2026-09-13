@@ -87,9 +87,11 @@ namespace Tobiso.Web.App.Services
 
             var messages = new List<object>
             {
-                new { role = "system", content = systemPrompt },
-                new { role = "system", content = $"Article context:\n{articleContext}" }
+                new { role = "system", content = systemPrompt }
             };
+
+            if (!string.IsNullOrWhiteSpace(articleContext))
+                messages.Add(new { role = "system", content = $"Article context:\n{articleContext}" });
 
             await AddAttachedPostContextAsync(messages, request);
 
@@ -591,9 +593,11 @@ namespace Tobiso.Web.App.Services
 
             var messages = new List<object>
             {
-                new { role = "system", content = systemPrompt },
-                new { role = "system", content = $"Article context:\n{articleContext}" }
+                new { role = "system", content = systemPrompt }
             };
+
+            if (!string.IsNullOrWhiteSpace(articleContext))
+                messages.Add(new { role = "system", content = $"Article context:\n{articleContext}" });
 
             await AddAttachedPostContextAsync(messages, request);
 

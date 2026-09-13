@@ -1,0 +1,51 @@
+.matching-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.editor-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-4);
+    align-items: start;
+}
+
+.pairs-panel {
+    width: 100%;
+}
+
+.editor-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.editor-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-list-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.editor-list-row--pair .select {
+    flex: 1;
+}
+
+.editor-item-id {
+    color: var(--color-neutral-500);
+    font-size: 12px;
+}
+
+.editor-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}

@@ -60,14 +60,22 @@
         <div>
             @if (_children.Count > 0)
             {
-                <h2>Články v @(_currentCategory?.Name ?? "předmětu")</h2>
+                <h2>Články</h2>
             }
-            <div class="article-list">
+            <div class="post-list">
                 @foreach (var post in _postsInCategory)
                 {
-                    <a class="article-row lift" href="/post/@(post.Id)">
-                        <i data-lucide="file-text" style="color:var(--color-accent-600)"></i>
-                        @post.Title
+                    <a class="post-row lift" href="/post/@(post.Id)">
+                        <span class="post-row-main">
+                            <span class="post-row-title">@post.Title</span>
+                        </span>
+                        <span class="post-row-grades">
+                            @foreach (var g in post.AvailableGradeNames.Take(3))
+                            {
+                                <span class="grade-chip">@g</span>
+                            }
+                        </span>
+                        <span class="post-row-date">@FormatDate(LastUpdated(post))</span>
                     </a>
                 }
             </div>
@@ -103,6 +111,7 @@
     private List<PostSummaryResponse> _postsInCategory = [];
     private List<CategoryResponse> _allCategories = [];
     private List<CategoryTreeResponse> _rootCategories = [];
+    private Dictionary<int, string> _categoryPaths = [];
 
     // Blazor reuses this component instance across route-parameter changes, so navigating
     // again before a previous load finishes would otherwise run two loads concurrently
@@ -147,12 +156,21 @@
         _allCategories = await CategoryService.GetAll();
         _allPosts = await PostService.GetSummaries();
 
+        // Build category path lookup
+        foreach (var c in _allCategories)
+        {
+            var parent = _allCategories.FirstOrDefault(p => p.Id == c.ParentId);
+            _categoryPaths[c.Id] = parent != null ? $"{parent.Name} · {c.Name}" : c.Name;
+        }
+
         if (CategoryId.HasValue)
         {
             _currentCategory = _allCategories.FirstOrDefault(c => c.Id == CategoryId);
             _ancestors = await CategoryService.GetAncestors(CategoryId.Value);
             _children = [.. _allCategories.Where(c => c.ParentId == CategoryId.Value && !IsMore(c.Name))];
-            _postsInCategory = [.. _allPosts.Where(p => p.CategoryId == CategoryId.Value)];
+            _postsInCategory = [.. _allPosts
+                .Where(p => p.CategoryId == CategoryId.Value)
+                .OrderByDescending(LastUpdated)];
         }
         else
         {
@@ -203,4 +221,13 @@
         if (n.Contains("země") || n.Contains("geog")) return "globe";
         return "book";
     }
+
+    private string CategoryPath(int? id) => id.HasValue && _categoryPaths.TryGetValue(id.Value, out var p) ? p : "";
+
+    private static DateTime? LastUpdated(PostSummaryResponse post)
+        => post.LastEdit > post.LastFix ? post.LastEdit : post.LastFix;
+
+    private static string FormatDate(DateTime? dt) => dt.HasValue
+        ? dt.Value.ToString("d. M. yyyy")
+        : "";
 }

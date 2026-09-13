@@ -1,4 +1,5 @@
 @using Tobiso.Web.App.Authentication
+@implements IDisposable
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject CredentialStore CredentialStore
@@ -37,6 +38,13 @@
     </div>
 
     <div class="rail-footer">
+        <div class="theme-row">
+            <span class="grade-label">Tmavý režim</span>
+            <button class="theme-toggle @(_darkMode ? "on" : "")" @onclick="ToggleDark" aria-label="Tmavý režim">
+                <span class="theme-thumb"></span>
+            </button>
+        </div>
+
         <button @onclick="Logout" class="rail-item logout-item">
             <i data-lucide="log-out"></i> Odhlásit se
         </button>
@@ -44,8 +52,30 @@
 </aside>
 
 @code {
+    private bool _darkMode;
+
+    protected override void OnInitialized()
+    {
+        // NavMenu is part of the persistent layout and is never recreated by
+        // interactive client-side navigation, so without this the "active" rail
+        // highlight freezes on whatever page loaded the circuit and never updates.
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            var saved = await JS.InvokeAsync<string>("getTheme");
+            _darkMode = saved == "dark";
+            StateHasChanged();
+        }
+
         await JS.InvokeVoidAsync("initLucide");
     }
 
@@ -53,6 +83,12 @@
     {
         var current = new Uri(Nav.Uri).AbsolutePath;
         return path == "/" ? current == "/" : current.StartsWith(path);
+    }
+
+    private async Task ToggleDark()
+    {
+        _darkMode = !_darkMode;
+        await JS.InvokeVoidAsync("setTheme", _darkMode ? "dark" : "light");
     }
 
     private async Task Logout()
@@ -66,5 +102,10 @@
         {
             Nav.NavigateTo("/login", forceLoad: true);
         }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }

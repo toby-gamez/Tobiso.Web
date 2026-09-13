@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using System.Text
+@using Microsoft.JSInterop
 @using Refit
 @using Tobiso.Web.Shared.Interfaces
 @inject ITobisoWebApi Api
@@ -192,9 +193,11 @@
 
     private async Task TriggerFileInput()
     {
-        if (fileInput?.Element != null)
+        // Send a native "click" to the hidden InputFile's element via a named JS
+        // function in interop-helpers.js -- never eval(), which CSP blocks.
+        if (fileInput?.Element is { } element)
         {
-            await JSRuntime.InvokeVoidAsync("eval", "document.querySelector('input[type=file]').click()");
+            await JSRuntime.InvokeVoidAsync("clickElement", element);
         }
     }
 

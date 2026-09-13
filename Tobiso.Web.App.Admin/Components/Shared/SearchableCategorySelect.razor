@@ -1,9 +1,10 @@
 @using Tobiso.Web.Shared.DTOs
+@inject IJSRuntime JS
 
-<div class="position-relative">
-    <div class="input-group">
+<div class="search-select-wrap">
+    <div class="search-input-row">
         <input type="text"
-               class="form-control"
+               class="input"
                placeholder="Vyhledat kategorii..."
                @bind="searchText"
                @oninput="OnSearchInput"
@@ -12,9 +13,9 @@
         @if (Value != null)
         {
             <button type="button"
-                    class="btn btn-outline-secondary"
+                    class="btn btn-ghost btn-sm"
                     @onclick="ClearSelection">
-                <i class="bi bi-x"></i>
+                <i data-lucide="x"></i>
             </button>
         }
     </div>
@@ -24,11 +25,11 @@
         var filtered = GetFiltered();
         @if (filtered.Any())
         {
-            <div class="dropdown-menu show position-absolute w-100 mt-1" style="z-index:1000; max-height:250px; overflow-y:auto;">
+            <div class="post-search-dropdown search-dropdown-panel">
                 @foreach (var cat in filtered)
                 {
                     <button type="button"
-                            class="dropdown-item @(Value == cat.Id ? "active" : "")"
+                            class="dropdown-item @(Value == cat.Id ? "dropdown-item-active" : "")"
                             @onmousedown:preventDefault="true"
                             @onclick="() => SelectCategory(cat)">
                         @cat.Name
@@ -38,8 +39,8 @@
         }
         else
         {
-            <div class="dropdown-menu show position-absolute w-100 mt-1">
-                <div class="dropdown-item-text text-muted">Žádná kategorie nenalezena</div>
+            <div class="post-search-dropdown search-dropdown-panel">
+                <div class="dropdown-empty">Žádná kategorie nenalezena</div>
             </div>
         }
     }
@@ -66,6 +67,11 @@
         {
             searchText = string.Empty;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private IEnumerable<CategoryResponse> GetFiltered()
