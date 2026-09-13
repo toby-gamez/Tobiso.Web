@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Tobiso.Web.Shared.DTOs;
+using Tobiso.Web.Shared.Helpers;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.Interfaces;
 
@@ -18,13 +19,17 @@ namespace Tobiso.Web.App.Services
         private readonly IConfiguration _configuration;
         private readonly IPostService _postService;
         private readonly IAiRateLimitService _rateLimitService;
+        private readonly IGradeService _gradeService;
+        private readonly IQuestionService _questionService;
 
-        public AiService(IHttpClientFactory httpClientFactory, IConfiguration configuration, IPostService postService, IAiRateLimitService rateLimitService)
+        public AiService(IHttpClientFactory httpClientFactory, IConfiguration configuration, IPostService postService, IAiRateLimitService rateLimitService, IGradeService gradeService, IQuestionService questionService)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _postService = postService;
             _rateLimitService = rateLimitService;
+            _gradeService = gradeService;
+            _questionService = questionService;
         }
 
         private string PrepareArticleContext(string content)
@@ -834,7 +839,120 @@ namespace Tobiso.Web.App.Services
             return new FlashcardResponse();
         }
 
-        public async Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count)
+        public async Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatchAsync(int batchSize = 30)
+        {
+            batchSize = Math.Clamp(batchSize <= 0 ? 30 : batchSize, 1, 100);
+
+            var batch = await _questionService.GetUnclassifiedForFlashcardEligibility(batchSize);
+            if (batch.Count == 0)
+            {
+                var emptyStats = await _questionService.GetFlashcardEligibilityStatsAsync();
+                return new FlashcardEligibilityBatchResult { Processed = 0, RemainingUnclassified = emptyStats.Unclassified };
+            }
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var systemPrompt =
+                "Dostaneš seznam otázek z kvízové banky spolu se správnou odpovědí. Rozhodni, zda otázka dává smysl jako SAMOSTATNÁ kartička " +
+                "(zobrazí se JEN otázka a JEN správná odpověď, BEZ zbytku článku a BEZ zobrazených možností). " +
+                "Označ eligible=false, pokud otázka odkazuje na 'článek', 'text', 'obrázek', 'graf' nebo na 'následující možnosti/tvrzení/informace' " +
+                "a bez nich nedává smysl. Jinak eligible=true. " +
+                "Vrať POUZE platný JSON objekt (bez markdown) pro KAŽDÉ zadané id: {\"results\":[{\"id\":1,\"eligible\":true}]}";
+
+            var userPromptBuilder = new StringBuilder();
+            foreach (var q in batch)
+            {
+                var correctAnswer = q.Answers.FirstOrDefault(a => a.Correct == 1)?.AnswerText ?? string.Empty;
+                userPromptBuilder.AppendLine($"id={q.Id}; otázka: {q.QuestionText}; správná odpověď: {correctAnswer}");
+            }
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = userPromptBuilder.ToString() }
+            };
+
+            var payload = new { model, messages, max_tokens = batch.Count * 20 + 200, temperature = 0, response_format = new { type = "json_object" } };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var json = JsonSerializer.Serialize(payload);
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI flashcard-eligibility classification request failed");
+                var errorStats = await _questionService.GetFlashcardEligibilityStatsAsync();
+                return new FlashcardEligibilityBatchResult { Processed = 0, Error = ex.Message, RemainingUnclassified = errorStats.Unclassified };
+            }
+
+            Dictionary<int, bool> parsedResults;
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var wrapperDoc = await JsonDocument.ParseAsync(stream);
+                var root = wrapperDoc.RootElement;
+                if (!root.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0
+                    || !choices[0].TryGetProperty("message", out var msg) || !msg.TryGetProperty("content", out var contentEl))
+                {
+                    throw new InvalidOperationException("AI response missing message content.");
+                }
+
+                var raw = contentEl.GetString() ?? "{}";
+                using var innerDoc = JsonDocument.Parse(raw);
+                var inner = innerDoc.RootElement;
+
+                parsedResults = new Dictionary<int, bool>();
+                if (inner.TryGetProperty("results", out var resultsEl) && resultsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var r in resultsEl.EnumerateArray())
+                    {
+                        if (r.TryGetProperty("id", out var idEl) && idEl.TryGetInt32(out var id)
+                            && r.TryGetProperty("eligible", out var eligibleEl)
+                            && (eligibleEl.ValueKind == JsonValueKind.True || eligibleEl.ValueKind == JsonValueKind.False))
+                        {
+                            parsedResults[id] = eligibleEl.GetBoolean();
+                        }
+                    }
+                }
+
+                if (parsedResults.Count == 0)
+                    throw new InvalidOperationException("AI response contained no classifiable results.");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse flashcard-eligibility classification response");
+                var errorStats = await _questionService.GetFlashcardEligibilityStatsAsync();
+                return new FlashcardEligibilityBatchResult { Processed = 0, Error = ex.Message, RemainingUnclassified = errorStats.Unclassified };
+            }
+
+            // Fail-open: any id from the batch missing in the AI's response is treated as eligible
+            // rather than left unclassified, so a partially-incomplete response doesn't stall the batch.
+            foreach (var q in batch)
+            {
+                if (!parsedResults.ContainsKey(q.Id))
+                    parsedResults[q.Id] = true;
+            }
+
+            await _questionService.SetFlashcardEligibilityAsync(parsedResults);
+
+            var stats = await _questionService.GetFlashcardEligibilityStatsAsync();
+            return new FlashcardEligibilityBatchResult
+            {
+                Processed = parsedResults.Count,
+                EligibleCount = parsedResults.Count(r => r.Value),
+                IneligibleCount = parsedResults.Count(r => !r.Value),
+                RemainingUnclassified = stats.Unclassified
+            };
+        }
+
+        public async Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count, int? gradeId = null)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
@@ -842,11 +960,23 @@ namespace Tobiso.Web.App.Services
 
             count = Math.Clamp(count, 1, 10);
             var post = await _postService.GetById(postId);
-            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+
+            // With no preferred grade (e.g. no default set in the nav menu), use the easiest
+            // (lowest-grade) version rather than the most advanced one, so a young student isn't
+            // handed high-school-level problems by default. With a preference, use that exact grade
+            // if the post has it, else the nearest lower grade, else the nearest grade overall.
+            int? preferredLevel = null;
+            if (gradeId.HasValue)
+            {
+                var grade = await _gradeService.GetById(gradeId.Value);
+                preferredLevel = grade?.Level;
+            }
+            var version = PostVersionSelector.SelectForGrade(post?.Versions, preferredLevel);
+            var versionContent = version?.Content ?? string.Empty;
             var articleContext = PrepareArticleContext(versionContent);
             var title = post?.Title ?? string.Empty;
 
-            if (string.IsNullOrWhiteSpace(articleContext)) return new PracticeProblemResponse();
+            if (string.IsNullOrWhiteSpace(articleContext)) return new PracticeProblemResponse { GradeName = version?.GradeName };
 
             var systemPrompt =
                 $"Jsi tvůrce cvičných úloh pro výuku. Na základě obsahu článku vygeneruj PŘESNĚ {count} cvičných úloh. " +
@@ -900,7 +1030,7 @@ namespace Tobiso.Web.App.Services
                             if (!string.IsNullOrWhiteSpace(problemText))
                                 problems.Add(new PracticeProblem { ProblemText = problemText, Solution = solution, Difficulty = difficulty });
                         }
-                        return new PracticeProblemResponse { Problems = problems };
+                        return new PracticeProblemResponse { Problems = problems, GradeName = version?.GradeName };
                     }
                 }
             }

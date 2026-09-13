@@ -7,6 +7,7 @@ public class QuestionResponse
     public int PostId { get; set; }
     public List<AnswerResponse> Answers { get; set; } = new();
     public List<ExplanationResponse> Explanations { get; set; } = new();
+    public bool? IsFlashcardEligible { get; set; }
 }
 
 public class CreateQuestionRequest

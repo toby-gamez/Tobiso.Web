@@ -18,8 +18,13 @@ public interface IUserProgressService
 public class UserProgressService : IUserProgressService
 {
     private readonly TobisoDbContext _db;
+    private readonly IUserService _userService;
 
-    public UserProgressService(TobisoDbContext db) => _db = db;
+    public UserProgressService(TobisoDbContext db, IUserService userService)
+    {
+        _db = db;
+        _userService = userService;
+    }
 
     public async Task UpsertReadProgressAsync(int userId, int postId, int scrollPercent)
     {
@@ -44,6 +49,11 @@ public class UserProgressService : IUserProgressService
         }
 
         await _db.SaveChangesAsync();
+
+        // Best-effort: reading progress on any article extends the streak, so award the
+        // 20-credit bonus once per day. ClaimReadBonusAsync is idempotent (atomic conditional
+        // UPDATE) so calling it on every scroll-progress tick is safe — it only ever succeeds once.
+        await _userService.ClaimReadBonusAsync(userId, 20);
     }
 
     public async Task<List<int>> GetBookmarkIdsAsync(int userId) =>

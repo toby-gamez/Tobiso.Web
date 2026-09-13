@@ -4,6 +4,9 @@
 @using Tobiso.Web.App.Services
 @inject IPostService PostService
 @inject IAiService AiService
+@inject IAiUsageGuard UsageGuard
+@inject IPreferenceService PreferenceService
+@inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -16,15 +19,36 @@
 
     @if (!PostId.HasValue)
     {
-        <div class="soft" style="padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4)">
+        <div class="soft ai-picker">
             <h2 style="margin:0">Vyber si článek</h2>
-            <select @bind="_selectedPostId" class="ai-post-select">
-                <option value="">— Vyber článek —</option>
-                @foreach (var p in _posts)
+            <div class="ai-search-row">
+                <i data-lucide="search"></i>
+                <input class="ai-search-input" placeholder="Hledat článek…" value="@_postQuery" @oninput="OnPostQueryInput" />
+            </div>
+            <div class="ai-search-results">
+                @foreach (var p in FilteredPosts)
                 {
-                    <option value="@p.Id">@p.Title</option>
+                    <button class="search-result @(_selectedPostId == p.Id ? "active" : "")" @onclick="@(() => _selectedPostId = p.Id)">
+                        <span class="search-result-main">
+                            <i data-lucide="file-text"></i>
+                            <span class="search-result-title">@p.Title</span>
+                        </span>
+                        @if (p.AvailableGradeNames.Count > 0)
+                        {
+                            <span class="search-result-grades">
+                                @foreach (var g in p.AvailableGradeNames)
+                                {
+                                    <span class="grade-chip">@g</span>
+                                }
+                            </span>
+                        }
+                    </button>
                 }
-            </select>
+                @if (FilteredPosts.Count == 0)
+                {
+                    <p class="search-hint">Nic nenalezeno.</p>
+                }
+            </div>
             <button class="pill pill-on" style="align-self:flex-start" @onclick="StartWithSelected" disabled="@(!_selectedPostId.HasValue)">
                 <i data-lucide="sparkles"></i> Spustit AI zkoušení
             </button>
@@ -32,7 +56,8 @@
     }
     else if (_generating)
     {
-        <div style="padding:var(--space-8); text-align:center">
+        <div class="ai-generating">
+            <span class="spinner"></span>
             <p>Generuji úlohy…</p>
         </div>
     }
@@ -40,14 +65,21 @@
     {
         <div style="padding:var(--space-8); text-align:center">
             <p>@_error</p>
-            <button class="pill" @onclick="@(() => LoadProblems(PostId!.Value))">Zkusit znovu</button>
+            @if (_showRegisterCta)
+            {
+                <a class="pill pill-on" href="/registrace">Zaregistruj se zdarma</a>
+            }
+            else
+            {
+                <button class="pill" @onclick="@(() => LoadProblems(PostId!.Value))">Zkusit znovu</button>
+            }
         </div>
     }
     else if (_current != null)
     {
         <div>
             <div class="quiz-progress-label">
-                <span>@(_postTitle != null ? $"AI zkoušení — {_postTitle}" : "AI zkoušení")</span>
+                <span>@HeaderLabel</span>
                 <span>Úloha @(_currentIndex + 1) z @_problems.Count</span>
             </div>
             <div class="progress-bar"><div class="progress-bar-fill" style="width:@Progress%"></div></div>
@@ -95,6 +127,13 @@
 
     private List<PostSummaryResponse> _posts = [];
     private int? _selectedPostId;
+    private string _postQuery = "";
+
+    private List<PostSummaryResponse> FilteredPosts => string.IsNullOrWhiteSpace(_postQuery)
+        ? _posts.Take(30).ToList()
+        : _posts.Where(p => TextSearch.ContainsIgnoreDiacritics(p.Title, _postQuery)).Take(30).ToList();
+
+    private void OnPostQueryInput(ChangeEventArgs e) => _postQuery = e.Value?.ToString() ?? "";
 
     private List<PracticeProblem> _problems = [];
     private int _currentIndex;
@@ -103,12 +142,30 @@
     private bool _generating;
     private bool _submitting;
     private string? _error;
+    private bool _showRegisterCta;
     private string? _postTitle;
+
+    private async Task<bool> CheckUsageAsync()
+    {
+        var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
+        if (!decision.Allowed)
+        {
+            _error = decision.DeniedMessage;
+            _showRegisterCta = decision.AnonymousLimitReached;
+        }
+        return decision.Allowed;
+    }
+    private string? _gradeName;
     private int? _loadedForPostId;
     private bool _disposed;
 
     private PracticeProblem? _current => _currentIndex < _problems.Count ? _problems[_currentIndex] : null;
     private double Progress => _problems.Count == 0 ? 0 : (double)(_currentIndex + 1) / _problems.Count * 100;
+    private string HeaderLabel => _postTitle == null
+        ? "AI zkoušení"
+        : _gradeName == null ? $"AI zkoušení — {_postTitle}" : $"AI zkoušení — {_postTitle} ({_gradeName})";
 
     protected override async Task OnInitializedAsync()
     {
@@ -139,6 +196,7 @@
         {
             _generating = true;
             _error = null;
+            _showRegisterCta = false;
             _problems = [];
             _currentIndex = 0;
             _feedback = null;
@@ -148,9 +206,13 @@
             if (_disposed) return;
             _postTitle = post?.Title;
 
-            var response = await AiService.GeneratePracticeProblemsAsync(postId, 5);
+            if (!await CheckUsageAsync()) return;
+
+            var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+            var response = await AiService.GeneratePracticeProblemsAsync(postId, 5, preferredGradeId);
             if (_disposed) return;
             _problems = response.Problems;
+            _gradeName = response.GradeName;
         }
         catch (Exception) when (_disposed)
         {
@@ -169,8 +231,12 @@
     {
         if (_submitting || string.IsNullOrWhiteSpace(_studentAnswer) || _current == null || !PostId.HasValue) return;
         _submitting = true;
+        _error = null;
+        _showRegisterCta = false;
         try
         {
+            if (!await CheckUsageAsync()) return;
+
             _feedback = await AiService.EvaluateAnswerAsync(new EvaluateAnswerRequest
             {
                 PostId = PostId.Value,

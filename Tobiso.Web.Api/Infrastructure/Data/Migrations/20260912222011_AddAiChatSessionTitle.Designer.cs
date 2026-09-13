@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260912222011_AddAiChatSessionTitle")]
+    partial class AddAiChatSessionTitle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -152,40 +155,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("AiCreditTransactions");
                 });
 
-            modelBuilder.Entity("Tobiso.Web.Domain.Entities.AnonymousAiUsage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Count")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime>("FirstSeenAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime>("LastUsedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeviceId")
-                        .IsUnique();
-
-                    b.ToTable("AnonymousAiUsages");
-                });
-
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Answer", b =>
                 {
                     b.Property<int>("Id")
@@ -247,13 +216,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
-                    b.Property<DateTime?>("LastDailyBonusAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("LastReadBonusAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("PasswordHash")
@@ -840,9 +803,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool?>("IsFlashcardEligible")
-                        .HasColumnType("bit");
 
                     b.Property<int>("PostId")
                         .HasColumnType("int");

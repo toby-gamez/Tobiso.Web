@@ -58,6 +58,23 @@
         </div>
     }
 
+    @if (_exercises.Count > 0)
+    {
+        <div>
+            <h2><i data-lucide="puzzle" style="color:var(--color-accent-2-600)"></i> Interaktivní cvičení</h2>
+            <div class="exercise-grid">
+                @foreach (var ex in _exercises)
+                {
+                    <a class="exercise-card" href="@ExerciseHref(ex)">
+                        <span class="exercise-kind"><i data-lucide="@ExerciseTypeDisplay.Icon(ex.Type)"></i> @ExerciseTypeDisplay.Label(ex.Type)</span>
+                        <span class="exercise-title">@ex.Title</span>
+                        <span class="exercise-desc">@ExercisePostTitle(ex)</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
     <div>
         <h2>Zásoba otázek</h2>
 
@@ -117,23 +134,6 @@
             <button class="pill" style="margin-top:var(--space-3)" @onclick="LoadMore" disabled="@_loadingMore">Načíst další</button>
         }
     </div>
-
-    @if (_exercises.Count > 0)
-    {
-        <div>
-            <h2><i data-lucide="puzzle" style="color:var(--color-accent-2-600)"></i> Interaktivní cvičení</h2>
-            <div class="exercise-grid">
-                @foreach (var ex in _exercises)
-                {
-                    <a class="exercise-card" href="@ExerciseHref(ex)">
-                        <span class="exercise-kind"><i data-lucide="@ExerciseTypeDisplay.Icon(ex.Type)"></i> @ExerciseTypeDisplay.Label(ex.Type)</span>
-                        <span class="exercise-title">@ex.Title</span>
-                        <span class="exercise-desc">@ExercisePostTitle(ex)</span>
-                    </a>
-                }
-            </div>
-        </div>
-    }
 </div>
 
 @code {

@@ -11,6 +11,8 @@ public class AppUser
     public int Credits { get; set; } = 20;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public DateTime? LastDailyBonusAt { get; set; }
+    public DateTime? LastReadBonusAt { get; set; }
 
     public ICollection<AiChatSession> ChatSessions { get; set; } = [];
     public ICollection<AiCreditTransaction> CreditTransactions { get; set; } = [];

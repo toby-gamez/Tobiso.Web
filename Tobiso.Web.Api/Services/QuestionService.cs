@@ -17,6 +17,9 @@ public interface IQuestionService
     Task<QuestionResponse?> Create(CreateQuestionRequest request);
     Task<bool> Update(UpdateQuestionRequest request);
     Task<bool> Delete(int id);
+    Task<List<QuestionResponse>> GetUnclassifiedForFlashcardEligibility(int take);
+    Task<FlashcardEligibilityStats> GetFlashcardEligibilityStatsAsync();
+    Task SetFlashcardEligibilityAsync(Dictionary<int, bool> results);
 }
 
 public class QuestionService : IQuestionService
@@ -46,6 +49,7 @@ public class QuestionService : IQuestionService
                 Id = q.Id,
                 QuestionText = q.QuestionText,
                 PostId = q.PostId,
+                IsFlashcardEligible = q.IsFlashcardEligible,
                 Answers = q.Answers.Select(a => new AnswerResponse
                 {
                     Id = a.Id,
@@ -84,6 +88,7 @@ public class QuestionService : IQuestionService
                 Id = q.Id,
                 QuestionText = q.QuestionText,
                 PostId = q.PostId,
+                IsFlashcardEligible = q.IsFlashcardEligible,
                 Answers = q.Answers.Select(a => new AnswerResponse
                 {
                     Id = a.Id,
@@ -143,6 +148,7 @@ public class QuestionService : IQuestionService
                     Id = q.Id,
                     QuestionText = q.QuestionText,
                     PostId = q.PostId,
+                    IsFlashcardEligible = q.IsFlashcardEligible,
                     Answers = q.Answers.Select(a => new AnswerResponse
                     {
                         Id = a.Id,
@@ -205,6 +211,7 @@ public class QuestionService : IQuestionService
             Id = question.Id,
             QuestionText = question.QuestionText,
             PostId = question.PostId,
+            IsFlashcardEligible = question.IsFlashcardEligible,
             Answers = question.Answers.Select(a => new AnswerResponse
             {
                 Id = a.Id,
@@ -237,6 +244,7 @@ public class QuestionService : IQuestionService
             Id = q.Id,
             QuestionText = q.QuestionText,
             PostId = q.PostId,
+                IsFlashcardEligible = q.IsFlashcardEligible,
             Answers = q.Answers.Select(a => new AnswerResponse
             {
                 Id = a.Id,
@@ -353,5 +361,64 @@ public class QuestionService : IQuestionService
             _logger.LogError(ex, "Chyba při mazání otázky {QuestionId}", id);
             throw;
         }
+    }
+
+    public async Task<List<QuestionResponse>> GetUnclassifiedForFlashcardEligibility(int take)
+    {
+        var questions = await _context.Questions
+            .AsNoTracking()
+            .Include(q => q.Answers)
+            .Where(q => q.IsFlashcardEligible == null)
+            .OrderBy(q => q.Id)
+            .Take(Math.Clamp(take <= 0 ? 30 : take, 1, 100))
+            .ToListAsync();
+
+        return questions.Select(q => new QuestionResponse
+        {
+            Id = q.Id,
+            QuestionText = q.QuestionText,
+            PostId = q.PostId,
+            IsFlashcardEligible = q.IsFlashcardEligible,
+            Answers = q.Answers.Select(a => new AnswerResponse
+            {
+                Id = a.Id,
+                AnswerText = a.AnswerText,
+                Correct = a.Correct,
+                QuestionId = a.QuestionId
+            }).ToList()
+        }).ToList();
+    }
+
+    public async Task<FlashcardEligibilityStats> GetFlashcardEligibilityStatsAsync()
+    {
+        var total = await _context.Questions.CountAsync();
+        var eligible = await _context.Questions.CountAsync(q => q.IsFlashcardEligible == true);
+        var ineligible = await _context.Questions.CountAsync(q => q.IsFlashcardEligible == false);
+
+        return new FlashcardEligibilityStats
+        {
+            Total = total,
+            Eligible = eligible,
+            Ineligible = ineligible,
+            Unclassified = total - eligible - ineligible
+        };
+    }
+
+    public async Task SetFlashcardEligibilityAsync(Dictionary<int, bool> results)
+    {
+        if (results.Count == 0) return;
+
+        var ids = results.Keys.ToList();
+        var questions = await _context.Questions
+            .Where(q => ids.Contains(q.Id))
+            .ToListAsync();
+
+        foreach (var question in questions)
+        {
+            if (results.TryGetValue(question.Id, out var eligible))
+                question.IsFlashcardEligible = eligible;
+        }
+
+        await _context.SaveChangesAsync();
     }
 }

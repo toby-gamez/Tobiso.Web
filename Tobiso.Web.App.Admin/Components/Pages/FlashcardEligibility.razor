@@ -1,0 +1,136 @@
+@page "/flashcard-eligibility"
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.Api.Services
+@using Microsoft.AspNetCore.Authorization
+@inject IQuestionService QuestionService
+@inject ITobisoWebApi Api
+@attribute [Authorize]
+
+<PageTitle>Způsobilost kartiček – Admin</PageTitle>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>Způsobilost otázek pro kartičky</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            Kartičky (/practice/flashcards) zobrazují jen text otázky a správnou odpověď &mdash; bez článku a bez
+            zbylých možností. AI rozhodne, které otázky z banky dávají smysl samostatně (bez odkazů na "článek"
+            nebo "následující možnosti"). Dokud otázka není klasifikována, se v kartičkách nezobrazí.
+        </p>
+
+        @if (loadError != null)
+        {
+            <div class="alert alert-danger">@loadError</div>
+        }
+
+        @if (stats != null)
+        {
+            <div class="d-flex gap-3 flex-wrap mb-3">
+                <div class="border rounded px-3 py-2"><strong>@stats.Total</strong> celkem</div>
+                <div class="border rounded px-3 py-2 text-success"><strong>@stats.Eligible</strong> způsobilé</div>
+                <div class="border rounded px-3 py-2 text-danger"><strong>@stats.Ineligible</strong> nezpůsobilé</div>
+                <div class="border rounded px-3 py-2 text-warning"><strong>@stats.Unclassified</strong> neklasifikováno</div>
+            </div>
+        }
+
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <button type="button" class="btn btn-primary" @onclick="StartClassifying" disabled="@(isRunning || stats == null || stats.Unclassified == 0)">
+                @if (isRunning)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <span>Klasifikuji…</span>
+                }
+                else
+                {
+                    <span>Klasifikovat další dávku</span>
+                }
+            </button>
+            @if (isRunning)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="StopClassifying">Zastavit</button>
+            }
+            @if (processedThisRun > 0)
+            {
+                <span class="text-muted small">Zpracováno v této session: @processedThisRun</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(runError))
+        {
+            <div class="alert alert-warning py-1">@runError</div>
+        }
+    </div>
+</div>
+
+@code {
+    private FlashcardEligibilityStats? stats;
+    private string? loadError;
+    private string? runError;
+    private bool isRunning;
+    private bool stopRequested;
+    private int processedThisRun;
+
+    protected override async Task OnInitializedAsync() => await LoadStats();
+
+    private async Task LoadStats()
+    {
+        try
+        {
+            stats = await QuestionService.GetFlashcardEligibilityStatsAsync();
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Chyba při načítání statistik: {ex.Message}";
+        }
+    }
+
+    private async Task StartClassifying()
+    {
+        isRunning = true;
+        stopRequested = false;
+        runError = null;
+        processedThisRun = 0;
+        StateHasChanged();
+
+        try
+        {
+            while (!stopRequested)
+            {
+                var result = await Api.ClassifyFlashcardEligibilityBatch(new ClassifyFlashcardEligibilityRequest { BatchSize = 30 });
+
+                if (!string.IsNullOrEmpty(result.Error))
+                {
+                    runError = result.Error;
+                    break;
+                }
+
+                processedThisRun += result.Processed;
+                stats = new FlashcardEligibilityStats
+                {
+                    Total = stats?.Total ?? 0,
+                    Eligible = (stats?.Eligible ?? 0) + result.EligibleCount,
+                    Ineligible = (stats?.Ineligible ?? 0) + result.IneligibleCount,
+                    Unclassified = result.RemainingUnclassified
+                };
+                StateHasChanged();
+
+                if (result.Processed == 0 || result.RemainingUnclassified == 0)
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            runError = $"Chyba při klasifikaci: {ex.Message}";
+        }
+        finally
+        {
+            isRunning = false;
+            await LoadStats();
+        }
+    }
+
+    private void StopClassifying() => stopRequested = true;
+}

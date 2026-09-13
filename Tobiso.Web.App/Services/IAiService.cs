@@ -11,7 +11,7 @@ namespace Tobiso.Web.App.Services
         Task<string> ExplainSentenceAsync(string sentence, string articleContext);
         Task<EvaluateAnswerResponse> EvaluateAnswerAsync(EvaluateAnswerRequest request);
         Task<FlashcardResponse> GenerateFlashcardsAsync(int postId);
-        Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count);
+        Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count, int? gradeId = null);
         Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade);
         Task<RewriteGradeResponse> RewriteForRegisterAsync(int postId, string register);
         Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
@@ -20,5 +20,6 @@ namespace Tobiso.Web.App.Services
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
         Task<List<string>> GenerateFunFactsAsync(int postId);
         Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
+        Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatchAsync(int batchSize = 30);
     }
 }

@@ -1,8 +1,10 @@
-@inherits OwningComponentBase
+﻿@inherits OwningComponentBase
+@using Tobiso.Web.App.Services
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthState
 @inject StudentCredentialStore CredentialStore
+@inject IPreferenceService PreferenceService
 
 <aside class="nav-rail">
     <a href="/" class="brand-link">
@@ -21,7 +23,7 @@
         <a href="/latest" class="rail-item @(IsActive("/latest") ? "active" : "")"><i data-lucide="clock"></i> Nejnovější</a>
         <a href="/categories" class="rail-item @(IsActive("/categories") ? "active" : "")"><i data-lucide="folder-tree"></i> Předměty</a>
         <a href="/practice" class="rail-item @(IsActive("/practice") ? "active" : "")"><i data-lucide="dumbbell"></i> Procvičování</a>
-        <a href="/chat" class="rail-item @(IsActive("/chat") ? "active" : "")"><i data-lucide="sparkles"></i> AI chat</a>
+        <a href="/chat" class="rail-item @(IsActive("/chat") ? "active" : "")"><i data-lucide="sparkles"></i> AI chaty</a>
         <a href="/zalozky" class="rail-item @(IsActive("/zalozky") ? "active" : "")"><i data-lucide="bookmark"></i> Záložky</a>
         <a href="/calendar" class="rail-item @(IsActive("/calendar") ? "active" : "")"><i data-lucide="calendar-days"></i> Kalendář</a>
     </nav>
@@ -104,7 +106,8 @@
         var categories = ScopedServices.GetRequiredService<ICategoryService>();
 
         _grades = await grades.GetAll();
-        _selectedGrade = _grades.FirstOrDefault();
+        var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+        _selectedGrade = preferredGradeId.HasValue ? _grades.FirstOrDefault(g => g.Id == preferredGradeId.Value) : null;
         _subjects = [.. (await categories.GetTree()).Where(c => !string.Equals(c.Name?.Trim(), "More", StringComparison.OrdinalIgnoreCase))];
 
         var auth = await AuthState.GetAuthenticationStateAsync();
@@ -146,10 +149,11 @@
 
     private void ToggleGradeMenu() => _gradeMenuOpen = !_gradeMenuOpen;
 
-    private void SelectGrade(GradeResponse g)
+    private async Task SelectGrade(GradeResponse g)
     {
         _selectedGrade = g;
         _gradeMenuOpen = false;
+        await PreferenceService.SetPreferredGradeIdAsync(g.Id);
     }
 
     private void OpenSearch() => OnSearchOpen.InvokeAsync();

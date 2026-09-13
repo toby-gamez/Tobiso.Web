@@ -31,6 +31,7 @@ public class TobisoDbContext : DbContext
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
     public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
+    public DbSet<AnonymousAiUsage> AnonymousAiUsages { get; set; }
 
     public DbSet<PostFunFact> PostFunFacts { get; set; }
     public DbSet<PostDifficultyRating> PostDifficultyRatings { get; set; }
@@ -237,9 +238,20 @@ public class TobisoDbContext : DbContext
                 .HasFilter("[GoogleId] IS NOT NULL");
         });
 
+        // Configure AnonymousAiUsage — the persistent, per-device counter backing the anonymous
+        // free-AI allowance (a one-time lifetime pool, unlike the renewing per-account quota).
+        modelBuilder.Entity<AnonymousAiUsage>(entity =>
+        {
+            entity.Property(e => e.DeviceId).IsRequired().HasMaxLength(128);
+            entity.Property(e => e.FirstSeenAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.LastUsedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.HasIndex(e => e.DeviceId).IsUnique();
+        });
+
         // Configure AiChatSession
         modelBuilder.Entity<AiChatSession>(entity =>
         {
+            entity.Property(e => e.Title).HasMaxLength(80);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
 

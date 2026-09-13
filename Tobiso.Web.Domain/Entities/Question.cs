@@ -13,4 +13,6 @@ public class Question
     public Post? Post { get; set; }
     public List<Answer> Answers { get; set; } = new();
     public List<Explanation> Explanations { get; set; } = new();
+
+    public bool? IsFlashcardEligible { get; set; }
 }

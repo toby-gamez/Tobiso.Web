@@ -1,10 +1,13 @@
 @using Tobiso.Web.App.Services
 @using System.Threading
 @using Markdig
+@using Tobiso.Web.Domain.Entities
 @implements IDisposable
 @inject IAiService AiService
 @inject IPostService PostService
 @inject IAiChatHistoryService ChatHistory
+@inject IAiUsageGuard UsageGuard
+@inject IUserService UserService
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 
@@ -60,7 +63,13 @@
 
     @if (_error != null)
     {
-        <div class="chat-error">@_error</div>
+        <div class="chat-error">
+            @_error
+            @if (_showRegisterCta)
+            {
+                <a class="pill pill-on" href="/registrace">Zaregistruj se zdarma</a>
+            }
+        </div>
     }
 
     @if (_attachedPosts.Count > 0)
@@ -118,6 +127,8 @@
 
 @code {
     [Parameter] public int PostId { get; set; }
+    /// <summary>Optional: load one specific past conversation instead of the most recent one for PostId. Used by the standalone /chat page's "new chat" / history navigation.</summary>
+    [Parameter] public int? SessionId { get; set; }
     [Parameter] public bool SocraticMode { get; set; }
     [Parameter] public string EmptyTitle { get; set; } = "Zeptej se na cokoliv z učiva.";
     [Parameter] public string Placeholder { get; set; } = "Napiš otázku…";
@@ -130,6 +141,7 @@
     private string _draft = "";
     private bool _streaming;
     private string? _error;
+    private bool _showRegisterCta;
 
     private static readonly MarkdownPipeline _markdownPipeline =
         new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
@@ -177,23 +189,28 @@
 
     private void RemoveAttachment(int postId) => _attachedPosts.RemoveAll(p => p.Id == postId);
 
-    // Sentinel so the very first parameter set (PostId defaults to 0, same as "no post") still triggers a load.
-    private const int NotYetLoaded = int.MinValue;
-    private int _historyLoadedForPostId = NotYetLoaded;
+    private bool _historyEverLoaded;
+    private int _loadedForPostId;
+    private int? _loadedForSessionId;
     private int? _userId;
+    private int? _currentSessionId;
 
     private int? ContextPostId => PostId > 0 ? PostId : null;
 
     protected override async Task OnParametersSetAsync()
     {
         // Blazor Server can reuse this component instance across route-parameter changes (e.g.
-        // navigating from one post to another), so history has to reload whenever PostId actually
-        // changes rather than only once at construction.
-        if (PostId == _historyLoadedForPostId) return;
-        _historyLoadedForPostId = PostId;
+        // navigating from one post to another, or picking a different past conversation from the
+        // history sidebar), so history has to reload whenever PostId/SessionId actually change
+        // rather than only once at construction.
+        if (_historyEverLoaded && PostId == _loadedForPostId && SessionId == _loadedForSessionId) return;
+        _historyEverLoaded = true;
+        _loadedForPostId = PostId;
+        _loadedForSessionId = SessionId;
 
         _messages.Clear();
         _userId = null;
+        _currentSessionId = null;
 
         var auth = await AuthState.GetAuthenticationStateAsync();
         if (auth.User.Identity?.IsAuthenticated != true ||
@@ -201,11 +218,44 @@
             return;
 
         _userId = uid;
-        var session = await ChatHistory.FindSessionAsync(uid, ContextPostId);
+
+        AiChatSession? session;
+        if (SessionId is { } sid)
+        {
+            session = await ChatHistory.GetSessionByIdAsync(sid, uid);
+            // Ignore a session id that doesn't belong to this box's context (e.g. a stale/tampered
+            // query string) rather than leaking a different conversation into view.
+            if (session != null && session.PostId != ContextPostId) session = null;
+        }
+        else
+        {
+            session = await ChatHistory.FindSessionAsync(uid, ContextPostId);
+        }
+
         if (session == null) return;
 
+        _currentSessionId = session.Id;
         var history = await ChatHistory.GetSessionMessagesAsync(session.Id, uid);
         _messages.AddRange(history.Select(m => new AiMessage { Role = m.Role, Content = m.Content }));
+    }
+
+    /// <summary>Clears the visible conversation; the next question lazily starts a brand-new session. Used by the host page's "new chat" action.</summary>
+    public void ResetConversation()
+    {
+        _messages.Clear();
+        _currentSessionId = null;
+        _error = null;
+        _draft = "";
+
+        // Mark the reset state as already "loaded" for a null SessionId so that when the host page
+        // navigates to clear the ?session= query string, OnParametersSetAsync's guard sees no change
+        // and doesn't re-run FindSessionAsync — which would otherwise reload the same most-recent
+        // session from the DB and silently undo this reset.
+        _historyEverLoaded = true;
+        _loadedForPostId = PostId;
+        _loadedForSessionId = null;
+
+        StateHasChanged();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -230,6 +280,32 @@
 
         _draft = "";
         _error = null;
+        _showRegisterCta = false;
+
+        // Pre-flight credit check before spending on a stream we can't retroactively un-send
+        // once chunks start rendering live to the user.
+        if (_userId is { } preflightUid)
+        {
+            var user = await UserService.GetByIdAsync(preflightUid);
+            if ((user?.Credits ?? 0) < 1)
+            {
+                _error = "Nemáš dostatek kreditů.";
+                StateHasChanged();
+                return;
+            }
+        }
+
+        var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
+        if (!decision.Allowed)
+        {
+            _error = decision.DeniedMessage;
+            _showRegisterCta = decision.AnonymousLimitReached;
+            StateHasChanged();
+            return;
+        }
+
         _messages.Add(new AiMessage { Role = "user", Content = question });
         _pending.Clear();
         _streaming = true;
@@ -268,9 +344,22 @@
 
         if (answer.Length > 0)
         {
+            // Deducted after streaming (mirrors AiController.Ask/AskStream) rather than before,
+            // since the answer's cost isn't known until the AI has actually responded. The
+            // pre-flight check above makes a post-hoc failure here a rare race rather than the
+            // common case, so the already-displayed answer is kept either way.
+            var creditsUsed = 0;
+            if (_userId is { } uid)
+            {
+                var deducted = await UserService.DeductCreditsAsync(uid, 1, "ai_ask");
+                if (deducted) creditsUsed = 1;
+            }
+
             _messages.Add(new AiMessage { Role = "assistant", Content = answer });
+            // Save before notifying the host — Chat.razor's OnAnswered refreshes the history
+            // sidebar from the DB, so it needs the new/updated session to already be written.
+            await SaveHistoryAsync(question, answer, creditsUsed > 0 ? creditsUsed : null);
             if (OnAnswered.HasDelegate) await OnAnswered.InvokeAsync(answer);
-            await SaveHistoryAsync(question, answer);
         }
         else if (_error == null)
         {
@@ -280,15 +369,23 @@
         StateHasChanged();
     }
 
-    private async Task SaveHistoryAsync(string question, string answer)
+    private async Task SaveHistoryAsync(string question, string answer, int? creditsUsed = null)
     {
         if (_userId is not { } uid) return;
 
         try
         {
-            var session = await ChatHistory.GetOrCreateSessionAsync(uid, ContextPostId);
-            await ChatHistory.SaveMessageAsync(session.Id, "user", question);
-            await ChatHistory.SaveMessageAsync(session.Id, "assistant", answer);
+            // Reuse the session this box is already showing; only create a new one the first time
+            // (nothing loaded on init) or right after ResetConversation() cleared it for a "new chat".
+            if (_currentSessionId is not { } sid)
+            {
+                var session = await ChatHistory.CreateSessionAsync(uid, ContextPostId);
+                sid = session.Id;
+                _currentSessionId = sid;
+            }
+
+            await ChatHistory.SaveMessageAsync(sid, "user", question);
+            await ChatHistory.SaveMessageAsync(sid, "assistant", answer, creditsUsed);
         }
         catch (Exception ex)
         {

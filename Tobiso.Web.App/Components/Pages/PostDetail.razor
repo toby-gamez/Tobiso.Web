@@ -14,6 +14,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IAiService AiService
+@inject Tobiso.Web.App.Services.IAiUsageGuard UsageGuard
 
 <PageTitle>@(_post?.Title ?? "Článek") — Tobiso</PageTitle>
 
@@ -264,7 +265,8 @@ else
                 <AiChatBox PostId="@_post.Id"
                            EmptyTitle="Zeptej se na cokoliv z tohoto článku."
                            Placeholder="Např. Proč se neshodný přívlastek neskloňuje?"
-                           Suggestions="@(new[] { "Vysvětli jednodušeji", "Dej mi tři příklady", "Zkoušej mě" })" />
+                           Suggestions="@(new[] { "Vysvětli jednodušeji", "Dej mi tři příklady", "Zkoušej mě" })"
+                           OnAnswered="OnAiAnswered" />
             </div>
 
             @if (_displayRelated.Count > 0)
@@ -464,6 +466,7 @@ else
             _userId = null;
         }
 
+
         // Fire-and-forget: person mentions are a progressive enhancement, don't block the render.
         _ = DetectPersonMentions(_loadGeneration);
     }
@@ -480,7 +483,10 @@ else
         List<string> names;
         try
         {
-            names = await AiService.DetectPeopleInTextAsync(content);
+            var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
+            names = decision.Allowed ? await AiService.DetectPeopleInTextAsync(content) : [];
         }
         catch
         {
@@ -626,6 +632,13 @@ else
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;
     private void ToggleReading() => _readingOpen = !_readingOpen;
     private void ToggleMore() => _moreOpen = !_moreOpen;
+
+    private async Task OnAiAnswered(string _)
+    {
+        if (_userId is not { } uid) return;
+        _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+        StateHasChanged();
+    }
 
     private async Task ToggleBookmark()
     {

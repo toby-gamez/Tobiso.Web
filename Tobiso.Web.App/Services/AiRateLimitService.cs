@@ -7,6 +7,8 @@ namespace Tobiso.Web.App.Services
         private readonly ConcurrentDictionary<string, (int Count, DateTime Date)> _store = new();
         private readonly ConcurrentDictionary<string, List<(int Count, DateTime ValidUntil)>> _bonusStore = new();
         private readonly object _bonusLock = new();
+        private readonly ConcurrentDictionary<string, DateTime> _usedGrantSignatures = new();
+        private readonly ConcurrentDictionary<string, int> _onceStore = new();
 
         public bool TryConsume(string key, int limit)
         {
@@ -49,6 +51,30 @@ namespace Tobiso.Web.App.Services
             {
                 return list.Where(e => e.ValidUntil > now).Sum(e => e.Count);
             }
+        }
+
+        public bool TryConsumeOnce(string key, int limit)
+        {
+            var count = _onceStore.AddOrUpdate(key, 1, (k, v) => v + 1);
+            return count <= limit;
+        }
+
+        public int GetRemainingOnce(string key, int limit) =>
+            _onceStore.TryGetValue(key, out var v) ? Math.Max(0, limit - v) : limit;
+
+        public bool TryRegisterCreditGrant(string signature, DateTime validUntil)
+        {
+            var now = DateTime.UtcNow;
+            if (_usedGrantSignatures.TryGetValue(signature, out var existingExpiry) && existingExpiry > now)
+                return false;
+
+            _usedGrantSignatures[signature] = validUntil;
+
+            // Opportunistic cleanup of expired entries so this doesn't grow unbounded.
+            foreach (var kv in _usedGrantSignatures)
+                if (kv.Value <= now) _usedGrantSignatures.TryRemove(kv.Key, out _);
+
+            return true;
         }
     }
 }

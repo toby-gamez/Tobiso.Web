@@ -16,16 +16,24 @@
                 <h1>AI chat</h1>
                 <p>Zeptej se na cokoliv z učiva. Odpovídá v češtině a drží se látky.</p>
             </div>
-            @if (_isAuth)
-            {
-                <span class="grade-chip"><i data-lucide="coins"></i> @CzechPlural.Kredity(_credits)</span>
-            }
+            <div class="chat-header-actions">
+                @if (_isAuth)
+                {
+                    <span class="grade-chip"><i data-lucide="coins"></i> @CzechPlural.Kredity(_credits)</span>
+                }
+                <button class="pill new-chat-btn" @onclick="StartNewChat">
+                    <i data-lucide="plus"></i> Nový chat
+                </button>
+            </div>
         </div>
 
         <div class="chat-panel soft">
-            <AiChatBox PostId="0"
+            <AiChatBox @ref="_chatBox"
+                       PostId="0"
+                       SessionId="@SessionId"
                        EmptyTitle="Na co se dnes podíváme?"
-                       Suggestions="@(new[] { "Vysvětli mi Pythagorovu větu", "Jak funguje fotosyntéza?", "Dej mi příklad na zlomky" })" />
+                       Suggestions="@(new[] { "Vysvětli mi Pythagorovu větu", "Jak funguje fotosyntéza?", "Dej mi příklad na zlomky" })"
+                       OnAnswered="OnAnswered" />
         </div>
     </div>
 
@@ -44,8 +52,9 @@
             <div class="chat-history-list">
                 @foreach (var s in _sessions)
                 {
-                    <a class="chat-history-item lift" href="@(s.PostId.HasValue ? $"/post/{s.PostId}" : "/chat")">
-                        <span class="chat-history-title">@PostTitle(s.PostId)</span>
+                    <a class="chat-history-item lift @(IsActive(s) ? "active" : "")"
+                       href="@(s.PostId.HasValue ? $"/post/{s.PostId}" : $"/chat?session={s.Id}")">
+                        <span class="chat-history-title">@SessionTitle(s)</span>
                         <span class="chat-history-date">@s.UpdatedAt.ToLocalTime().ToString("d. M. yyyy")</span>
                     </a>
                 }
@@ -55,6 +64,10 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "session")]
+    public int? SessionId { get; set; }
+
+    private AiChatBox? _chatBox;
     private bool _isAuth;
     private int _userId;
     private int _credits;
@@ -73,7 +86,7 @@
 
             if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
 
-            _sessions = await ChatHistory.GetUserSessionsAsync(_userId);
+            await LoadSessions();
             var summaries = await PostService.GetSummaries();
             foreach (var p in summaries) _postTitles[p.Id] = p.Title;
             _credits = (await UserService.GetByIdAsync(_userId))?.Credits ?? 0;
@@ -83,6 +96,27 @@
         }
     }
 
+    private async Task LoadSessions() => _sessions = await ChatHistory.GetUserSessionsAsync(_userId);
+
+    // Refreshes the sidebar right after an answer so a freshly-started "new chat" session shows up
+    // immediately instead of only after the next full page load.
+    private async Task OnAnswered(string _)
+    {
+        if (!_isAuth) return;
+        await LoadSessions();
+        _credits = (await UserService.GetByIdAsync(_userId))?.Credits ?? 0;
+        StateHasChanged();
+    }
+
+    private void StartNewChat()
+    {
+        _chatBox?.ResetConversation();
+        if (SessionId.HasValue) Nav.NavigateTo("/chat");
+    }
+
+    private bool IsActive(Tobiso.Web.Domain.Entities.AiChatSession s) =>
+        !s.PostId.HasValue && SessionId == s.Id;
+
     public void Dispose() => _disposed = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -90,6 +124,13 @@
         if (firstRender) await JS.InvokeVoidAsync("initLucide");
     }
 
-    private string PostTitle(int? postId) =>
-        postId.HasValue && _postTitles.TryGetValue(postId.Value, out var t) ? t : "Obecná konverzace";
+    // Post-tied sessions show the article's title; general sessions show their stored, question-derived
+    // title, falling back to "Obecná konverzace" only for legacy rows saved before Title existed.
+    private string SessionTitle(Tobiso.Web.Domain.Entities.AiChatSession s)
+    {
+        if (s.PostId.HasValue)
+            return _postTitles.TryGetValue(s.PostId.Value, out var t) ? t : "Obecná konverzace";
+
+        return !string.IsNullOrWhiteSpace(s.Title) ? s.Title! : "Obecná konverzace";
+    }
 }

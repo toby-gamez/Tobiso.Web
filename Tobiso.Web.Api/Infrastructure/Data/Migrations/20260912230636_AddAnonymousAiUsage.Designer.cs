@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260912230636_AddAnonymousAiUsage")]
+    partial class AddAnonymousAiUsage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -840,9 +843,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool?>("IsFlashcardEligible")
-                        .HasColumnType("bit");
 
                     b.Property<int>("PostId")
                         .HasColumnType("int");

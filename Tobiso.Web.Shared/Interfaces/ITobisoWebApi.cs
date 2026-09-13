@@ -161,6 +161,10 @@ public interface ITobisoWebApi
     [Get("/api/ai/suggest-related/{postId}")]
     Task<SuggestRelatedResponse> SuggestRelatedPosts(int postId);
 
+    // AI flashcard-eligibility classification (admin)
+    [Post("/api/ai/classify-flashcard-eligibility")]
+    Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatch([Body] ClassifyFlashcardEligibilityRequest request);
+
     // Questions
     [Post("/api/Questions")]
     Task<QuestionResponse> CreateQuestion([Body] CreateQuestionRequest request);

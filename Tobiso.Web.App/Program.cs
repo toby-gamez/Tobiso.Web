@@ -126,6 +126,8 @@ services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.
 
 // AI chat services
 services.AddSingleton<Tobiso.Web.App.Services.IAiRateLimitService, Tobiso.Web.App.Services.AiRateLimitService>();
+services.AddScoped<Tobiso.Web.Api.Services.IAnonymousUsageService, Tobiso.Web.Api.Services.AnonymousUsageService>();
+services.AddScoped<Tobiso.Web.App.Services.IAiUsageGuard, Tobiso.Web.App.Services.AiUsageGuard>();
 services.AddScoped<Tobiso.Web.App.Services.IAiService, Tobiso.Web.App.Services.AiService>();
 // Also register shared IAiService so API services can receive it via DI when hosted in the App
 services.AddScoped<Tobiso.Web.Shared.Interfaces.IAiService, Tobiso.Web.App.Services.AiService>();

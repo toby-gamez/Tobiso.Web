@@ -6,9 +6,14 @@ namespace Tobiso.Web.Api.Services;
 
 public interface IAiChatHistoryService
 {
+    /// <summary>Continues the most recently active session for (userId, postId), or creates one if none exists yet.</summary>
     Task<AiChatSession> GetOrCreateSessionAsync(int userId, int? postId);
-    /// <summary>Reads an existing session without creating one, so opening a chat box doesn't spawn empty history rows.</summary>
+    /// <summary>Always starts a brand-new session, even if one already exists for (userId, postId) — backs the "new chat" action.</summary>
+    Task<AiChatSession> CreateSessionAsync(int userId, int? postId);
+    /// <summary>Reads the most recently active existing session without creating one, so opening a chat box doesn't spawn empty history rows.</summary>
     Task<AiChatSession?> FindSessionAsync(int userId, int? postId);
+    /// <summary>Reads one specific session by id, scoped to its owner.</summary>
+    Task<AiChatSession?> GetSessionByIdAsync(int sessionId, int userId);
     Task SaveMessageAsync(int sessionId, string role, string content, int? creditsUsed = null);
     Task<List<AiChatSession>> GetUserSessionsAsync(int userId);
     Task<List<AiChatMessage>> GetSessionMessagesAsync(int sessionId, int userId);
@@ -28,8 +33,12 @@ public class AiChatHistoryService : IAiChatHistoryService
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
 
+        // Multiple sessions can now exist per (userId, postId) — "new chat" starts an extra one —
+        // so pick the most recently active one rather than an arbitrary match.
         var session = await db.AiChatSessions
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.PostId == postId);
+            .Where(s => s.UserId == userId && s.PostId == postId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
 
         if (session != null)
         {
@@ -44,10 +53,28 @@ public class AiChatHistoryService : IAiChatHistoryService
         return session;
     }
 
+    public async Task<AiChatSession> CreateSessionAsync(int userId, int? postId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var session = new AiChatSession { UserId = userId, PostId = postId };
+        db.AiChatSessions.Add(session);
+        await db.SaveChangesAsync();
+        return session;
+    }
+
     public async Task<AiChatSession?> FindSessionAsync(int userId, int? postId)
     {
         await using var db = await _dbFactory.CreateDbContextAsync();
-        return await db.AiChatSessions.FirstOrDefaultAsync(s => s.UserId == userId && s.PostId == postId);
+        return await db.AiChatSessions
+            .Where(s => s.UserId == userId && s.PostId == postId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<AiChatSession?> GetSessionByIdAsync(int sessionId, int userId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        return await db.AiChatSessions.FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
     }
 
     public async Task SaveMessageAsync(int sessionId, string role, string content, int? creditsUsed = null)
@@ -60,7 +87,35 @@ public class AiChatHistoryService : IAiChatHistoryService
             Content = content,
             CreditsUsed = creditsUsed
         });
+
+        // Keep the session's UpdatedAt fresh so "most recent" lookups and the history sidebar's
+        // ordering reflect actual chat activity, not just when the session row was first created.
+        var session = await db.AiChatSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session != null)
+        {
+            session.UpdatedAt = DateTime.UtcNow;
+
+            // Name the conversation after its opening question, once, the first time one is saved —
+            // "Obecná konverzace" for every general chat regardless of content made the history list
+            // useless for telling conversations apart.
+            if (role == "user" && string.IsNullOrWhiteSpace(session.Title))
+                session.Title = BuildTitle(content);
+        }
+
         await db.SaveChangesAsync();
+    }
+
+    private static string BuildTitle(string question)
+    {
+        const int maxLength = 60;
+        var trimmed = question.Trim();
+        if (trimmed.Length == 0) return "Nová konverzace";
+        if (trimmed.Length <= maxLength) return trimmed;
+
+        var cut = trimmed[..maxLength];
+        var lastSpace = cut.LastIndexOf(' ');
+        if (lastSpace > 20) cut = cut[..lastSpace];
+        return cut.TrimEnd() + "…";
     }
 
     public async Task<List<AiChatSession>> GetUserSessionsAsync(int userId)

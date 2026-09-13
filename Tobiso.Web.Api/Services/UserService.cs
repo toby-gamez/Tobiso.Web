@@ -12,7 +12,8 @@ public interface IUserService
     Task<AppUser?> LoginAsync(string email, string password);
     Task<AppUser?> GetByIdAsync(int id);
     Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
-    Task AddCreditsAsync(int userId, int amount, string reason);
+    Task<bool> ClaimDailyBonusAsync(int userId, int amount);
+    Task<bool> ClaimReadBonusAsync(int userId, int amount);
 }
 
 public class UserService : IUserService
@@ -94,27 +95,89 @@ public class UserService : IUserService
         return user;
     }
 
+    // AsNoTracking: TobisoDbContext is scoped per-circuit in Blazor Server (and per-request
+    // elsewhere), so a tracked read here can get cached in the identity map and then never
+    // reflect later ExecuteUpdateAsync writes (DeductCreditsAsync, ClaimDailyBonusAsync, ...)
+    // made against the same context instance, since those bypass the change tracker entirely.
     public Task<AppUser?> GetByIdAsync(int id) =>
-        _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+        _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
 
+    // Deduct is a single conditional UPDATE (guarded by the balance check in the WHERE
+    // clause) rather than read-then-write, so two concurrent requests can't both read a
+    // Credits=1 balance, both pass an in-memory check, and both deduct — overspending
+    // beyond what the account actually has.
     public async Task<bool> DeductCreditsAsync(int userId, int amount, string reason)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null || user.Credits < amount) return false;
-        user.Credits -= amount;
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
+        var rows = await _db.Users
+            .Where(u => u.Id == userId && u.Credits >= amount)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Credits, u => u.Credits - amount));
+        if (rows == 0)
+        {
+            await tx.RollbackAsync();
+            return false;
+        }
+
         _db.AiCreditTransactions.Add(new AiCreditTransaction
             { UserId = userId, Delta = -amount, Reason = reason });
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
         return true;
     }
 
-    public async Task AddCreditsAsync(int userId, int amount, string reason)
+    // Same conditional-UPDATE approach: the "already claimed today" check and the credit
+    // grant happen in one atomic statement, guarded by LastDailyBonusAt in the WHERE clause,
+    // so it can't be claimed twice via two concurrent requests, and — unlike checking
+    // LastLoginAt — claiming always advances the stamp, so the endpoint can't be replayed
+    // all day on a single long-lived JWT without ever logging in again.
+    public async Task<bool> ClaimDailyBonusAsync(int userId, int amount)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null) return;
-        user.Credits += amount;
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
+        var today = DateTime.UtcNow.Date;
+        var rows = await _db.Users
+            .Where(u => u.Id == userId && (u.LastDailyBonusAt == null || u.LastDailyBonusAt < today))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.Credits, u => u.Credits + amount)
+                .SetProperty(u => u.LastDailyBonusAt, DateTime.UtcNow));
+        if (rows == 0)
+        {
+            await tx.RollbackAsync();
+            return false;
+        }
+
         _db.AiCreditTransactions.Add(new AiCreditTransaction
-            { UserId = userId, Delta = amount, Reason = reason });
+            { UserId = userId, Delta = amount, Reason = "daily_bonus" });
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return true;
+    }
+
+    // Reading an article extends the daily streak; award once per calendar day regardless of
+    // how many articles or scroll-progress updates happen afterward — same atomic-UPDATE
+    // idempotency pattern as ClaimDailyBonusAsync, tracked on a separate stamp so the two
+    // bonuses don't interfere with each other.
+    public async Task<bool> ClaimReadBonusAsync(int userId, int amount)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
+        var today = DateTime.UtcNow.Date;
+        var rows = await _db.Users
+            .Where(u => u.Id == userId && (u.LastReadBonusAt == null || u.LastReadBonusAt < today))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.Credits, u => u.Credits + amount)
+                .SetProperty(u => u.LastReadBonusAt, DateTime.UtcNow));
+        if (rows == 0)
+        {
+            await tx.RollbackAsync();
+            return false;
+        }
+
+        _db.AiCreditTransactions.Add(new AiCreditTransaction
+            { UserId = userId, Delta = amount, Reason = "read_streak_bonus" });
+        await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return true;
     }
 }

@@ -48,6 +48,15 @@
     justify-content: flex-start;
 }
 
+/* The lucide "search" glyph's magnifying-glass handle pulls its visual
+   weight below the icon's own box center, so it reads as sitting lower
+   than the "Hledat…" label next to it; nudge it up to optically match.
+   (Targets the <i> placeholder, not the JS-injected <svg>, since only
+   markup present at compile time gets the scoped CSS isolation attribute.) */
+.search-btn i[data-lucide] {
+    transform: translateY(-1.5px);
+}
+
 .search-shortcut {
     margin-left: auto;
     font-size: 12px;

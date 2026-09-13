@@ -18,7 +18,7 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<string> ExplainSentenceAsync(string sentence, string articleContext);
         Task<EvaluateAnswerResponse> EvaluateAnswerAsync(EvaluateAnswerRequest request);
         Task<FlashcardResponse> GenerateFlashcardsAsync(int postId);
-        Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count);
+        Task<PracticeProblemResponse> GeneratePracticeProblemsAsync(int postId, int count, int? gradeId = null);
         Task<RewriteGradeResponse> RewriteForGradeAsync(int postId, int targetGrade);
         Task<RewriteGradeResponse> RewriteForRegisterAsync(int postId, string register);
         Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
@@ -36,5 +36,6 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<FormulaVarsResponse> ExtractFormulaVarsAsync(int postId);
         Task<CrossConnectionResponse> GetCrossConnectionsAsync(int postId, List<string> allPostTitles);
         Task<RelatedSuggestionsResponse> SuggestCategoryRelatedAsync(int postId, List<int> excludeIds, int count);
+        Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatchAsync(int batchSize = 30);
     }
 }

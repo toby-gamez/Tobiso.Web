@@ -28,8 +28,9 @@ namespace Tobiso.Web.App.Controllers
         private readonly IUserService _userService;
         private readonly TobisoDbContext _db;
         private readonly IRelatedPostService _relatedPostService;
+        private readonly IAiUsageGuard _usageGuard;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -40,6 +41,7 @@ namespace Tobiso.Web.App.Controllers
             _userService = userService;
             _db = db;
             _relatedPostService = relatedPostService;
+            _usageGuard = usageGuard;
         }
 
         [HttpGet("diag")]
@@ -76,40 +78,16 @@ namespace Tobiso.Web.App.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Ask([FromBody] AiChatRequest request)
         {
-            // Consumption is anchored to the server-observed IP (cannot be rotated by the client);
-            // purchased bonus credits are looked up by the device key and only add to the limit.
-            var rateKey = GetRateKey();
-            var bonusKey = GetBonusKey();
-
-            // Determine base limit from X-Client-Id config override
             string clientId = null;
             if (Request.Headers.TryGetValue("X-Client-Id", out var vals))
                 clientId = vals.FirstOrDefault();
 
-            int baseLimit;
-            if (!string.IsNullOrEmpty(clientId))
-            {
-                var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
-                baseLimit = !string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var cl) ? cl
-                    : int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            }
-            else
-            {
-                baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            }
+            var decision = await _usageGuard.TryConsumeAsync(User, GetBonusKey(), clientId);
+            if (!decision.Allowed)
+                return StatusCode(429, new { message = decision.DeniedMessage, createAccountToGetMore = decision.AnonymousLimitReached });
 
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(bonusKey);
-
-            var remainingBefore = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
-            if (remainingBefore <= 0)
-                return StatusCode(429, new { message = "Daily limit reached" });
-
-            var allowed = _rateLimitService.TryConsume(rateKey, effectiveLimit);
-            if (!allowed)
-                return StatusCode(429, new { message = "Daily limit reached" });
-
-            var resp = await _aiService.AskAsync(request, rateKey);
-            resp.RemainingQuestions = _rateLimitService.GetRemaining(rateKey, effectiveLimit);
+            var resp = await _aiService.AskAsync(request, GetRateKey());
+            resp.RemainingQuestions = decision.Remaining;
 
             // For logged-in students: deduct 1 credit and save to chat history
             if (User.FindFirst("role")?.Value == "student"
@@ -140,6 +118,7 @@ namespace Tobiso.Web.App.Controllers
                 s.Id,
                 s.PostId,
                 PostTitle = s.Post?.Title,
+                s.Title,
                 s.CreatedAt,
                 s.UpdatedAt
             }));
@@ -192,8 +171,15 @@ namespace Tobiso.Web.App.Controllers
                     return StatusCode(403, new { message = "Invalid signature" });
             }
 
-            var rateKey = $"device:{request.DeviceId}";
             var validUntil = DateTimeOffset.FromUnixTimeSeconds(request.ValidUntilUtc).UtcDateTime;
+
+            // Reject replays of an already-consumed signed grant — otherwise the exact same
+            // signed payload (e.g. captured from the requesting device's own traffic) could be
+            // resubmitted repeatedly before it expires to accumulate unlimited bonus quota.
+            if (!_rateLimitService.TryRegisterCreditGrant(request.Signature ?? string.Empty, validUntil))
+                return StatusCode(409, new { message = "Credit grant already redeemed" });
+
+            var rateKey = $"device:{request.DeviceId}";
             _rateLimitService.AddBonusQuestions(rateKey, request.Count, validUntil);
 
             var clientId = "tobiso-android";
@@ -213,11 +199,29 @@ namespace Tobiso.Web.App.Controllers
         [AllowAnonymous]
         public async Task AskStream([FromBody] AiChatRequest request)
         {
-            var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            var isStudent = User.FindFirst("role")?.Value == "student";
+            var hasStudentId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var studentId);
+
+            // Pre-flight credit check before spending on a stream we can't retroactively
+            // un-send once chunks start reaching the client (unlike the non-streaming /ask,
+            // which can withhold its single JSON response if the post-hoc deduction fails).
+            if (isStudent && hasStudentId)
+            {
+                var student = await _userService.GetByIdAsync(studentId);
+                if ((student?.Credits ?? 0) < 1)
+                {
+                    Response.StatusCode = 402;
+                    await Response.WriteAsync("data: {\"error\":\"Nemáš dostatek kreditů.\"}\n\n");
+                    return;
+                }
+            }
+
+            var decision = await _usageGuard.TryConsumeAsync(User, GetBonusKey());
+            if (!decision.Allowed)
             {
                 Response.StatusCode = 429;
-                await Response.WriteAsync("data: {\"error\":\"Daily limit reached\"}\n\n");
+                var msg = JsonSerializer.Serialize(decision.DeniedMessage);
+                await Response.WriteAsync($"data: {{\"error\":{msg}}}\n\n");
                 return;
             }
 
@@ -226,10 +230,12 @@ namespace Tobiso.Web.App.Controllers
             Response.Headers["X-Accel-Buffering"] = "no";
             Response.Headers["Connection"] = "keep-alive";
 
+            var answer = new System.Text.StringBuilder();
             try
             {
                 await foreach (var chunk in _aiService.AskStreamAsync(request))
                 {
+                    answer.Append(chunk);
                     var escaped = chunk.Replace("\n", "\\n").Replace("\r", "");
                     await Response.WriteAsync($"data: {escaped}\n\n");
                     await Response.Body.FlushAsync();
@@ -238,6 +244,14 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Streaming failed for PostId={PostId}", request.PostId);
+            }
+
+            if (isStudent && hasStudentId && answer.Length > 0)
+            {
+                await _userService.DeductCreditsAsync(studentId, 1, "ai_ask");
+                var session = await _chatHistory.GetOrCreateSessionAsync(studentId, request.PostId > 0 ? request.PostId : null);
+                await _chatHistory.SaveMessageAsync(session.Id, "user", request.Question ?? "");
+                await _chatHistory.SaveMessageAsync(session.Id, "assistant", answer.ToString(), creditsUsed: 1);
             }
 
             await Response.WriteAsync("data: [DONE]\n\n");
@@ -252,7 +266,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing sentence");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             var post = await _postService.GetById(request.PostId);
@@ -278,7 +292,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing student answer");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -301,7 +315,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing postId");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -324,12 +338,12 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing postId");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
             {
-                var result = await _aiService.GeneratePracticeProblemsAsync(request.PostId, request.Count);
+                var result = await _aiService.GeneratePracticeProblemsAsync(request.PostId, request.Count, request.GradeId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -347,7 +361,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing postId");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -369,7 +383,7 @@ namespace Tobiso.Web.App.Controllers
             if (postId <= 0) return BadRequest("Invalid postId");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -384,10 +398,14 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        // Admin-only content-curation tool (Tobiso.Web.App.Admin RelatedPosts.razor). [Authorize]
+        // alone accepts any authenticated principal, including a self-registered student — and
+        // this endpoint has no rate limit or credit cost, so it must not be reachable by students.
         [HttpGet("suggest-related/{postId:int}")]
         [Authorize]
         public async Task<IActionResult> SuggestRelatedPosts(int postId)
         {
+            if (User.FindFirst("role")?.Value == "student") return Forbid();
             if (postId <= 0) return BadRequest("Invalid postId");
 
             try
@@ -423,11 +441,13 @@ namespace Tobiso.Web.App.Controllers
             return GetRateKey();
         }
 
-        private bool TryConsumeRateLimit(string rateKey)
+        // Delegates to the same IAiUsageGuard the Blazor Server pages use (AiChatBox, PracticeAi,
+        // PostDetail) so the free-tier quota is enforced identically everywhere, not just for
+        // callers that happen to go over HTTP.
+        private async Task<bool> TryConsumeRateLimit(string rateKey)
         {
-            var baseLimit = int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(GetBonusKey());
-            return _rateLimitService.TryConsume(rateKey, effectiveLimit);
+            var decision = await _usageGuard.TryConsumeAsync(User, GetBonusKey());
+            return decision.Allowed;
         }
 
         [HttpGet("detect-persons/{postId}")]
@@ -435,7 +455,7 @@ namespace Tobiso.Web.App.Controllers
         public async Task<IActionResult> DetectPersons(int postId)
         {
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             var post = await _postService.GetById(postId);
@@ -456,7 +476,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing content");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -474,10 +494,14 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        // Admin-only content-curation tool (Tobiso.Web.App.Admin QuestionsManager.razor). Same
+        // reasoning as SuggestRelatedPosts above: no rate limit or credit cost here, so it must
+        // not be reachable by a self-registered student account.
         [HttpPost("generate-question")]
         [Authorize]
         public async Task<IActionResult> GenerateQuestion([FromBody] GenerateQuestionRequest request)
         {
+            if (User.FindFirst("role")?.Value == "student") return Forbid();
             if (request == null)
                 return BadRequest("Missing request body.");
 
@@ -516,6 +540,19 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        // Admin-only content-curation tool (Tobiso.Web.App.Admin FlashcardEligibility.razor). Same
+        // reasoning as GenerateQuestion above: no rate limit or credit cost here, so it must
+        // not be reachable by a self-registered student account.
+        [HttpPost("classify-flashcard-eligibility")]
+        [Authorize]
+        public async Task<IActionResult> ClassifyFlashcardEligibility([FromBody] ClassifyFlashcardEligibilityRequest request)
+        {
+            if (User.FindFirst("role")?.Value == "student") return Forbid();
+
+            var result = await _aiService.ClassifyFlashcardEligibilityBatchAsync(request?.BatchSize ?? 30);
+            return Ok(result);
+        }
+
         [HttpGet("person")]
         [AllowAnonymous]
         public async Task<IActionResult> GetPerson([FromQuery] string name)
@@ -523,7 +560,7 @@ namespace Tobiso.Web.App.Controllers
             if (string.IsNullOrWhiteSpace(name)) return BadRequest("Missing name");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -545,7 +582,7 @@ namespace Tobiso.Web.App.Controllers
             if (request == null || request.PostId <= 0) return BadRequest("Invalid request");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -567,7 +604,7 @@ namespace Tobiso.Web.App.Controllers
             if (request == null || request.PostId <= 0) return BadRequest("Invalid request");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -603,7 +640,7 @@ namespace Tobiso.Web.App.Controllers
             }
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -638,7 +675,7 @@ namespace Tobiso.Web.App.Controllers
             if (postId <= 0) return BadRequest();
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -661,7 +698,7 @@ namespace Tobiso.Web.App.Controllers
             if (string.IsNullOrWhiteSpace(request.StudentExplanation)) return BadRequest("Explanation is required");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             try
@@ -686,7 +723,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Missing sentence");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Daily limit reached" });
 
             var post = await _postService.GetById(request.PostId);
@@ -726,7 +763,7 @@ namespace Tobiso.Web.App.Controllers
             }
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -762,7 +799,7 @@ namespace Tobiso.Web.App.Controllers
                 return BadRequest("Invalid request");
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -786,7 +823,7 @@ namespace Tobiso.Web.App.Controllers
             if (postId <= 0) return BadRequest();
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -823,7 +860,7 @@ namespace Tobiso.Web.App.Controllers
                 return Ok(new { html = cached.HtmlContent });
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -870,7 +907,7 @@ namespace Tobiso.Web.App.Controllers
             }
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -905,7 +942,7 @@ namespace Tobiso.Web.App.Controllers
             if (postId <= 0) return BadRequest();
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -942,7 +979,7 @@ namespace Tobiso.Web.App.Controllers
             }
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try
@@ -998,7 +1035,7 @@ namespace Tobiso.Web.App.Controllers
             }
 
             var rateKey = GetRateKey();
-            if (!TryConsumeRateLimit(rateKey))
+            if (!await TryConsumeRateLimit(rateKey))
                 return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
 
             try

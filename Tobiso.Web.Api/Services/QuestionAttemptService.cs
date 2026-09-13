@@ -10,7 +10,7 @@ public interface IQuestionAttemptService
     Task RecordAttemptAsync(int userId, int questionId, bool isCorrect);
     Task<PracticeStatsDto> GetStatsAsync(int userId);
     Task<List<int>> GetWeakCategoryIds(int userId, int take = 3);
-    Task<List<QuestionResponse>> GetSessionAsync(int? userId, List<int>? categoryIds, int count, bool preferUnmastered);
+    Task<List<QuestionResponse>> GetSessionAsync(int? userId, List<int>? categoryIds, int count, bool preferUnmastered, bool requireFlashcardEligible = false);
 }
 
 public class QuestionAttemptService : IQuestionAttemptService
@@ -66,7 +66,7 @@ public class QuestionAttemptService : IQuestionAttemptService
         {
             TotalQuestions = totalQuestions,
             AttemptedCount = attempts.Count,
-            MasteredCount = attempts.Count(a => a.LastCorrect && a.TimesCorrect >= 2),
+            MasteredCount = attempts.Count(a => a.LastCorrect),
             AccuracyPercent = totalAnswers == 0 ? 0 : Math.Round(100.0 * totalCorrect / totalAnswers, 1)
         };
     }
@@ -94,13 +94,18 @@ public class QuestionAttemptService : IQuestionAttemptService
             .ToList();
     }
 
-    public async Task<List<QuestionResponse>> GetSessionAsync(int? userId, List<int>? categoryIds, int count, bool preferUnmastered)
+    public async Task<List<QuestionResponse>> GetSessionAsync(int? userId, List<int>? categoryIds, int count, bool preferUnmastered, bool requireFlashcardEligible = false)
     {
         var query = _db.Questions.AsNoTracking().AsQueryable();
         if (categoryIds is { Count: > 0 })
         {
             query = query.Where(q => q.Post != null && q.Post.CategoryId != null
                 && categoryIds.Contains(q.Post.CategoryId.Value));
+        }
+
+        if (requireFlashcardEligible)
+        {
+            query = query.Where(q => q.IsFlashcardEligible == true);
         }
 
         var candidateIds = await query.Select(q => q.Id).ToListAsync();
@@ -116,7 +121,7 @@ public class QuestionAttemptService : IQuestionAttemptService
                 .Where(a => a.UserId == userId.Value && candidateIds.Contains(a.QuestionId))
                 .ToDictionaryAsync(a => a.QuestionId);
 
-            bool IsMastered(int id) => attempts.TryGetValue(id, out var a) && a.LastCorrect && a.TimesCorrect >= 2;
+            bool IsMastered(int id) => attempts.TryGetValue(id, out var a) && a.LastCorrect;
 
             var unmastered = candidateIds.Where(id => !IsMastered(id)).OrderBy(_ => rng.Next()).ToList();
             var mastered = candidateIds.Where(IsMastered).OrderBy(_ => rng.Next()).ToList();

@@ -100,7 +100,7 @@
                 ? await CategoryService.GetDescendantIds(CategoryId.Value)
                 : null;
 
-            _cards = await AttemptService.GetSessionAsync(_userId, categoryIds, SessionSize, preferUnmastered: true);
+            _cards = await AttemptService.GetSessionAsync(_userId, categoryIds, SessionSize, preferUnmastered: true, requireFlashcardEligible: true);
             _loading = false;
         }
         catch (Exception) when (_disposed)
@@ -114,15 +114,23 @@
 
     private void Flip() => _flipped = !_flipped;
 
-    private void Advance(bool knewIt)
+    private const int FlipTransitionMs = 400;
+
+    private async Task Advance(bool knewIt)
     {
         if (_current != null && _userId.HasValue)
         {
             var questionId = _current.Id;
             _ = RecordAttemptSafe(_userId.Value, questionId, knewIt);
         }
-        _currentIndex++;
+
         _flipped = false;
+        StateHasChanged();
+        await Task.Delay(FlipTransitionMs);
+        if (_disposed) return;
+
+        _currentIndex++;
+        StateHasChanged();
     }
 
     private async Task RecordAttemptSafe(int userId, int questionId, bool correct)

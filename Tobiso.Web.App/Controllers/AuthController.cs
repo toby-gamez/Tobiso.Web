@@ -153,10 +153,17 @@ public class AuthController : ControllerBase
         var user = await _userService.GetByIdAsync(userId);
         if (user == null) return NotFound();
 
-        if (user.LastLoginAt?.Date == DateTime.UtcNow.Date)
+        // Tracked separately from LastLoginAt (which changes on every login, not on every
+        // claim) so a valid 30-day JWT can't be replayed against this endpoint to farm
+        // unlimited credits without ever logging in again.
+        if (user.LastDailyBonusAt?.Date == DateTime.UtcNow.Date)
             return Conflict(new { message = "Denní bonus byl již dnes vybrán." });
 
-        await _userService.AddCreditsAsync(userId, 20, "daily_bonus");
-        return Ok(new { credits = user.Credits + 20 });
+        var claimed = await _userService.ClaimDailyBonusAsync(userId, 20);
+        if (!claimed)
+            return Conflict(new { message = "Denní bonus byl již dnes vybrán." });
+
+        var updated = await _userService.GetByIdAsync(userId);
+        return Ok(new { credits = updated?.Credits ?? 0 });
     }
 }
