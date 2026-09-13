@@ -1,0 +1,52 @@
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin: var(--space-2) 0 var(--space-5);
+}
+
+.loading-state {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-8) 0;
+}
+
+.filter-bar {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-4);
+}
+
+.filter-bar .input {
+    flex: 1 1 260px;
+    max-width: 360px;
+}
+
+.empty-row {
+    text-align: center;
+    color: var(--color-neutral-500);
+    padding: var(--space-6) !important;
+}
+
+.view-field {
+    margin-bottom: var(--space-3);
+}
+
+.view-field:last-child {
+    margin-bottom: 0;
+}
+
+.addendum-content {
+    white-space: pre-wrap;
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4);
+    margin-top: var(--space-2);
+    font-size: 13px;
+    max-height: 50vh;
+    overflow-y: auto;
+}

@@ -16,13 +16,13 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert-error">@errorMessage</div>
 }
 @if (!string.IsNullOrEmpty(_successMessage))
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle"></i> @_successMessage
-        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    <div class="success-banner">
+        <span><i data-lucide="check-circle-2"></i> @_successMessage</span>
+        <button type="button" class="modal-close" aria-label="Zavřít" @onclick="() => _successMessage = null"><i data-lucide="x"></i></button>
     </div>
 }
 
@@ -35,24 +35,24 @@ else
     <EditForm Model="post" OnValidSubmit="HandleValidSubmit">
         <DataAnnotationsValidator />
         <ValidationSummary />
-        <div class="mb-3">
-            <label for="title" class="form-label">Název</label>
-            <InputText id="title" class="form-control" @bind-Value="post.Title" />
+        <div class="field">
+            <label for="title">Název</label>
+            <InputText id="title" class="input" @bind-Value="post.Title" />
         </div>
-        <div class="mb-3">
-            <label for="filePath" class="form-label">Soubor</label>
-            <InputText id="filePath" class="form-control" @bind-Value="post.FilePath" />
+        <div class="field">
+            <label for="filePath">Soubor</label>
+            <InputText id="filePath" class="input" @bind-Value="post.FilePath" />
         </div>
-        <div class="mb-3">
-            <label for="category" class="form-label">Kategorie</label>
+        <div class="field">
+            <label for="category">Kategorie</label>
             <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
         </div>
-        <div class="mb-3">
-            <label for="grade" class="form-label">Ročník (verze)</label>
+        <div class="field">
+            <label for="grade">Ročník (verze)</label>
             @* Use Value+ValueChanged instead of @bind-Value+@onchange - Blazor's @bind-Value already
                subscribes the change event internally, so adding @onchange would fire twice and conflict.
                ValueExpression is required when splitting @bind-Value into Value+ValueChanged manually. *@
-            <InputSelect id="grade" class="form-select" TValue="int?"
+            <InputSelect id="grade" class="select" TValue="int?"
                          Value="_selectedGradeId"
                          ValueChanged="OnGradeChanged"
                          ValueExpression="@(() => _selectedGradeId)">
@@ -63,121 +63,130 @@ else
                 }
             </InputSelect>
         </div>
-        <div class="mb-3">
-            <label for="content" class="form-label">Obsah</label>
+        <div class="field">
+            <label for="content">Obsah</label>
             <MarkdownEditor @ref="markdownEditor" @bind-Value="_editContent" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
-            <div class="mt-2">
-                <button type="button" class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            <div class="editor-toolbar-row">
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
             </div>
             <GrammarCheckPanel Issues="grammarIssues" />
         </div>
-        <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" id="isFix" @bind="_isFixSelected" />
-            <label class="form-check-label" for="isFix">Oprava (Fix)</label>
+        <div class="checkbox-field">
+            <input type="checkbox" id="isFix" @bind="_isFixSelected" />
+            <label for="isFix">Oprava (Fix)</label>
         </div>
-        <button type="submit" class="btn btn-primary">Uložit změny</button>
-        <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
-        <button type="button" class="btn btn-danger ms-2" @onclick="OnDeletePost">Smazat</button>
-        <button type="button" class="btn btn-outline-info ms-2" title="Vygenerovat tahák (PDF) pomocí AI" @onclick="OpenCheatSheetModal">
-            <i class="bi bi-file-earmark-text"></i> Tahák
-        </button>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Uložit změny</button>
+            <button type="button" class="btn btn-secondary" @onclick="GoBack">Zpět</button>
+            <button type="button" class="btn btn-danger" @onclick="OnDeletePost">Smazat</button>
+            <button type="button" class="btn btn-secondary" title="Vygenerovat tahák (PDF) pomocí AI" @onclick="OpenCheatSheetModal">
+                <i data-lucide="file-text"></i> Tahák
+            </button>
+        </div>
     </EditForm>
 
-    <div class="card mt-4">
-        <div class="card-header"><h5>Video k článku</h5></div>
-        <div class="card-body">
-            <div class="mb-3">
-                <label class="form-label">YouTube URL</label>
-                <input class="form-control" @bind="_videoUrl" placeholder="https://www.youtube.com/watch?v=..." />
+    <div class="panel post-section">
+        <div class="panel-header">Video k článku</div>
+        <div class="panel-body">
+            <div class="field">
+                <label>YouTube URL</label>
+                <input class="input" @bind="_videoUrl" placeholder="https://www.youtube.com/watch?v=..." />
             </div>
-            <div class="mb-3">
-                <label class="form-label">Začít od (sekundy)</label>
-                <input class="form-control" type="number" @bind="_videoTimestamp" min="0" />
+            <div class="field">
+                <label>Začít od (sekundy)</label>
+                <input class="input" type="number" @bind="_videoTimestamp" min="0" />
             </div>
-            <div class="mb-3">
-                <label class="form-label">Popisek karty</label>
-                <input class="form-control" @bind="_videoLabel" placeholder="Video k tématu" />
+            <div class="field">
+                <label>Popisek karty</label>
+                <input class="input" @bind="_videoLabel" placeholder="Video k tématu" />
             </div>
             @if (!string.IsNullOrEmpty(_videoSaveMsg))
             {
-                <div class="alert alert-success py-1 mb-2">@_videoSaveMsg</div>
+                <div class="success-banner">@_videoSaveMsg</div>
             }
-            <button class="btn btn-primary" @onclick="SaveVideoAsync">Uložit video</button>
-            @if (!string.IsNullOrEmpty(_videoUrl))
-            {
-                <button class="btn btn-outline-danger ms-2" @onclick="RemoveVideoAsync">Odebrat</button>
-            }
+            <div class="form-actions">
+                <button class="btn btn-primary" @onclick="SaveVideoAsync">Uložit video</button>
+                @if (!string.IsNullOrEmpty(_videoUrl))
+                {
+                    <button class="btn btn-secondary" @onclick="RemoveVideoAsync">Odebrat</button>
+                }
+            </div>
         </div>
     </div>
 
-    <div class="card mt-4">
-        <div class="card-header"><h5>Verze článku</h5></div>
-        <div class="card-body">
+    <div class="panel post-section">
+        <div class="panel-header">Verze článku</div>
+        <div class="panel-body">
             @if (_versions.Count == 0)
             {
-                <p class="text-muted mb-0">Žádné verze</p>
+                <p class="muted">Žádné verze</p>
             }
             else
             {
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Ročník</th>
-                            <th>Obsah</th>
-                            <th>Poslední editace</th>
-                            <th>Poslední oprava</th>
-                            <th>Akce</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var v in _versions.OrderBy(v => v.GradeLevel ?? 0))
-                        {
-                            var version = v;
-                            var isActive = version.GradeId == _selectedGradeId;
-                            <tr class="@(isActive ? "table-primary" : "")">
-                                <td>
-                                    @if (_editingGradeVersionId == version.Id)
-                                    {
-                                        <select class="form-select form-select-sm d-inline-block w-auto" @bind="_editingNewGradeId">
-                                            @foreach (var g in grades)
-                                            {
-                                                <option value="@g.Id">@g.Name</option>
-                                            }
-                                        </select>
-                                        <button class="btn btn-sm btn-success ms-1" @onclick="() => SaveVersionGrade(version.Id)">Uložit</button>
-                                        <button class="btn btn-sm btn-secondary ms-1" @onclick="CancelVersionGradeEdit">Zrušit</button>
-                                    }
-                                    else
-                                    {
-                                        @version.GradeName
-                                        <button class="btn btn-sm btn-outline-secondary ms-2"
-                                                @onclick="() => StartVersionGradeEdit(version)"
-                                                title="Změnit ročník">
-                                            <i class="bi bi-tag"></i>
-                                        </button>
-                                    }
-                                </td>
-                                <td class="text-muted" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@Truncate(version.Content, 80)</td>
-                                <td>@(version.LastEdit?.ToString("g") ?? "-")</td>
-                                <td>@(version.LastFix?.ToString("g") ?? "-")</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary me-1"
-                                            @onclick="() => SelectVersion(version.GradeId)"
-                                            title="Upravit tuto verzi">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger"
-                                            @onclick="() => DeleteVersion(version.Id)"
-                                            disabled="@(_versions.Count <= 1)"
-                                            title="@(_versions.Count <= 1 ? "Nelze smazat poslední verzi" : "Smazat tuto verzi")">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ročník</th>
+                                <th>Obsah</th>
+                                <th>Poslední editace</th>
+                                <th>Poslední oprava</th>
+                                <th>Akce</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var v in _versions.OrderBy(v => v.GradeLevel ?? 0))
+                            {
+                                var version = v;
+                                var isActive = version.GradeId == _selectedGradeId;
+                                <tr class="@(isActive ? "active-row" : "")">
+                                    <td>
+                                        @if (_editingGradeVersionId == version.Id)
+                                        {
+                                            <select class="select inline-select" @bind="_editingNewGradeId">
+                                                @foreach (var g in grades)
+                                                {
+                                                    <option value="@g.Id">@g.Name</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-primary btn-sm" @onclick="() => SaveVersionGrade(version.Id)">Uložit</button>
+                                            <button class="btn btn-secondary btn-sm" @onclick="CancelVersionGradeEdit">Zrušit</button>
+                                        }
+                                        else
+                                        {
+                                            @version.GradeName
+                                            <button class="btn btn-ghost btn-sm"
+                                                    @onclick="() => StartVersionGradeEdit(version)"
+                                                    title="Změnit ročník">
+                                                <i data-lucide="tag"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                    <td class="muted truncate-cell">@Truncate(version.Content, 80)</td>
+                                    <td>@(version.LastEdit?.ToString("g") ?? "-")</td>
+                                    <td>@(version.LastFix?.ToString("g") ?? "-")</td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <button class="btn btn-ghost btn-sm"
+                                                    @onclick="() => SelectVersion(version.GradeId)"
+                                                    title="Upravit tuto verzi">
+                                                <i data-lucide="pencil-line"></i>
+                                            </button>
+                                            <button class="btn btn-ghost btn-sm"
+                                                    @onclick="() => DeleteVersion(version.Id)"
+                                                    disabled="@(_versions.Count <= 1)"
+                                                    title="@(_versions.Count <= 1 ? "Nelze smazat poslední verzi" : "Smazat tuto verzi")">
+                                                <i data-lucide="trash-2"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
         </div>
     </div>
@@ -188,13 +197,13 @@ else
 
 @if (_showCheatSheetModal)
 {
-    <div class="cs-modal-backdrop" @onclick="CloseCheatSheetModal">
-        <div class="cs-modal-dialog" @onclick:stopPropagation>
-            <div class="cs-modal-header">
-                <span>Vyberte formát tahák&uacute;</span>
-                <button class="cs-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
+    <div class="modal-backdrop" @onclick="CloseCheatSheetModal">
+        <div class="modal-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>Vyberte formát tahák&uacute;</h3>
+                <button class="modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal"><i data-lucide="x"></i></button>
             </div>
-            <div class="cs-modal-body">
+            <div class="modal-body cs-modal-body">
                 <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{Id}?ratio=1x1")" target="_blank" @onclick="CloseCheatSheetModal">
                     <div class="cs-preview cs-preview-1x1">
                         <div class="cs-preview-line" style="width:78%"></div>
@@ -250,9 +259,13 @@ else
     </div>
 }
 
+<FormattingLegend @bind-Visible="_showLegend" />
+
 @code {
     [Parameter]
     public int Id { get; set; }
+
+    private bool _showLegend = false;
 
     private PostResponse? post;
     private List<CategoryResponse> categories = new();
@@ -338,6 +351,11 @@ else
             }
         }
         catch { }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private async Task SaveVideoAsync()
@@ -609,21 +627,3 @@ else
         return await JS.InvokeAsync<bool>("confirm", message);
     }
 }
-
-<style>
-    .cs-modal-backdrop { position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center; }
-    .cs-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;min-width:320px;max-width:96vw; }
-    .cs-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1rem;margin-bottom:1.1rem; }
-    .cs-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
-    .cs-modal-body { display:grid;grid-template-columns:1fr 1fr;gap:.9rem; }
-    .cs-ratio-card { display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.7rem .8rem .9rem;border:2px solid #d89dbd;border-radius:10px;background:none;cursor:pointer;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s,background .15s; }
-    .cs-ratio-card:hover { border-color:#c36f9a;background:#f3d6e5;box-shadow:0 2px 10px rgba(195,111,154,.2); }
-    .cs-preview { display:flex;flex-direction:column;gap:4px;padding:6px 7px;border-radius:5px;border:1.5px solid #d89dbd;background:#f3d6e5; }
-    .cs-preview-1x1 { width:54px;height:54px; }
-    .cs-preview-1x2 { width:54px;height:90px; }
-    .cs-preview-2x1 { width:90px;height:54px; }
-    .cs-preview-2x2 { width:90px;height:90px; }
-    .cs-preview-line { height:4px;border-radius:2px;background:#c36f9a;opacity:.55; }
-    .cs-card-label { font-weight:600;font-size:.92rem;color:#c36f9a; }
-    .cs-card-sub { font-size:.75rem;color:#888; }
-</style>

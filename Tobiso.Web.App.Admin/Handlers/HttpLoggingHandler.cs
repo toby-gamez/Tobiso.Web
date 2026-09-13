@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 
 namespace Tobiso.Web.App.Handlers;
 
@@ -18,6 +18,12 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 		  var id = Guid.NewGuid().ToString();
 		  var msg = $"[{id}]";
 
+		  // Requests that carry credentials (login/register) must never have their body logged,
+		  // and the Authorization header (bearer JWT / Basic credentials) must never be logged in
+		  // full, regardless of configured log level - a level bump to Debug for troubleshooting
+		  // would otherwise start writing plaintext passwords and tokens to the log sinks.
+		  var isAuthPath = req.RequestUri?.AbsolutePath.Contains("/auth/", StringComparison.OrdinalIgnoreCase) == true;
+
 		  _logger.LogDebug(msg);
 
 		  _logger.LogDebug($"{msg} ====== Start API {req.Method} {request.RequestUri.ToString()} ========");
@@ -26,7 +32,10 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 
 		  foreach (var header in req.Headers)
 		  {
-				_logger.LogDebug($"{msg} {header.Key}: {string.Join(", ", header.Value)}");
+				var value = header.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
+					 ? "[REDACTED]"
+					 : string.Join(", ", header.Value);
+				_logger.LogDebug($"{msg} {header.Key}: {value}");
 		  }
 
 		  if (req.Content != null)
@@ -36,12 +45,16 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 					 _logger.LogDebug($"{msg} {header.Key}: {string.Join(", ", header.Value)}");
 				}
 
-				if (req.Content is StringContent || IsTextBasedContentType(req.Headers) || IsTextBasedContentType(req.Content.Headers))
+				if (!isAuthPath && (req.Content is StringContent || IsTextBasedContentType(req.Headers) || IsTextBasedContentType(req.Content.Headers)))
 				{
 					 string result = await req.Content.ReadAsStringAsync();
 
 					 _logger.LogDebug($"{msg} Content:");
 					 _logger.LogDebug($"{msg} {string.Join("", result.Cast<char>().Take(4096))}...");
+				}
+				else if (isAuthPath)
+				{
+					 _logger.LogDebug($"{msg} Content: [REDACTED - auth endpoint]");
 				}
 		  }
 
@@ -62,7 +75,7 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 		  {
 				_logger.LogDebug($"{msg} {header.Key}: {string.Join(", ", header.Value)}");
 		  }
-		  
+
 		  _logger.LogDebug($"{msg} === End Request ===");
 
 		  if (resp.Content != null)
@@ -72,7 +85,7 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 					 _logger.LogDebug($"{msg} Key/Value: {header.Key}: {string.Join(", ", header.Value)}");
 				}
 
-				if (resp.Content is StringContent || this.IsTextBasedContentType(resp.Headers) || this.IsTextBasedContentType(resp.Content.Headers))
+				if (!isAuthPath && (resp.Content is StringContent || this.IsTextBasedContentType(resp.Headers) || this.IsTextBasedContentType(resp.Content.Headers)))
 				{
 					 start = DateTime.Now;
 					 var result = await resp.Content.ReadAsStringAsync();
@@ -80,6 +93,10 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 
 					 _logger.LogDebug($"{msg} Duration: {end - start}. Content:");
 					 _logger.LogDebug($"{msg} {string.Join("", result.Cast<char>())}...");
+				}
+				else if (isAuthPath)
+				{
+					 _logger.LogDebug($"{msg} Content: [REDACTED - auth endpoint]");
 				}
 		  }
 

@@ -1,68 +1,70 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Tobiso Admin</a>
+@using Tobiso.Web.App.Authentication
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject CredentialStore CredentialStore
+
+<aside class="nav-rail">
+    <a href="/" class="brand-link">
+        <span class="brand-logo">T</span>
+        <span class="brand-name">Tobiso Admin</span>
+    </a>
+
+    <div class="rail-section">
+        <div class="rail-section-label">Obsah</div>
+        <a href="/" class="rail-item @(IsActive("/") ? "active" : "")"><i data-lucide="home"></i> Home</a>
+        <a href="/categories" class="rail-item @(IsActive("/categories") ? "active" : "")"><i data-lucide="folder-tree"></i> Categories</a>
+        <a href="/related-posts" class="rail-item @(IsActive("/related-posts") ? "active" : "")"><i data-lucide="link"></i> Související posty</a>
+        <a href="/addendums" class="rail-item @(IsActive("/addendums") ? "active" : "")"><i data-lucide="file-text"></i> Dodatky</a>
+        <a href="/events" class="rail-item @(IsActive("/events") ? "active" : "")"><i data-lucide="calendar-days"></i> Události</a>
     </div>
-</div>
 
-<input type="checkbox" aria-label="Navigation menu" class="navbar-toggler" />
+    <div class="rail-section">
+        <div class="rail-section-label">Cvičení</div>
+        <a href="/exercises" class="rail-item @(IsActive("/exercises") ? "active" : "")"><i data-lucide="play"></i> Cvičení</a>
+        <a href="/questions" class="rail-item @(IsActive("/questions") ? "active" : "")"><i data-lucide="help-circle"></i> Otázky</a>
+        <a href="/grades" class="rail-item @(IsActive("/grades") ? "active" : "")"><i data-lucide="layers"></i> Grades</a>
+    </div>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <div class="rail-section">
+        <div class="rail-section-label">Zpětná vazba &amp; statistiky</div>
+        <a href="/feedbacks" class="rail-item @(IsActive("/feedbacks") ? "active" : "")"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
+        <a href="/post-stats" class="rail-item @(IsActive("/post-stats") ? "active" : "")"><i data-lucide="bar-chart-3"></i> Statistiky</a>
+    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="categories">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Categories
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="events">
-                <span class="bi bi-calendar" aria-hidden="true"></span> Události
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="addendums">
-                <span class="bi bi-file-text" aria-hidden="true"></span> Dodatky
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="related-posts">
-                <span class="bi bi-link-45deg" aria-hidden="true"></span> Související posty
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="feedbacks">
-                <span class="bi bi-chat-dots" aria-hidden="true"></span> Zpětná vazba
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="exercises">
-                <span class="bi bi-play-circle" aria-hidden="true"></span> Cvičení
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="questions">
-                <span class="bi bi-question-circle" aria-hidden="true"></span> Otázky
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="images">
-                <span class="bi bi-image" aria-hidden="true"></span> Images
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="grades">
-                <span class="bi bi-collection" aria-hidden="true"></span> Grades
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="post-stats">
-                <span class="bi bi-bar-chart-fill" aria-hidden="true"></span> Statistiky
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    <div class="rail-section">
+        <div class="rail-section-label">Média</div>
+        <a href="/images" class="rail-item @(IsActive("/images") ? "active" : "")"><i data-lucide="image"></i> Images</a>
+    </div>
+
+    <div class="rail-footer">
+        <button @onclick="Logout" class="rail-item logout-item">
+            <i data-lucide="log-out"></i> Odhlásit se
+        </button>
+    </div>
+</aside>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private bool IsActive(string path)
+    {
+        var current = new Uri(Nav.Uri).AbsolutePath;
+        return path == "/" ? current == "/" : current.StartsWith(path);
+    }
+
+    private async Task Logout()
+    {
+        try
+        {
+            await CredentialStore.ClearAsync(JS);
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}

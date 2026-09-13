@@ -1,0 +1,38 @@
+h3 {
+    margin-bottom: var(--space-4);
+}
+
+.alert-error {
+    margin-bottom: var(--space-4);
+}
+
+::deep .field {
+    margin-bottom: var(--space-4);
+}
+
+.editor-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-2);
+}
+
+.checkbox-field {
+    margin-bottom: var(--space-4);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.info-banner {
+    margin-top: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-900);
+    border-radius: var(--radius-md);
+}

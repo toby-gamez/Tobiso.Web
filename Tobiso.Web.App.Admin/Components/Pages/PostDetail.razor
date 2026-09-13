@@ -5,11 +5,8 @@
 @inject Tobiso.Web.Shared.Interfaces.ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
-<style>
-    .sidebar {
-        display: none;
-    }
-</style>
+@inject IJSRuntime JS
+
 <PageTitle>Blogový post</PageTitle>
 
 @if (post == null)
@@ -18,16 +15,18 @@
 }
 else
 {
-    <button class="btn btn-secondary mb-3" @onclick="BackToList">Zpět na seznam</button>
-    <button class="btn btn-primary mb-3 ms-2" @onclick="SaveChanges">Uložit</button>
-    <h2><i class="bi bi-file-earmark-text"></i> @post.Title</h2>
-    <div class="mb-2">
-        <label>
+    <div class="toolbar-row">
+        <button class="btn btn-secondary" @onclick="BackToList">Zpět na seznam</button>
+        <button class="btn btn-primary" @onclick="SaveChanges">Uložit</button>
+    </div>
+    <h2 class="post-title"><i data-lucide="file-text"></i> @post.Title</h2>
+    <div class="fix-row">
+        <label class="checkbox-field">
             <input type="checkbox" @bind="_isFixSelected" /> Fix
         </label>
-        <span style="margin-left:12px; color:var(--bs-secondary);">@GetLatestEditDateDisplay()</span>
+        <span class="muted">@GetLatestEditDateDisplay()</span>
     </div>
-    <div class="mb-4">
+    <div class="post-body">
         @((MarkupString)Markdig.Markdown.ToHtml(ActiveVersion?.Content ?? string.Empty))
     </div>
 }
@@ -75,6 +74,11 @@ else
         {
             Navigation.NavigateTo("/login");
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private void BackToList()
@@ -134,4 +138,3 @@ else
         return d?.ToString("d. M. yyyy") ?? string.Empty;
     }
 }
-

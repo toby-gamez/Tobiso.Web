@@ -1,6 +1,7 @@
 @page "/feedbacks"
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Domain.Entities
+@using System.Text.RegularExpressions
 @using Microsoft.JSInterop
 @using Microsoft.AspNetCore.Authorization
 @inject Tobiso.Web.Api.Services.IFeedbackService FeedbackService
@@ -9,105 +10,36 @@
 
 <PageTitle>Zpětná vazba – Admin</PageTitle>
 
-<style>
-    .fb-page { max-width: 900px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, sans-serif; }
-
-    /* ── header ── */
-    .fb-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
-    .fb-header h2 { margin: 0; font-size: 1.4rem; color: #1a1a2e; }
-    .fb-stats { display: flex; gap: 10px; flex-wrap: wrap; }
-    .fb-stat { padding: 4px 12px; background: #f1f5f9; border-radius: 20px; font-size: 13px; color: #475569; }
-    .fb-stat strong { color: #0f172a; }
-
-    /* ── filter bar ── */
-    .fb-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-    .fb-filters select { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; color: #374151; }
-    .fb-filters select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px #6366f120; }
-    .btn-clear { padding: 6px 12px; background: transparent; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b; }
-    .btn-clear:hover { background: #f8fafc; }
-
-    /* ── list ── */
-    .fb-list { display: flex; flex-direction: column; gap: 12px; }
-
-    /* ── card ── */
-    .fb-card { border: 1px solid #e2e8f0; border-radius: 10px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: box-shadow .15s; }
-    .fb-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .fb-card.expanded { border-color: #6366f1; }
-
-    .fb-card-top { display: flex; gap: 12px; padding: 16px; cursor: pointer; align-items: flex-start; }
-    .fb-card-left { flex: 1; min-width: 0; }
-    .fb-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
-
-    .fb-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
-    .badge-bug      { background: #fee2e2; color: #b91c1c; }
-    .badge-feature  { background: #dbeafe; color: #1d4ed8; }
-    .badge-new      { background: #fef3c7; color: #92400e; }
-    .badge-inprog   { background: #e0e7ff; color: #3730a3; }
-    .badge-resolved { background: #dcfce7; color: #166534; }
-    .badge-wontfix  { background: #f1f5f9; color: #64748b; }
-    .badge-platform { background: #f0fdf4; color: #166534; }
-
-    .fb-title { font-weight: 600; font-size: 15px; color: #0f172a; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .fb-meta  { font-size: 12px; color: #94a3b8; }
-
-    .fb-expand-icon { color: #94a3b8; font-size: 18px; line-height: 1; margin-top: 2px; transition: transform .2s; }
-    .fb-card.expanded .fb-expand-icon { transform: rotate(180deg); }
-
-    /* ── inline status selector ── */
-    .status-select { padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; background: white; cursor: pointer; color: #374151; }
-    .status-select:focus { outline: none; border-color: #6366f1; }
-    .status-select.saving { opacity: .6; pointer-events: none; }
-
-    /* ── expanded body ── */
-    .fb-body { padding: 0 16px 16px; border-top: 1px solid #f1f5f9; }
-    .fb-body-inner { padding-top: 14px; display: flex; flex-direction: column; gap: 14px; }
-
-    .fb-desc-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 4px; }
-    .fb-desc { font-size: 14px; color: #374151; line-height: 1.6; background: #f8fafc; border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; }
-
-    .fb-note-area { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 72px; color: #374151; }
-    .fb-note-area:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px #6366f120; }
-
-    .fb-actions { display: flex; justify-content: flex-end; gap: 8px; }
-    .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-save   { background: #6366f1; color: white; }
-    .btn-save:hover:not(:disabled) { background: #4f46e5; }
-    .btn-delete { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-    .btn-delete:hover:not(:disabled) { background: #fecaca; }
-
-    .fb-saved-msg { font-size: 12px; color: #16a34a; }
-
-    .fb-empty, .fb-loading { text-align: center; padding: 60px 0; color: #94a3b8; font-size: 15px; }
-</style>
-
 <div class="fb-page">
     <div class="fb-header">
-        <h2>Zpětná vazba od uživatelů</h2>
+        <h1>Zpětná vazba od uživatelů</h1>
         @if (pagedResult != null)
         {
             <div class="fb-stats">
-                <div class="fb-stat"><strong>@pagedResult.TotalCount</strong> celkem</div>
-                <div class="fb-stat"><strong>@pagedResult.Items.Count</strong> zobrazeno</div>
+                <span class="badge">@pagedResult.TotalCount celkem</span>
+                <span class="badge">@pagedResult.Items.Count zobrazeno</span>
+                @if (Groups.Count != pagedResult.Items.Count)
+                {
+                    <span class="badge">@Groups.Count po sloučení duplicit</span>
+                }
             </div>
         }
     </div>
 
     <div class="fb-filters">
-        <select @onchange="OnTypeChanged">
+        <select class="select fb-filter-select" @onchange="OnTypeChanged">
             <option value="">Typ: vše</option>
             <option value="Bug">🐛 Chyba</option>
             <option value="FeatureRequest">💡 Návrh</option>
         </select>
-        <select @onchange="OnStatusChanged">
+        <select class="select fb-filter-select" @onchange="OnStatusChanged">
             <option value="">Stav: vše</option>
             <option value="New">Nové</option>
             <option value="InProgress">Řeší se</option>
             <option value="Resolved">Vyřešeno</option>
             <option value="WontFix">Nebudeme řešit</option>
         </select>
-        <select @onchange="OnPlatformChanged">
+        <select class="select fb-filter-select" @onchange="OnPlatformChanged">
             <option value="">Platforma: vše</option>
             <option value="Web">Web</option>
             <option value="Android">Android</option>
@@ -115,7 +47,7 @@
         </select>
         @if (!string.IsNullOrEmpty(typeFilter) || !string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(platformFilter))
         {
-            <button class="btn-clear" @onclick="ClearFilters">✕ Zrušit filtry</button>
+            <button class="btn btn-ghost btn-sm" @onclick="ClearFilters"><i data-lucide="x"></i> Zrušit filtry</button>
         }
     </div>
 
@@ -130,25 +62,44 @@
     else
     {
         <div class="fb-list">
-            @foreach (var item in pagedResult.Items)
+            @{ var doneHeaderShown = false; }
+            @foreach (var group in OrderedGroups)
             {
+                var item = group.Primary;
                 var state = GetState(item.Id);
                 var isExpanded = expandedId == item.Id;
-                <div class="fb-card @(isExpanded ? "expanded" : "")">
+                var isDone = IsDone(item.Status);
+                if (isDone && !doneHeaderShown)
+                {
+                    doneHeaderShown = true;
+                    <div class="fb-section-divider">Vyřešeno / Nebudeme řešit</div>
+                }
+                <div class="fb-card @(isExpanded ? "expanded" : "") @(isDone ? "done" : "")">
                     <!-- clickable header row -->
                     <div class="fb-card-top" @onclick="() => Toggle(item.Id)">
                         <div class="fb-card-left">
                             <div class="fb-badges">
-                                <span class="badge @TypeBadge(item.Type)">@TypeLabel(item.Type)</span>
-                                <span class="badge @StatusBadge(item.Status)">@StatusLabel(item.Status)</span>
+                                <span class="fb-badge @TypeBadge(item.Type)">@TypeLabel(item.Type)</span>
+                                <span class="fb-badge @StatusBadge(item.Status)">@StatusLabel(item.Status)</span>
                                 @if (!string.IsNullOrEmpty(item.Platform))
                                 {
-                                    <span class="badge badge-platform">@item.Platform</span>
+                                    <span class="fb-badge fb-badge-platform">@item.Platform</span>
+                                }
+                                @if (group.Count > 1)
+                                {
+                                    <span class="fb-badge fb-badge-occurrence">×@group.Count</span>
                                 }
                             </div>
                             <div class="fb-title">@(string.IsNullOrEmpty(item.Title) ? "(bez názvu)" : item.Title)</div>
                             <div class="fb-meta">
-                                @item.SubmittedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                @if (group.Count > 1)
+                                {
+                                    <span>@group.FirstSeenAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") – @group.LastSeenAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                }
+                                else
+                                {
+                                    <span>@item.SubmittedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                }
                                 @if (item.SubmittedByUserId != null)
                                 {
                                     <span> · uživatel @item.SubmittedByUserId</span>
@@ -156,17 +107,17 @@
                             </div>
                         </div>
                         <div class="fb-card-right" @onclick:stopPropagation="true">
-                            <!-- status dropdown - does not toggle expand -->
-                            <select class="status-select @(state.SavingStatus ? "saving" : "")"
+                            <!-- status dropdown - does not toggle expand; applies to the whole group -->
+                            <select class="select fb-status-select @(state.SavingStatus ? "saving" : "")"
                                     value="@item.Status.ToString()"
-                                    @onchange="e => OnStatusSelect(item, e)"
+                                    @onchange="e => OnStatusSelect(group, e)"
                                     disabled="@state.SavingStatus">
                                 <option value="New">Nové</option>
                                 <option value="InProgress">Řeší se</option>
                                 <option value="Resolved">Vyřešeno</option>
                                 <option value="WontFix">Nebudeme řešit</option>
                             </select>
-                            <span class="fb-expand-icon">▾</span>
+                            <i data-lucide="chevron-down" class="fb-expand-icon"></i>
                         </div>
                     </div>
 
@@ -178,9 +129,21 @@
                                     <div class="fb-desc-label">Zpráva</div>
                                     <div class="fb-desc">@item.Description</div>
                                 </div>
+                                @if (group.Count > 1)
+                                {
+                                    <div>
+                                        <div class="fb-desc-label">Sloučené záznamy (@group.Count)</div>
+                                        <div class="fb-desc">
+                                            @foreach (var dup in group.Items)
+                                            {
+                                                <div>#@dup.Id · @dup.SubmittedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                                 <div>
                                     <div class="fb-desc-label">Interní poznámka</div>
-                                    <textarea class="fb-note-area"
+                                    <textarea class="textarea fb-note-area"
                                               value="@state.NoteDraft"
                                               @oninput="e => state.NoteDraft = e.Value?.ToString() ?? string.Empty"
                                               placeholder="Poznámky viditelné jen pro adminy…" />
@@ -188,15 +151,15 @@
                                 <div class="fb-actions">
                                     @if (state.NoteSaved)
                                     {
-                                        <span class="fb-saved-msg">✓ Uloženo</span>
+                                        <span class="fb-saved-msg"><i data-lucide="check"></i> Uloženo</span>
                                     }
-                                    <button class="btn btn-save"
+                                    <button class="btn btn-primary btn-sm"
                                             disabled="@(state.SavingNote || state.NoteDraft == (item.AdminNote ?? string.Empty))"
                                             @onclick="() => SaveNote(item, state)">
                                         @(state.SavingNote ? "Ukládám…" : "Uložit poznámku")
                                     </button>
-                                    <button class="btn btn-delete" @onclick="() => DeleteFeedback(item.Id)">
-                                        Smazat
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteFeedbackGroup(group)">
+                                        @(group.Count > 1 ? $"Smazat vše ({group.Count})" : "Smazat")
                                     </button>
                                 </div>
                             </div>
@@ -236,7 +199,69 @@
         return s;
     }
 
+    // ── duplicate grouping ──
+    // Reports that are the same error/message logged more than once (e.g. a
+    // client-side crash that fires on every launch) are collapsed into one
+    // card with an occurrence count; status/delete actions on that card apply
+    // to every report in the group. Mirrors AndroidStudioProjects/TobisoFeedback's
+    // FeedbackGroup.kt so admins see the same clustering on web and mobile.
+    private sealed class FeedbackGroup
+    {
+        public required List<FeedbackItemResponse> Items { get; init; }
+        public FeedbackItemResponse Primary => Items[0];
+        public List<string> Ids => Items.Select(i => i.Id).ToList();
+        public int Count => Items.Count;
+        public DateTime FirstSeenAt => Items.Min(i => i.SubmittedAt);
+        public DateTime LastSeenAt => Items.Max(i => i.SubmittedAt);
+    }
+
+    // Matches an ISO-8601 UTC timestamp, e.g. one embedded in an auto-generated
+    // error report's "Time: 2026-09-13T10:25:33.315595Z" line - that's the one
+    // part of an otherwise-identical report that's unique to every occurrence.
+    private static readonly Regex IsoTimestampRegex = new(@"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?", RegexOptions.Compiled);
+
+    private static string DuplicateKey(FeedbackItemResponse item) =>
+        $"{item.Type}|{item.Platform}|{item.Title.Trim()}|{IsoTimestampRegex.Replace(item.Description.Trim(), string.Empty)}";
+
+    private List<FeedbackGroup> Groups
+    {
+        get
+        {
+            if (pagedResult == null) return new List<FeedbackGroup>();
+
+            var order = new List<string>();
+            var byKey = new Dictionary<string, List<FeedbackItemResponse>>();
+            foreach (var item in pagedResult.Items)
+            {
+                var key = DuplicateKey(item);
+                if (!byKey.TryGetValue(key, out var list))
+                {
+                    list = new List<FeedbackItemResponse>();
+                    byKey[key] = list;
+                    order.Add(key);
+                }
+                list.Add(item);
+            }
+            return order.Select(k => new FeedbackGroup { Items = byKey[k] }).ToList();
+        }
+    }
+
+    // Resolved/won't-fix reports sink into their own "done" section below the
+    // open ones (still newest-first within each section) instead of cluttering
+    // the active queue, and render semi-transparent via the "done" CSS class.
+    private static bool IsDone(FeedbackStatus s) => s is FeedbackStatus.Resolved or FeedbackStatus.WontFix;
+
+    private List<FeedbackGroup> OrderedGroups => Groups
+        .OrderBy(g => IsDone(g.Primary.Status) ? 1 : 0)
+        .ThenByDescending(g => g.LastSeenAt)
+        .ToList();
+
     protected override async Task OnInitializedAsync() => await LoadFeedbacks();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JSRuntime.InvokeVoidAsync("initLucide");
+    }
 
     private async Task LoadFeedbacks()
     {
@@ -257,18 +282,21 @@
 
     private void Toggle(string id) => expandedId = expandedId == id ? null : id;
 
-    private async Task OnStatusSelect(FeedbackItemResponse item, ChangeEventArgs e)
+    private async Task OnStatusSelect(FeedbackGroup group, ChangeEventArgs e)
     {
-        if (!Enum.TryParse<FeedbackStatus>(e.Value?.ToString(), out var newStatus) || newStatus == item.Status)
+        if (!Enum.TryParse<FeedbackStatus>(e.Value?.ToString(), out var newStatus) || newStatus == group.Primary.Status)
             return;
 
-        var state = GetState(item.Id);
+        var state = GetState(group.Primary.Id);
         state.SavingStatus = true;
 
-        if (int.TryParse(item.Id, out var intId))
+        foreach (var item in group.Items)
         {
-            var updated = await FeedbackService.Patch(intId, new UpdateFeedbackRequest { Status = newStatus });
-            if (updated != null) item.Status = updated.Status;
+            if (int.TryParse(item.Id, out var intId))
+            {
+                var updated = await FeedbackService.Patch(intId, new UpdateFeedbackRequest { Status = newStatus });
+                if (updated != null) item.Status = updated.Status;
+            }
         }
 
         state.SavingStatus = false;
@@ -288,13 +316,19 @@
         state.SavingNote = false;
     }
 
-    private async Task DeleteFeedback(string id)
+    private async Task DeleteFeedbackGroup(FeedbackGroup group)
     {
-        if (!int.TryParse(id, out var intId)) return;
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete smazat tuto zpětnou vazbu?")) return;
-        await FeedbackService.Delete(intId);
-        _states.Remove(id);
-        if (expandedId == id) expandedId = null;
+        var prompt = group.Count > 1
+            ? $"Opravdu chcete smazat všech {group.Count} sloučených záznamů?"
+            : "Opravdu chcete smazat tuto zpětnou vazbu?";
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", prompt)) return;
+
+        foreach (var item in group.Items)
+        {
+            if (int.TryParse(item.Id, out var intId)) await FeedbackService.Delete(intId);
+            _states.Remove(item.Id);
+        }
+        if (expandedId != null && group.Ids.Contains(expandedId)) expandedId = null;
         await LoadFeedbacks();
     }
 
@@ -305,9 +339,9 @@
 
     private static string TypeBadge(FeedbackType t) => t switch
     {
-        FeedbackType.Bug            => "badge-bug",
-        FeedbackType.FeatureRequest => "badge-feature",
-        _                           => "badge-platform",
+        FeedbackType.Bug            => "fb-badge-bug",
+        FeedbackType.FeatureRequest => "fb-badge-feature",
+        _                           => "fb-badge-platform",
     };
 
     private static string TypeLabel(FeedbackType t) => t switch
@@ -319,11 +353,11 @@
 
     private static string StatusBadge(FeedbackStatus s) => s switch
     {
-        FeedbackStatus.New        => "badge-new",
-        FeedbackStatus.InProgress => "badge-inprog",
-        FeedbackStatus.Resolved   => "badge-resolved",
-        FeedbackStatus.WontFix    => "badge-wontfix",
-        _                         => "badge-platform",
+        FeedbackStatus.New        => "fb-badge-new",
+        FeedbackStatus.InProgress => "fb-badge-inprog",
+        FeedbackStatus.Resolved   => "fb-badge-resolved",
+        FeedbackStatus.WontFix    => "fb-badge-wontfix",
+        _                         => "fb-badge-platform",
     };
 
     private static string StatusLabel(FeedbackStatus s) => s switch

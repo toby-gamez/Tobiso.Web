@@ -1,0 +1,47 @@
+h1 {
+    font-size: 24px;
+    margin-bottom: var(--space-4);
+}
+
+.toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.muted {
+    color: var(--color-neutral-500);
+    font-size: 13px;
+}
+
+.panel {
+    margin-bottom: var(--space-4);
+}
+
+.panel-body h3 {
+    font-size: 15px;
+    margin-bottom: var(--space-2);
+}
+
+.create-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.create-row .input {
+    width: 220px;
+}
+
+.field-error {
+    color: var(--color-accent-800);
+    font-size: 13px;
+    margin-top: var(--space-2);
+}
+
+.row-actions {
+    display: flex;
+    gap: 6px;
+}

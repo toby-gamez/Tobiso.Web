@@ -13,15 +13,29 @@ builder.Services.AddAuthentication("Basic")
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, Tobiso.Web.Files.Authentication.BasicAuthHandler>("Basic", null);
 builder.Services.AddAuthorization();
 
-// CORS for local development: allow frontend origins and Authorization header
+// CORS: local dev origins in Development; production origins come from configuration
+// (Cors:AllowedOrigins) so a real frontend domain can be granted access without ever
+// falling back to a wildcard or leaving the policy pointed at localhost.
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("LocalDev", b => b
-        .WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:7273", "https://localhost:7273")
-        .AllowAnyMethod()
-        .AllowAnyHeader()
-        .AllowCredentials()
-    );
+    options.AddPolicy("Default", b =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            b.WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:7273", "https://localhost:7273")
+             .AllowAnyMethod()
+             .AllowAnyHeader()
+             .AllowCredentials();
+        }
+        else
+        {
+            var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+            b.WithOrigins(allowedOrigins)
+             .AllowAnyMethod()
+             .AllowAnyHeader()
+             .AllowCredentials();
+        }
+    });
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -55,6 +69,14 @@ var app = builder.Build();
 var filesRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "images");
 Directory.CreateDirectory(filesRoot);
 
+// Prevent the browser from MIME-sniffing served images as something executable (e.g. HTML/JS)
+// if a client-supplied Content-Type or file content is ever misidentified.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    await next();
+});
+
 // Serve static files from wwwroot/images at /images
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -62,18 +84,20 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = ""
 });
 
-// Redirect root to Swagger UI
-app.MapGet("/", () => Results.Redirect("/swagger"));
-
-
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tobiso.Web.Files v1");
-    c.RoutePrefix = "swagger";
-});
+    // Redirect root to Swagger UI (dev only - don't advertise the API surface in production)
+    app.MapGet("/", () => Results.Redirect("/swagger"));
 
-app.UseCors("LocalDev");
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tobiso.Web.Files v1");
+        c.RoutePrefix = "swagger";
+    });
+}
+
+app.UseCors("Default");
 
 app.UseAuthentication();
 app.UseAuthorization();

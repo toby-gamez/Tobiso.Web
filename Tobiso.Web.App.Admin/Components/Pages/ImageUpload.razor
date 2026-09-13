@@ -13,201 +13,127 @@
 
 <PageTitle>Správa obrázků</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col">
-            <h1>Správa obrázků</h1>
-            
-            <div class="image-uploader">
-                <div class="mb-3">
-                    <label class="form-label">Nahrát nový obrázek</label>
-                    <div class="mb-1">
-                        <small class="text-muted">Aktuální files base: <strong>@GetBaseAddress()</strong></small>
-                    </div>
-                    
-                    @if (!string.IsNullOrEmpty(currentImageUrl))
-                    {
-                        <div class="current-image mb-3">
-                            <img src="@GetFullImageUrl(currentImageUrl)" alt="Current image" class="img-thumbnail" style="max-height: 200px; max-width: 300px;" />
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="RemoveImage" disabled="@isUploading">
-                                    <i class="bi bi-trash"></i> Odstranit obrázek
-                                </button>
-                            </div>
-                        </div>
-                    }
-                    
-                    <div class="upload-area @(isDragOver ? "drag-over" : "")" 
-                         @ondragover="HandleDragOver" 
-                         @ondragover:preventDefault="true"
-                         @ondragleave="HandleDragLeave"
-                         @ondrop="HandleDrop" 
-                         @ondrop:preventDefault="true">
-                        
-                        <div class="upload-content">
-                            @if (isUploading)
-                            {
-                                <div class="text-center">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Nahrávám...</span>
-                                    </div>
-                                    <p class="mt-2 mb-0">Nahrávám obrázek...</p>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-center">
-                                    <p class="mt-2 mb-2">Přetáhněte obrázek sem, nebo 
-                                        <button type="button" class="btn btn-link p-0" @onclick="TriggerFileInput">
-                                            klikněte pro výběr
-                                        </button>
-                                    </p>
-                                    <small class="text-muted">Podporované: JPG, PNG, WEBP (max 10MB)</small>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                    
-                    <InputFile @ref="fileInput" 
-                               OnChange="HandleFileSelected" 
-                               accept="image/*" 
-                               style="display: none;" />
-                    
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger mt-2" role="alert">
-                            @errorMessage
-                        </div>
-                    }
-                    
-                    @if (!string.IsNullOrEmpty(successMessage))
-                    {
-                        <div class="alert alert-success mt-2" role="alert">
-                            @successMessage
-                        </div>
-                    }
-                </div>
-            </div>
+<div class="image-upload-page">
+    <h1>Správa obrázků</h1>
 
-            <!-- Galerie obrázků -->
-            <div class="image-gallery mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0">Nahrané obrázky</h3>
-                    <button type="button" class="btn btn-outline-primary" 
-                            @onclick="SyncImagesFromMainWeb" 
-                            disabled="@(isUploading || isSyncing)">
-                        @if (isSyncing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                            <span>Synchronizuji...</span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-cloud-download me-2"></i>
-                            <span>Synchronizovat z files.tobiso.com</span>
-                        }
-                    </button>
-                </div>
-                
-                @if (isLoadingImages)
-                {
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Načítám obrázky...</span>
-                        </div>
-                        <p class="mt-2">Načítám seznam obrázků...</p>
+    <div class="panel">
+        <div class="panel-body">
+            <label class="upload-field-label">Nahrát nový obrázek</label>
+            <div class="base-address-note">Aktuální files base: <strong>@GetBaseAddress()</strong></div>
+
+            @if (!string.IsNullOrEmpty(currentImageUrl))
+            {
+                <div class="current-image-preview">
+                    <img src="@GetFullImageUrl(currentImageUrl)" alt="Current image" />
+                    <div>
+                        <button type="button" class="btn btn-danger btn-sm" @onclick="RemoveImage" disabled="@isUploading">
+                            <i data-lucide="trash-2"></i> Odstranit obrázek
+                        </button>
                     </div>
-                }
-                else if (images?.Any() == true)
+                </div>
+            }
+
+            <div class="upload-dropzone @(isDragOver ? "dropzone-active" : "")"
+                 @ondragover="HandleDragOver"
+                 @ondragover:preventDefault="true"
+                 @ondragleave="HandleDragLeave"
+                 @ondrop="HandleDrop"
+                 @ondrop:preventDefault="true">
+
+                @if (isUploading)
                 {
-                    <div class="row g-3">
-                        @foreach (var image in images)
-                        {
-                            <div class="col-md-3 col-sm-4 col-6">
-                                <div class="card image-card">
-                                    <img src="@GetFullImageUrl(image.Url)" class="card-img-top" alt="@image.OriginalFileName" />
-                                    <div class="card-body p-2">
-                                        <h6 class="card-title text-truncate" aria-label="Název souboru: @image.OriginalFileName">
-                                            @image.OriginalFileName
-                                        </h6>
-                                        <small class="text-muted d-block">
-                                            @(image.Size / 1024) KB
-                                        </small>
-                                        <div class="mt-2">
-                                            <button type="button" class="btn btn-sm btn-primary me-1" 
-                                                    @onclick="() => CopyImageUrl(GetFullImageUrl(image.Url))">
-                                                <i class="bi bi-clipboard"></i> Kopírovat URL
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                    @onclick="() => DeleteImage(image.FileName)" 
-                                                    disabled="@isUploading">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
+                    <div class="upload-dropzone-status">
+                        <i data-lucide="loader-2" class="spinner"></i>
+                        <p>Nahrávám obrázek...</p>
                     </div>
                 }
                 else
                 {
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Zatím nebyly nahrány žádné obrázky.
+                    <div class="upload-dropzone-status">
+                        <p>
+                            Přetáhněte obrázek sem, nebo
+                            <button type="button" class="upload-link-btn" @onclick="TriggerFileInput">klikněte pro výběr</button>
+                        </p>
+                        <span class="upload-hint">Podporované: JPG, PNG, WEBP (max 10MB)</span>
                     </div>
                 }
             </div>
 
+            <InputFile @ref="fileInput"
+                       OnChange="HandleFileSelected"
+                       accept="image/*"
+                       style="display: none;" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert-error">@errorMessage</div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="callout-sidefact">@successMessage</div>
+            }
         </div>
     </div>
-</div>
 
-<style>
-    .upload-area {
-        border: 2px dashed #dee2e6;
-        border-radius: 8px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        background-color: #f8f9fa;
+    <div class="gallery-header">
+        <h3>Nahrané obrázky</h3>
+        <button type="button" class="btn btn-secondary"
+                @onclick="SyncImagesFromMainWeb"
+                disabled="@(isUploading || isSyncing)">
+            @if (isSyncing)
+            {
+                <i data-lucide="loader-2" class="spinner"></i>
+                <span>Synchronizuji...</span>
+            }
+            else
+            {
+                <i data-lucide="cloud-download"></i>
+                <span>Synchronizovat z files.tobiso.com</span>
+            }
+        </button>
+    </div>
+
+    @if (isLoadingImages)
+    {
+        <div class="gallery-loading">
+            <i data-lucide="loader-2" class="spinner"></i>
+            <p>Načítám seznam obrázků...</p>
+        </div>
     }
-    
-    .upload-area:hover {
-        border-color: #0d6efd;
-        background-color: #e7f3ff;
+    else if (images?.Any() == true)
+    {
+        <div class="gallery-grid">
+            @foreach (var image in images)
+            {
+                <div class="gallery-tile">
+                    <img src="@GetFullImageUrl(image.Url)" class="gallery-tile-thumb" alt="@image.OriginalFileName" />
+                    <div class="gallery-tile-body">
+                        <div class="gallery-tile-name" aria-label="Název souboru: @image.OriginalFileName">@image.OriginalFileName</div>
+                        <span class="gallery-tile-size">@(image.Size / 1024) KB</span>
+                        <div class="gallery-tile-actions">
+                            <button type="button" class="btn btn-primary btn-sm"
+                                    @onclick="() => CopyImageUrl(GetFullImageUrl(image.Url))">
+                                <i data-lucide="clipboard"></i> Kopírovat URL
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm"
+                                    @onclick="() => DeleteImage(image.FileName)"
+                                    disabled="@isUploading">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
     }
-    
-    .upload-area.drag-over {
-        border-color: #0d6efd;
-        background-color: #e7f3ff;
-        transform: scale(1.02);
+    else
+    {
+        <div class="gallery-empty callout-sidefact">
+            <i data-lucide="info"></i> Zatím nebyly nahrány žádné obrázky.
+        </div>
     }
-    
-    .current-image {
-        text-align: center;
-    }
-    
-    .image-card {
-        transition: transform 0.2s;
-    }
-    
-    .image-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    
-    .image-card .card-img-top {
-        height: 150px;
-        object-fit: contain;
-        border-bottom: 1px solid #dee2e6;
-    }
-    
-    .image-gallery {
-        border-top: 1px solid #dee2e6;
-        padding-top: 1.5rem;
-    }
-</style>
+</div>
 
 @code {
     private InputFile? fileInput;
@@ -219,7 +145,7 @@
     private string? currentImageUrl;
     private bool isLoadingImages = false;
     private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? images;
-    
+
     // Allow any image/* content type except WEBP (image/webp)
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
 
@@ -228,13 +154,18 @@
         await LoadImages();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JSRuntime.InvokeVoidAsync("initLucide");
+    }
+
     private async Task LoadImages()
     {
         try
         {
             isLoadingImages = true;
             StateHasChanged();
-            
+
             // Use files base address (full URL) so UI and API calls are consistent
             var filesBase = GetBaseAddress().TrimEnd('/');
             var listUrl = filesBase + "/api/files";
@@ -266,38 +197,38 @@
             await JSRuntime.InvokeVoidAsync("eval", "document.querySelector('input[type=file]').click()");
         }
     }
-    
+
     private void HandleDragOver()
     {
         isDragOver = true;
     }
-    
+
     private void HandleDragLeave()
     {
         isDragOver = false;
     }
-    
+
     private Task HandleDrop()
     {
         isDragOver = false;
         // Note: Drag and drop file handling requires additional JavaScript interop
         return Task.CompletedTask;
     }
-    
+
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
         var file = e.File;
         if (file == null) return;
-        
+
         await ProcessFile(file);
     }
-    
+
     private async Task ProcessFile(IBrowserFile file)
     {
         try
         {
             ClearMessages();
-            
+
             // Validate file: allow all image/* types except WEBP
             var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
             if (!contentType.StartsWith("image/") || contentType == "image/webp")
@@ -305,22 +236,22 @@
                 errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, SVG.";
                 return;
             }
-            
+
             if (file.Size > MaxFileSize)
             {
                 errorMessage = $"Velikost souboru ({file.Size / (1024 * 1024):F1}MB) překračuje maximální povolenou velikost 10MB.";
                 return;
             }
-            
+
             isUploading = true;
             StateHasChanged();
-            
+
             // Create stream for upload
             using var stream = file.OpenReadStream(MaxFileSize);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Position = 0;
-            
+
             // Upload via API - STEJNĚ jako v SentrySMP
             // Upload to files API using the configured files base address
             var filesBase = GetBaseAddress().TrimEnd('/');
@@ -340,23 +271,23 @@
             var uploadJson = await uploadResp.Content.ReadAsStringAsync();
             var response = System.Text.Json.JsonSerializer.Deserialize<Tobiso.Web.Shared.DTOs.FileUploadResponse>(uploadJson,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
+
             // Update current image URL
             currentImageUrl = response.Url;
-            
+
             successMessage = "Obrázek byl úspěšně nahrán!";
             Logger.LogInformation("Successfully uploaded image: {FileName}", file.Name);
-            
+
             // Force re-render to show uploaded image
             StateHasChanged();
-            
+
             // Clear success message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(t => 
+            _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
-            
+
             // Reload images to show the new one
             await LoadImages();
         }
@@ -371,17 +302,17 @@
             StateHasChanged();
         }
     }
-    
+
     private async Task RemoveImage()
     {
         if (string.IsNullOrEmpty(currentImageUrl)) return;
-        
+
         try
         {
             // Extract filename from URL for deletion
-            var fileName = currentImageUrl?.Contains("/") == true ? 
+            var fileName = currentImageUrl?.Contains("/") == true ?
                 Path.GetFileName(new Uri(currentImageUrl).LocalPath) : currentImageUrl;
-                
+
             if (!string.IsNullOrEmpty(fileName))
             {
                 var filesBase = GetBaseAddress().TrimEnd('/');
@@ -395,13 +326,13 @@
                     throw new Exception($"Delete failed: {delResp.StatusCode}");
                 }
             }
-            
+
             currentImageUrl = null;
-            
+
             successMessage = "Obrázek byl úspěšně odstraněn!";
-            
+
             // Clear success message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(t => 
+            _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
@@ -413,16 +344,16 @@
             Logger.LogError(ex, "Error removing image");
         }
     }
-    
+
     private async Task CopyImageUrl(string imageUrl)
     {
         try
         {
             await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", imageUrl);
             successMessage = "URL obrázku byla zkopírována do schránky!";
-            
+
             // Clear success message after 2 seconds
-            _ = Task.Delay(2000).ContinueWith(t => 
+            _ = Task.Delay(2000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
@@ -434,13 +365,13 @@
             Logger.LogError(ex, "Error copying image URL");
         }
     }
-    
+
     private async Task DeleteImage(string fileName)
     {
         try
         {
             ClearMessages();
-            
+
             var filesBaseForDelete = GetBaseAddress().TrimEnd('/');
             var deleteUrl2 = filesBaseForDelete + $"/api/files/{Uri.EscapeDataString(fileName)}";
             var req2 = new HttpRequestMessage(HttpMethod.Delete, deleteUrl2);
@@ -451,22 +382,22 @@
             {
                 throw new Exception($"Delete failed: {delResp2.StatusCode}");
             }
-            
+
             // Remove from current image if it's the same
             if (currentImageUrl?.Contains(fileName) == true)
             {
                 currentImageUrl = null;
             }
-            
+
             successMessage = "Obrázek byl úspěšně smazán!";
-            
+
             // Clear success message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(t => 
+            _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
-            
+
             // Reload images to reflect the deletion
             await LoadImages();
         }
@@ -482,16 +413,16 @@
         errorMessage = null;
         successMessage = null;
     }
-    
+
     private string GetFullImageUrl(string imageUrl)
     {
         if (string.IsNullOrEmpty(imageUrl))
             return string.Empty;
-            
+
         // Pokud už je URL plná (obsahuje http/https), vrať ji jak je
         if (imageUrl.StartsWith("http://") || imageUrl.StartsWith("https://"))
             return imageUrl;
-            
+
         // Pokud je relativní, přidej baseUrl pro soubory z konfigurace (pokud existuje), jinak obecné Api:BaseAddress
         var filesBase = Configuration["Api:FilesBaseAddress"]?.TrimEnd('/');
         var apiBase = Configuration["Api:BaseAddress"]?.TrimEnd('/');
@@ -525,7 +456,7 @@
 
         return null;
     }
-    
+
     private async Task SyncImagesFromMainWeb()
     {
         try
@@ -533,43 +464,43 @@
             isSyncing = true;
             ClearMessages();
             StateHasChanged();
-            
+
             Logger.LogInformation("Starting image sync from main web");
-            
+
             // Získej seznam současných obrázků
             var currentImages = images?.Select(i => i.FileName).ToHashSet() ?? new HashSet<string>();
-            
+
             // Získej seznam obrázků z produkční verze
             var mainWebImages = await GetMainWebImageList();
-            
+
             if (!mainWebImages.Any())
             {
                 errorMessage = "API endpoint na produkční verzi není dostupný. Synchronizace vyžaduje funkční API přístup.";
                 return;
             }
-            
-            Logger.LogInformation("Local images count: {LocalCount}, Main web images count: {MainCount}", 
+
+            Logger.LogInformation("Local images count: {LocalCount}, Main web images count: {MainCount}",
                 currentImages.Count, mainWebImages.Count);
             Logger.LogDebug("Local images: {LocalImages}", string.Join(", ", currentImages.Take(10)));
             Logger.LogDebug("Main web images: {MainImages}", string.Join(", ", mainWebImages.Take(10)));
-            
+
             var downloadedCount = 0;
             var skippedCount = 0;
-            
+
             var processedCount = 0;
             foreach (var imageFileName in mainWebImages)
             {
                 try
                 {
                     processedCount++;
-                    
+
                     // Detailní debugging pro první několik obrázků
                     if (processedCount <= 5)
                     {
-                        Logger.LogInformation("Processing image {Count}/{Total}: '{FileName}', Exists locally: {Exists}", 
+                        Logger.LogInformation("Processing image {Count}/{Total}: '{FileName}', Exists locally: {Exists}",
                             processedCount, mainWebImages.Count, imageFileName, currentImages.Contains(imageFileName));
                     }
-                    
+
                     // Pokud obrázek už existuje, přeskoč ho
                     if (currentImages.Contains(imageFileName))
                     {
@@ -580,11 +511,11 @@
                         }
                         continue;
                     }
-                    
+
                     // Stáhni a nahraj obrázek
                     await DownloadAndUploadImage(imageFileName);
                     downloadedCount++;
-                    
+
                     Logger.LogInformation("Successfully synced image: {FileName}", imageFileName);
                 }
                 catch (Exception ex)
@@ -593,13 +524,13 @@
                     // Pokračuj s dalšími obrázky i při chybě
                 }
             }
-            
+
             successMessage = $"Synchronizace dokončena! Staženo: {downloadedCount}, Přeskočeno: {skippedCount}";
-            
+
             // Znovu načti seznam obrázků
             await LoadImages();
-            
-            Logger.LogInformation("Image sync completed. Downloaded: {Downloaded}, Skipped: {Skipped}", 
+
+            Logger.LogInformation("Image sync completed. Downloaded: {Downloaded}, Skipped: {Skipped}",
                 downloadedCount, skippedCount);
         }
         catch (Exception ex)
@@ -613,11 +544,11 @@
             StateHasChanged();
         }
     }
-    
+
     private async Task<List<string>> GetMainWebImageList()
     {
         var imageList = new List<string>();
-        
+
         try
         {
             // Zkus získat seznam přes hlavní API (pokud má endpoint pro listing obrázků)
@@ -627,28 +558,28 @@
             var mainWebApiUrl = "https://files.tobiso.com/api/files";
 
             Logger.LogInformation("Attempting to get image list from files API: {Url}", mainWebApiUrl);
-            
+
             // Zkus zavolat API endpoint
             var response = await mainWebClient.GetAsync(mainWebApiUrl);
-            
-            Logger.LogInformation("Main web API response: Status={StatusCode}, ReasonPhrase={ReasonPhrase}", 
+
+            Logger.LogInformation("Main web API response: Status={StatusCode}, ReasonPhrase={ReasonPhrase}",
                 response.StatusCode, response.ReasonPhrase);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 Logger.LogDebug("API response content length: {Length}", content.Length);
-                
-                var apiImages = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content, 
+
+                var apiImages = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                
+
                 if (apiImages != null)
                 {
                     imageList.AddRange(apiImages.Select(i => i.FileName));
                     Logger.LogInformation("Retrieved {Count} images from main web API", imageList.Count);
                     if (apiImages.Count > 0)
                     {
-                        Logger.LogDebug("First few images from API: {Images}", 
+                        Logger.LogDebug("First few images from API: {Images}",
                             string.Join(", ", apiImages.Take(5).Select(i => i.FileName)));
                     }
                     return imageList;
@@ -663,26 +594,26 @@
         {
             Logger.LogWarning(ex, "Failed to get image list from API: {Message}, will try fallback method", ex.Message);
         }
-        
+
         // Fallback: API není dostupné
         Logger.LogWarning("API endpoint for image list is not available. Sync function requires API access to work properly.");
-        
+
         // Pro ukázku vraťme prázdný seznam, aby synchronizace nedělala nic
         return new List<string>();
 
     }
-    
+
     private async Task DownloadAndUploadImage(string fileName)
     {
         var imageUrl = $"https://files.tobiso.com/images/{fileName}";
-        
+
         // Stáhni obrázek
         var response = await HttpClient.GetAsync(imageUrl);
         response.EnsureSuccessStatusCode();
-        
+
         var imageBytes = await response.Content.ReadAsByteArrayAsync();
         var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-        
+
         // Vytvoř stream pro upload
         using var ms = new MemoryStream(imageBytes);
         var filesBase = GetBaseAddress().TrimEnd('/');
@@ -699,7 +630,7 @@
         if (auth != null) req.Headers.Authorization = auth;
         var uploadResp = await HttpClient.SendAsync(req);
         uploadResp.EnsureSuccessStatusCode();
-        
+
         Logger.LogDebug("Downloaded and uploaded image: {FileName}, Size: {Size} bytes", fileName, imageBytes.Length);
     }
 }

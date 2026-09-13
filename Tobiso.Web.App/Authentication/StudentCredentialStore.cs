@@ -2,12 +2,14 @@ using Microsoft.JSInterop;
 
 namespace Tobiso.Web.App.Authentication;
 
+// Registered Scoped (one instance per Blazor circuit, i.e. per connected user) - this must
+// never be Singleton: it holds a live per-user JWT, and a Singleton's fields are shared by
+// every circuit on the process, which would leak one user's token to another's session.
 public class StudentCredentialStore
 {
     private const string TokenKey = "tobiso_student_token";
 
-    private static readonly AsyncLocal<string?> _asyncToken = new();
-    private static string? _directToken;
+    private string? _token;
 
     private readonly ILogger<StudentCredentialStore> _logger;
 
@@ -23,8 +25,7 @@ public class StudentCredentialStore
             var token = await js.InvokeAsync<string?>("localStorage.getItem", TokenKey);
             if (!string.IsNullOrEmpty(token))
             {
-                _asyncToken.Value = token;
-                _directToken = token;
+                _token = token;
             }
         }
         catch (Exception ex)
@@ -35,8 +36,7 @@ public class StudentCredentialStore
 
     public async Task SetAsync(string token, IJSRuntime js)
     {
-        _asyncToken.Value = token;
-        _directToken = token;
+        _token = token;
         try
         {
             await js.InvokeVoidAsync("localStorage.setItem", TokenKey, token);
@@ -49,16 +49,14 @@ public class StudentCredentialStore
 
     public void Set(string token)
     {
-        _asyncToken.Value = token;
-        _directToken = token;
+        _token = token;
     }
 
-    public string? GetToken() => _asyncToken.Value ?? _directToken;
+    public string? GetToken() => _token;
 
     public async Task ClearAsync(IJSRuntime js)
     {
-        _asyncToken.Value = null;
-        _directToken = null;
+        _token = null;
         try
         {
             await js.InvokeVoidAsync("localStorage.removeItem", TokenKey);
@@ -71,7 +69,6 @@ public class StudentCredentialStore
 
     public void Clear()
     {
-        _asyncToken.Value = null;
-        _directToken = null;
+        _token = null;
     }
 }

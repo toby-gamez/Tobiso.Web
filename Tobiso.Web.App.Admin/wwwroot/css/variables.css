@@ -1,0 +1,124 @@
+/* Organic Design System - Tobiso.Web */
+:root {
+    /* Ground */
+    --color-bg: #f5ead8;
+    --color-surface: #ebddc5;
+    --color-text: #201e1d;
+    --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+
+    /* Terracotta accent ramp */
+    --color-accent-100: #fdf3ec;
+    --color-accent-200: #fde3ca;
+    --color-accent-300: #f9c499;
+    --color-accent-400: #e8935c;
+    --color-accent-500: #cb7039;
+    --color-accent-600: #b2622d;
+    --color-accent-700: #954f23;
+    --color-accent-800: #7a3d1b;
+    --color-accent-900: #5c2b11;
+
+    /* Sage accent-2 ramp */
+    --color-accent-2-100: #f0f5e6;
+    --color-accent-2-200: #e1eecc;
+    --color-accent-2-300: #c9e0a4;
+    --color-accent-2-400: #9fbf74;
+    --color-accent-2-500: #7a9a56;
+    --color-accent-2-600: #607c43;
+    --color-accent-2-700: #4e6535;
+    --color-accent-2-800: #4a5534;
+    --color-accent-2-900: #2f3820;
+
+    /* Neutral ramp (warm) */
+    --color-neutral-100: #ede3d0;
+    --color-neutral-200: #e0d4bc;
+    --color-neutral-300: #cfc0a6;
+    --color-neutral-400: #bcaa8e;
+    --color-neutral-500: #a89078;
+    --color-neutral-600: #907860;
+    --color-neutral-700: #72604c;
+    --color-neutral-800: #544438;
+    --color-neutral-900: #38302a;
+
+    /* Typography */
+    --font-heading: "Baloo 2", system-ui, sans-serif;
+    --font-body: "Figtree", system-ui, sans-serif;
+
+    /* Spacing (4.4px × n) */
+    --space-1: 4.4px;
+    --space-2: 8.8px;
+    --space-3: 13.2px;
+    --space-4: 17.6px;
+    --space-5: 22px;
+    --space-6: 26.4px;
+    --space-7: 30.8px;
+    --space-8: 35.2px;
+
+    /* Border radius */
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 28px;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px color-mix(in srgb, #201e1d 10%, transparent),
+                 0 1px 2px color-mix(in srgb, #201e1d 8%, transparent);
+    --shadow-md: 0 4px 12px color-mix(in srgb, #201e1d 12%, transparent),
+                 0 2px 4px color-mix(in srgb, #201e1d 8%, transparent);
+    --shadow-lg: 0 10px 30px color-mix(in srgb, #201e1d 15%, transparent),
+                 0 4px 8px color-mix(in srgb, #201e1d 10%, transparent);
+}
+
+/* Dark mode - system preference */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-bg: #1f1c18;
+        --color-surface: #2a2520;
+        --color-text: #f0e8dc;
+        --color-divider: color-mix(in srgb, #f0e8dc 14%, transparent);
+
+        --color-neutral-100: #2f2a24;
+        --color-neutral-200: #3a342d;
+        --color-neutral-300: #4a4238;
+        --color-neutral-400: #5e5448;
+        --color-neutral-500: #786b5c;
+        --color-neutral-600: #958472;
+        --color-neutral-700: #b3a08d;
+        --color-neutral-800: #d0bfa9;
+        --color-neutral-900: #ecdecb;
+    }
+}
+
+/* Dark mode - explicit toggle */
+[data-theme="dark"] {
+    --color-bg: #1f1c18;
+    --color-surface: #2a2520;
+    --color-text: #f0e8dc;
+    --color-divider: color-mix(in srgb, #f0e8dc 14%, transparent);
+
+    --color-neutral-100: #2f2a24;
+    --color-neutral-200: #3a342d;
+    --color-neutral-300: #4a4238;
+    --color-neutral-400: #5e5448;
+    --color-neutral-500: #786b5c;
+    --color-neutral-600: #958472;
+    --color-neutral-700: #b3a08d;
+    --color-neutral-800: #d0bfa9;
+    --color-neutral-900: #ecdecb;
+}
+
+/* Light mode - explicit toggle */
+[data-theme="light"] {
+    --color-bg: #f5ead8;
+    --color-surface: #ebddc5;
+    --color-text: #201e1d;
+    --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+
+    --color-neutral-100: #ede3d0;
+    --color-neutral-200: #e0d4bc;
+    --color-neutral-300: #cfc0a6;
+    --color-neutral-400: #bcaa8e;
+    --color-neutral-500: #a89078;
+    --color-neutral-600: #907860;
+    --color-neutral-700: #72604c;
+    --color-neutral-800: #544438;
+    --color-neutral-900: #38302a;
+}

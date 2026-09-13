@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
@@ -11,6 +12,7 @@ namespace Tobiso.Web.App.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
     private readonly JwtTokenService _jwtService;
@@ -64,6 +66,9 @@ public class AuthController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return BadRequest(new { message = "Email a heslo jsou povinné." });
+
+        if (req.Password.Length < 10)
+            return BadRequest(new { message = "Heslo musí mít alespoň 10 znaků." });
 
         var user = await _userService.RegisterAsync(req.Email, req.DisplayName ?? req.Email, req.Password);
         if (user == null)

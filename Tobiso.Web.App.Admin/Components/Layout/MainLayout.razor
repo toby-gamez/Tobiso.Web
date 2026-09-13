@@ -1,10 +1,23 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Tobiso.Web.App.Authentication
 @inject CredentialStore CredentialStore
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inherits LayoutComponentBase
+
+<div class="app-shell">
+    <NavMenu />
+    <main class="main-content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
 
 @code {
     private bool _tokenRestored;
@@ -23,46 +36,4 @@
             // Prerendering - will retry after circuit connects
         }
     }
-
-    private async Task HandleLogout()
-    {
-        try
-        {
-            // Clear credentials from store and localStorage
-            await CredentialStore.ClearAsync(JSRuntime);
-            
-            // Navigate to login page
-            Navigation.NavigateTo("/login", forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error during logout: {ex.Message}");
-            // Even if there's an error, navigate to log in
-            Navigation.NavigateTo("/login", forceLoad: true);
-        }
-    }
 }
-
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <button class="btn btn-outline-danger btn-sm ms-auto" @onclick="HandleLogout" style="margin-left: auto;">
-                <i class="bi bi-box-arrow-right"></i> Odhlásit se
-            </button>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
-
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>

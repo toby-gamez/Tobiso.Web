@@ -233,16 +233,18 @@
         // Callout blocks: !!!tip ... !!! and !!!sidefact ... !!!
         // These are regex-matched on the rendered HTML (similar to the intro pattern above).
         // Authors write !!!tip some tip content !!! in the markdown source.
+        // Structure mirrors docs/design/PostBody.dc.html: an icon badge next to a
+        // stacked label+body column, using Lucide icons (Organic design system).
         var tipRegex = new Regex(@"!!!tip\s+(.*?)\s*!!!", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         html = tipRegex.Replace(html, m =>
-            $"<div class=\"callout-block callout-tip\"><div class=\"callout-label\"><i class=\"bi bi-lightbulb\"></i> Tip</div>{m.Groups[1].Value}</div>");
+            $"<div class=\"callout-tip\"><div class=\"callout-tip-icon\"><i data-lucide=\"lightbulb\"></i></div><div><div class=\"callout-label\">Tip</div>{m.Groups[1].Value}</div></div>");
         // Clean up empty <p> tags that may wrap the opening/closing markers
         html = Regex.Replace(html, @"<p>\s*!!!tip\s*</p>", "", RegexOptions.IgnoreCase);
         html = Regex.Replace(html, @"<p>\s*!!!\s*</p>", "");
 
         var sidefactRegex = new Regex(@"!!!sidefact\s+(.*?)\s*!!!", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         html = sidefactRegex.Replace(html, m =>
-            $"<div class=\"callout-block callout-sidefact\"><div class=\"callout-label\"><i class=\"bi bi-info-circle\"></i> Zajímavost</div>{m.Groups[1].Value}</div>");
+            $"<div class=\"callout-sidefact\"><div class=\"callout-sidefact-icon\"><i data-lucide=\"info\"></i></div><div><div class=\"callout-label\">Zajímavost</div>{m.Groups[1].Value}</div></div>");
         html = Regex.Replace(html, @"<p>\s*!!!sidefact\s*</p>", "", RegexOptions.IgnoreCase);
 
         // Unescape math placeholders inside HTML-escaped <code> blocks

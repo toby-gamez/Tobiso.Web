@@ -29,8 +29,9 @@ namespace Tobiso.Web.App.Controllers
         private readonly TobisoDbContext _db;
         private readonly IRelatedPostService _relatedPostService;
         private readonly IAiUsageGuard _usageGuard;
+        private readonly IWebHostEnvironment _environment;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard, IWebHostEnvironment environment)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -42,12 +43,16 @@ namespace Tobiso.Web.App.Controllers
             _db = db;
             _relatedPostService = relatedPostService;
             _usageGuard = usageGuard;
+            _environment = environment;
         }
 
         [HttpGet("diag")]
-        [AllowAnonymous]
+        [Authorize(AuthenticationSchemes = Tobiso.Api.Authentication.BasicAuthConstants.Scheme)]
         public async Task<IActionResult> Diag()
         {
+            if (!_environment.IsDevelopment())
+                return NotFound();
+
             var client = _httpClientFactory.CreateClient("OpenAI");
             var apiKey = _configuration["OpenAI:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))

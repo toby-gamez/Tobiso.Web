@@ -14,27 +14,27 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert-error">@errorMessage</div>
 }
 
 <EditForm Model="request" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
     <ValidationSummary />
-    <div class="mb-3">
-        <label for="title" class="form-label">Název</label>
-        <InputText id="title" class="form-control" @bind-Value="request.Title" @bind-Value:after="GenerateFilePath" />
+    <div class="field">
+        <label for="title">Název</label>
+        <InputText id="title" class="input" @bind-Value="request.Title" @bind-Value:after="GenerateFilePath" />
     </div>
-    <div class="mb-3">
-        <label for="filePath" class="form-label">Soubor</label>
-        <InputText id="filePath" class="form-control" @bind-Value="request.FilePath" />
+    <div class="field">
+        <label for="filePath">Soubor</label>
+        <InputText id="filePath" class="input" @bind-Value="request.FilePath" />
     </div>
-    <div class="mb-3">
-        <label for="category" class="form-label">Kategorie</label>
+    <div class="field">
+        <label for="category">Kategorie</label>
         <SearchableCategorySelect Categories="categories" Value="request.CategoryId" ValueChanged="id => request.CategoryId = id" />
     </div>
-    <div class="mb-3">
-        <label for="grade" class="form-label">Ročník (verze obsahu)</label>
-        <InputSelect id="grade" class="form-select" @bind-Value="request.GradeId">
+    <div class="field">
+        <label for="grade">Ročník (verze obsahu)</label>
+        <InputSelect id="grade" class="select" @bind-Value="request.GradeId">
             <option value="">-- vyberte ročník --</option>
             @foreach (var g in grades)
             {
@@ -42,21 +42,24 @@
             }
         </InputSelect>
     </div>
-    <div class="mb-3">
-        <label for="content" class="form-label">Obsah</label>
+    <div class="field">
+        <label for="content">Obsah</label>
         <MarkdownEditor @ref="markdownEditor" @bind-Value="request.Content" For="@(() => request.Content)" Placeholder="Začněte psát váš Markdown obsah..." Rows="15" />
-        <div class="mt-2">
-            <button type="button" class="btn btn-sm btn-outline-primary me-2" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+        <div class="editor-toolbar-row">
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
         </div>
         <GrammarCheckPanel Issues="grammarIssues" />
     </div>
-    <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="isFix" @bind="request.IsFix" />
-        <label class="form-check-label" for="isFix">Oprava (Fix)</label>
+    <div class="checkbox-field">
+        <input type="checkbox" id="isFix" @bind="request.IsFix" />
+        <label for="isFix">Oprava (Fix)</label>
     </div>
-    <button type="submit" class="btn btn-success">Přidat článek</button>
-    <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Zpět</button>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Přidat článek</button>
+        <button type="button" class="btn btn-secondary" @onclick="GoBack">Zpět</button>
+    </div>
 </EditForm>
 
 <QuestionsManager PostId="0"
@@ -64,12 +67,15 @@
                   OnQuestionGenerated="HandleQuestionGenerated" />
 @if (pendingQuestions.Any())
 {
-    <div class="alert alert-info mt-2">
+    <div class="info-banner">
         @pendingQuestions.Count otázka(y) čekají na uložení článku.
     </div>
 }
 
+<FormattingLegend @bind-Visible="_showLegend" />
+
 @code {
+    private bool _showLegend = false;
     private CreatePostRequest request = new();
     private List<CategoryResponse> categories = new();
     private List<GradeResponse> grades = new();
@@ -78,6 +84,9 @@
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
     private List<CreateQuestionRequest> pendingQuestions = new();
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
 
     private void HandleQuestionGenerated(CreateQuestionRequest q) => pendingQuestions.Add(q);
 
@@ -102,6 +111,11 @@
         {
             errorMessage = ex.Message;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private async Task CheckGrammar()

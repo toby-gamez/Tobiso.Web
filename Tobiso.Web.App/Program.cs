@@ -3,13 +3,17 @@ using Google.Apis.Auth.OAuth2;
 using Tobiso.Web.Shared.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using QuestPDF;
 using QuestPDF.Infrastructure;
 using Refit;
 using Serilog;
+using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
@@ -98,9 +102,46 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
 
 services.AddAuthorization();
 
+// Production hosts on IIS with hostingModel=inprocess (see web.config), so IIS terminates
+// the connection itself and RemoteIpAddress already reflects the real client IP - there is
+// no separate proxy network hop today, and Proxy:KnownProxies/KnownNetworks are left empty
+// in production config, so this is a no-op there. It only starts mattering (and needs those
+// settings populated with the provider's real edge ranges) if a CDN/load balancer/WAF is
+// ever placed in front of IIS - without it in that scenario, RemoteIpAddress would resolve
+// to that front door's address for every request, collapsing the per-client AI rate limiting
+// (see AiController.GetRateKey) into a single shared bucket. Only proxies explicitly listed
+// are trusted to set X-Forwarded-For; with none configured, ASP.NET Core's default of
+// trusting only the loopback network still applies, so a public client can't spoof it.
+services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var proxy in builder.Configuration.GetSection("Proxy:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(proxy, out var ip))
+            options.KnownProxies.Add(ip);
+    }
+    foreach (var network in builder.Configuration.GetSection("Proxy:KnownNetworks").Get<string[]>() ?? [])
+    {
+        var parts = network.Split('/');
+        if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var netIp) && int.TryParse(parts[1], out var prefix))
+            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(netIp, prefix));
+    }
+});
+
+// Throttle authentication endpoints (login/register) against online brute-forcing.
+services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("auth", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+    });
+});
+
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddCascadingAuthenticationState();
-services.AddSingleton<StudentCredentialStore>();
+services.AddScoped<StudentCredentialStore>();
 services.AddScoped<StudentAuthStateProvider>();
 services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<StudentAuthStateProvider>());
 
@@ -274,11 +315,15 @@ if (!string.IsNullOrEmpty(firebaseCreds))
 
 var app = builder.Build();
 
+// Must run before anything that inspects the scheme/remote IP (HTTPS redirection, HSTS,
+// rate limiting keyed on client IP).
+app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-}   
+}
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -291,11 +336,28 @@ if (!app.Environment.IsProduction())
     app.UseHttpsRedirection();
 }
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline'; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "img-src 'self' https: data:; " +
+        "connect-src 'self'; " +
+        "frame-ancestors 'none'";
+    await next();
+});
+
 app.UseStaticFiles();
 app.UseRouting();
 // Add Authentication and Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.UseAntiforgery();
 app.MapControllers();

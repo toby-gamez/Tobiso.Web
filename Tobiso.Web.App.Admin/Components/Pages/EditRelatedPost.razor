@@ -5,89 +5,84 @@
 @inject ITobisoWebApi Api
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="bi bi-pencil"></i>
+<div class="page-header">
+    <h2 class="header-title">
+        <i data-lucide="pencil-line"></i>
         Upravit souvisejíci post
     </h2>
     <button class="btn btn-secondary" @onclick="BackToList">
-        <i class="bi bi-arrow-left"></i>
+        <i data-lucide="arrow-left"></i>
         Zpět
     </button>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert-error">@errorMessage</div>
 }
 
 @if (relatedPost == null)
 {
-    <div class="d-flex justify-content-center">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Načítání...</span>
-        </div>
+    <div class="spinner-row">
+        <i data-lucide="loader-2" class="spinner"></i>
     </div>
 }
 else
 {
     <EditForm Model="request" OnValidSubmit="HandleValidSubmit">
         <DataAnnotationsValidator />
-        
+
         @if (!string.IsNullOrEmpty(validationErrorMessage))
         {
-            <div class="alert alert-warning">@validationErrorMessage</div>
+            <div class="alert-error">@validationErrorMessage</div>
         }
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label class="form-label">Hlavní post <span class="text-danger">*</span></label>
-                    <PostSearchComponent SelectedPost="selectedMainPost" 
-                                       SelectedPostChanged="@((PostLinkResponse? post) => selectedMainPost = post)"
-                                       Placeholder="Vyhledejte hlavní post..."
-                                       IsValid="@(string.IsNullOrEmpty(mainPostError))"
-                                       ErrorMessage="@mainPostError" />
-                </div>
+
+        <div class="form-grid-2">
+            <div class="field">
+                <label>Hlavní post <span class="required">*</span></label>
+                <PostSearchComponent SelectedPost="selectedMainPost"
+                                   SelectedPostChanged="@((PostLinkResponse? post) => selectedMainPost = post)"
+                                   Placeholder="Vyhledejte hlavní post..."
+                                   IsValid="@(string.IsNullOrEmpty(mainPostError))"
+                                   ErrorMessage="@mainPostError" />
             </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label class="form-label">Souvisejíci post <span class="text-danger">*</span></label>
-                    <PostSearchComponent SelectedPost="selectedRelatedPost" 
-                                       SelectedPostChanged="@((PostLinkResponse? post) => selectedRelatedPost = post)"
-                                       Placeholder="Vyhledejte související post..."
-                                       IsValid="@(string.IsNullOrEmpty(relatedPostError))"
-                                       ErrorMessage="@relatedPostError"
-                                       ExcludePostId="@selectedMainPost?.Id" />
-                </div>
+            <div class="field">
+                <label>Souvisejíci post <span class="required">*</span></label>
+                <PostSearchComponent SelectedPost="selectedRelatedPost"
+                                   SelectedPostChanged="@((PostLinkResponse? post) => selectedRelatedPost = post)"
+                                   Placeholder="Vyhledejte související post..."
+                                   IsValid="@(string.IsNullOrEmpty(relatedPostError))"
+                                   ErrorMessage="@relatedPostError"
+                                   ExcludePostId="@selectedMainPost?.Id" />
             </div>
         </div>
-        
-        <div class="mb-3">
-            <label for="text" class="form-label">Popisek souvislosti (volitelný)</label>
-            <InputTextArea id="text" class="form-control" rows="3" @bind-Value="request.Text" 
+
+        <div class="field form-field-block">
+            <label for="text">Popisek souvislosti (volitelný)</label>
+            <InputTextArea id="text" class="textarea" rows="3" @bind-Value="request.Text"
                           placeholder="Například: 'Navazuje na tuto lekci' nebo 'Doporučeno přečíst po tomto článku'"/>
-            <div class="form-text">
+            <div class="form-hint">
                 Krátký popis toho, jak spolu posty souvisí. Zobrazí se uživatelům jako nápověda.
             </div>
         </div>
-        
-        <div class="d-flex gap-2">
+
+        <div class="form-actions">
             <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
                 @if (isSubmitting)
                 {
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <i data-lucide="loader-2" class="spinner"></i>
                     <span>Ukládám...</span>
                 }
                 else
                 {
-                    <i class="bi bi-check-circle"></i>
+                    <i data-lucide="check-circle-2"></i>
                     <span>Uložit změny</span>
                 }
             </button>
-            <button type="button" class="btn btn-outline-secondary" @onclick="BackToList">
-                <i class="bi bi-x-circle"></i>
+            <button type="button" class="btn btn-secondary" @onclick="BackToList">
+                <i data-lucide="x-circle"></i>
                 Zrušit
             </button>
         </div>
@@ -122,6 +117,11 @@ else
         await LoadData();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
     private async Task LoadData()
     {
         try
@@ -139,7 +139,7 @@ else
                 request.PostId = relatedPost.PostId;
                 request.RelatedPostId = relatedPost.RelatedPostId;
                 request.Text = relatedPost.Text;
-                
+
                 // Najít odpovídající posty pro komponenty
                 selectedMainPost = posts.FirstOrDefault(p => p.Id == relatedPost.PostId);
                 selectedRelatedPost = posts.FirstOrDefault(p => p.Id == relatedPost.RelatedPostId);
@@ -168,7 +168,7 @@ else
         {
             request.PostId = selectedMainPost!.Id;
             request.RelatedPostId = selectedRelatedPost!.Id;
-            
+
             await Api.UpdateRelatedPost(Id, request);
             Navigation.NavigateTo("/related-posts");
         }
@@ -189,7 +189,7 @@ else
     private bool ValidateForm()
     {
         bool isValid = true;
-        
+
         mainPostError = null;
         relatedPostError = null;
         validationErrorMessage = null;

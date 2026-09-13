@@ -1,0 +1,26 @@
+.toolbar-row {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.post-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fix-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin: var(--space-3) 0 var(--space-5);
+}
+
+.muted {
+    color: var(--color-neutral-600);
+}
+
+.post-body {
+    max-width: 72ch;
+}

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -9,11 +10,13 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
 {
     private readonly StudentCredentialStore _store;
     private readonly ILogger<StudentAuthStateProvider> _logger;
+    private readonly byte[] _jwtSecretBytes;
 
-    public StudentAuthStateProvider(StudentCredentialStore store, ILogger<StudentAuthStateProvider> logger)
+    public StudentAuthStateProvider(StudentCredentialStore store, ILogger<StudentAuthStateProvider> logger, IConfiguration configuration)
     {
         _store = store;
         _logger = logger;
+        _jwtSecretBytes = Encoding.UTF8.GetBytes(configuration["Auth:Jwt:Secret"] ?? "");
     }
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -37,10 +40,20 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
     public void NotifyStateChanged()
         => NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
 
-    private static ClaimsPrincipal ParseToken(string token)
+    private ClaimsPrincipal ParseToken(string token)
     {
         var parts = token.Split('.');
         if (parts.Length != 3) return AnonymousPrincipal();
+
+        // Verify the HMAC signature before trusting any claim in the payload - this token
+        // originates from client-controlled storage (localStorage), so without this check
+        // anyone could hand-craft a payload (e.g. a different user's "sub") and this provider
+        // would treat it as a valid identity for every page that reads AuthenticationState.
+        var signingInput = $"{parts[0]}.{parts[1]}";
+        var expectedSig = HMACSHA256.HashData(_jwtSecretBytes, Encoding.UTF8.GetBytes(signingInput));
+        var actualSig = Base64UrlDecode(parts[2]);
+        if (!CryptographicOperations.FixedTimeEquals(actualSig, expectedSig))
+            return AnonymousPrincipal();
 
         var payloadJson = Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
         using var doc = JsonDocument.Parse(payloadJson);

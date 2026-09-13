@@ -5,16 +5,17 @@
 @using Tobiso.Api.Infrastructure.Data
 @inject TobisoDbContext Db
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @attribute [Authorize]
 
 <PageTitle>Statistiky článků - Admin</PageTitle>
 
 <div class="stats-container">
     <div class="stats-header">
-        <h3><i class="bi bi-bar-chart-fill"></i> Statistiky článků</h3>
+        <h1><i data-lucide="bar-chart-3"></i> Statistiky článků</h1>
         <div class="stats-header-controls">
-            <input class="form-control form-control-sm" style="width:220px" placeholder="Hledat článek…" @bind="_search" @bind:event="oninput" />
-            <select class="form-select form-select-sm ms-2" style="width:160px" @bind="_sortBy">
+            <input class="input search-input" placeholder="Hledat článek…" @bind="_search" @bind:event="oninput" />
+            <select class="select sort-select" @bind="_sortBy">
                 <option value="title">Název A–Z</option>
                 <option value="total">Počet hodnocení</option>
                 <option value="hard">Nejvíce Těžký</option>
@@ -25,84 +26,75 @@
 
     @if (_loading)
     {
-        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        <div class="loading-row"><i data-lucide="loader-2" class="spinner"></i></div>
     }
     else if (_rows.Count == 0)
     {
-        <div class="alert alert-info">Žádná hodnocení ještě nebyla přidána.</div>
+        <div class="callout-sidefact">Žádná hodnocení ještě nebyla přidána.</div>
     }
     else
     {
-        <div class="stats-summary mb-3">
-            <span class="badge bg-secondary me-2">Celkem hodnocených: <strong>@_rows.Count(r => r.Total > 0)</strong></span>
-            <span class="badge bg-success me-2">Snadný: <strong>@_rows.Sum(r => r.Easy)</strong></span>
-            <span class="badge bg-warning text-dark me-2">OK: <strong>@_rows.Sum(r => r.Ok)</strong></span>
-            <span class="badge bg-danger me-2">Těžký: <strong>@_rows.Sum(r => r.Hard)</strong></span>
+        <div class="stats-summary">
+            <span class="badge">Celkem hodnocených: <strong>@_rows.Count(r => r.Total > 0)</strong></span>
+            <span class="badge badge-success">Snadný: <strong>@_rows.Sum(r => r.Easy)</strong></span>
+            <span class="badge badge-warning">OK: <strong>@_rows.Sum(r => r.Ok)</strong></span>
+            <span class="badge badge-danger">Těžký: <strong>@_rows.Sum(r => r.Hard)</strong></span>
         </div>
 
-        <table class="table table-hover table-sm align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Článek</th>
-                    <th class="text-center">😊 Snadný</th>
-                    <th class="text-center">😐 OK</th>
-                    <th class="text-center">😕 Těžký</th>
-                    <th class="text-center">Celkem</th>
-                    <th style="min-width:160px">Rozložení</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in Filtered)
-                {
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td>
-                            <a href="/post-stats" class="text-decoration-none fw-semibold" @onclick="() => GoToPost(row.PostId)" @onclick:preventDefault="true">
-                                @row.Title
-                            </a>
-                        </td>
-                        <td class="text-center text-success fw-semibold">@row.Easy</td>
-                        <td class="text-center text-warning fw-semibold">@row.Ok</td>
-                        <td class="text-center text-danger fw-semibold">@row.Hard</td>
-                        <td class="text-center">@row.Total</td>
-                        <td>
-                            @if (row.Total > 0)
-                            {
-                                var easyPct = row.Easy * 100 / row.Total;
-                                var okPct   = row.Ok   * 100 / row.Total;
-                                var hardPct = row.Hard * 100 / row.Total;
-                                <div class="diff-bar">
-                                    @if (easyPct > 0) { <div class="diff-seg easy" style="width:@(easyPct)%" title="Snadný @(easyPct)%"></div> }
-                                    @if (okPct > 0)   { <div class="diff-seg ok"   style="width:@(okPct)%"   title="OK @(okPct)%"></div> }
-                                    @if (hardPct > 0) { <div class="diff-seg hard" style="width:@(hardPct)%" title="Těžký @(hardPct)%"></div> }
-                                </div>
-                                <small class="text-muted">@(easyPct)% / @(okPct)% / @(hardPct)%</small>
-                            }
-                            else
-                            {
-                                <span class="text-muted">–</span>
-                            }
-                        </td>
-                        <td>
-                            <a class="btn btn-outline-secondary btn-sm" href="posts/edit/@row.PostId">Editovat</a>
-                        </td>
+                        <th>Článek</th>
+                        <th class="col-center">😊 Snadný</th>
+                        <th class="col-center">😐 OK</th>
+                        <th class="col-center">😕 Těžký</th>
+                        <th class="col-center">Celkem</th>
+                        <th style="min-width:160px">Rozložení</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var row in Filtered)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/post-stats" class="row-title-link" @onclick="() => GoToPost(row.PostId)" @onclick:preventDefault="true">
+                                    @row.Title
+                                </a>
+                            </td>
+                            <td class="col-center val-easy">@row.Easy</td>
+                            <td class="col-center val-ok">@row.Ok</td>
+                            <td class="col-center val-hard">@row.Hard</td>
+                            <td class="col-center">@row.Total</td>
+                            <td>
+                                @if (row.Total > 0)
+                                {
+                                    var easyPct = row.Easy * 100 / row.Total;
+                                    var okPct   = row.Ok   * 100 / row.Total;
+                                    var hardPct = row.Hard * 100 / row.Total;
+                                    <div class="diff-bar">
+                                        @if (easyPct > 0) { <div class="diff-seg easy" style="width:@(easyPct)%" title="Snadný @(easyPct)%"></div> }
+                                        @if (okPct > 0)   { <div class="diff-seg ok"   style="width:@(okPct)%"   title="OK @(okPct)%"></div> }
+                                        @if (hardPct > 0) { <div class="diff-seg hard" style="width:@(hardPct)%" title="Těžký @(hardPct)%"></div> }
+                                    </div>
+                                    <small class="muted">@(easyPct)% / @(okPct)% / @(hardPct)%</small>
+                                }
+                                else
+                                {
+                                    <span class="muted">–</span>
+                                }
+                            </td>
+                            <td>
+                                <a class="btn btn-secondary btn-sm" href="posts/edit/@row.PostId">Editovat</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 </div>
-
-<style>
-.stats-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.stats-header h3 { margin: 0; }
-.stats-header-controls { display: flex; align-items: center; }
-.diff-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #e9ecef; min-width: 120px; }
-.diff-seg.easy { background: #198754; }
-.diff-seg.ok   { background: #ffc107; }
-.diff-seg.hard { background: #dc3545; }
-</style>
 
 @code {
     private bool _loading = true;
@@ -152,6 +144,11 @@
         }).ToList();
 
         _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private void GoToPost(int id) => Navigation.NavigateTo($"/posts/edit/{id}");

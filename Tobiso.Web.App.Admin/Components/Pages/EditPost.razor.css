@@ -1,0 +1,138 @@
+h3 {
+    margin-bottom: var(--space-4);
+}
+
+.alert-error {
+    margin-bottom: var(--space-4);
+}
+
+.success-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-900);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+}
+
+::deep .field {
+    margin-bottom: var(--space-4);
+}
+
+.editor-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-2);
+}
+
+.checkbox-field {
+    margin-bottom: var(--space-4);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.post-section {
+    margin-top: var(--space-6);
+}
+
+.muted {
+    color: var(--color-neutral-500);
+}
+
+.truncate-cell {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.active-row {
+    background: var(--color-accent-100);
+}
+
+.inline-select {
+    width: auto;
+    display: inline-block;
+    margin-right: var(--space-2);
+}
+
+.row-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.cs-modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+.cs-ratio-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border: 2px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.cs-ratio-card:hover {
+    border-color: var(--color-accent-500);
+    background: var(--color-accent-100);
+}
+
+.cs-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 7px;
+    border-radius: 5px;
+    border: 1.5px solid var(--color-divider);
+    background: var(--color-neutral-100);
+}
+
+.cs-preview-1x1 { width: 54px; height: 54px; }
+.cs-preview-1x2 { width: 54px; height: 90px; }
+.cs-preview-2x1 { width: 90px; height: 54px; }
+.cs-preview-2x2 { width: 90px; height: 90px; }
+
+.cs-preview-line {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-neutral-400);
+    opacity: 0.7;
+}
+
+.cs-card-label {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-accent-700);
+}
+
+.cs-card-sub {
+    font-size: 12px;
+    color: var(--color-neutral-600);
+}
+
+@media (max-width: 640px) {
+    .cs-modal-body {
+        grid-template-columns: 1fr;
+    }
+}

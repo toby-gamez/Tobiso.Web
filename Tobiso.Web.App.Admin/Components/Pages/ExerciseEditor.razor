@@ -8,286 +8,282 @@
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>@(_isEditMode ? "Úprava cvičení" : "Nové cvičení") - Admin</PageTitle>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2>@(_isEditMode ? "Úprava cvičení" : "Nové cvičení")</h2>
-            @if (_post != null)
-            {
-                <p class="text-muted mb-0">Článek: <strong>@_post.Title</strong></p>
-            }
-        </div>
-        <button class="btn btn-secondary" @onclick="BackToList">
-            <i class="bi bi-arrow-left"></i> Zpět na seznam
-        </button>
+<div class="page-header">
+    <div>
+        <h2>@(_isEditMode ? "Úprava cvičení" : "Nové cvičení")</h2>
+        @if (_post != null)
+        {
+            <p class="muted">Článek: <strong>@_post.Title</strong></p>
+        }
     </div>
+    <button class="btn btn-secondary" @onclick="BackToList">
+        <i data-lucide="arrow-left"></i> Zpět na seznam
+    </button>
+</div>
 
-    @if (_loading)
+@if (_loading)
+{
+    <div class="loading-row">
+        <i data-lucide="loader-2" class="spinner"></i>
+        <span>Načítání...</span>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_error))
     {
-        <div class="text-center py-5">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Načítání...</span>
-            </div>
+        <div class="alert-error">
+            <i data-lucide="alert-triangle"></i>
+            <span><strong>Error:</strong> @_error</span>
+            <button type="button" class="modal-close" @onclick="() => _error = null"><i data-lucide="x"></i></button>
         </div>
     }
-    else
+
+    @if (!string.IsNullOrEmpty(_success))
     {
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle"></i> @_error
-                <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-            </div>
-        }
+        <div class="alert-success">
+            <i data-lucide="check-circle-2"></i>
+            <span>@_success</span>
+            <button type="button" class="modal-close" @onclick="() => _success = null"><i data-lucide="x"></i></button>
+        </div>
+    }
 
-        @if (!string.IsNullOrEmpty(_success))
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> @_success
-                <button type="button" class="btn-close" @onclick="() => _success = null"></button>
-            </div>
-        }
+    <EditForm Model="@_model" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
 
-        <EditForm Model="@_model" OnValidSubmit="HandleSubmit">
-            <DataAnnotationsValidator />
-
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h5 class="mb-0">Základní informace</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label">Přiřazené články</label>
-                                <div style="max-height:160px; overflow:auto; border:1px solid #e9ecef; padding:8px; border-radius:4px;">
-                                    @foreach (var p in _allPosts)
-                                    {
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="postchk-@p.Id" checked="@(_model.PostIds?.Contains(p.Id) == true)" @onchange="(e) => TogglePost(p.Id, e.Value?.ToString())" />
-                                            <label class="form-check-label" for="postchk-@p.Id">@p.Title</label>
-                                        </div>
-                                    }
-                                </div>
-                                <small class="text-muted">Zaškrtněte všechny články, ke kterým má být cvičení přiřazeno.</small>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Přiřazené kategorie</label>
-                                <div style="max-height:160px; overflow:auto; border:1px solid #e9ecef; padding:8px; border-radius:4px;">
-                                    @foreach (var c in _allCategories)
-                                    {
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="catchk-@c.Id" checked="@(_model.CategoryIds?.Contains(c.Id) == true)" @onchange="(e) => ToggleCategory(c.Id, e.Value?.ToString())" />
-                                            <label class="form-check-label" for="catchk-@c.Id">@BuildCategoryLabel(c)</label>
-                                        </div>
-                                    }
-                                </div>
-                                <small class="text-muted">Kategorie dědí cvičení na všechny články v nich (rekurzivně).</small>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Název cvičení *</label>
-                                <InputText @bind-Value="_model.Title" class="form-control" placeholder="Např: Zapoj sériový obvod" />
-                                <ValidationMessage For="@(() => _model.Title)" />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Typ cvičení *</label>
-                                <InputSelect @bind-Value="_model.Type" class="form-select" @onchange="OnTypeChanged">
-                                    <option value="">-- Vyberte typ --</option>
-                                    <option value="circuit">Fyzikální obvod</option>
-                                    <option value="timeline">Časová osa</option>
-                                    <option value="drag-drop">Přetahování do kategorií</option>
-                                    <option value="molecule">Chemická molekula</option>
-                                    <option value="matching">Párování</option>
-                                </InputSelect>
-                                <ValidationMessage For="@(() => _model.Type)" />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Instrukce (Markdown)</label>
-                                <InputTextArea @bind-Value="_model.InstructionsMarkdown" class="form-control" rows="4" 
-                                               placeholder="Volitelné instrukce, které se zobrazí nad cvičením..." />
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Pořadí</label>
-                                    <InputNumber @bind-Value="_model.OrderIndex" class="form-control" />
-                                    <small class="text-muted">Čím nižší číslo, tím výše se zobrazí</small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Stav</label>
-                                    <div class="form-check form-switch mt-2">
-                                        <InputCheckbox @bind-Value="_model.IsActive" class="form-check-input" id="isActiveSwitch" />
-                                        <label class="form-check-label" for="isActiveSwitch">
-                                            @(_model.IsActive ? "Aktivní (viditelné pro uživatele)" : "Neaktivní (skryté)")
-                                        </label>
+        <div class="editor-grid">
+            <div class="editor-main">
+                <div class="panel">
+                    <div class="panel-header">Základní informace</div>
+                    <div class="panel-body">
+                        <div class="field">
+                            <label>Přiřazené články</label>
+                            <div class="checklist-box">
+                                @foreach (var p in _allPosts)
+                                {
+                                    <div class="checkbox-field">
+                                        <input type="checkbox" id="postchk-@p.Id" checked="@(_model.PostIds?.Contains(p.Id) == true)" @onchange="(e) => TogglePost(p.Id, e.Value?.ToString())" />
+                                        <label for="postchk-@p.Id">@p.Title</label>
                                     </div>
+                                }
+                            </div>
+                            <small class="muted">Zaškrtněte všechny články, ke kterým má být cvičení přiřazeno.</small>
+                        </div>
+
+                        <div class="field">
+                            <label>Přiřazené kategorie</label>
+                            <div class="checklist-box">
+                                @foreach (var c in _allCategories)
+                                {
+                                    <div class="checkbox-field">
+                                        <input type="checkbox" id="catchk-@c.Id" checked="@(_model.CategoryIds?.Contains(c.Id) == true)" @onchange="(e) => ToggleCategory(c.Id, e.Value?.ToString())" />
+                                        <label for="catchk-@c.Id">@BuildCategoryLabel(c)</label>
+                                    </div>
+                                }
+                            </div>
+                            <small class="muted">Kategorie dědí cvičení na všechny články v nich (rekurzivně).</small>
+                        </div>
+
+                        <div class="field">
+                            <label>Název cvičení *</label>
+                            <InputText @bind-Value="_model.Title" class="input" placeholder="Např: Zapoj sériový obvod" />
+                            <ValidationMessage For="@(() => _model.Title)" />
+                        </div>
+
+                        <div class="field">
+                            <label>Typ cvičení *</label>
+                            <InputSelect @bind-Value="_model.Type" class="select" @onchange="OnTypeChanged">
+                                <option value="">-- Vyberte typ --</option>
+                                <option value="circuit">Fyzikální obvod</option>
+                                <option value="timeline">Časová osa</option>
+                                <option value="drag-drop">Přetahování do kategorií</option>
+                                <option value="molecule">Chemická molekula</option>
+                                <option value="matching">Párování</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => _model.Type)" />
+                        </div>
+
+                        <div class="field">
+                            <label>Instrukce (Markdown)</label>
+                            <InputTextArea @bind-Value="_model.InstructionsMarkdown" class="textarea" rows="4"
+                                           placeholder="Volitelné instrukce, které se zobrazí nad cvičením..." />
+                        </div>
+
+                        <div class="field-row">
+                            <div class="field">
+                                <label>Pořadí</label>
+                                <InputNumber @bind-Value="_model.OrderIndex" class="input" />
+                                <small class="muted">Čím nižší číslo, tím výše se zobrazí</small>
+                            </div>
+                            <div class="field">
+                                <label>Stav</label>
+                                <div class="checkbox-field status-check">
+                                    <InputCheckbox @bind-Value="_model.IsActive" id="isActiveSwitch" />
+                                    <label for="isActiveSwitch">
+                                        @(_model.IsActive ? "Aktivní (viditelné pro uživatele)" : "Neaktivní (skryté)")
+                                    </label>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Konfigurace cvičení *</h5>
-                            <div>
-                                <button type="button" class="btn btn-sm @(_useVisualEditor ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _useVisualEditor = true">
-                                    <i class="bi bi-ui-checks"></i> Vizuální editor
-                                </button>
-                                <button type="button" class="btn btn-sm @(!_useVisualEditor ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _useVisualEditor = false">
-                                    <i class="bi bi-code-slash"></i> JSON editor
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            @if (_useVisualEditor && !string.IsNullOrEmpty(_model.Type))
-                            {
-                                @switch (_model.Type)
-                                {
-                                    case ExerciseTypeConstants.Circuit:
-                                        <CircuitEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged" />
-                                        break;
-                                    case ExerciseTypeConstants.Timeline:
-                                        <TimelineEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
-                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
-                                        break;
-                                    case ExerciseTypeConstants.DragDrop:
-                                        <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
-                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
-                                        break;
-                                    case ExerciseTypeConstants.Matching:
-                                        <MatchingEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
-                                                                SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
-                                        break;
-                                    default:
-                                        <div class="alert alert-warning">
-                                            <i class="bi bi-info-circle"></i> Vizuální editor pro tento typ cvičení zatím není k dispozici. Použijte JSON editor.
-                                        </div>
-                                        break;
-                                }
-                            }
-                            else
-                            {
-                                @if (!string.IsNullOrEmpty(_model.Type))
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" @onclick="LoadExampleConfig">
-                                        <i class="bi bi-file-earmark-code"></i> Načíst příklad
-                                    </button>
-                                }
-                                <InputTextArea @bind-Value="_model.ConfigJson" class="form-control font-monospace" rows="15" 
-                                               placeholder='{"components": [...], "availableComponents": [...]}' />
-                                <ValidationMessage For="@(() => _model.ConfigJson)" />
-                                @if (!string.IsNullOrEmpty(_configError))
-                                {
-                                    <div class="text-danger mt-2">
-                                        <small><i class="bi bi-exclamation-circle"></i> @_configError</small>
-                                    </div>
-                                }
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="ValidateConfigJson">
-                                    <i class="bi bi-check-circle"></i> Validovat JSON
-                                </button>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="card mb-3">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Správné řešení (JSON) *</h5>
-                            @if (!string.IsNullOrEmpty(_model.Type))
-                            {
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadExampleSolution">
-                                    <i class="bi bi-file-earmark-code"></i> Načíst příklad
-                                </button>
-                            }
-                        </div>
-                        <div class="card-body">
-                            <InputTextArea @bind-Value="_model.SolutionJson" class="form-control font-monospace" rows="12" 
-                                           placeholder='{"correctConnections": [...], "explanation": "..."}' />
-                            <ValidationMessage For="@(() => _model.SolutionJson)" />
-                            @if (!string.IsNullOrEmpty(_solutionError))
-                            {
-                                <div class="text-danger mt-2">
-                                    <small><i class="bi bi-exclamation-circle"></i> @_solutionError</small>
-                                </div>
-                            }
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="ValidateSolutionJson">
-                                <i class="bi bi-check-circle"></i> Validovat JSON
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>Konfigurace cvičení *</span>
+                        <div class="seg-control">
+                            <button type="button" class="seg-btn @(_useVisualEditor ? "active" : "")" @onclick="() => _useVisualEditor = true">
+                                <i data-lucide="list-checks"></i> Vizuální editor
+                            </button>
+                            <button type="button" class="seg-btn @(!_useVisualEditor ? "active" : "")" @onclick="() => _useVisualEditor = false">
+                                <i data-lucide="code-2"></i> JSON editor
                             </button>
                         </div>
                     </div>
+                    <div class="panel-body">
+                        @if (_useVisualEditor && !string.IsNullOrEmpty(_model.Type))
+                        {
+                            @switch (_model.Type)
+                            {
+                                case ExerciseTypeConstants.Circuit:
+                                    <CircuitEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged" />
+                                    break;
+                                case ExerciseTypeConstants.Timeline:
+                                    <TimelineEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                            SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                    break;
+                                case ExerciseTypeConstants.DragDrop:
+                                    <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                            SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                    break;
+                                case ExerciseTypeConstants.Matching:
+                                    <MatchingEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
+                                                            SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
+                                    break;
+                                default:
+                                    <div class="empty-hint">
+                                        <i data-lucide="info"></i> Vizuální editor pro tento typ cvičení zatím není k dispozici. Použijte JSON editor.
+                                    </div>
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            @if (!string.IsNullOrEmpty(_model.Type))
+                            {
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="LoadExampleConfig">
+                                    <i data-lucide="file-code"></i> Načíst příklad
+                                </button>
+                            }
+                            <InputTextArea @bind-Value="_model.ConfigJson" class="textarea code-input" rows="15"
+                                           placeholder='{"components": [...], "availableComponents": [...]}' />
+                            <ValidationMessage For="@(() => _model.ConfigJson)" />
+                            @if (!string.IsNullOrEmpty(_configError))
+                            {
+                                <div class="field-error">
+                                    <i data-lucide="alert-circle"></i> @_configError
+                                </div>
+                            }
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="ValidateConfigJson">
+                                <i data-lucide="check-circle-2"></i> Validovat JSON
+                            </button>
+                        }
+                    </div>
                 </div>
 
-                <div class="col-md-4">
-                    <div class="card sticky-top" style="top: 20px;">
-                        <div class="card-header">
-                            <h5 class="mb-0">Nápověda</h5>
-                        </div>
-                        <div class="card-body">
-                            @if (string.IsNullOrEmpty(_model.Type))
-                            {
-                                <p class="text-muted">Vyberte typ cvičení pro zobrazení nápovědy...</p>
-                            }
-                            else
-                            {
-                                @switch (_model.Type)
-                                {
-                                    case ExerciseTypeConstants.Circuit:
-                                        <h6>Fyzikální obvod</h6>
-                                        <p><strong>Příklad ConfigJson:</strong></p>
-                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetCircuitExample()</pre>
-                                        break;
-                                    case ExerciseTypeConstants.Timeline:
-                                        <h6>Časová osa</h6>
-                                        <p><strong>Příklad ConfigJson:</strong></p>
-                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetTimelineExample()</pre>
-                                        break;
-                                    case ExerciseTypeConstants.DragDrop:
-                                        <h6>Přetahování</h6>
-                                        <p><strong>Příklad ConfigJson:</strong></p>
-                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetDragDropExample()</pre>
-                                        break;
-                                    case ExerciseTypeConstants.Molecule:
-                                        <h6>Molekula</h6>
-                                        <p><strong>Příklad ConfigJson:</strong></p>
-                                        <pre class="bg-light p-2" style="font-size: 0.8rem;">@GetMoleculeExample()</pre>
-                                        break;
-                                    case ExerciseTypeConstants.Matching:
-                                        <h6>Párování</h6>
-                                        <p>Podobné jako drag-drop, ale pro spojování prvků.</p>
-                                        break;
-                                }
-                                <hr />
-                                <a href="/docs/INTERACTIVE_EXERCISES_DOCS.md" target="_blank" class="btn btn-sm btn-outline-info w-100">
-                                    <i class="bi bi-book"></i> Kompletní dokumentace
-                                </a>
-                            }
-                        </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>Správné řešení (JSON) *</span>
+                        @if (!string.IsNullOrEmpty(_model.Type))
+                        {
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="LoadExampleSolution">
+                                <i data-lucide="file-code"></i> Načíst příklad
+                            </button>
+                        }
+                    </div>
+                    <div class="panel-body">
+                        <InputTextArea @bind-Value="_model.SolutionJson" class="textarea code-input" rows="12"
+                                       placeholder='{"correctConnections": [...], "explanation": "..."}' />
+                        <ValidationMessage For="@(() => _model.SolutionJson)" />
+                        @if (!string.IsNullOrEmpty(_solutionError))
+                        {
+                            <div class="field-error">
+                                <i data-lucide="alert-circle"></i> @_solutionError
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="ValidateSolutionJson">
+                            <i data-lucide="check-circle-2"></i> Validovat JSON
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-4 mb-5">
-                <button type="button" class="btn btn-secondary" @onclick="BackToList">
-                    <i class="bi bi-x-circle"></i> Zrušit
-                </button>
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    }
-                    <i class="bi bi-save"></i> @(_isEditMode ? "Uložit změny" : "Vytvořit cvičení")
-                </button>
+            <div class="editor-side">
+                <div class="panel help-panel">
+                    <div class="panel-header">Nápověda</div>
+                    <div class="panel-body">
+                        @if (string.IsNullOrEmpty(_model.Type))
+                        {
+                            <p class="muted">Vyberte typ cvičení pro zobrazení nápovědy...</p>
+                        }
+                        else
+                        {
+                            @switch (_model.Type)
+                            {
+                                case ExerciseTypeConstants.Circuit:
+                                    <h6>Fyzikální obvod</h6>
+                                    <p><strong>Příklad ConfigJson:</strong></p>
+                                    <pre class="code-preview">@GetCircuitExample()</pre>
+                                    break;
+                                case ExerciseTypeConstants.Timeline:
+                                    <h6>Časová osa</h6>
+                                    <p><strong>Příklad ConfigJson:</strong></p>
+                                    <pre class="code-preview">@GetTimelineExample()</pre>
+                                    break;
+                                case ExerciseTypeConstants.DragDrop:
+                                    <h6>Přetahování</h6>
+                                    <p><strong>Příklad ConfigJson:</strong></p>
+                                    <pre class="code-preview">@GetDragDropExample()</pre>
+                                    break;
+                                case ExerciseTypeConstants.Molecule:
+                                    <h6>Molekula</h6>
+                                    <p><strong>Příklad ConfigJson:</strong></p>
+                                    <pre class="code-preview">@GetMoleculeExample()</pre>
+                                    break;
+                                case ExerciseTypeConstants.Matching:
+                                    <h6>Párování</h6>
+                                    <p>Podobné jako drag-drop, ale pro spojování prvků.</p>
+                                    break;
+                            }
+                            <hr />
+                            <a href="/docs/INTERACTIVE_EXERCISES_DOCS.md" target="_blank" class="btn btn-secondary btn-sm doc-link">
+                                <i data-lucide="book-open"></i> Kompletní dokumentace
+                            </a>
+                        }
+                    </div>
+                </div>
             </div>
-        </EditForm>
-    }
-</div>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @onclick="BackToList">
+                <i data-lucide="x-circle"></i> Zrušit
+            </button>
+            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                @if (_saving)
+                {
+                    <i data-lucide="loader-2" class="spinner"></i>
+                }
+                <i data-lucide="save"></i> @(_isEditMode ? "Uložit změny" : "Vytvořit cvičení")
+            </button>
+        </div>
+    </EditForm>
+}
 
 @code {
     [Parameter]
@@ -314,6 +310,10 @@
         await LoadData();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
 
     private async Task LoadData()
     {
@@ -471,15 +471,15 @@
 
     private void ValidateConfigJson()
     {
-        _configError = ValidateJson(_model.ConfigJson, out var error) 
-            ? null 
+        _configError = ValidateJson(_model.ConfigJson, out var error)
+            ? null
             : error;
     }
 
     private void ValidateSolutionJson()
     {
-        _solutionError = ValidateJson(_model.SolutionJson, out var error) 
-            ? null 
+        _solutionError = ValidateJson(_model.SolutionJson, out var error)
+            ? null
             : error;
     }
 

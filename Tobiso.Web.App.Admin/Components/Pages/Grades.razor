@@ -3,89 +3,91 @@
 @using Tobiso.Web.Shared.Interfaces
 @using Refit
 @inject ITobisoWebApi Api
+@inject IJSRuntime JS
 
 <PageTitle>Grades</PageTitle>
 
-<h3>Grades / Versions</h3>
+<h1>Grades / Versions</h1>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert-error">@errorMessage</div>
 }
 
-<div class="mb-3">
-    <button class="btn btn-sm btn-primary" @onclick="SeedGrades">Seed default grades</button>
-    <span class="ms-2 text-muted">(only inserts when no grades exist)</span>
+<div class="toolbar-row">
+    <button class="btn btn-secondary btn-sm" @onclick="SeedGrades"><i data-lucide="zap"></i> Seed default grades</button>
+    <span class="muted">(only inserts when no grades exist)</span>
 </div>
 
-<div class="card mb-3 p-3">
-    <h5>Create Grade</h5>
-    <div class="row g-2">
-        <div class="col-auto">
-            <input class="form-control form-control-sm" placeholder="Name" @bind="newName" />
+<div class="panel">
+    <div class="panel-body">
+        <h3>Create Grade</h3>
+        <div class="create-row">
+            <input class="input" placeholder="Name" @bind="newName" />
+            <input class="input" type="number" placeholder="Level" @bind="newLevel" />
+            <button class="btn btn-primary btn-sm" @onclick="CreateGrade"><i data-lucide="plus"></i> Create</button>
         </div>
-        <div class="col-auto">
-            <input class="form-control form-control-sm" type="number" placeholder="Level" @bind="newLevel" />
-        </div>
-        <div class="col-auto">
-            <button class="btn btn-sm btn-success" @onclick="CreateGrade">Create</button>
-        </div>
-    </div>
-    @if (!string.IsNullOrEmpty(createError))
-    {
-        <div class="text-danger mt-1">@createError</div>
-    }
-</div>
-
-<table class="table table-sm">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Level</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var g in grades)
+        @if (!string.IsNullOrEmpty(createError))
         {
-            <tr>
-                <td>@g.Id</td>
-                <td>
-                    @if (editId == g.Id)
-                    {
-                        <input class="form-control form-control-sm" @bind="editName" />
-                    }
-                    else
-                    {
-                        @g.Name
-                    }
-                </td>
-                <td style="width:120px;">
-                    @if (editId == g.Id)
-                    {
-                        <input class="form-control form-control-sm" type="number" @bind="editLevel" />
-                    }
-                    else
-                    {
-                        @g.Level
-                    }
-                </td>
-                <td style="width:160px;">
-                    @if (editId == g.Id)
-                    {
-                        <button class="btn btn-sm btn-primary me-1" @onclick="() => SaveEdit(g.Id)">Save</button>
-                        <button class="btn btn-sm btn-secondary" @onclick="CancelEdit">Cancel</button>
-                    }
-                    else
-                    {
-                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(g)">Edit</button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteGrade(g.Id)">Delete</button>
-                    }
-                </td>
-            </tr>
+            <div class="field-error">@createError</div>
         }
-    </tbody>
-</table>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Level</th>
+                <th style="width:190px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in grades)
+            {
+                <tr>
+                    <td>@g.Id</td>
+                    <td>
+                        @if (editId == g.Id)
+                        {
+                            <input class="input" @bind="editName" />
+                        }
+                        else
+                        {
+                            @g.Name
+                        }
+                    </td>
+                    <td>
+                        @if (editId == g.Id)
+                        {
+                            <input class="input" type="number" @bind="editLevel" />
+                        }
+                        else
+                        {
+                            @g.Level
+                        }
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            @if (editId == g.Id)
+                            {
+                                <button class="btn btn-primary btn-sm" @onclick="() => SaveEdit(g.Id)"><i data-lucide="save"></i> Save</button>
+                                <button class="btn btn-secondary btn-sm" @onclick="CancelEdit"><i data-lucide="x"></i> Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => StartEdit(g)"><i data-lucide="pencil-line"></i> Edit</button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => DeleteGrade(g.Id)"><i data-lucide="trash-2"></i> Delete</button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
 @code {
     private List<GradeResponse> grades = new();
@@ -108,6 +110,11 @@
         {
             errorMessage = ex.Message;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private async Task SeedGrades()
@@ -196,10 +203,6 @@
             errorMessage = ex.Message;
         }
     }
-
-    // simple JS confirm via interop, fall back to C# confirm if not available
-    [Inject]
-    private IJSRuntime JS { get; set; } = default!;
 
     private async Task<bool> JsConfirm(string message)
     {

@@ -1,0 +1,92 @@
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin: 0 0 var(--space-5);
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.header-with-icon {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.error-detail {
+    margin-top: var(--space-2);
+}
+
+.spinner-row {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-8) 0;
+}
+
+.spinner {
+    width: 28px;
+    height: 28px;
+}
+
+.muted {
+    color: var(--color-neutral-500);
+}
+
+.row-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.post-count {
+    margin-top: var(--space-4);
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-panel {
+    margin-top: var(--space-6);
+}
+
+.ai-controls {
+    display: flex;
+    align-items: end;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.ai-source-field {
+    min-width: 260px;
+}
+
+.suggestion-intro {
+    font-size: 14px;
+}
+
+.suggestion-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.suggestion-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-sm);
+}

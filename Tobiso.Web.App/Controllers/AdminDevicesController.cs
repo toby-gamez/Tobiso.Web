@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.DTOs;
 
@@ -7,7 +8,7 @@ namespace Tobiso.Web.App.Controllers;
 
 [Route("api/admin/devices")]
 [ApiController]
-[Authorize]
+[Authorize(AuthenticationSchemes = BasicAuthConstants.Scheme)]
 public class AdminDevicesController : ControllerBase
 {
     private readonly IDeviceService _deviceService;

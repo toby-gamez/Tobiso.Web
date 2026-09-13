@@ -1,0 +1,129 @@
+.stats-panel-body {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-6);
+}
+
+.stats-action {
+    margin-left: auto;
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin: var(--space-6) 0 var(--space-4);
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.search-input {
+    width: 240px;
+}
+
+.sort-select {
+    width: 180px;
+}
+
+.post-title-link {
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.post-title-link:hover {
+    color: var(--color-accent-700);
+}
+
+.file-path-code {
+    font-size: 12px;
+    color: var(--color-neutral-600);
+    word-break: break-all;
+}
+
+.muted {
+    color: var(--color-neutral-500);
+}
+
+.post-count {
+    margin-top: var(--space-4);
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cs-modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+.cs-ratio-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border: 2px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.cs-ratio-card:hover {
+    border-color: var(--color-accent-500);
+    background: var(--color-accent-100);
+}
+
+.cs-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 7px;
+    border-radius: 5px;
+    border: 1.5px solid var(--color-divider);
+    background: var(--color-neutral-100);
+}
+
+.cs-preview-1x1 { width: 54px; height: 54px; }
+.cs-preview-1x2 { width: 54px; height: 90px; }
+.cs-preview-2x1 { width: 90px; height: 54px; }
+.cs-preview-2x2 { width: 90px; height: 90px; }
+
+.cs-preview-line {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-neutral-400);
+    opacity: 0.7;
+}
+
+.cs-card-label {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-accent-700);
+}
+
+.cs-card-sub {
+    font-size: 12px;
+    color: var(--color-neutral-600);
+}
+
+@media (max-width: 640px) {
+    .cs-modal-body {
+        grid-template-columns: 1fr;
+    }
+}

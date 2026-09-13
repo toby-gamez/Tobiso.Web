@@ -1,0 +1,153 @@
+@* Reference modal listing every Markdown + custom syntax token the public renderer
+   (Tobiso.Web.App/Components/MarkdownContent.razor) understands, so authors don't
+   have to read the source to remember them. *@
+
+@if (Visible)
+{
+    <div class="fl-modal-backdrop" @onclick="Close">
+        <div class="fl-modal-dialog" @onclick:stopPropagation>
+            <div class="fl-modal-header">
+                <span><i class="bi bi-info-circle"></i> Nápověda k formátování obsahu</span>
+                <button type="button" class="fl-modal-close" aria-label="Zavřít" @onclick="Close">&times;</button>
+            </div>
+            <div class="fl-modal-body">
+
+                <section class="fl-section">
+                    <h6>Základní Markdown</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code># Text</code> … <code>###### Text</code></td><td>Nadpisy úrovně 1–6</td></tr>
+                            <tr><td><code>**tučně**</code></td><td>Tučný text</td></tr>
+                            <tr><td><code>*kurzíva*</code></td><td>Kurzíva</td></tr>
+                            <tr><td><code>- položka</code> / <code>1. položka</code></td><td>Odrážkový / číslovaný seznam</td></tr>
+                            <tr><td><code>[text](https://…)</code></td><td>Odkaz</td></tr>
+                            <tr><td><code>&gt; citace</code></td><td>Citační blok</td></tr>
+                            <tr><td><code>`kód`</code> a <code>```blok kódu```</code></td><td>Vložený kód / blok kódu (uvnitř bloku kódu se vlastní syntaxe dále nevyhodnocuje)</td></tr>
+                            <tr><td><code>| a | b |</code> s řádkem <code>|---|---|</code></td><td>Tabulka</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Zlomky</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>1/2</code></td><td>Jednoduchý zlomek z čísel/písmen: <code>1/2</code>, <code>a/b</code>, <code>-3/4</code></td></tr>
+                            <tr><td><code>{'{'}x+1{'}'}/{'{'}2{'}'}</code></td><td>Zlomek s víceznakovým výrazem — každou stranu, která není jediné číslo/písmeno, obal do <code>{'{'} {'}'}</code></td></tr>
+                            <tr><td><code>3,5/2</code></td><td>Desetinná čísla se čárkou fungují (automaticky se převedou na tečku)</td></tr>
+                            <tr><td><code>- 1/2</code></td><td>Mezera + pomlčka před zlomkem se stane záporným zlomkem</td></tr>
+                            <tr><td><code>ano/ne</code></td><td>Výjimka — zůstane jako obyčejný text, nepřevede se na zlomek</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Matematika (KaTeX)</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>$x^2 + y^2$</code></td><td>Vzorec v textu (inline)</td></tr>
+                            <tr><td><code>$$x^2 + y^2 = r^2$$</code></td><td>Vzorec na samostatném řádku (display)</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Škrtnutí</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>#s#text#s#</code></td><td>Škrtne text: <del>text</del></td></tr>
+                            <tr><td><code>{'{'}#s#2#s#{'}'}/{'{'}4{'}'}</code></td><td>Škrtnutí uvnitř zlomku (čitatel nebo jmenovatel) se ve zlomku vykreslí jako přeškrtnuté číslo</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Rámečky (Tip / Zajímavost)</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>!!!tip Text rady !!!</code></td><td>Zvýrazněný rámeček se žárovkou a popiskem „Tip"</td></tr>
+                            <tr><td><code>!!!sidefact Zajímavý fakt !!!</code></td><td>Zvýrazněný rámeček s ikonou „i" a popiskem „Zajímavost"</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Obsah rámečku píšeš mezi klíčové slovo a uzavírací <code>!!!</code>.</p>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Šipka</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>krok 1 -&gt; krok 2</code></td><td>Šipka mezi mezerami se změní na ikonu šipky doprava</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Úvodní odstavec</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>... Krátký úvodní text ...</code></td><td>První výskyt tří teček na začátku a na konci se zvýrazní jako úvodní (lead) odstavec článku</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Tři tečky jsou vyhrazený znak — jinde v textu se jakékoli osamocené <code>...</code> z výstupu odstraní, takže je nepiš jako obyčejnou elipsu.</p>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Obrázek s popiskem a zdrojem</h6>
+                    <pre class="fl-pre">![alt text](/images/obrazek.png)
+
+Popisek obrázku (nepovinné, může být víc řádků)
+
+Zdroj: Wikipedia</pre>
+                    <p class="fl-note">Řádek začínající <code>Zdroj:</code> nebo <code>Autor:</code> hned pod obrázkem (a případným popiskem) se použije jako uvedení zdroje. Obsahuje-li „Tobiso", obrázek se považuje za vlastní a zobrazí se mírně jinak než u přebraných obrázků.</p>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Dodatek (vysvětlivka v bublině)</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>(--DOD-5--)</code></td><td>Vloží klikací ikonu, která otevře dodatek s ID 5</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Dodatky (jejich text a ID) se spravují v sekci <a href="/addendums">Dodatky</a>.</p>
+                </section>
+
+                <section class="fl-section">
+                    <h6>E-mailový odkaz</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>[Napiš nám](mailto:info@tobiso.cz?subject=Dotaz)</code></td><td>Odkaz otevře e-mailového klienta s předvyplněným předmětem (parametr <code>?subject=…</code> je nepovinný)</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="fl-section">
+                    <h6>Zmínky osob</h6>
+                    <p class="fl-note">Stačí do textu napsat jméno nebo přezdívku známé osoby přirozeně — žádná speciální syntaxe není potřeba, systém jméno sám rozpozná a připojí k němu odkaz.</p>
+                </section>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    private Task Close() => VisibleChanged.InvokeAsync(false);
+}
+
+<style>
+    .fl-modal-backdrop { position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem; }
+    .fl-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;width:720px;max-width:100%;max-height:88vh;overflow-y:auto; }
+    .fl-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1.05rem;margin-bottom:1rem;position:sticky;top:0;background:#fff; }
+    .fl-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
+    .fl-section { margin-bottom:1.1rem; }
+    .fl-section h6 { font-weight:700;margin-bottom:.5rem;color:#333; }
+    .fl-table { width:100%;border-collapse:collapse;font-size:.86rem; }
+    .fl-table td { padding:.32rem .5rem;border-bottom:1px solid #eee;vertical-align:top; }
+    .fl-table td:first-child { white-space:nowrap;width:1%; }
+    .fl-table code { background:#f5f5f5;padding:.1rem .35rem;border-radius:4px;color:#c36f9a; }
+    .fl-pre { background:#f5f5f5;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;white-space:pre-wrap;margin-bottom:.4rem; }
+    .fl-note { font-size:.82rem;color:#666;margin:.3rem 0 0; }
+</style>

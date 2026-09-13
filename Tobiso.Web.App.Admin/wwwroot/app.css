@@ -20,53 +20,43 @@
         content: "An error has occurred."
     }
 
-.darker-border-checkbox.form-check-input {
-    border-color: #929292;
-}
-
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
-}
-
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
-}
-
-/* Markdown Editor Custom Styles */
+/* Markdown Editor (EasyMDE) - retokenized to Organic; dark mode is automatic via
+   the CSS custom properties below (variables.css), no bespoke media query needed. */
 .CodeMirror {
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-sm);
     font-size: 14px;
     min-height: 300px;
+    background: var(--color-bg);
+    color: var(--color-text);
 }
 
 .CodeMirror:focus-within {
-    border-color: #86b7fe;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    border-color: var(--color-accent-600);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-600) 25%, transparent);
 }
 
 .editor-toolbar {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--color-divider);
     border-bottom: none;
-    border-radius: 0.375rem 0.375rem 0 0;
-    background-color: #f8f9fa;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background-color: var(--color-neutral-100);
 }
 
 .editor-toolbar a {
-    color: #495057 !important;
+    color: var(--color-text) !important;
     border: none !important;
     text-shadow: none !important;
     background: none !important;
 }
 
 .editor-toolbar a:hover {
-    background-color: #e9ecef !important;
+    background-color: var(--color-neutral-200) !important;
     border-color: transparent !important;
 }
 
 .editor-toolbar a.active {
-    background-color: #dee2e6 !important;
+    background-color: var(--color-neutral-300) !important;
 }
 
 .editor-toolbar.fullscreen {
@@ -78,38 +68,43 @@
 }
 
 .editor-preview {
-    background-color: white;
-    border: 1px solid #ced4da;
-    border-radius: 0 0.375rem 0.375rem 0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .editor-preview-side {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--color-divider);
     border-left: none;
-    border-radius: 0 0.375rem 0.375rem 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .editor-statusbar {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--color-divider);
     border-top: none;
-    border-radius: 0 0 0.375rem 0.375rem;
-    background-color: #f8f9fa;
-    color: #6c757d;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    background-color: var(--color-neutral-100);
+    color: var(--color-neutral-600);
     font-size: 12px;
 }
 
-/* PostSearchComponent Styles */
+/* PostSearchComponent dropdown - retokenized to Organic */
 .post-search-dropdown {
     max-height: 300px;
     overflow-y: auto;
     z-index: 1050;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
+    box-shadow: var(--shadow-md);
+    background: var(--color-bg);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
 }
 
 .post-search-dropdown .dropdown-item {
     padding: 0.75rem 1rem;
     cursor: pointer;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid var(--color-divider);
+    color: var(--color-text);
 }
 
 .post-search-dropdown .dropdown-item:last-child {
@@ -117,12 +112,12 @@
 }
 
 .post-search-dropdown .dropdown-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--color-neutral-100);
 }
 
 .post-search-dropdown .dropdown-item:active {
-    background-color: #0d6efd;
-    color: white;
+    background-color: var(--color-accent-600);
+    color: var(--color-bg);
 }
 
 .post-search-dropdown .dropdown-item .fw-bold {
@@ -135,46 +130,9 @@
     line-height: 1.2;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .editor-toolbar {
-        background-color: #343a40;
-        border-color: #495057;
-    }
-    
-    .editor-toolbar a {
-        color: #adb5bd !important;
-    }
-    
-    .editor-toolbar a:hover {
-        background-color: #495057 !important;
-    }
-    
-    .CodeMirror {
-        background-color: #212529;
-        color: #ffffff;
-        border-color: #495057;
-    }
-    
-    .editor-statusbar {
-        background-color: #343a40;
-        border-color: #495057;
-        color: #adb5bd;
-    }
-    
-    .post-search-dropdown .dropdown-item {
-        background-color: #212529;
-        color: #ffffff;
-        border-bottom-color: #495057;
-    }
-    
-    .post-search-dropdown .dropdown-item:hover {
-        background-color: #343a40;
-    }
-}
-
-/* Grammar error underline */
+/* Grammar error underline - reuses the terracotta-800 "danger" shade (no red
+   ramp exists in the Organic token set, see admin.css header comment). */
 .grammar-error {
-    text-decoration: underline wavy #d9534f; /* bootstrap danger */
+    text-decoration: underline wavy var(--color-accent-800);
     cursor: help;
 }

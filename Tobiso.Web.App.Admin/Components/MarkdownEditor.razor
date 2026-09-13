@@ -5,7 +5,7 @@
 @inject IJSRuntime JSRuntime
 
 <div>
-    <textarea id="@textareaId" class="form-control" style="display: none;">@Value</textarea>
+    <textarea id="@textareaId" style="display: none;">@Value</textarea>
     @if (For != null && CascadedEditContext != null)
     {
         <ValidationMessage For="For" />

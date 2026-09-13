@@ -1,23 +1,23 @@
 @using Tobiso.Web.Shared.DTOs
 
-<div class="card mt-3" style="display:@(Issues?.Any() == true ? "block" : "none")">
-    <div class="card-header">Návrhy oprav</div>
-    <div class="card-body">
+<div class="panel grammar-panel" style="display:@(Issues?.Any() == true ? "block" : "none")">
+    <div class="panel-header">Návrhy oprav</div>
+    <div class="panel-body">
         @if (Issues == null || Issues.Count == 0)
         {
-            <div class="text-success">Žádné chyby nenalezeny.</div>
+            <div class="grammar-ok">Žádné chyby nenalezeny.</div>
         }
         else
         {
-            <ul class="list-group">
+            <ul class="grammar-issue-list">
                 @foreach (var it in Issues)
                 {
-                    <li class="list-group-item">
+                    <li class="grammar-issue-item">
                         <strong>Originál:</strong> <code>@it.OriginalText</code>
                         <br />
                         <strong>Návrh:</strong> <code>@it.Correction</code>
                         <br />
-                        <small class="text-muted">@it.Explanation</small>
+                        <small class="grammar-issue-explanation">@it.Explanation</small>
                     </li>
                 }
             </ul>

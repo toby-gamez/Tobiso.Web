@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using Tobiso.Web.Shared.Interfaces
 @using Tobiso.Web.Shared.DTOs
 @using Tobiso.Web.Api.Services
@@ -12,27 +12,27 @@
 
 <PageTitle>Home - Posts</PageTitle>
 
-<div class="card mb-3">
-    <div class="card-body d-flex align-items-center gap-3 flex-wrap py-2">
-        <strong class="me-1">Způsobilost kartiček</strong>
+<div class="panel">
+    <div class="stats-panel-body">
+        <strong>Způsobilost kartiček</strong>
         @if (flashcardStatsError != null)
         {
-            <span class="text-danger small">@flashcardStatsError</span>
+            <span class="muted">@flashcardStatsError</span>
         }
         else if (flashcardStats == null)
         {
-            <span class="text-muted small">Načítám…</span>
+            <span class="muted">Načítám…</span>
         }
         else
         {
-            <span class="badge bg-success-subtle text-success-emphasis">@flashcardStats.Eligible způsobilé</span>
-            <span class="badge bg-danger-subtle text-danger-emphasis">@flashcardStats.Ineligible nezpůsobilé</span>
-            <span class="badge bg-warning-subtle text-warning-emphasis">@flashcardStats.Unclassified neklasifikováno</span>
+            <span class="badge badge-success">@flashcardStats.Eligible způsobilé</span>
+            <span class="badge badge-danger">@flashcardStats.Ineligible nezpůsobilé</span>
+            <span class="badge badge-warning">@flashcardStats.Unclassified neklasifikováno</span>
 
-            <button type="button" class="btn btn-sm btn-primary ms-auto" @onclick="StartClassifying" disabled="@(isClassifying || flashcardStats.Unclassified == 0)">
+            <button type="button" class="btn btn-primary btn-sm stats-action" @onclick="StartClassifying" disabled="@(isClassifying || flashcardStats.Unclassified == 0)">
                 @if (isClassifying)
                 {
-                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i data-lucide="loader-2" class="spinner"></i>
                     <span>Klasifikuji… (@classifiedThisRun)</span>
                 }
                 else if (flashcardStats.Unclassified == 0)
@@ -46,46 +46,43 @@
             </button>
             @if (isClassifying)
             {
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StopClassifying">Zastavit</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="StopClassifying">Zastavit</button>
             }
             else
             {
-                <button type="button" class="btn btn-sm btn-outline-secondary" title="Zruší všechny dosavadní klasifikace a nechá AI posoudit otázky znovu (podle aktuálního promptu)" @onclick="ResetAndReclassify">
+                <button type="button" class="btn btn-secondary btn-sm" title="Zruší všechny dosavadní klasifikace a nechá AI posoudit otázky znovu (podle aktuálního promptu)" @onclick="ResetAndReclassify">
                     Reklasifikovat vše znovu
                 </button>
             }
         }
         @if (!string.IsNullOrEmpty(classifyError))
         {
-            <span class="text-danger small">@classifyError</span>
+            <span class="muted">@classifyError</span>
         }
     </div>
 </div>
 
-<h1>Posts</h1>
-<div class="d-flex flex-wrap align-items-center mb-3">
-    <button class="btn btn-success me-2" @onclick="GoToAddPost">Přidat článek</button>
-
-    <div class="ms-auto d-flex align-items-center">
-        <input class="form-control me-2" placeholder="Hledat podle názvu..." @bind="SearchTerm" @bind:event="oninput" style="width:260px;" />
-
-        <select class="form-select me-2" style="width:200px;" @bind="SortBy">
+<div class="page-header">
+    <h1>Posts</h1>
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="GoToAddPost"><i data-lucide="plus"></i> Přidat článek</button>
+        <input class="input search-input" placeholder="Hledat podle názvu..." @bind="SearchTerm" @bind:event="oninput" />
+        <select class="select sort-select" @bind="SortBy">
             <option value="Updated">Nejnovější</option>
             <option value="Title">Název</option>
             <option value="Category">Kategorie</option>
             <option value="Id">ID</option>
             <option value="FilePath">Cesta</option>
         </select>
-
-        <button class="btn btn-outline-secondary btn-sm" aria-label="Přepnout směr řazení" @onclick="ToggleSortDirection">
-            <i class="@(SortDescending ? "bi bi-sort-down" : "bi bi-sort-up")"></i>
+        <button class="btn btn-secondary btn-sm" aria-label="Přepnout směr řazení" @onclick="ToggleSortDirection">
+            <i data-lucide="@(SortDescending ? "chevron-down" : "chevron-up")"></i>
         </button>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger" role="alert">
+    <div class="alert-error">
         <strong>Error:</strong> @errorMessage
     </div>
 }
@@ -100,16 +97,16 @@ else if (!posts.Any())
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead class="table-dark">
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
                 <tr>
                     <th scope="col">ID</th>
                     <th scope="col">Title</th>
                     <th scope="col">Category</th>
                     <th scope="col">File Path</th>
                     <th scope="col">Updated</th>
-                    <th scope="col" style="width: 200px;">Actions</th>
+                    <th scope="col" style="width: 150px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,9 +115,7 @@ else
                     <tr>
                         <td>@post.Id</td>
                         <td>
-                            <strong>
-                                <a href="/posts/edit/@post.Id" class="text-decoration-none">@post.Title</a>
-                            </strong>
+                            <a href="/posts/edit/@post.Id" class="post-title-link">@post.Title</a>
                         </td>
                         <td>
                             @if (post.CategoryId.HasValue)
@@ -128,26 +123,26 @@ else
                                 var name = GetCategoryNameById(post.CategoryId);
                                 if (!string.IsNullOrEmpty(name))
                                 {
-                                    <span class="badge bg-primary">@name</span>
+                                    <span class="badge">@name</span>
                                 }
                                 else
                                 {
-                                    <span class="text-muted">-</span>
+                                    <span class="muted">-</span>
                                 }
                             }
                             else
                             {
-                                <span class="text-muted">-</span>
+                                <span class="muted">-</span>
                             }
                         </td>
                         <td>
                             @if (!string.IsNullOrEmpty(post.FilePath))
                             {
-                                <code class="text-break">@post.FilePath</code>
+                                <code class="file-path-code">@post.FilePath</code>
                             }
                             else
                             {
-                                <span class="text-muted">-</span>
+                                <span class="muted">-</span>
                             }
                         </td>
                         <td>
@@ -157,21 +152,20 @@ else
                             }
                             else
                             {
-                                <span class="text-muted">-</span>
+                                <span class="muted">-</span>
                             }
                         </td>
                         <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-primary" aria-label="Správa cvičení" @onclick="@(() => GoToExercises(post.Id))">
-                                    <i class="bi bi-puzzle"></i>
+                            <div class="row-actions">
+                                <button class="btn btn-ghost btn-sm" aria-label="Správa cvičení" @onclick="@(() => GoToExercises(post.Id))">
+                                    <i data-lucide="puzzle"></i>
                                 </button>
-                                <button class="btn btn-outline-info" aria-label="Tahák (PDF)" @onclick="@(() => OpenCheatSheetModal(post.Id))">
-                                    <i class="bi bi-file-earmark-text"></i>
+                                <button class="btn btn-ghost btn-sm" aria-label="Tahák (PDF)" @onclick="@(() => OpenCheatSheetModal(post.Id))">
+                                    <i data-lucide="file-text"></i>
                                 </button>
-                                <button class="btn btn-outline-danger" aria-label="Smazat příspěvek" @onclick="() => OnDeletePost(post.Id)">
-                                    <i class="bi bi-trash"></i>
+                                <button class="btn btn-ghost btn-sm" aria-label="Smazat příspěvek" @onclick="() => OnDeletePost(post.Id)">
+                                    <i data-lucide="trash-2"></i>
                                 </button>
-                                @* edit link removed (use title link) *@
                             </div>
                         </td>
                     </tr>
@@ -180,23 +174,21 @@ else
         </table>
     </div>
 
-    <div class="mt-3">
-        <p class="text-muted">
-            <i class="bi bi-info-circle"></i>
-            Total posts: <strong>@posts.Count</strong>
-        </p>
+    <div class="post-count">
+        <i data-lucide="info"></i>
+        Total posts: <strong>@posts.Count</strong>
     </div>
 }
 
 @if (_showCheatSheetModal && _cheatSheetPostId.HasValue)
 {
-    <div class="cs-modal-backdrop" @onclick="CloseCheatSheetModal">
-        <div class="cs-modal-dialog" @onclick:stopPropagation>
-            <div class="cs-modal-header">
-                <span>Vyberte formát tahák&uacute;</span>
-                <button class="cs-modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal">&times;</button>
+    <div class="modal-backdrop" @onclick="CloseCheatSheetModal">
+        <div class="modal-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>Vyberte formát tahák&uacute;</h3>
+                <button class="modal-close" aria-label="Zavřít" @onclick="CloseCheatSheetModal"><i data-lucide="x"></i></button>
             </div>
-            <div class="cs-modal-body">
+            <div class="modal-body cs-modal-body">
                 <a class="cs-ratio-card" href="@($"{Configuration["Api:BaseAddress"]}/api/pdf/cheatsheet/{_cheatSheetPostId.Value}?ratio=1x1")" target="_blank" @onclick="CloseCheatSheetModal">
                     <div class="cs-preview cs-preview-1x1">
                         <div class="cs-preview-line" style="width:78%"></div>
@@ -295,6 +287,11 @@ else
         await LoadCategories();
         await LoadPosts();
         await LoadFlashcardStats();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private FlashcardEligibilityStats? flashcardStats;
@@ -524,21 +521,3 @@ else
         return await JS.InvokeAsync<bool>("confirm", message);
     }
 }
-
-<style>
-    .cs-modal-backdrop { position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center; }
-    .cs-modal-dialog { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);padding:1.4rem 1.6rem 1.2rem;min-width:320px;max-width:96vw; }
-    .cs-modal-header { display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:1rem;margin-bottom:1.1rem; }
-    .cs-modal-close { background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:inherit;padding:0 .2rem; }
-    .cs-modal-body { display:grid;grid-template-columns:1fr 1fr;gap:.9rem; }
-    .cs-ratio-card { display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.7rem .8rem .9rem;border:2px solid #d89dbd;border-radius:10px;background:none;cursor:pointer;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s,background .15s; }
-    .cs-ratio-card:hover { border-color:#c36f9a;background:#f3d6e5;box-shadow:0 2px 10px rgba(195,111,154,.2); }
-    .cs-preview { display:flex;flex-direction:column;gap:4px;padding:6px 7px;border-radius:5px;border:1.5px solid #d89dbd;background:#f3d6e5; }
-    .cs-preview-1x1 { width:54px;height:54px; }
-    .cs-preview-1x2 { width:54px;height:90px; }
-    .cs-preview-2x1 { width:90px;height:54px; }
-    .cs-preview-2x2 { width:90px;height:90px; }
-    .cs-preview-line { height:4px;border-radius:2px;background:#c36f9a;opacity:.55; }
-    .cs-card-label { font-weight:600;font-size:.92rem;color:#c36f9a; }
-    .cs-card-sub { font-size:.75rem;color:#888; }
-</style>

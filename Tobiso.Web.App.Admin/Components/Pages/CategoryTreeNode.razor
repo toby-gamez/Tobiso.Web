@@ -1,9 +1,13 @@
 @using Tobiso.Web.Shared.DTOs
 @using Microsoft.AspNetCore.Components
+@inject IJSRuntime Js
 
 @code {
     [Parameter]
     public List<CategoryTreeResponse>? Children { get; set; }
+
+    [Parameter]
+    public int Depth { get; set; } = 0;
 
     [Parameter]
     public EventCallback<int> OnCategoryClick { get; set; }
@@ -13,6 +17,14 @@
 
     [Parameter]
     public EventCallback<int> OnDeleteCategory { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // A toggle click re-renders only this node (and any newly-appearing
+        // nested CategoryTreeNode), not the page - so this component must
+        // call initLucide itself rather than relying on the parent page's.
+        await Js.InvokeVoidAsync("initLucide");
+    }
 
     private HashSet<int> expandedIds = new();
 
@@ -31,80 +43,37 @@
 
 @if (Children != null && Children.Count > 0)
 {
-    <ul class="category-tree-list">
+    <div class="tree">
         @foreach (var child in Children.OrderBy(c => c.Id))
-                        {
-                        <li class="category-tree-item">
-                <div class="category-tree-row">
-                    @if (child.Children != null && child.Children.Count > 0)
+        {
+            var hasChildren = child.Children != null && child.Children.Count > 0;
+            var isExpanded = expandedIds.Contains(child.Id);
+            <div>
+                <div class="tree-node" style="--depth: @Depth">
+                    @if (hasChildren)
                     {
-                        <span class="category-tree-toggle" tabindex="0" role="button"
-                              @onclick="() => ToggleExpand(child.Id)"
-                              @onkeydown="@( (KeyboardEventArgs e) => HandleCategoryTreeNodeToggleKey(e, child.Id) )">
-                            <i class="bi" style="font-size:1.1em;">
-                                @(expandedIds.Contains(child.Id) ? "▼" : "▶")
-                            </i>
-                        </span>
+                        <button class="tree-toggle @(isExpanded ? "expanded" : "")" tabindex="0"
+                                @onclick="() => ToggleExpand(child.Id)"
+                                @onkeydown="@( (KeyboardEventArgs e) => HandleCategoryTreeNodeToggleKey(e, child.Id) )"
+                                aria-label="Rozbalit/sbalit kategorii">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
                     }
-                    <button class="btn btn-link category-tree-btn" @onclick="() => OnCategoryClick.InvokeAsync(child.Id)">@child.Name</button>
-                    <button class="btn btn-sm btn-outline-primary ms-2" aria-label="Upravit kategorii" @onclick="() => OnEditCategory.InvokeAsync(child)">Upravit</button>
-                    <button class="btn btn-sm btn-outline-danger ms-1" aria-label="Smazat kategorii" @onclick="() => OnDeleteCategory.InvokeAsync(child.Id)">Smazat</button>
+                    else
+                    {
+                        <span class="tree-toggle leaf"></span>
+                    }
+                    <button class="tree-label" @onclick="() => OnCategoryClick.InvokeAsync(child.Id)">@child.Name</button>
+                    <div class="tree-actions">
+                        <button class="btn btn-secondary btn-sm" aria-label="Upravit kategorii" @onclick="() => OnEditCategory.InvokeAsync(child)"><i data-lucide="pencil-line"></i></button>
+                        <button class="btn btn-danger btn-sm" aria-label="Smazat kategorii" @onclick="() => OnDeleteCategory.InvokeAsync(child.Id)"><i data-lucide="trash-2"></i></button>
+                    </div>
                 </div>
-                @if (child.Children != null && child.Children.Count > 0 && expandedIds.Contains(child.Id))
+                @if (hasChildren && isExpanded)
                 {
-                    <ul class="category-tree-list category-tree-sub">
-                        <CategoryTreeNode Children="child.Children" OnCategoryClick="OnCategoryClick" OnEditCategory="OnEditCategory" OnDeleteCategory="OnDeleteCategory" />
-                    </ul>
+                    <CategoryTreeNode Children="child.Children" Depth="Depth + 1" OnCategoryClick="OnCategoryClick" OnEditCategory="OnEditCategory" OnDeleteCategory="OnDeleteCategory" />
                 }
-            </li>
+            </div>
         }
-    </ul>
+    </div>
 }
-
-<style>
-.category-tree-list {
-    list-style: none;
-    padding-left: 0.8em;
-    margin-bottom: 0;
-}
-.category-tree-item {
-    margin-bottom: 2px;
-}
-.category-tree-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    padding: 0.2em 0.1em;
-    border-radius: 6px;
-    transition: background 0.2s;
-}
-.category-tree-row:hover {
-    background: #e9ecef;
-}
-.category-tree-toggle {
-    cursor: pointer;
-    margin-right: 0.3em;
-    color: #007bff;
-    user-select: none;
-}
-.category-tree-btn {
-    text-align: left;
-    padding: 0.1em 0.3em;
-    font-weight: 500;
-    color: #333;
-    background: none;
-    border: none;
-    /* Focus styling is provided centrally via focus-accessibility.css (:focus-visible). */
-    transition: color 0.2s;
-}
-.category-tree-btn:hover {
-    color: #007bff;
-    text-decoration: underline;
-}
-.category-tree-sub {
-    margin-left: 1.2em;
-    border-left: 2px solid #e9ecef;
-    padding-left: 0.8em;
-    margin-top: 0.2em;
-}
-</style>

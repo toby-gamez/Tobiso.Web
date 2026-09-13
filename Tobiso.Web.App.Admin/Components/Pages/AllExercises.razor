@@ -6,109 +6,107 @@
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Všechna cvičení - Admin</PageTitle>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Všechna interaktivní cvičení</h2>
-        <div>
-            <button class="btn btn-primary" @onclick="CreateNewGlobal">Vytvořit nové</button>
-        </div>
-    </div>
-
-    @if (_loading)
-    {
-        <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
-    }
-    else if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="alert alert-danger">@_error</div>
-    }
-    else if (!_exercises.Any())
-    {
-        <div class="alert alert-info">Žádná cvičení.</div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Pořadí</th>
-                        <th>Název</th>
-                        <th>Typ</th>
-                        <th>Články</th>
-                        <th>Kategorie</th>
-                        <th>Aktivní</th>
-                        <th>Vytvořeno</th>
-                        <th>Akce</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var ex in _exercises.OrderByDescending(e => e.UpdatedAt ?? e.CreatedAt))
-                    {
-                        <tr class="@(!ex.IsActive ? "table-secondary" : "")">
-                            <td><span class="badge bg-secondary">@ex.OrderIndex</span></td>
-                            <td><strong>@ex.Title</strong></td>
-                            <td><span class="badge bg-info">@GetTypeLabel(ex.Type)</span></td>
-                            <td>
-                                @if (ex.PostIds != null && ex.PostIds.Any())
-                                {
-                                    @string.Join(", ", ex.PostIds.Select(id => _postNames.TryGetValue(id, out var n) ? n : id.ToString()))
-                                }
-                                else
-                                {
-                                    <span class="text-muted">-</span>
-                                }
-                            </td>
-                            <td>
-                                @if (ex.CategoryIds != null && ex.CategoryIds.Any())
-                                {
-                                    @string.Join(", ", ex.CategoryIds.Select(id => _catNames.TryGetValue(id, out var n) ? n : id.ToString()))
-                                }
-                                else
-                                {
-                                    <span class="text-muted">-</span>
-                                }
-                            </td>
-                            <td>
-                                @if (ex.IsActive)
-                                {
-                                    <span class="badge bg-success">Ano</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">Ne</span>
-                                }
-                            </td>
-                            <td><small>@ex.CreatedAt.ToString("d. M. yyyy")</small></td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditExercise(ex)"><i class="bi bi-pencil"></i></button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(ex)"><i class="bi bi-trash"></i></button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+<div class="page-header">
+    <h2>Všechna interaktivní cvičení</h2>
+    <button class="btn btn-primary" @onclick="CreateNewGlobal"><i data-lucide="plus"></i> Vytvořit nové</button>
 </div>
+
+@if (_loading)
+{
+    <div class="loading-row"><i data-lucide="loader-2" class="spinner"></i></div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert-error">@_error</div>
+}
+else if (!_exercises.Any())
+{
+    <p class="muted">Žádná cvičení.</p>
+}
+else
+{
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Pořadí</th>
+                    <th>Název</th>
+                    <th>Typ</th>
+                    <th>Články</th>
+                    <th>Kategorie</th>
+                    <th>Aktivní</th>
+                    <th>Vytvořeno</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ex in _exercises.OrderByDescending(e => e.UpdatedAt ?? e.CreatedAt))
+                {
+                    <tr class="@(!ex.IsActive ? "row-inactive" : "")">
+                        <td><span class="badge">@ex.OrderIndex</span></td>
+                        <td><strong>@ex.Title</strong></td>
+                        <td><span class="badge badge-info">@GetTypeLabel(ex.Type)</span></td>
+                        <td>
+                            @if (ex.PostIds != null && ex.PostIds.Any())
+                            {
+                                @string.Join(", ", ex.PostIds.Select(id => _postNames.TryGetValue(id, out var n) ? n : id.ToString()))
+                            }
+                            else
+                            {
+                                <span class="muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (ex.CategoryIds != null && ex.CategoryIds.Any())
+                            {
+                                @string.Join(", ", ex.CategoryIds.Select(id => _catNames.TryGetValue(id, out var n) ? n : id.ToString()))
+                            }
+                            else
+                            {
+                                <span class="muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (ex.IsActive)
+                            {
+                                <span class="badge badge-success">Ano</span>
+                            }
+                            else
+                            {
+                                <span class="badge">Ne</span>
+                            }
+                        </td>
+                        <td><small>@ex.CreatedAt.ToString("d. M. yyyy")</small></td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditExercise(ex)"><i data-lucide="pencil-line"></i></button>
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ConfirmDelete(ex)"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
 
 @if (_exerciseToDelete != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header"><h5 class="modal-title">Potvrzení smazání</h5><button class="btn-close" @onclick="CancelDelete"></button></div>
-                <div class="modal-body">Opravdu smazat cvičení <strong>@_exerciseToDelete.Title</strong>?</div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelDelete">Zrušit</button>
-                    <button class="btn btn-danger" @onclick="DeleteExercise">Smazat</button>
-                </div>
+    <div class="modal-backdrop" @onclick="CancelDelete">
+        <div class="modal-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>Potvrzení smazání</h3>
+                <button class="modal-close" @onclick="CancelDelete"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">Opravdu smazat cvičení <strong>@_exerciseToDelete.Title</strong>?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CancelDelete">Zrušit</button>
+                <button class="btn btn-danger" @onclick="DeleteExercise">Smazat</button>
             </div>
         </div>
     </div>
@@ -125,6 +123,11 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
     }
 
     private async Task LoadData()
