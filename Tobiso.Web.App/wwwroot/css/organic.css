@@ -392,6 +392,10 @@ a.sage-tint {
     font-size: 18px;
 }
 
+.callout-sidefact-icon svg {
+    display: block;
+}
+
 .callout-label {
     font-family: var(--font-heading);
     font-size: 16px;
