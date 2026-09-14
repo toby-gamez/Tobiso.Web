@@ -49,6 +49,7 @@
 .answer-selected {
     background: var(--color-accent-100) !important;
     border-color: var(--color-accent-400);
+    color: var(--color-accent-800);
 }
 
 .answer-correct {
@@ -58,7 +59,7 @@
 }
 
 .answer-wrong {
-    background: #fde3ca !important;
+    background: var(--color-accent-200) !important;
     border-color: var(--color-accent-400);
     color: var(--color-accent-800);
 }
@@ -86,6 +87,9 @@
 }
 
 .text-answer-input:disabled { cursor: default; }
+
+.text-answer-input.answer-correct { color: var(--color-accent-2-900); }
+.text-answer-input.answer-wrong { color: var(--color-accent-800); }
 
 .text-answer-hint {
     margin: 0;

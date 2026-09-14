@@ -23,11 +23,21 @@
     text-align: left;
     font: inherit;
     padding: var(--space-6);
-    background: var(--color-surface);
+    background: var(--color-neutral-100);
     border: 0;
     border-radius: var(--radius-lg);
     cursor: pointer;
     color: var(--color-text);
+}
+
+.practice-mode-card.accent-tint {
+    background: var(--color-accent-200);
+    color: var(--color-accent-900);
+}
+
+.practice-mode-card.sage-tint {
+    background: var(--color-accent-2-200);
+    color: var(--color-accent-2-900);
 }
 
 .practice-mode-title {
@@ -37,6 +47,15 @@
 
 .practice-mode-desc {
     font-size: 14px;
+    color: var(--color-neutral-600);
+}
+
+.practice-mode-card.accent-tint .practice-mode-desc {
+    color: var(--color-accent-800);
+}
+
+.practice-mode-card.sage-tint .practice-mode-desc {
+    color: var(--color-accent-2-800);
 }
 
 .question-list {

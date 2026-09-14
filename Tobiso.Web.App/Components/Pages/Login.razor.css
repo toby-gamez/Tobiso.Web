@@ -75,7 +75,7 @@
 
 .login-error {
     padding: 10px 14px;
-    background: #fde3ca;
+    background: var(--color-accent-200);
     color: var(--color-accent-800);
     border-radius: var(--radius-md);
     font-size: 14px;

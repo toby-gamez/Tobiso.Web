@@ -6,6 +6,21 @@
 @inject StudentCredentialStore CredentialStore
 @inject IPreferenceService PreferenceService
 
+<div class="mobile-topbar">
+    <a href="/" class="mobile-brand" @onclick="CloseMobileMenu">
+        <span class="brand-logo">T</span>
+        <span class="brand-name">Tobiso</span>
+    </a>
+    <div class="mobile-topbar-actions">
+        <button class="icon-btn" @onclick="OpenSearch" aria-label="Hledat">
+            <i data-lucide="search"></i>
+        </button>
+        <button class="icon-btn" @onclick="ToggleMobileMenu" aria-label="Otevřít menu">
+            <i data-lucide="menu"></i>
+        </button>
+    </div>
+</div>
+
 <aside class="nav-rail">
     <a href="/" class="brand-link">
         <span class="brand-logo">T</span>
@@ -89,6 +104,97 @@
     </div>
 </aside>
 
+@if (_mobileMenuOpen)
+{
+    <div class="mobile-overlay" tabindex="0" role="button" aria-label="Zavřít menu"
+         @onclick="CloseMobileMenu" @onkeydown="HandleOverlayKey"></div>
+}
+
+<div class="mobile-sheet @(_mobileMenuOpen ? "open" : "")">
+    <div class="sheet-header">
+        <span class="sheet-title">Menu</span>
+        <button class="icon-btn" @onclick="CloseMobileMenu" aria-label="Zavřít menu">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+
+    <div class="sheet-body">
+        <div class="sheet-grid">
+            <a href="/" class="sheet-tile @(IsActive("/") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="home"></i><span>Domů</span></a>
+            <a href="/latest" class="sheet-tile @(IsActive("/latest") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="clock"></i><span>Nejnovější</span></a>
+            <a href="/categories" class="sheet-tile @(IsActive("/categories") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="folder-tree"></i><span>Předměty</span></a>
+            <a href="/practice" class="sheet-tile @(IsActive("/practice") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="dumbbell"></i><span>Procvičování</span></a>
+            <a href="/chat" class="sheet-tile @(IsActive("/chat") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="sparkles"></i><span>AI chaty</span></a>
+            <a href="/zalozky" class="sheet-tile @(IsActive("/zalozky") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="bookmark"></i><span>Záložky</span></a>
+            <a href="/calendar" class="sheet-tile @(IsActive("/calendar") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="calendar-days"></i><span>Kalendář</span></a>
+            <button class="sheet-tile" @onclick="OpenSearch"><i data-lucide="search"></i><span>Hledat</span></button>
+        </div>
+
+        @if (_subjects.Count > 0)
+        {
+            <div class="sheet-section">
+                <div class="sheet-section-label">Předměty</div>
+                <div class="sheet-grid sheet-grid-subjects">
+                    @foreach (var s in _subjects)
+                    {
+                        <a href="/categories/@s.Id" class="sheet-tile @(IsActive($"/categories/{s.Id}") ? "active" : "")" @onclick="CloseMobileMenu">
+                            <i data-lucide="@SubjectIcon(s.Name)"></i>
+                            <span>@s.Name</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="sheet-footer">
+            <div class="grade-row" style="position:relative">
+                <span class="grade-label">Ročník</span>
+                <button class="pill" style="padding:6px 14px; font-size:13px; background:var(--color-neutral-100)" @onclick="ToggleGradeMenu">
+                    @(_selectedGrade?.Name ?? "-") <i data-lucide="chevron-down"></i>
+                </button>
+                @if (_gradeMenuOpen)
+                {
+                    <div class="version-dropdown" style="bottom:36px; top:auto">
+                        @foreach (var g in _grades)
+                        {
+                            <button class="version-item @(g.Id == _selectedGrade?.Id ? "active" : "")"
+                                    @onclick="@(() => SelectGrade(g))">
+                                @g.Name
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="theme-row">
+                <span class="grade-label">Tmavý režim</span>
+                <button class="theme-toggle @(_darkMode ? "on" : "")" @onclick="ToggleDark" aria-label="Tmavý režim">
+                    <span class="theme-thumb"></span>
+                </button>
+            </div>
+
+            @if (_userName != null)
+            {
+                <a href="/profil" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px">
+                    <span class="avatar-chip">@_initials</span>
+                    @_userName
+                </a>
+            }
+
+            <a href="/feedback" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
+
+            @if (_userName != null)
+            {
+                <button @onclick="Logout" class="rail-item" style="font-size:14px; color:var(--color-neutral-600); background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="log-out"></i> Odhlásit se</button>
+            }
+            else
+            {
+                <a href="/prihlaseni" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="log-in"></i> Přihlásit se</a>
+            }
+        </div>
+    </div>
+</div>
+
 @code {
     [Parameter] public EventCallback OnSearchOpen { get; set; }
 
@@ -156,7 +262,23 @@
         await PreferenceService.SetPreferredGradeIdAsync(g.Id);
     }
 
-    private void OpenSearch() => OnSearchOpen.InvokeAsync();
+    private bool _mobileMenuOpen;
+
+    private void ToggleMobileMenu() => _mobileMenuOpen = !_mobileMenuOpen;
+
+    private void CloseMobileMenu() => _mobileMenuOpen = false;
+
+    private void HandleOverlayKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape" or "Enter" or " " or "Spacebar")
+            CloseMobileMenu();
+    }
+
+    private void OpenSearch()
+    {
+        CloseMobileMenu();
+        OnSearchOpen.InvokeAsync();
+    }
 
     private bool IsActive(string path)
     {

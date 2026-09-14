@@ -2,7 +2,7 @@
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: rgba(32, 30, 29, .45);
+    background: color-mix(in srgb, var(--color-ink) 45%, transparent);
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -50,6 +50,36 @@
     color: var(--color-neutral-600);
 }
 
+.search-close-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-neutral-600);
+    cursor: pointer;
+}
+
+.search-close-btn i[data-lucide] {
+    width: 20px;
+    height: 20px;
+}
+
+@media (max-width: 767px) {
+    .search-esc-hint {
+        display: none;
+    }
+
+    .search-close-btn {
+        display: flex;
+    }
+}
+
 .search-hint {
     padding: var(--space-6);
     margin: 0;
@@ -68,9 +98,9 @@
 
 .search-result {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
     text-align: left;
     font: inherit;
     padding: var(--space-3) var(--space-4);
@@ -83,6 +113,14 @@
 
 .search-result.active {
     background: var(--color-surface);
+}
+
+.search-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-width: 0;
 }
 
 .search-result-main {
@@ -110,4 +148,25 @@
     display: flex;
     gap: 4px;
     flex-shrink: 0;
+}
+
+.search-result-snippet {
+    padding-left: calc(16px + var(--space-3));
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-result-snippet mark {
+    background: color-mix(in srgb, var(--color-accent-500) 25%, transparent);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    padding: 0 2px;
+}
+
+.search-hint-loading {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
 }

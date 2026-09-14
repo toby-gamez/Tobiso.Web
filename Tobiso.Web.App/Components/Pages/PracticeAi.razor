@@ -114,6 +114,7 @@
                     }
                     else
                     {
+                        <button class="pill" @onclick="@(() => Nav.NavigateTo("/practice"))"><i data-lucide="check"></i> Hotovo</button>
                         <button class="pill pill-on" @onclick="@(() => LoadProblems(PostId!.Value))">Nové úlohy <i data-lucide="rotate-cw"></i></button>
                     }
                 </div>

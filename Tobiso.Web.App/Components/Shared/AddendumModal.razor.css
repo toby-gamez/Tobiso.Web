@@ -2,7 +2,7 @@
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: rgba(32, 30, 29, .45);
+    background: color-mix(in srgb, var(--color-ink) 45%, transparent);
     display: flex;
     justify-content: center;
     align-items: flex-start;

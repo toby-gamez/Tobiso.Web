@@ -128,6 +128,7 @@ window.scrollToId = (id) => {
 // sticky header and how far through the article the viewport has scrolled.
 let readingScrollHandler = null;
 let readingRaf = null;
+let readingProgressPending = false;
 
 window.initReadingProgress = (dotNetRef, articleSelector) => {
     window.disposeReadingProgress();
@@ -156,7 +157,15 @@ window.initReadingProgress = (dotNetRef, articleSelector) => {
         const headings = article.querySelectorAll('h2[id]');
         if (!activeId && headings.length > 0) activeId = headings[0].id;
 
-        dotNetRef.invokeMethodAsync('OnReadingProgress', activeId, percent);
+        // Guard against overlapping calls: a scroll-heavy session can trigger a new
+        // frame before the previous invocation's server round-trip (including its DB
+        // writes) has finished, and firing another one concurrently crashes the shared
+        // per-circuit DbContext ("a second operation was started on this context
+        // instance before a previous operation completed").
+        if (readingProgressPending) return;
+        readingProgressPending = true;
+        dotNetRef.invokeMethodAsync('OnReadingProgress', activeId, percent)
+            .finally(() => { readingProgressPending = false; });
     };
 
     readingScrollHandler = () => {

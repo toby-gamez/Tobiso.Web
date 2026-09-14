@@ -19,7 +19,7 @@
     </div>
 
     <div class="practice-mode-grid">
-        <button class="practice-mode-card lift" style="background:var(--color-accent-200); color:var(--color-accent-900)" @onclick="@(() => Nav.NavigateTo("/practice/flashcards"))">
+        <button class="practice-mode-card lift accent-tint" @onclick="@(() => Nav.NavigateTo("/practice/flashcards"))">
             <i data-lucide="layers" style="font-size:24px"></i>
             <span class="practice-mode-title">Kartičky</span>
             <span class="practice-mode-desc">Rychlé opakování pojmů.</span>
@@ -53,7 +53,7 @@
                 }
             </div>
             <button class="pill pill-on" @onclick="@(() => Nav.NavigateTo("/practice/quiz?mode=recommended"))">
-                <i data-lucide="target"></i> Spustit doporučené procvičování
+                <i data-lucide="target" style="display: block"></i> Spustit doporučené procvičování
             </button>
         </div>
     }
@@ -269,8 +269,7 @@
         }
     }
 
-    private string ExerciseHref(InteractiveExerciseResponse ex) =>
-        ex.PostIds.Count > 0 ? $"/post/{ex.PostIds[0]}?exercise={ex.Id}" : "#";
+    private string ExerciseHref(InteractiveExerciseResponse ex) => $"/exercise/{ex.Id}";
 
     private string ExercisePostTitle(InteractiveExerciseResponse ex) =>
         ex.PostIds.Count > 0 && _postTitles.TryGetValue(ex.PostIds[0], out var title) ? title : "";

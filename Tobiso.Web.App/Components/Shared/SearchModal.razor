@@ -11,15 +11,18 @@
                 <i data-lucide="search"></i>
                 <input class="search-input" placeholder="Hledej článek či oblast…" @bind="Query" @bind:event="oninput"
                        @onkeydown="OnKeyDown" @ref="_inputRef" />
-                <kbd>Esc</kbd>
+                <kbd class="search-esc-hint">Esc</kbd>
+                <button type="button" class="search-close-btn" aria-label="Zavřít" @onclick="Close">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
 
             @{ var results = Results; }
             @if (_query.Trim().Length == 0)
             {
-                <p class="search-hint">Piš a hledej napříč všemi články a oblastmi.</p>
+                <p class="search-hint">Piš a hledej napříč všemi články, oblastmi i textem uvnitř nich.</p>
             }
-            else if (results.Count == 0)
+            else if (results.Count == 0 && !_contentSearching)
             {
                 <p class="search-hint">Nic nenalezeno.</p>
             }
@@ -33,20 +36,40 @@
                         var isSelected = i == selected;
                         <button class="@(isSelected ? "search-result active lift" : "search-result lift")"
                                 @onclick="@(() => Go(item))">
-                            <span class="search-result-main">
-                                <i data-lucide="@(item.IsCategory ? "folder-tree" : "file-text")"></i>
-                                <span class="search-result-title">@item.Title</span>
+                            <span class="search-result-row">
+                                <span class="search-result-main">
+                                    <i data-lucide="@(item.IsCategory ? "folder-tree" : "file-text")"></i>
+                                    <span class="search-result-title">@item.Title</span>
+                                </span>
+                                @if (item.Grades.Count > 0)
+                                {
+                                    <span class="search-result-grades">
+                                        @foreach (var g in item.Grades)
+                                        {
+                                            <span class="grade-chip">@g</span>
+                                        }
+                                    </span>
+                                }
                             </span>
-                            @if (item.Grades.Count > 0)
+                            @if (item.MatchWord is not null)
                             {
-                                <span class="search-result-grades">
-                                    @foreach (var g in item.Grades)
+                                <span class="search-result-snippet">
+                                    @if (item.WordBefore is not null)
                                     {
-                                        <span class="grade-chip">@g</span>
+                                        <text>@item.WordBefore </text>
+                                    }
+                                    <mark>@item.MatchWord</mark>
+                                    @if (item.WordAfter is not null)
+                                    {
+                                        <text> @item.WordAfter</text>
                                     }
                                 </span>
                             }
                         </button>
+                    }
+                    @if (_contentSearching)
+                    {
+                        <p class="search-hint search-hint-loading">Hledám v textu…</p>
                     }
                 </div>
             }
@@ -55,7 +78,9 @@
 }
 
 @code {
-    private readonly record struct SearchItem(int Id, string Title, bool IsCategory, List<string> Grades);
+    private readonly record struct SearchItem(
+        int Id, string Title, bool IsCategory, List<string> Grades,
+        string? WordBefore = null, string? MatchWord = null, string? WordAfter = null);
 
     private bool _open;
     private string _query = "";
@@ -66,6 +91,12 @@
     private ElementReference _inputRef;
     private DotNetObjectReference<SearchModal>? _selfRef;
     private bool _pendingFocus;
+    private IPostService? _postService;
+    private List<PostSearchResultDto> _contentResults = [];
+    private bool _contentSearching;
+    private CancellationTokenSource? _searchCts;
+
+    private const int MinContentSearchLength = 3;
 
     private string Query
     {
@@ -74,6 +105,7 @@
         {
             _query = value;
             _selectedIndex = 0;
+            _ = DebouncedContentSearch(value);
         }
     }
 
@@ -87,7 +119,8 @@
             var categoryMatches = _categories
                 .Where(c => TextSearch.ContainsIgnoreDiacritics(c.Name, q))
                 .Take(3)
-                .Select(c => new SearchItem(c.Id, c.Name, true, []));
+                .Select(c => new SearchItem(c.Id, c.Name, true, []))
+                .ToList();
 
             var postMatches = _posts
                 .Where(p => TextSearch.ContainsIgnoreDiacritics(p.Title, q)
@@ -95,9 +128,52 @@
                                 && _categoryNames.TryGetValue(p.CategoryId.Value, out var categoryName)
                                 && TextSearch.ContainsIgnoreDiacritics(categoryName, q)))
                 .Take(8)
-                .Select(p => new SearchItem(p.Id, p.Title, false, p.AvailableGradeNames));
+                .Select(p => new SearchItem(p.Id, p.Title, false, p.AvailableGradeNames))
+                .ToList();
 
-            return [.. categoryMatches, .. postMatches];
+            var matchedPostIds = postMatches.Select(p => p.Id).ToHashSet();
+            var contentMatches = _contentResults
+                .Where(r => matchedPostIds.Add(r.PostId))
+                .Select(r => new SearchItem(r.PostId, r.Title, false, [], r.WordBefore, r.MatchWord, r.WordAfter));
+
+            return [.. categoryMatches, .. postMatches, .. contentMatches];
+        }
+    }
+
+    private async Task DebouncedContentSearch(string query)
+    {
+        _searchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _searchCts = cts;
+
+        var trimmed = query.Trim();
+        if (trimmed.Length < MinContentSearchLength)
+        {
+            _contentResults = [];
+            _contentSearching = false;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            if (cts.Token.IsCancellationRequested || _postService is null) return;
+
+            _contentSearching = true;
+            StateHasChanged();
+
+            var results = await _postService.SearchContentAsync(trimmed);
+            if (cts.Token.IsCancellationRequested) return;
+
+            _contentResults = results;
+            _contentSearching = false;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+        catch (Exception) when (_disposed)
+        {
         }
     }
 
@@ -110,7 +186,8 @@
     {
         try
         {
-            _posts = await ScopedServices.GetRequiredService<IPostService>().GetSummaries();
+            _postService = ScopedServices.GetRequiredService<IPostService>();
+            _posts = await _postService.GetSummaries();
             _categories = await ScopedServices.GetRequiredService<ICategoryService>().GetAll();
             _categoryNames = _categories.ToDictionary(c => c.Id, c => c.Name);
         }
@@ -167,10 +244,16 @@
     {
         _open = true;
         _query = "";
+        _contentResults = [];
+        _contentSearching = false;
         _pendingFocus = true;
     }
 
-    private void Close() => _open = false;
+    private void Close()
+    {
+        _open = false;
+        _searchCts?.Cancel();
+    }
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
@@ -201,6 +284,7 @@
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        _searchCts?.Cancel();
         try { await JS.InvokeVoidAsync("unregisterSearchShortcut"); } catch { }
         _selfRef?.Dispose();
     }

@@ -76,7 +76,7 @@
 
 .chat-msg-user .chat-bubble {
     background: var(--color-accent-600);
-    color: #fff;
+    color: var(--color-on-accent);
     border-bottom-right-radius: var(--radius-sm);
 }
 

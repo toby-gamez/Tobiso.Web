@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
@@ -12,6 +13,8 @@ public interface IPostService
     Task<List<PostResponse>> GetAll(int? gradeId = null);
     Task<List<PostSummaryResponse>> GetSummaries();
     Task<List<PostLinkResponse>> GetLinks();
+    /// <summary>Full-text search across post version content. One result per matching post (its first matching version), with the matched phrase plus the word before/after it for a preview snippet.</summary>
+    Task<List<PostSearchResultDto>> SearchContentAsync(string query, int take = 10);
     /// <summary>Returns a single post including all its versions. When gradeId is supplied the top-level Content fields reflect the best match.</summary>
     Task<PostResponse?> GetById(int id, int? gradeId = null);
     /// <summary>Updates post metadata only (title, filepath, category). Version content is managed via IPostVersionService.</summary>
@@ -280,5 +283,111 @@ public class PostService : IPostService
 
         await tx.CommitAsync();
         return await GetById(entity.Id);
+    }
+
+    public async Task<List<PostSearchResultDto>> SearchContentAsync(string query, int take = 10)
+    {
+        var term = query?.Trim() ?? "";
+        if (term.Length < 2) return new List<PostSearchResultDto>();
+
+        // Over-fetch versions (several posts may have multiple matching grade versions);
+        // we only keep the first match per post below.
+        var candidates = await _context.PostVersions
+            .Include(v => v.Post)
+            .Include(v => v.Grade)
+            .Where(v => v.Content.Contains(term))
+            .OrderBy(v => v.PostId)
+            .Take(take * 5)
+            .ToListAsync();
+
+        var results = new List<PostSearchResultDto>();
+        var seenPostIds = new HashSet<int>();
+        foreach (var v in candidates)
+        {
+            if (v.Post == null || !seenPostIds.Add(v.PostId)) continue;
+
+            var snippet = ExtractSnippet(v.Content, term);
+            if (snippet == null) continue;
+
+            results.Add(new PostSearchResultDto
+            {
+                PostId = v.PostId,
+                Title = v.Post.Title,
+                CategoryId = v.Post.CategoryId,
+                GradeId = v.GradeId,
+                GradeName = v.Grade?.Name,
+                WordBefore = snippet.Value.WordBefore,
+                MatchWord = snippet.Value.MatchWord,
+                WordAfter = snippet.Value.WordAfter
+            });
+
+            if (results.Count >= take) break;
+        }
+
+        return results;
+    }
+
+    // ── content snippet extraction ─────────────────────────────────────────
+
+    private static readonly Regex CodeFence = new(@"```[\s\S]*?```", RegexOptions.Compiled);
+    private static readonly Regex InlineCode = new(@"`([^`]*)`", RegexOptions.Compiled);
+    private static readonly Regex ImageOrLink = new(@"!?\[([^\]]*)\]\([^)]*\)", RegexOptions.Compiled);
+    private static readonly Regex LineMarker = new(@"(?m)^[ \t]*[#>\-\*\+]+[ \t]*", RegexOptions.Compiled);
+    private static readonly Regex EmphasisMarker = new(@"[*_~]{1,3}", RegexOptions.Compiled);
+    private static readonly Regex TablePipe = new(@"\|", RegexOptions.Compiled);
+    private static readonly Regex Token = new(@"\S+", RegexOptions.Compiled);
+    private static readonly char[] TokenTrimChars = "#*_~`>|[]()\"'.,;:!?".ToCharArray();
+
+    /// <summary>Strips common markdown syntax so word boundaries read naturally for a search snippet.</summary>
+    private static string StripMarkdown(string markdown)
+    {
+        var s = CodeFence.Replace(markdown, " ");
+        s = InlineCode.Replace(s, "$1");
+        s = ImageOrLink.Replace(s, "$1");
+        s = LineMarker.Replace(s, "");
+        s = EmphasisMarker.Replace(s, "");
+        s = TablePipe.Replace(s, " ");
+        return s;
+    }
+
+    private static (string? WordBefore, string MatchWord, string? WordAfter)? ExtractSnippet(string content, string term)
+    {
+        // Locate the match on raw content first (this is what the DB Contains() matched on),
+        // then take a window around it wide enough to survive markdown stripping.
+        var rawIndex = content.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+        if (rawIndex < 0) return null;
+
+        var windowStart = Math.Max(0, rawIndex - 200);
+        var windowEnd = Math.Min(content.Length, rawIndex + term.Length + 200);
+        var window = StripMarkdown(content[windowStart..windowEnd]);
+
+        var matchIndex = window.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+        if (matchIndex < 0) return null; // term only existed inside stripped markdown syntax (e.g. a URL)
+
+        var tokens = Token.Matches(window);
+        if (tokens.Count == 0) return null;
+
+        var matchEnd = matchIndex + term.Length;
+        var startTokenIdx = -1;
+        var endTokenIdx = -1;
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (startTokenIdx < 0 && t.Index + t.Length > matchIndex) startTokenIdx = i;
+            if (t.Index < matchEnd) endTokenIdx = i;
+        }
+        if (startTokenIdx < 0 || endTokenIdx < 0) return null;
+
+        var matchWord = window[tokens[startTokenIdx].Index..(tokens[endTokenIdx].Index + tokens[endTokenIdx].Length)].Trim();
+        if (matchWord.Length == 0) return null;
+
+        var wordBefore = startTokenIdx > 0 ? tokens[startTokenIdx - 1].Value.Trim(TokenTrimChars) : null;
+        var wordAfter = endTokenIdx < tokens.Count - 1 ? tokens[endTokenIdx + 1].Value.Trim(TokenTrimChars) : null;
+
+        return (
+            string.IsNullOrEmpty(wordBefore) ? null : wordBefore,
+            matchWord,
+            string.IsNullOrEmpty(wordAfter) ? null : wordAfter
+        );
     }
 }

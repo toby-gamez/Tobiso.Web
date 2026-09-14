@@ -1,0 +1,161 @@
+@page "/exercise/{Id:int}"
+@using Tobiso.Web.Shared.Interfaces
+@inject IInteractiveExerciseService ExerciseService
+@inject IPostService PostService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(_exercise?.Title ?? "Cvičení") - Tobiso</PageTitle>
+
+@if (_loading)
+{
+    <div style="display:flex; flex-direction:column; gap:var(--space-4); max-width:700px">
+        <div class="skeleton" style="height:16px; width:200px"></div>
+        <div class="skeleton" style="height:36px; width:60%"></div>
+        <div class="skeleton" style="height:300px; border-radius:var(--radius-lg)"></div>
+    </div>
+}
+else if (_exercise == null)
+{
+    <div style="text-align:center; padding:var(--space-8)">
+        <h1>Cvičení nenalezeno</h1>
+        <a href="/practice" class="pill" style="margin-top:var(--space-4)">Zpět na procvičování</a>
+    </div>
+}
+else
+{
+    <div class="exercise-page">
+        <nav class="breadcrumb" style="margin-bottom:var(--space-4)">
+            <a href="/practice">Procvičování</a>
+            <span class="breadcrumb-sep">/</span>
+            <span>@_exercise.Title</span>
+        </nav>
+
+        <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-2)">
+            <span class="grade-chip"><i data-lucide="@ExerciseTypeDisplay.Icon(_exercise.Type)"></i> @ExerciseTypeDisplay.Label(_exercise.Type)</span>
+            @if (_postTitle != null)
+            {
+                <a href="/post/@_postId?exercise=@_exercise.Id" class="pill" style="font-size:13px; padding:6px 14px">
+                    <i data-lucide="file-text"></i> @_postTitle
+                </a>
+            }
+        </div>
+
+        <h1 style="margin-bottom:var(--space-4)">@_exercise.Title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(_exercise.InstructionsMarkdown))
+        {
+            <div style="margin-bottom:var(--space-4)">
+                <MarkdownContent Content="@_exercise.InstructionsMarkdown" AllPosts="@(new List<PostSummaryResponse>())" AllPeople="@(new List<PersonSummaryResponse>())" />
+            </div>
+        }
+
+        @if (_exercise.Type == ExerciseTypeConstants.DragDrop)
+        {
+            <DragDropExercise Exercise="_exercise" />
+        }
+        else if (_exercise.Type == ExerciseTypeConstants.Matching)
+        {
+            <MatchingExercise Exercise="_exercise" />
+        }
+        else if (_exercise.Type == ExerciseTypeConstants.Timeline)
+        {
+            <TimelineExercise Exercise="_exercise" />
+        }
+        else if (_exercise.Type == ExerciseTypeConstants.Circuit)
+        {
+            <CircuitSimulator Exercise="_exercise" />
+        }
+
+        @if (_suggestions.Count > 0)
+        {
+            <div style="margin-top:var(--space-8)">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-3)">
+                    <h2 style="font-size:22px; margin:0"><i data-lucide="shuffle" style="color:var(--color-accent-2-600)"></i> Zkus další cvičení</h2>
+                    <button class="pill" style="font-size:13px; padding:7px 14px" @onclick="ShuffleSuggestions">
+                        <i data-lucide="rotate-ccw"></i> Jiné návrhy
+                    </button>
+                </div>
+                <div class="exercise-grid">
+                    @foreach (var ex in _suggestions)
+                    {
+                        <a class="exercise-card" href="/exercise/@ex.Id">
+                            <span class="exercise-kind"><i data-lucide="@ExerciseTypeDisplay.Icon(ex.Type)"></i> @ExerciseTypeDisplay.Label(ex.Type)</span>
+                            <span class="exercise-title">@ex.Title</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private InteractiveExerciseResponse? _exercise;
+    private int? _postId;
+    private string? _postTitle;
+    private List<InteractiveExerciseResponse> _suggestionPool = [];
+    private List<InteractiveExerciseResponse> _suggestions = [];
+    private const int SuggestionCount = 3;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _exercise = await ExerciseService.GetByIdAsync(Id);
+
+        if (_exercise != null)
+        {
+            _postId = _exercise.PostIds.FirstOrDefault();
+            _postTitle = _postId is > 0 ? (await PostService.GetById(_postId.Value))?.Title : null;
+
+            var all = await ExerciseService.GetAllAsync(includeInactive: false);
+            _suggestionPool = BuildSuggestionPool(all, _exercise);
+            _suggestions = _suggestionPool.Take(SuggestionCount).ToList();
+        }
+        else
+        {
+            _postId = null;
+            _postTitle = null;
+            _suggestionPool = [];
+            _suggestions = [];
+        }
+
+        _loading = false;
+    }
+
+    // Ranks other exercises by relevance (shared post > shared category > same type > rest),
+    // shuffling within each tier so repeat visits/shuffles don't always show the same order.
+    private static List<InteractiveExerciseResponse> BuildSuggestionPool(List<InteractiveExerciseResponse> all, InteractiveExerciseResponse current)
+    {
+        var others = all.Where(e => e.Id != current.Id).ToList();
+        var sharedPost = others.Where(e => e.PostIds.Intersect(current.PostIds).Any());
+        var sharedCategory = others.Where(e => e.CategoryIds.Intersect(current.CategoryIds).Any());
+        var sameType = others.Where(e => e.Type == current.Type);
+
+        var seen = new HashSet<int>();
+        var pool = new List<InteractiveExerciseResponse>();
+        foreach (var tier in new[] { sharedPost, sharedCategory, sameType, others })
+        {
+            foreach (var ex in tier.OrderBy(_ => Random.Shared.Next()))
+            {
+                if (seen.Add(ex.Id)) pool.Add(ex);
+            }
+        }
+        return pool;
+    }
+
+    private void ShuffleSuggestions()
+    {
+        if (_suggestionPool.Count == 0) return;
+        _suggestionPool = _suggestionPool.OrderBy(_ => Random.Shared.Next()).ToList();
+        _suggestions = _suggestionPool.Take(SuggestionCount).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+}

@@ -28,6 +28,13 @@ public class PagesController : ControllerBase
         return Ok(await _postService.GetSummaries());
     }
 
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchPosts([FromQuery] string q)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return Ok(new List<Tobiso.Web.Shared.DTOs.PostSearchResultDto>());
+        return Ok(await _postService.SearchContentAsync(q));
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPost(int id, [FromQuery] int? gradeId = null)
     {

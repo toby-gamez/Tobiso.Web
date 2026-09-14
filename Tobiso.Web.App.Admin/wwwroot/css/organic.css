@@ -315,7 +315,7 @@ a.sage-tint {
 
 .addendum-btn:hover {
     background: var(--color-accent-600);
-    color: #fff8f3;
+    color: var(--color-on-accent);
 }
 
 /* Person mention, emitted inline in article content for AI-detected person names */
@@ -341,7 +341,7 @@ a.sage-tint {
 
 .person-link:hover {
     background: var(--color-accent-600);
-    color: #fff8f3;
+    color: var(--color-on-accent);
 }
 
 /* Callout tip */
@@ -349,7 +349,7 @@ a.sage-tint {
     display: flex;
     gap: var(--space-3);
     padding: var(--space-4);
-    background: #ffe1d0;
+    background: var(--color-accent-200);
     border-radius: var(--radius-lg);
     margin: var(--space-6) 0;
     max-width: 68ch;
@@ -363,7 +363,7 @@ a.sage-tint {
     align-items: center;
     justify-content: center;
     background: var(--color-accent-600);
-    color: #fff8f3;
+    color: var(--color-on-accent);
     border-radius: 999px;
     font-size: 18px;
 }

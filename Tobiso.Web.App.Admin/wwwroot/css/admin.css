@@ -129,7 +129,7 @@
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: color-mix(in srgb, #201e1d 55%, transparent);
+    background: color-mix(in srgb, var(--color-ink) 55%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -338,12 +338,70 @@
     font-size: 14px;
 }
 
+/* Custom appearance instead of relying on the native widget: browsers
+   (Chromium especially) render a `disabled` checkbox/radio in flat grayscale
+   regardless of `accent-color`, so a read-only "correct answer" checklist
+   never picked up the terracotta tint. Drawing it ourselves fixes that and
+   keeps it consistent across browsers/themes. */
 .checkbox-field input[type="checkbox"],
 .radio-field input[type="radio"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--color-accent-600);
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    border: 1.5px solid var(--color-divider);
+    background: var(--color-neutral-100);
     cursor: pointer;
+    position: relative;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.checkbox-field input[type="checkbox"] {
+    border-radius: 5px;
+}
+
+.radio-field input[type="radio"] {
+    border-radius: 999px;
+}
+
+.checkbox-field input[type="checkbox"]:checked,
+.radio-field input[type="radio"]:checked {
+    background: var(--color-accent-600);
+    border-color: var(--color-accent-600);
+}
+
+.checkbox-field input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid var(--color-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.radio-field input[type="radio"]:checked::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 999px;
+    background: var(--color-bg);
+}
+
+.checkbox-field input[type="checkbox"]:disabled,
+.radio-field input[type="radio"]:disabled {
+    opacity: 0.8;
+    cursor: default;
+}
+
+.checkbox-field input[type="checkbox"]:focus-visible,
+.radio-field input[type="radio"]:focus-visible {
+    outline: 2px solid var(--color-accent-600);
+    outline-offset: 2px;
 }
 
 /* ---------- Tree view (CategoryTree) ---------- */

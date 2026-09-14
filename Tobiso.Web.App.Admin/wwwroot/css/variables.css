@@ -6,6 +6,13 @@
     --color-text: #201e1d;
     --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
 
+    /* Fixed utility colors - theme-invariant, like the shadows below.
+       --color-ink backs dark scrims (modal backdrops); --color-on-accent(-2)
+       are the near-white text/icon colors used on solid accent-600 fills. */
+    --color-ink: #201e1d;
+    --color-on-accent: #fff8f3;
+    --color-on-accent-2: #f4f8ec;
+
     /* Terracotta accent ramp */
     --color-accent-100: #fdf3ec;
     --color-accent-200: #fde3ca;
@@ -84,6 +91,27 @@
         --color-neutral-700: #b3a08d;
         --color-neutral-800: #d0bfa9;
         --color-neutral-900: #ecdecb;
+
+        /* Terracotta/sage 100-400 are "light tint" backgrounds (badges, chips,
+           highlighted rows) in light mode - left unswapped they stay glaring
+           light-mode pastels against a dark surface. 700-900 are the text
+           color usually paired with those tints, so they flip from dark-brown
+           to light for contrast. 500/600 (solid buttons/links) are left as-is
+           - those already read fine unchanged on a dark background. */
+        --color-accent-100: #3a2415;
+        --color-accent-200: #4a2f1a;
+        --color-accent-300: #66421f;
+        --color-accent-400: #8a5a2b;
+        --color-accent-800: #e3a374;
+        --color-accent-900: #f5d2ac;
+
+        --color-accent-2-100: #202a16;
+        --color-accent-2-200: #2b3a1c;
+        --color-accent-2-300: #3c4f26;
+        --color-accent-2-400: #557030;
+        --color-accent-2-700: #9dbd78;
+        --color-accent-2-800: #b7d494;
+        --color-accent-2-900: #d7ecc0;
     }
 }
 
@@ -103,6 +131,21 @@
     --color-neutral-700: #b3a08d;
     --color-neutral-800: #d0bfa9;
     --color-neutral-900: #ecdecb;
+
+    --color-accent-100: #3a2415;
+    --color-accent-200: #4a2f1a;
+    --color-accent-300: #66421f;
+    --color-accent-400: #8a5a2b;
+    --color-accent-800: #e3a374;
+    --color-accent-900: #f5d2ac;
+
+    --color-accent-2-100: #202a16;
+    --color-accent-2-200: #2b3a1c;
+    --color-accent-2-300: #3c4f26;
+    --color-accent-2-400: #557030;
+    --color-accent-2-700: #9dbd78;
+    --color-accent-2-800: #b7d494;
+    --color-accent-2-900: #d7ecc0;
 }
 
 /* Light mode - explicit toggle */

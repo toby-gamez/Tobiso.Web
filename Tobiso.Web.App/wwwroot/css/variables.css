@@ -6,6 +6,14 @@
     --color-text: #201e1d;
     --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
 
+    /* Fixed utility colors - theme-invariant, like the shadows below.
+       --color-ink backs dark scrims (modal backdrops); --color-on-accent(-2)
+       are the near-white text/icon colors used on solid accent-600 fills,
+       which themselves don't fully flip in dark mode. */
+    --color-ink: #201e1d;
+    --color-on-accent: #fff8f3;
+    --color-on-accent-2: #f4f8ec;
+
     /* Terracotta accent ramp */
     --color-accent-100: #fdf3ec;
     --color-accent-200: #fde3ca;
@@ -85,6 +93,16 @@
         --color-neutral-800: #d0bfa9;
         --color-neutral-900: #ecdecb;
 
+        --color-accent-100: #221b16;
+        --color-accent-200: #30261c;
+        --color-accent-300: #3e2f23;
+        --color-accent-400: #513c2f;
+        --color-accent-500: #684c3b;
+        --color-accent-600: #7f5e48;
+        --color-accent-700: #997056;
+        --color-accent-800: #b7876c;
+        --color-accent-900: #d3a992;
+
         --color-accent-2-100: #1d2218;
         --color-accent-2-200: #262d1e;
         --color-accent-2-300: #323b27;
@@ -113,6 +131,16 @@
     --color-neutral-700: #b3a08d;
     --color-neutral-800: #d0bfa9;
     --color-neutral-900: #ecdecb;
+
+    --color-accent-100: #221b16;
+    --color-accent-200: #30261c;
+    --color-accent-300: #3e2f23;
+    --color-accent-400: #513c2f;
+    --color-accent-500: #684c3b;
+    --color-accent-600: #7f5e48;
+    --color-accent-700: #997056;
+    --color-accent-800: #b7876c;
+    --color-accent-900: #d3a992;
 
     --color-accent-2-100: #1d2218;
     --color-accent-2-200: #262d1e;
