@@ -40,7 +40,7 @@
     <div class="home-cards">
         @if (_continueReading != null)
         {
-            <a class="home-card-continue lift" href="/post/@(_continueReading.PostId)">
+            <a class="home-card-continue lift" href="@PostSlug.Url(_continueReading.PostId, _continueReading.FilePath)">
                 <span class="home-card-tag">
                     <i data-lucide="rotate-cw"></i> Pokračovat ve čtení
                 </span>
@@ -53,7 +53,7 @@
         }
         @if (_articleOfDay != null)
         {
-            <a class="home-card-artofday sage-tint" href="/post/@(_articleOfDay.Id)">
+            <a class="home-card-artofday sage-tint" href="@PostSlug.Url(_articleOfDay.Id, _articleOfDay.FilePath)">
                 <span class="home-card-tag">
                     <i data-lucide="sun"></i> Článek dne
                 </span>

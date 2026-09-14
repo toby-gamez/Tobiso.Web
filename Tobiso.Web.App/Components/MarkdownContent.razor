@@ -67,8 +67,8 @@
         content = ReplacePeopleMentionsInText(content);
 
         // Replace -> with arrow icon BEFORE HTML conversion
-        content = content.Replace(" -> ", " <i class=\"bi bi-arrow-right-short\"></i> ");
-        content = content.Replace("->", "<i class=\"bi bi-arrow-right-short\"></i>");
+        content = content.Replace(" -> ", " <i data-lucide=\"arrow-right\"></i> ");
+        content = content.Replace("->", "<i data-lucide=\"arrow-right\"></i>");
 
         // Group images with captions/sources BEFORE conversion while paragraph structure is clear
         content = PreprocessImageGroups(content);
@@ -80,7 +80,7 @@
         html = addendumRegex.Replace(html, match =>
         {
             var addendumId = int.Parse(match.Groups[1].Value);
-            return $"<a class='addendum-btn' onclick='window.requestAddendum({addendumId})'><i class=\"bi bi-patch-question\"></i></a>";
+            return $"<a class='addendum-btn' onclick='window.requestAddendum({addendumId})'><i data-lucide=\"badge-help\"></i></a>";
         });
 
         // Fix image src: add prefix to relative <img> src attributes
@@ -154,8 +154,7 @@
             var postMatch = AllPosts?.FirstOrDefault(p => p.FilePath.EndsWith(file, StringComparison.OrdinalIgnoreCase));
             if (postMatch != null)
             {
-                var slug = System.IO.Path.GetFileNameWithoutExtension(postMatch.FilePath);
-                return $"<a href=\"/post/{slug}\"{attrs}>{linkText}</a>";
+                return $"<a href=\"{PostSlug.Url(postMatch.Id, postMatch.FilePath)}\"{attrs}>{linkText}</a>";
             }
 
             return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
@@ -311,53 +310,56 @@
 
             if (srcIdx < 0)
             {
-                result.Add($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" /></div>");
+                result.Add($"<figure class=\"post-figure\"><div class=\"washed\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" /></div></figure>");
                 i++;
                 continue;
             }
 
-            bool isTobiso = paras[srcIdx].Contains("Tobiso", StringComparison.OrdinalIgnoreCase);
-
+            // Caption paragraphs sit between the image and the "Zdroj:"/"Autor:" line.
             var captionParts = new List<string>();
             for (int j = i + 1; j < srcIdx; j++)
             {
                 if (!string.IsNullOrWhiteSpace(paras[j]))
                     captionParts.Add(paras[j].Trim());
             }
-            var captionAttr = System.Net.WebUtility.HtmlEncode(string.Join(" ", captionParts));
-            var sourceAttr = System.Net.WebUtility.HtmlEncode(paras[srcIdx].Trim());
+            var captionRaw = string.Join(" ", captionParts);
+            var sourceRaw = paras[srcIdx].Trim();
 
-            if (isTobiso)
+            // data-caption/data-source feed the click-to-enlarge lightbox (plain text, HTML-encoded).
+            var captionAttr = System.Net.WebUtility.HtmlEncode(captionRaw);
+            var sourceAttr = System.Net.WebUtility.HtmlEncode(sourceRaw);
+
+            // The visible figcaption runs through Markdig so authored links/bold still work.
+            var captionHtml = StripParagraphTag(Markdig.Markdown.ToHtml(captionRaw));
+            var sourceHtml = StripParagraphTag(Markdig.Markdown.ToHtml(sourceRaw));
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<figure class=\"post-figure\">");
+            sb.Append($"<div class=\"washed\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" /></div>");
+            if (!string.IsNullOrWhiteSpace(captionHtml) || !string.IsNullOrWhiteSpace(sourceHtml))
             {
-                var imgHtml = $"<img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />";
-                result.Add(imgHtml);
-                for (int j = i + 1; j <= srcIdx; j++)
-                {
-                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
-                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
-                    if (ph.StartsWith("<p>") && ph.EndsWith("</p>"))
-                        ph = "<p class=\"tobiso-source\">" + ph.Substring(3, ph.Length - 7) + "</p>";
-                    result.Add(ph);
-                }
+                sb.Append("<figcaption>");
+                if (!string.IsNullOrWhiteSpace(captionHtml))
+                    sb.Append($"<span class=\"post-figure-caption\">{captionHtml}</span>");
+                if (!string.IsNullOrWhiteSpace(sourceHtml))
+                    sb.Append($"<span class=\"post-figure-source\">{sourceHtml}</span>");
+                sb.Append("</figcaption>");
             }
-            else
-            {
-                var sb = new System.Text.StringBuilder();
-                sb.Append($"<div class=\"blog-image\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" />");
-                for (int j = i + 1; j <= srcIdx; j++)
-                {
-                    if (string.IsNullOrWhiteSpace(paras[j])) continue;
-                    var ph = Markdig.Markdown.ToHtml(paras[j]).Trim();
-                    sb.Append(ph);
-                }
-                sb.Append("</div>");
-                result.Add(sb.ToString());
-            }
+            sb.Append("</figure>");
+            result.Add(sb.ToString());
 
             i = srcIdx + 1;
         }
 
         return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    private static string StripParagraphTag(string html)
+    {
+        html = html.Trim();
+        if (html.StartsWith("<p>") && html.EndsWith("</p>"))
+            return html.Substring(3, html.Length - 7);
+        return html;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -446,7 +448,7 @@
                 // Pass the canonical name as a JSON string literal so it is safe to embed
                 // directly inside the onclick attribute (mirrors the addendum-btn pattern).
                 var escapedName = System.Text.Json.JsonSerializer.Serialize(name).Replace("\"", "&quot;");
-                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<a class=\"person-link\" href=\"#\" onclick=\"event.preventDefault(); window.requestPerson({escapedName})\" aria-label=\"Zobrazit informace o osobě\"><i class=\"bi bi-search\"></i></a></span>");
+                result = rx.Replace(result, m => $"<span class=\"person-mention\">{m.Groups[1].Value}<a class=\"person-link\" href=\"#\" onclick=\"event.preventDefault(); window.requestPerson({escapedName})\" aria-label=\"Zobrazit informace o osobě\"><i data-lucide=\"search\"></i></a></span>");
             }
             catch { }
         }

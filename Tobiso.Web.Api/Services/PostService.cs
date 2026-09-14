@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Shared.DTOs;
+using Tobiso.Web.Shared.Helpers;
 using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.Api.Services;
@@ -17,6 +18,8 @@ public interface IPostService
     Task<List<PostSearchResultDto>> SearchContentAsync(string query, int take = 10);
     /// <summary>Returns a single post including all its versions. When gradeId is supplied the top-level Content fields reflect the best match.</summary>
     Task<PostResponse?> GetById(int id, int? gradeId = null);
+    /// <summary>Looks up a post by its URL slug (see <see cref="PostSlug"/>). Returns null if no post's slug matches.</summary>
+    Task<PostResponse?> GetBySlug(string slug, int? gradeId = null);
     /// <summary>Updates post metadata only (title, filepath, category). Version content is managed via IPostVersionService.</summary>
     Task<bool> UpdateMetadata(int id, UpdatePostRequest req);
     Task<bool> Delete(int id);
@@ -181,6 +184,22 @@ public class PostService : IPostService
 
         // No gradeId: return all versions
         return BuildResponse(post, post.Versions);
+    }
+
+    public async Task<PostResponse?> GetBySlug(string slug, int? gradeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(slug)) return null;
+
+        // No dedicated slug column - match by deriving the slug from FilePath in memory.
+        var candidates = await _context.Posts
+            .AsNoTracking()
+            .Select(p => new { p.Id, p.FilePath })
+            .ToListAsync();
+
+        var match = candidates.FirstOrDefault(p =>
+            string.Equals(PostSlug.FromFilePath(p.FilePath), slug, StringComparison.OrdinalIgnoreCase));
+
+        return match == null ? null : await GetById(match.Id, gradeId);
     }
 
     public async Task<bool> UpdateMetadata(int id, UpdatePostRequest req)

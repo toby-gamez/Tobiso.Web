@@ -28,19 +28,19 @@
             <div class="panel">
                 <div class="panel-header">Dostupné komponenty</div>
                 <div class="panel-body component-palette">
-                    <button class="btn btn-secondary" @onclick='() => AddComponent("battery")'>
+                    <button type="button" class="btn btn-secondary" @onclick='() => AddComponent("battery")'>
                         <i data-lucide="battery-charging"></i> Baterie
                     </button>
-                    <button class="btn btn-secondary" @onclick='() => AddComponent("bulb")'>
+                    <button type="button" class="btn btn-secondary" @onclick='() => AddComponent("bulb")'>
                         <i data-lucide="lightbulb"></i> Žárovka
                     </button>
-                    <button class="btn btn-secondary" @onclick='() => AddComponent("switch")'>
+                    <button type="button" class="btn btn-secondary" @onclick='() => AddComponent("switch")'>
                         <i data-lucide="toggle-right"></i> Přepínač
                     </button>
-                    <button class="btn btn-secondary" @onclick='() => AddComponent("resistor")'>
+                    <button type="button" class="btn btn-secondary" @onclick='() => AddComponent("resistor")'>
                         <i data-lucide="activity"></i> Odpor
                     </button>
-                    <button class="btn btn-secondary" @onclick='() => AddComponent("wire")'>
+                    <button type="button" class="btn btn-secondary" @onclick='() => AddComponent("wire")'>
                         <i data-lucide="minus"></i> Vodič
                     </button>
                 </div>
@@ -83,7 +83,7 @@
                                 <input type="number" class="input" @bind="component.Y" />
                             </div>
 
-                            <button class="btn btn-danger btn-sm properties-remove" @onclick="RemoveSelectedComponent">
+                            <button type="button" class="btn btn-danger btn-sm properties-remove" @onclick="RemoveSelectedComponent">
                                 <i data-lucide="trash-2"></i> Odstranit
                             </button>
                         </div>
@@ -94,10 +94,10 @@
             <div class="panel">
                 <div class="panel-header">Akce</div>
                 <div class="panel-body actions-body">
-                    <button class="btn btn-secondary btn-sm" @onclick="GenerateJson">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="GenerateJson">
                         <i data-lucide="code-2"></i> Generovat JSON
                     </button>
-                    <button class="btn btn-danger btn-sm" @onclick="ClearAll">
+                    <button type="button" class="btn btn-danger btn-sm" @onclick="ClearAll">
                         <i data-lucide="x-circle"></i> Vymazat vše
                     </button>
                 </div>
@@ -218,12 +218,25 @@
                 voltage = c.Voltage > 0 ? c.Voltage : (int?)null,
                 resistance = c.Resistance > 0 ? c.Resistance : (int?)null
             }),
+            // "wire" is intentionally excluded - a wire is created by clicking two
+            // components on the public simulator, not placed as its own component.
             availableComponents = new[]
             {
+                new { type = "battery", label = "Baterie" },
                 new { type = "bulb", label = "Žárovka" },
                 new { type = "resistor", label = "Odpor" },
                 new { type = "switch", label = "Přepínač" },
-                new { type = "wire", label = "Vodič" }
+                new { type = "capacitor", label = "Kondenzátor" },
+                new { type = "led", label = "LED" },
+                new { type = "motor", label = "Motor" },
+                new { type = "buzzer", label = "Bzučák" },
+                new { type = "fuse", label = "Pojistka" },
+                new { type = "ammeter", label = "Ampérmetr" },
+                new { type = "voltmeter", label = "Voltmetr" },
+                new { type = "coil", label = "Cívka" },
+                new { type = "photoresistor", label = "Fotorezistor" },
+                new { type = "solarcell", label = "Sluneční článek" },
+                new { type = "pushbutton", label = "Tlačítko" }
             }
         };
 

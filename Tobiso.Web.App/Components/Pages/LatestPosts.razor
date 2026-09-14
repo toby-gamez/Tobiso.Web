@@ -36,7 +36,7 @@
         {
             @foreach (var post in FilteredPosts)
             {
-                <a class="post-row lift" href="/post/@post.Id">
+                <a class="post-row lift" href="@PostSlug.Url(post.Id, post.FilePath)">
                     <span class="post-row-main">
                         <span class="post-row-title">@post.Title</span>
                         <span class="post-row-meta">@CategoryPath(post.CategoryId) · @FormatDate(LastUpdated(post))</span>

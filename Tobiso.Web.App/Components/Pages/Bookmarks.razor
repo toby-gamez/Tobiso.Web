@@ -39,7 +39,7 @@
                             <i data-lucide="x"></i>
                         </button>
                     </div>
-                    <a class="bookmark-title" href="/post/@(post.Id)">
+                    <a class="bookmark-title" href="@PostSlug.Url(post.Id, post.FilePath)">
                         @post.Title
                     </a>
                 </div>

@@ -76,10 +76,7 @@ namespace Tobiso.Web.App.Controllers
                 // Přidání jednotlivých postů
                 foreach (var post in posts)
                 {
-                    var slug = System.IO.Path.GetFileNameWithoutExtension(post.FilePath);
-                    var postUrl = !string.IsNullOrEmpty(slug)
-                        ? $"https://www.tobiso.com/post/{slug}"
-                        : $"https://www.tobiso.com/post/{post.Id}";
+                    var postUrl = $"https://www.tobiso.com{Tobiso.Web.Shared.Helpers.PostSlug.Url(post.Id, post.FilePath)}";
                     xml.AppendLine("  <url>");
                     xml.AppendLine($"    <loc>{postUrl}</loc>");
                     xml.AppendLine("    <priority>0.80</priority>");

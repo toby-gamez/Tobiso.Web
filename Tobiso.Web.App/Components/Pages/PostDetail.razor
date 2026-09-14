@@ -96,9 +96,12 @@ else
                 <button class="toolbar-btn @(_readingOpen ? "active" : "")" @onclick="ToggleReading">
                     <i data-lucide="type"></i> Čtení
                 </button>
-                <button class="toolbar-btn" @onclick="ScrollToExercises">
-                    <i data-lucide="puzzle"></i> Cvičení
-                </button>
+                @if (_exercises.Count > 0)
+                {
+                    <button class="toolbar-btn" @onclick="ScrollToExercises">
+                        <i data-lucide="puzzle"></i> Cvičení
+                    </button>
+                }
                 <button class="toolbar-btn" style="opacity:.5; cursor:not-allowed">
                     <i data-lucide="volume-2"></i> Poslech
                 </button>
@@ -168,6 +171,7 @@ else
                     <MarkdownContent Content="@_currentVersion.Content"
                                      AllPosts="@_allPosts"
                                      AllPeople="@_allPeople"
+                                     ContainerId="article-prose"
                                      OnHeadingsExtracted="OnHeadingsExtracted" />
                 }
             </div>
@@ -278,7 +282,7 @@ else
                     <div class="related-grid">
                         @foreach (var rel in _displayRelated)
                         {
-                            <a href="/post/@rel.PostId" class="related-card lift">
+                            <a href="@PostSlug.Url(rel.PostId, rel.FilePath)" class="related-card lift">
                                 <span class="related-title">@rel.Title</span>
                                 @if (!string.IsNullOrEmpty(rel.Text))
                                 {
@@ -350,7 +354,7 @@ else
     private List<CategoryResponse> _ancestors = [];
     private List<RelatedPostResponse> _relatedPosts = [];
     private List<DisplayRelatedPost> _displayRelated = [];
-    private record DisplayRelatedPost(int PostId, string Title, string? Text);
+    private record DisplayRelatedPost(int PostId, string Title, string? Text, string? FilePath);
     private List<QuestionResponse> _questions = [];
     private List<PostSummaryResponse> _allPosts = [];
     private List<PersonSummaryResponse> _allPeople = [];
@@ -377,6 +381,7 @@ else
     private string? _factsError;
     private int? _openExerciseId;
     private bool _needsExerciseScroll;
+    private IJSObjectReference? _lightboxModule;
 
     private InteractiveExerciseResponse? _openExercise =>
         _exercises.FirstOrDefault(e => e.Id == _openExerciseId);
@@ -414,12 +419,15 @@ else
 
     private async Task LoadData()
     {
-        // Load by int ID or slug
+        // Load by int ID or slug (a purely numeric slug segment is still treated as an id,
+        // since links generated before a post had a resolvable slug used the bare id).
         PostResponse? post = null;
         if (Id > 0)
             post = await PostService.GetById(Id);
-        else if (!string.IsNullOrEmpty(Slug) && int.TryParse(Slug, out int parsedId))
-            post = await PostService.GetById(parsedId);
+        else if (!string.IsNullOrEmpty(Slug))
+            post = int.TryParse(Slug, out int parsedId)
+                ? await PostService.GetById(parsedId)
+                : await PostService.GetBySlug(Slug);
 
         if (post == null) return;
         _post = post;
@@ -510,7 +518,8 @@ else
         if (_post == null) { _displayRelated = []; return; }
 
         var display = _relatedPosts
-            .Select(r => new DisplayRelatedPost(r.RelatedPostId, r.RelatedPostTitle ?? "", r.Text))
+            .Select(r => new DisplayRelatedPost(r.RelatedPostId, r.RelatedPostTitle ?? "", r.Text,
+                _allPosts.FirstOrDefault(p => p.Id == r.RelatedPostId)?.FilePath))
             .Take(RelatedTarget)
             .ToList();
 
@@ -530,7 +539,7 @@ else
                 var summary = _allPosts.FirstOrDefault(p => p.Id == item.PostId);
                 if (summary == null) continue;
 
-                display.Add(new DisplayRelatedPost(item.PostId, summary.Title, item.Text));
+                display.Add(new DisplayRelatedPost(item.PostId, summary.Title, item.Text, summary.FilePath));
                 usedIds.Add(item.PostId);
                 needed--;
             }
@@ -542,7 +551,7 @@ else
                     .Take(needed);
                 foreach (var p in fallback)
                 {
-                    display.Add(new DisplayRelatedPost(p.Id, p.Title, null));
+                    display.Add(new DisplayRelatedPost(p.Id, p.Title, null, p.FilePath));
                     usedIds.Add(p.Id);
                 }
             }
@@ -577,6 +586,18 @@ else
                 _myDifficultyVote = vote;
                 StateHasChanged();
             }
+        }
+
+        // Re-bind on every render (not just first) so images that appear after a grade
+        // switch or the async person-mention pass get click-to-enlarge too.
+        if (_currentVersion != null)
+        {
+            try
+            {
+                _lightboxModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/image-lightbox.js");
+                await _lightboxModule.InvokeVoidAsync("initImageLightbox", "article-prose");
+            }
+            catch { /* progressive enhancement only */ }
         }
     }
 
@@ -615,6 +636,7 @@ else
     {
         _disposed = true;
         try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
+        if (_lightboxModule != null) { try { await _lightboxModule.DisposeAsync(); } catch { } }
         _selfRef?.Dispose();
         _loadGate.Dispose();
     }

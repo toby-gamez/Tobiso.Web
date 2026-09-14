@@ -155,6 +155,6 @@ public class UserProgressService : IUserProgressService
         var cat = record.Post.Category;
         var categoryPath = cat == null ? null : cat.Parent == null ? cat.Name : $"{cat.Parent.Name} · {cat.Name}";
 
-        return new ContinueReadingDto(record.PostId, record.Post.Title, record.ScrollPercent, categoryPath);
+        return new ContinueReadingDto(record.PostId, record.Post.Title, record.ScrollPercent, categoryPath, record.Post.FilePath);
     }
 }

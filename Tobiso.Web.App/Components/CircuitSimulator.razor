@@ -1,1065 +1,551 @@
 @using System.Text.Json
 @using Tobiso.Web.Shared.DTOs
-@using Tobiso.Web.Shared.Interfaces
 @using Microsoft.JSInterop
-@inject IInteractiveExerciseService ExerciseService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<div class="circuit-simulator">
-    <div class="card circuit-card">
-        <div class="card-body">
-            <div class="circuit-info-banner">
-                <i class="bi bi-info-circle-fill"></i>
-                <div>
-                    <strong>Návod k ovládání:</strong>
-                    <span>Přetáhni komponenty na plochu • Klikni na dvě komponenty pro spojení • Dvojklik pro nastavení • Pravé tlačítko pro smazání</span>
-                </div>
-            </div>
+<div class="exercise-shell circuit-simulator">
+    <div class="canvas-container"
+         @onmousemove="OnCanvasMouseMove"
+         @onmouseup="OnCanvasMouseUp"
+         @oncontextmenu:preventDefault="true">
 
-            <div class="canvas-container" 
-                 @ref="_canvasRef"
-                 @onmousemove="OnCanvasMouseMove"
-                 @onmouseup="OnCanvasMouseUp"
-                 @oncontextmenu:preventDefault="true">
-                
-                @* SVG pro spojení (pod komponentami) *@
-                <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
-                    @foreach (var connection in _connections)
-                    {
-                        var from = _components.FirstOrDefault(c => c.Id == connection.From);
-                        var to = _components.FirstOrDefault(c => c.Id == connection.To);
-                        if (from != null && to != null)
-                        {
-                            var isLive = _circuitState.LiveConnections.Contains(connection.Id);
-                            <line x1="@(from.X + 40)" y1="@(from.Y + 40)" 
-                                  x2="@(to.X + 40)" y2="@(to.Y + 40)" 
-                                  stroke="@(isLive ? "#ffc107" : "#6c757d")" 
-                                  stroke-width="@(isLive ? "4" : "3")"
-                                  style="@(isLive ? "filter: drop-shadow(0 0 8px #ffc107);" : "")" />
-                        }
-                    }
-                    
-                    @* Kreslení nového spojení *@
-                    @if (_connectingFrom != null)
-                    {
-                        var from = _components.FirstOrDefault(c => c.Id == _connectingFrom);
-                        if (from != null)
-                        {
-                            <line x1="@(from.X + 40)" y1="@(from.Y + 40)" 
-                                  x2="@_mouseX" y2="@_mouseY" 
-                                  stroke="#0d6efd" stroke-width="3" stroke-dasharray="5,5" />
-                        }
-                    }
-                </svg>
-
-                @* Komponenty *@
-                @foreach (var component in _components)
+        <svg class="wires-layer">
+            @foreach (var connection in _connections)
+            {
+                var from = _components.FirstOrDefault(c => c.Id == connection.From);
+                var to = _components.FirstOrDefault(c => c.Id == connection.To);
+                if (from != null && to != null)
                 {
-                    var brightness = GetBrightness(component);
-                    var isActive = brightness > 0.1; // Aktivní jen když má dostatečný výkon
-                    var isSwitchOn = component.Type == "switch" && _circuitState.SwitchStates.GetValueOrDefault(component.Id, false);
-                    
-                    <div class="circuit-component @(component.Id == _selectedComponent ? "selected" : "")"
-                         style="position: absolute; left: @(component.X)px; top: @(component.Y)px; cursor: @(_draggingComponent == component.Id ? "grabbing" : "grab"); z-index: 10;"
-                         @onmousedown="(e) => OnComponentMouseDown(e, component.Id)"
-                         @onmousedown:stopPropagation="true"
-                         @oncontextmenu="() => OnComponentRightClick(component.Id)"
-                         @oncontextmenu:preventDefault="true">
-                        
-                        <div class="component-icon @(GetBrightnessClass(brightness)) @(component.Type == "switch" ? (isSwitchOn ? "switch-on" : "switch-off") : "")">
-                            @if (component.Type == "battery")
-                            {
-                                <i class="bi bi-battery-charging" style="font-size: 2.5rem; color: #198754;"></i>
-                            }
-                            else if (component.Type == "bulb")
-                            {
-                                <i class="bi bi-lightbulb@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @GetBulbColor(brightness); opacity: @GetBulbOpacity(brightness);"></i>
-                            }
-                            else if (component.Type == "switch")
-                            {
-                                <i class="bi bi-toggle-@(isSwitchOn ? "on" : "off")" style="font-size: 2.5rem; color: @(isSwitchOn ? "#0d6efd" : "#6c757d");"></i>
-                            }
-                            else if (component.Type == "resistor")
-                            {
-                                <i class="bi bi-activity" style="font-size: 2.5rem; color: #dc3545;"></i>
-                            }
-                            else if (component.Type == "capacitor")
-                            {
-                                <i class="bi bi-battery-half" style="font-size: 2.5rem; color: #0dcaf0;"></i>
-                            }
-                            else if (component.Type == "led")
-                            {
-                                <i class="bi bi-lightbulb@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @(isActive ? "#0d6efd" : "#6c757d");"></i>
-                            }
-                            else if (component.Type == "motor")
-                            {
-                                <i class="bi bi-fan" style="font-size: 2.5rem; color: @(isActive ? "#6610f2" : "#6c757d"); @(isActive ? "animation: spin 1s linear infinite;" : "")"></i>
-                            }
-                            else if (component.Type == "buzzer")
-                            {
-                                <i class="bi bi-volume-up@(isActive ? "-fill" : "")" style="font-size: 2.5rem; color: @(isActive ? "#fd7e14" : "#6c757d");"></i>
-                            }
-                        </div>
-                        <div class="component-label">@component.Label</div>
-                        @if (component.Value > 0)
-                        {
-                            <div class="component-value">@GetValueDisplay(component)</div>
-                        }
-                        @if (isActive && _circuitState.ComponentMetrics.ContainsKey(component.Id))
-                        {
-                            var metrics = _circuitState.ComponentMetrics[component.Id];
-                            <div class="component-metrics">
-                                @if (component.Type == "bulb")
-                                {
-                                    <span>@metrics.Power.ToString("F1")W</span>
-                                }
-                                else if (component.Type == "resistor")
-                                {
-                                    <span>@metrics.Current.ToString("F2")A</span>
-                                }
-                                else
-                                {
-                                    <span>⚡</span>
-                                }
-                            </div>
-                        }
-                    </div>
+                    var isLive = _circuitState.LiveConnections.Contains(connection.Id);
+                    <line x1="@(from.X + 40)" y1="@(from.Y + 40)"
+                          x2="@(to.X + 40)" y2="@(to.Y + 40)"
+                          class="wire @(isLive ? "wire-live" : "")" />
+                    @* Wider invisible hit-target over the thin wire, so right-click is easy to land. *@
+                    <line x1="@(from.X + 40)" y1="@(from.Y + 40)"
+                          x2="@(to.X + 40)" y2="@(to.Y + 40)"
+                          class="wire-hit"
+                          @oncontextmenu="() => OnWireRightClick(connection.Id)"
+                          @oncontextmenu:preventDefault="true"
+                          @oncontextmenu:stopPropagation="true" />
+                }
+            }
+
+            @if (_connectingFrom != null)
+            {
+                var from = _components.FirstOrDefault(c => c.Id == _connectingFrom);
+                if (from != null)
+                {
+                    <line x1="@(from.X + 40)" y1="@(from.Y + 40)" x2="@_mouseX" y2="@_mouseY" class="wire wire-pending" />
+                }
+            }
+        </svg>
+
+        @foreach (var component in _components)
+        {
+            var brightness = GetBrightness(component);
+            var isActive = brightness > 0.1;
+            var isSwitchOn = component.Type is "switch" or "pushbutton" && _circuitState.SwitchStates.GetValueOrDefault(component.Id, false);
+
+            <div class="circuit-component @(component.Id == _selectedComponent ? "selected" : "")"
+                 style="left:@(component.X)px; top:@(component.Y)px; cursor:@(_draggingComponent == component.Id ? "grabbing" : "grab");"
+                 @onmousedown="(e) => OnComponentMouseDown(e, component.Id)"
+                 @onmousedown:stopPropagation="true"
+                 @oncontextmenu="() => OnComponentRightClick(component.Id)"
+                 @oncontextmenu:preventDefault="true">
+
+                <div class="component-icon @GetBrightnessClass(brightness)" style="color:@GetComponentColor(component.Type, isActive, isSwitchOn)">
+                    <i data-lucide="@GetIconName(component.Id, component.Type, isActive, isSwitchOn)"></i>
+                </div>
+                <div class="component-label">@component.Label</div>
+                @if (component.Value > 0)
+                {
+                    <div class="component-value">@GetValueDisplay(component)</div>
+                }
+                @if ((isActive || component.Type == "ammeter") && _circuitState.ComponentMetrics.TryGetValue(component.Id, out var metrics))
+                {
+                    <div class="component-metrics">@metrics.Current.ToString("F2")A</div>
+                }
+                else if (component.Type == "voltmeter" && _circuitState.ComponentMetrics.ContainsKey(component.Id))
+                {
+                    <div class="component-metrics">@_circuitState.Voltage.ToString("F1")V</div>
                 }
             </div>
+        }
+    </div>
 
-            <div class="circuit-toolbar">
-                <div class="toolbar-section">
-                    <h6 class="toolbar-title">
-                        <i class="bi bi-plus-circle-fill"></i>
-                        Dostupné komponenty
-                    </h6>
-                    <div class="component-buttons">
-                        @foreach (var type in new[] { "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer" })
-                        {
-                            <button class="component-btn" @onclick="() => AddComponent(type)" aria-label="Přidat @GetComponentTypeLabel(type)">
-                                <i class="bi bi-@GetBootstrapIcon(type)"></i>
-                                <span>@GetComponentTypeLabel(type)</span>
-                            </button>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            @if (_circuitState.HasPower || !_circuitState.CircuitClosed)
+    @if (_availableTypes.Count > 0)
+    {
+        <div class="component-buttons">
+            @foreach (var type in _availableTypes)
             {
-                <div class="circuit-status">
-                    @if (_circuitState.HasPower && _circuitState.CircuitClosed)
-                    {
-                        <div class="status-message status-success">
-                            <i class="bi bi-lightning-charge-fill"></i>
-                            <div>
-                                <strong>Obvod je uzavřený a má napájení!</strong>
-                                @if (_circuitState.LitBulbs.Any())
-                                {
-                                    <span>💡 Komponenty jsou aktivní!</span>
-                                }
-                            </div>
-                        </div>
-                    }
-                    else if (!_circuitState.HasPower)
-                    {
-                        <div class="status-message status-warning">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <div>
-                                <strong>Chybí zdroj napájení</strong>
-                                <span>Přidej baterii do obvodu</span>
-                            </div>
-                        </div>
-                    }
-                    else if (!_circuitState.CircuitClosed)
-                    {
-                        <div class="status-message status-info">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <div>
-                                <strong>Obvod není uzavřený</strong>
-                                <span>Propoj všechny komponenty do smyčky nebo zapni přepínač</span>
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
-
-            @if (_components.Any(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
-            {
-                <div class="component-settings">
-                    <h6 class="settings-title">
-                        <i class="bi bi-sliders"></i>
-                        Nastavení komponent
-                    </h6>
-                    <div class="settings-grid">
-                        @foreach (var comp in _components.Where(c => c.Type == "battery" || c.Type == "resistor" || c.Type == "bulb" || c.Type == "capacitor" || c.Type == "switch"))
-                        {
-                            <div class="setting-card">
-                                <div class="setting-header">
-                                    <i class="bi bi-@GetBootstrapIcon(comp.Type)"></i>
-                                    <span class="setting-label">@comp.Label</span>
-                                </div>
-                                <div class="setting-control">
-                                    @if (comp.Type == "battery")
-                                    {
-                                        <div class="control-group">
-                                            <label>Napětí</label>
-                                            <div class="input-with-unit">
-                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="24" step="1" />
-                                                <span class="unit">V</span>
-                                            </div>
-                                        </div>
-                                    }
-                                    else if (comp.Type == "resistor")
-                                    {
-                                        <div class="control-group">
-                                            <label>Odpor</label>
-                                            <div class="input-with-unit">
-                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="10000" step="10" />
-                                                <span class="unit">Ω</span>
-                                            </div>
-                                        </div>
-                                    }
-                                    else if (comp.Type == "bulb")
-                                    {
-                                        <div class="control-group">
-                                            <label>Výkon</label>
-                                            <div class="input-with-unit">
-                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="100" step="5" />
-                                                <span class="unit">W</span>
-                                            </div>
-                                        </div>
-                                    }
-                                    else if (comp.Type == "capacitor")
-                                    {
-                                        <div class="control-group">
-                                            <label>Kapacita</label>
-                                            <div class="input-with-unit">
-                                                <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="1000" step="10" />
-                                                <span class="unit">μF</span>
-                                            </div>
-                                        </div>
-                                    }
-                                    else if (comp.Type == "switch")
-                                    {
-                                        <button type="button" class="switch-toggle @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "switch-on" : "switch-off")"
-                                                @onclick="() => ToggleSwitch(comp.Id)"
-                                                @onclick:stopPropagation="true">
-                                            <i class="bi bi-toggle-@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "on" : "off")"></i>
-                                            <span>@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "Zapnuto" : "Vypnuto")</span>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            @if (_circuitState.CircuitClosed && _circuitState.HasPower)
-            {
-                <div class="circuit-calculations">
-                    <h6 class="calculations-title">
-                        <i class="bi bi-calculator-fill"></i>
-                        Výpočty obvodu
-                    </h6>
-                    <div class="calculations-grid">
-                        <div class="calc-item calc-voltage">
-                            <i class="bi bi-lightning-fill"></i>
-                            <div class="calc-content">
-                                <span class="calc-label">Napětí</span>
-                                <span class="calc-value">@_circuitState.Voltage.ToString("F1") V</span>
-                            </div>
-                        </div>
-                        <div class="calc-item calc-resistance">
-                            <i class="bi bi-activity"></i>
-                            <div class="calc-content">
-                                <span class="calc-label">Celkový odpor</span>
-                                <span class="calc-value">@_circuitState.TotalResistance.ToString("F1") Ω</span>
-                            </div>
-                        </div>
-                        <div class="calc-item calc-current">
-                            <i class="bi bi-arrow-repeat"></i>
-                            <div class="calc-content">
-                                <span class="calc-label">Proud</span>
-                                <span class="calc-value">@_circuitState.Current.ToString("F2") A</span>
-                            </div>
-                        </div>
-                        <div class="calc-item calc-power">
-                            <i class="bi bi-fire"></i>
-                            <div class="calc-content">
-                                <span class="calc-label">Výkon</span>
-                                <span class="calc-value">@_circuitState.Power.ToString("F1") W</span>
-                            </div>
-                        </div>
-                    </div>
-                    @if (!string.IsNullOrEmpty(_circuitState.Warning))
-                    {
-                        <div class="circuit-warning">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <span>@_circuitState.Warning</span>
-                        </div>
-                    }
-                </div>
-            }
-
-            <div class="circuit-actions">
-                <button class="action-btn btn-reset" @onclick="Reset">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Resetovat obvod</span>
+                <button class="pill" @onclick="() => AddComponent(type)" aria-label="Přidat @GetComponentTypeLabel(type)">
+                    <i data-lucide="@GetIconName("", type, false, false)"></i>
+                    <span>@GetComponentTypeLabel(type)</span>
                 </button>
-            </div>
+            }
+        </div>
+    }
+
+    @if (_circuitState.HasPower || !_circuitState.CircuitClosed)
+    {
+        <div class="circuit-status @(_circuitState.HasPower && _circuitState.CircuitClosed ? "status-good" : "status-warn")">
+            @if (_circuitState.HasPower && _circuitState.CircuitClosed)
+            {
+                <i data-lucide="zap"></i>
+                <span>Obvod je uzavřený a má napájení!</span>
+            }
+            else if (!_circuitState.HasPower)
+            {
+                <i data-lucide="alert-triangle"></i>
+                <span>Chybí zdroj napájení - přidej baterii nebo sluneční článek do obvodu.</span>
+            }
+            else
+            {
+                <i data-lucide="alert-triangle"></i>
+                <span>Obvod není uzavřený - propoj všechny komponenty do smyčky nebo zapni přepínač.</span>
+            }
+        </div>
+    }
+
+    @if (_components.Any(c => c.Type is "battery" or "resistor" or "bulb" or "capacitor" or "switch" or "fuse" or "photoresistor" or "solarcell" or "pushbutton"))
+    {
+        <div class="settings-grid">
+            @foreach (var comp in _components.Where(c => c.Type is "battery" or "resistor" or "bulb" or "capacitor" or "switch" or "fuse" or "photoresistor" or "solarcell" or "pushbutton"))
+            {
+                <div class="setting-card">
+                    <span class="setting-label">@comp.Label</span>
+                    @if (comp.Type == "switch")
+                    {
+                        <button type="button" class="pill @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "pill-on" : "")"
+                                @onclick="() => ToggleSwitch(comp.Id)" @onclick:stopPropagation="true">
+                            <i data-lucide="@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "toggle-right" : "toggle-left")"></i>
+                            @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "Zapnuto" : "Vypnuto")
+                        </button>
+                    }
+                    else if (comp.Type == "pushbutton")
+                    {
+                        <button type="button" class="pill @(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "pill-on" : "")"
+                                @onmousedown="() => SetPushButtonState(comp.Id, true)"
+                                @onmouseup="() => SetPushButtonState(comp.Id, false)"
+                                @onmouseleave="() => SetPushButtonState(comp.Id, false)"
+                                @onmousedown:stopPropagation="true">
+                            <i data-lucide="@(_circuitState.SwitchStates.GetValueOrDefault(comp.Id, false) ? "circle-dot" : "circle")"></i>
+                            Drž pro sepnutí
+                        </button>
+                    }
+                    else if (comp.Type == "photoresistor")
+                    {
+                        <div class="control-slider">
+                            <input type="range" min="0" max="100" step="5" @bind="comp.Value" @bind:after="EvaluateCircuit" />
+                            <span class="unit">@comp.Value.ToString("0")% světla</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="input-with-unit">
+                            <input type="number" @bind="comp.Value" @bind:after="EvaluateCircuit" min="1" max="10000" step="@GetValueStep(comp.Type)" />
+                            <span class="unit">@GetUnit(comp.Type)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (_circuitState.Current > 0)
+    {
+        <div class="calculations-grid">
+            <div class="calc-item"><span class="calc-label">Napětí</span><span class="calc-value">@_circuitState.Voltage.ToString("F1") V</span></div>
+            <div class="calc-item"><span class="calc-label">Odpor</span><span class="calc-value">@_circuitState.TotalResistance.ToString("F1") Ω</span></div>
+            <div class="calc-item"><span class="calc-label">Proud</span><span class="calc-value">@_circuitState.Current.ToString("F2") A</span></div>
+            <div class="calc-item"><span class="calc-label">Výkon</span><span class="calc-value">@_circuitState.Power.ToString("F1") W</span></div>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_circuitState.Warning))
+    {
+        <div class="circuit-status status-warn"><i data-lucide="alert-triangle"></i><span>@_circuitState.Warning</span></div>
+    }
+
+    <div class="exercise-actions">
+        <button class="pill" @onclick="Reset"><i data-lucide="rotate-ccw"></i> Znovu</button>
+        <span class="exercise-actions-spacer"></span>
+        <div class="tooltip">
+            <button class="help-btn" type="button" aria-label="Návod k ovládání"><i data-lucide="help-circle"></i></button>
+            <span class="tooltip-text">Přetáhni komponenty na plochu • Klikni na dvě komponenty pro spojení vodičem • Pravé tlačítko pro smazání komponenty nebo vodiče</span>
         </div>
     </div>
 </div>
 
 <style>
     .circuit-simulator {
-        width: 100%;
+        --wire-color: var(--color-neutral-500);
+        --wire-live-color: var(--color-accent-500);
     }
-    
-    .circuit-card {
-        background: var(--intro-bg);
-        border: none;
-        border-radius: 12px;
-        box-shadow: none;
-    }
-    
-    .circuit-card .card-body {
-        padding: 1.5rem;
-    }
-    
-    /* Info banner */
-    .circuit-info-banner {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--intro-light-bg);
-        border-radius: 10px;
-        margin-bottom: 1.5rem;
-        align-items: flex-start;
-    }
-    
-    .circuit-info-banner i {
-        font-size: 1.5rem;
-        color: var(--color-accent-strong);
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    
-    .circuit-info-banner div {
-        flex: 1;
-    }
-    
-    .circuit-info-banner strong {
-        display: block;
-        margin-bottom: 0.25rem;
-        color: var(--color-text);
-    }
-    
-    .circuit-info-banner span {
-        font-size: 0.9rem;
-        color: var(--color-text);
-        opacity: 0.85;
-    }
-    
-    /* Canvas container */
+
     .canvas-container {
         position: relative;
-        border: 3px solid var(--color-accent);
-        min-height: 500px;
-        background: var(--intro-light-bg);
-        border-radius: 10px;
+        min-height: 420px;
+        background: var(--color-neutral-100);
+        border: 2px dashed var(--color-divider);
+        border-radius: var(--radius-lg);
         overflow: hidden;
         user-select: none;
-        margin-bottom: 1.5rem;
     }
-    
-    /* Circuit component */
+
+    .wires-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .wire {
+        stroke: var(--wire-color);
+        stroke-width: 3;
+    }
+
+    .wire-live {
+        stroke: var(--wire-live-color);
+        stroke-width: 4;
+        filter: drop-shadow(0 0 6px var(--wire-live-color));
+    }
+
+    .wire-pending {
+        stroke: var(--color-accent-2-600);
+        stroke-width: 3;
+        stroke-dasharray: 5, 5;
+    }
+
+    .wire-hit {
+        stroke: transparent;
+        stroke-width: 16px;
+        pointer-events: stroke;
+        cursor: pointer;
+    }
+
     .circuit-component {
+        position: absolute;
+        z-index: 10;
         width: 80px;
         height: 80px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: var(--color-accent-2);
-        border: 2px solid var(--color-accent);
-        border-radius: 8px;
-        transition: all 0.2s;
-        user-select: none;
+        gap: 2px;
+        background: var(--color-surface);
+        border: 2px solid var(--color-divider);
+        border-radius: var(--radius-md);
+        transition: border-color 120ms ease, transform 120ms ease;
     }
-    
+
     .circuit-component:hover {
-        border-color: var(--color-accent-strong);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transform: scale(1.05);
+        border-color: var(--color-accent-500);
     }
-    
+
     .circuit-component.selected {
-        border-color: var(--color-accent-strong);
-        border-width: 3px;
-        box-shadow: 0 0 0 3px rgba(209, 117, 166, 0.25);
+        border-color: var(--color-accent-600);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-600) 30%, transparent);
     }
-    
-    .component-label {
-        font-size: 0.7rem;
-        text-align: center;
-        margin-top: 4px;
-        font-weight: bold;
+
+    .component-icon svg {
+        width: 28px;
+        height: 28px;
     }
-    
-    .component-value {
-        font-size: 0.65rem;
-        text-align: center;
-        color: #6c757d;
-        font-weight: normal;
+
+    .component-icon.bulb-lit svg,
+    .component-icon.bulb-bright svg {
+        animation: circuit-glow 0.6s ease-in-out infinite alternate;
     }
-    
-    .component-metrics {
-        font-size: 0.6rem;
-        text-align: center;
-        color: #0d6efd;
-        font-weight: bold;
-        background: rgba(13, 110, 253, 0.1);
-        border-radius: 3px;
-        padding: 1px 3px;
-        margin-top: 2px;
+
+    @@keyframes circuit-glow {
+        from { filter: drop-shadow(0 0 4px currentColor); }
+        to { filter: drop-shadow(0 0 12px currentColor); }
     }
-    
-    .bulb-lit {
-        animation: glow 0.5s ease-in-out infinite alternate;
+
+    .component-icon.spin svg {
+        animation: circuit-spin 1s linear infinite;
     }
-    
-    .bulb-bright {
-        animation: glow-bright 0.5s ease-in-out infinite alternate;
-    }
-    
-    .bulb-dim {
-        animation: glow-dim 1s ease-in-out infinite alternate;
-    }
-    
-    @@keyframes glow {
-        from { filter: drop-shadow(0 0 5px #ffc107); }
-        to { filter: drop-shadow(0 0 15px #ffc107); }
-    }
-    
-    @@keyframes glow-bright {
-        from { filter: drop-shadow(0 0 10px #ffc107) drop-shadow(0 0 20px #ffc107); }
-        to { filter: drop-shadow(0 0 20px #ffc107) drop-shadow(0 0 30px #ffc107); }
-    }
-    
-    @@keyframes glow-dim {
-        from { filter: drop-shadow(0 0 2px #ff8800); }
-        to { filter: drop-shadow(0 0 5px #ff8800); }
-    }
-    
-    @@keyframes spin {
-        from { transform: rotate(0deg); }
+
+    @@keyframes circuit-spin {
         to { transform: rotate(360deg); }
     }
-    
-    /* Toolbar */
-    .circuit-toolbar {
-        margin-bottom: 1.5rem;
-    }
-    
-    .toolbar-section {
-        background: var(--intro-light-bg);
-        padding: 1.25rem;
-        border-radius: 10px;
-    }
-    
-    .toolbar-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
+
+    .component-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-align: center;
         color: var(--color-text);
-        font-size: 1rem;
-        text-decoration: none;
     }
-    
-    .toolbar-title i {
-        color: var(--color-accent-strong);
+
+    .component-value {
+        font-size: 10px;
+        color: var(--color-neutral-600);
     }
-    
+
+    .component-metrics {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--color-accent-700);
+    }
+
     .component-buttons {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 0.75rem;
-    }
-    
-    .component-btn {
         display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        flex-wrap: wrap;
+        gap: var(--space-2);
     }
-    
-    .component-btn i {
-        font-size: 1.25rem;
-    }
-    
-    .component-btn span {
-        font-size: 0.9rem;
-    }
-    
-    /* Status messages */
+
     .circuit-status {
-        margin-bottom: 1.5rem;
-    }
-    
-    .status-message {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem 1.25rem;
-        border-radius: 10px;
-        align-items: flex-start;
-    }
-    
-    .status-message i {
-        font-size: 1.5rem;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    
-    .status-message div {
-        flex: 1;
-    }
-    
-    .status-message strong {
-        display: block;
-        margin-bottom: 0.25rem;
-    }
-    
-    .status-message span {
-        font-size: 0.9rem;
-        opacity: 0.9;
-    }
-    
-    .status-success {
-        background: var(--good-bg);
-        border: 2px solid var(--good-border);
-        color: var(--good-text);
-    }
-    
-    .status-success i {
-        color: var(--good);
-    }
-    
-    .status-warning {
-        background: var(--warning-bg);
-        border: 2px solid var(--warning-border);
-        color: var(--warning-text);
-    }
-    
-    .status-warning i {
-        color: var(--warning-text);
-    }
-    
-    .status-info {
-        background: rgba(13, 110, 253, 0.1);
-        border: 2px solid rgba(13, 110, 253, 0.3);
-        color: #0d6efd;
-    }
-    
-    .status-info i {
-        color: #0d6efd;
-    }
-    
-    /* Component settings */
-    .component-settings {
-        background: var(--intro-light-bg);
-        padding: 1.25rem;
-        border-radius: 10px;
-        margin-bottom: 1.5rem;
-    }
-    
-    .settings-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        color: var(--color-text);
-        font-size: 1rem;
-        text-decoration: none;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-md);
+        font-size: 14px;
     }
-    
-    .settings-title i {
-        color: var(--color-accent-strong);
+
+    .circuit-status.status-good {
+        background: var(--color-accent-2-100);
+        color: var(--color-accent-2-900);
     }
-    
+
+    .circuit-status.status-warn {
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+    }
+
     .settings-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: var(--space-3);
     }
-    
+
     .setting-card {
-        background: var(--color-accent);
-        border: 2px solid var(--color-accent);
-        border-radius: 8px;
-        padding: 1rem;
-        transition: all 0.2s;
-    }
-    
-    .setting-card:hover {
-        border-color: var(--color-accent-2);
-    }
-    
-    .setting-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.75rem;
-    }
-    
-    .setting-header i {
-        font-size: 1.25rem;
-        color: #000;
-    }
-    
-    .setting-label {
-        font-weight: 600;
-        color: var(--color-button-text);
-        font-size: 0.95rem;
-    }
-    
-    .setting-control {
-        width: 100%;
-    }
-    
-    .control-group {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        background: var(--color-neutral-100);
     }
-    
-    .control-group label {
-        font-size: 0.85rem;
-        color: var(--color-button-text);
-        font-weight: 500;
-        opacity: 0.9;
+
+    .setting-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text);
     }
-    
+
     .input-with-unit {
         display: flex;
         align-items: stretch;
-        background: var(--intro-light-bg);
-        border: 2px solid var(--intro-light-bg);
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         overflow: hidden;
-        transition: all 0.2s;
+        border: 1px solid var(--color-divider);
+        background: var(--color-surface);
     }
-    
-    .input-with-unit:focus-within {
-        border-color: var(--color-accent-strong);
-    }
-    
+
     .input-with-unit input {
         flex: 1;
-        padding: 0.5rem;
+        min-width: 0;
+        padding: 6px 8px;
         border: none;
         background: transparent;
         color: var(--color-text);
-        font-size: 0.95rem;
-        font-weight: 500;
-        /* focus-visible styling is provided by focus-accessibility.css */
+        font: inherit;
     }
-    
+
     .input-with-unit .unit {
         display: flex;
         align-items: center;
-        padding: 0 0.75rem;
-        background: var(--color-accent-2);
-        color: var(--color-button-text);
+        padding: 0 10px;
+        background: var(--color-neutral-200);
+        color: var(--color-neutral-700);
+        font-size: 12px;
         font-weight: 600;
-        font-size: 0.85rem;
-        border-left: 2px solid var(--intro-light-bg);
     }
-    
-    .switch-toggle i {
-        font-size: 1.25rem;
-    }
-    
-    .switch-toggle.switch-on {
-        background: var(--good-bg);
-        border-color: var(--good-border);
-        color: var(--good-text);
-    }
-    
-    .switch-toggle.switch-on:hover {
-        background: var(--good-border);
-    }
-    
-    .switch-toggle.switch-off {
-        background: var(--intro-light-bg);
-        border-color: var(--intro-light-bg);
-        color: var(--color-text);
-    }
-    
-    .switch-toggle.switch-off:hover {
-        border-color: var(--color-accent-2);
-    }
-    
-    /* Circuit calculations */
-    .circuit-calculations {
-        background: var(--intro-light-bg);
-        padding: 1.25rem;
-        border-radius: 10px;
-        margin-bottom: 1.5rem;
-        border: 2px solid var(--color-accent);
-    }
-    
-    .calculations-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0 0 1rem 0;
-        color: var(--color-text);
-        font-size: 1rem;
-        text-decoration: none;
-    }
-    
-    .calculations-title i {
-        color: var(--color-accent-strong);
-    }
-    
-    .calculations-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 1rem;
-    }
-    
-    .calc-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem;
-        background: var(--color-accent);
-        border: 2px solid var(--color-accent);
-        border-radius: 8px;
-        transition: all 0.2s;
-    }
-    
-    .calc-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    
-    .calc-item i {
-        font-size: 1.75rem;
-        flex-shrink: 0;
-        color: #000 !important;
-    }
-    
-    .calc-content {
+
+    .control-slider {
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: var(--space-1);
     }
-    
+
+    .control-slider input[type="range"] {
+        width: 100%;
+        accent-color: var(--color-accent-600);
+    }
+
+    .control-slider .unit {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-neutral-700);
+    }
+
+    .calculations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: var(--space-3);
+    }
+
+    .calc-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        background: var(--color-neutral-100);
+    }
+
     .calc-label {
-        font-size: 0.75rem;
-        color: var(--color-button-text);
-        opacity: 0.8;
-        font-weight: 500;
+        font-size: 11px;
+        color: var(--color-neutral-600);
     }
-    
+
     .calc-value {
-        font-size: 1.1rem;
-        color: var(--color-button-text);
+        font-size: 16px;
         font-weight: 700;
+        color: var(--color-text);
     }
-    
-    /* Icons in calculations are black */
-    
-    .circuit-warning {
-        margin-top: 1rem;
-        padding: 0.75rem 1rem;
-        background: var(--warning-bg);
-        border: 2px solid var(--warning-border);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        color: var(--warning-text);
-    }
-    
-    .circuit-warning i {
-        font-size: 1.25rem;
-        flex-shrink: 0;
-    }
-    
-    /* Actions */
-    .circuit-actions {
-        display: flex;
-        justify-content: flex-start;
-        gap: 1rem;
-    }
-    
-    .action-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .action-btn i {
-        font-size: 1.25rem;
-    }
-    
-    /* Dark mode */
-    body.dark-mode .circuit-card {
-        background: var(--intro-bg-dark);
-    }
-    
-    body.dark-mode .circuit-info-banner {
-        background: var(--intro-light-bg-dark);
-    }
-    
-    body.dark-mode .circuit-info-banner strong,
-    body.dark-mode .circuit-info-banner span {
-        color: var(--color-text-dark);
-    }
-    
-    body.dark-mode .circuit-info-banner i {
-        color: var(--color-accent-strong-dark);
-    }
-    
-    body.dark-mode .canvas-container {
-        background: var(--intro-light-bg-dark);
-        border-color: var(--color-accent-dark);
-    }
-    
-    body.dark-mode .toolbar-section,
-    body.dark-mode .component-settings,
-    body.dark-mode .circuit-calculations {
-        background: var(--intro-light-bg-dark);
-    }
-    
-    body.dark-mode .circuit-calculations {
-        border-color: var(--color-accent-dark);
-    }
-    
-    body.dark-mode .toolbar-title,
-    body.dark-mode .settings-title,
-    body.dark-mode .calculations-title {
-        color: var(--color-text-dark);
-        text-decoration: none;
-    }
-    
-    body.dark-mode .toolbar-title i,
-    body.dark-mode .settings-title i,
-    body.dark-mode .calculations-title i {
-        color: var(--color-accent-strong-dark);
-    }
-    
-    body.dark-mode .circuit-component {
-        background: var(--color-accent-2-dark);
-    }
-    
-    body.dark-mode .setting-header i {
-        color: #fff;
-    }
-    
-    body.dark-mode .calc-item i {
-        color: #fff !important;
-    }
-    
-    body.dark-mode .setting-card {
-        background: var(--color-accent-dark);
-        border-color: var(--color-accent-dark);
-    }
-    
-    body.dark-mode .setting-card:hover {
-        border-color: var(--color-accent-2-dark);
-    }
-    
-    body.dark-mode .setting-label {
-        color: var(--color-button-text-dark);
-    }
-    
-    body.dark-mode .control-group label {
-        color: var(--color-button-text-dark);
-    }
-    
-    body.dark-mode .input-with-unit {
-        background: var(--intro-light-bg-dark);
-        border-color: var(--intro-light-bg-dark);
-    }
-    
-    body.dark-mode .input-with-unit:focus-within {
-        border-color: var(--color-accent-strong-dark);
-    }
-    
-    body.dark-mode .input-with-unit input {
-        color: var(--color-text-dark);
-    }
-    
-    body.dark-mode .input-with-unit .unit {
-        background: var(--color-accent-2-dark);
-        color: var(--color-button-text-dark);
-        border-left-color: var(--intro-light-bg-dark);
-    }
-    
-    body.dark-mode .switch-toggle.switch-on {
-        background: var(--test-excellent-bg-dark);
-        border-color: var(--test-excellent-border-dark);
-        color: var(--good);
-    }
-    
-    body.dark-mode .switch-toggle.switch-on:hover {
-        background: var(--test-excellent-border-dark);
-    }
-    
-    body.dark-mode .switch-toggle.switch-off {
-        background: var(--intro-light-bg-dark);
-        border-color: var(--intro-light-bg-dark);
-        color: var(--color-text-dark);
-    }
-    
-    body.dark-mode .switch-toggle.switch-off:hover {
-        border-color: var(--color-accent-2-dark);
-    }
-    
-    body.dark-mode .calc-item {
-        background: var(--color-accent-dark);
-        border-color: var(--color-accent-dark);
-    }
-    
-    body.dark-mode .calc-label,
-    body.dark-mode .calc-value {
-        color: var(--color-button-text-dark);
-    }
-    
-    body.dark-mode .circuit-warning {
-        background: var(--test-good-bg-dark);
-        border-color: var(--test-good-border-dark);
-        color: var(--test-good-text-dark);
-    }
-    
 
-    
-    body.dark-mode .status-success {
-        background: var(--test-excellent-bg-dark);
-        border-color: var(--test-excellent-border-dark);
-        color: var(--good);
-    }
-    
-    body.dark-mode .status-warning {
-        background: var(--test-good-bg-dark);
-        border-color: var(--test-good-border-dark);
-        color: var(--test-good-text-dark);
-    }
-    
-    /* Mobile responsiveness */
-    @@media (max-width: 768px) {
-        .circuit-card .card-body {
-            padding: 1rem;
-        }
-        
-        .circuit-info-banner {
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        .circuit-info-banner i {
-            font-size: 1.25rem;
-        }
-        
-        .component-buttons {
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 0.5rem;
-        }
-        
-        .component-btn {
-            padding: 0.6rem 0.75rem;
-            font-size: 0.85rem;
-        }
-        
-        .settings-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .calculations-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-        }
-        
-        .calc-item {
-            padding: 0.75rem;
-        }
-        
-        .calc-item i {
-            font-size: 1.5rem;
-        }
-        
-        .calc-value {
-            font-size: 1rem;
-        }
-        
+    @@media (max-width: 640px) {
         .canvas-container {
-            min-height: 400px;
+            min-height: 320px;
         }
     }
-    
-    @@media (max-width: 480px) {
-        .calculations-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .component-buttons {
-            grid-template-columns: 1fr;
-        }
-    }
-
 </style>
 
 @code {
     [Parameter, EditorRequired]
     public InteractiveExerciseResponse Exercise { get; set; } = null!;
 
-    private ElementReference _canvasRef;
-    private List<ComponentInstance> _components = new();
+    private List<PlacedComponent> _components = new();
     private List<ConnectionInstance> _connections = new();
+    private List<string> _availableTypes = new();
     private int _componentCounter = 1;
-    
-    // Drag & drop state
+    private int? _loadedExerciseId;
+
     private string? _draggingComponent;
     private double _dragOffsetX;
     private double _dragOffsetY;
     private double _mouseDownX;
     private double _mouseDownY;
     private bool _hasDragged;
-    
-    // Connection state
+
     private string? _connectingFrom;
     private string? _selectedComponent;
     private double _mouseX;
     private double _mouseY;
-    
-    // Circuit state
+
     private CircuitState _circuitState = new();
+
+    private static readonly string[] DefaultPalette =
+    {
+        "battery", "bulb", "switch", "resistor", "capacitor", "led", "motor", "buzzer", "fuse", "ammeter",
+        "voltmeter", "coil", "photoresistor", "solarcell", "pushbutton"
+    };
 
     protected override void OnParametersSet()
     {
-        Reset();
+        if (_loadedExerciseId == Exercise.Id) return;
+        _loadedExerciseId = Exercise.Id;
+        LoadConfig();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private void LoadConfig()
+    {
+        _components.Clear();
+        _connections.Clear();
+        _availableTypes.Clear();
+        _circuitState = new CircuitState();
+        _componentCounter = 1;
+
+        try
+        {
+            var doc = JsonDocument.Parse(Exercise.ConfigJson);
+
+            if (doc.RootElement.TryGetProperty("components", out var componentsArray))
+            {
+                foreach (var item in componentsArray.EnumerateArray())
+                {
+                    var type = item.GetProperty("type").GetString() ?? "";
+                    var comp = new PlacedComponent
+                    {
+                        Id = item.GetProperty("id").GetString() ?? "",
+                        Type = type,
+                        Label = GetComponentTypeLabel(type),
+                        X = item.TryGetProperty("x", out var x) ? x.GetDouble() : 50,
+                        Y = item.TryGetProperty("y", out var y) ? y.GetDouble() : 50,
+                        Value = item.TryGetProperty("voltage", out var v) ? v.GetDouble()
+                              : item.TryGetProperty("resistance", out var r) ? r.GetDouble()
+                              : item.TryGetProperty("lightLevel", out var l) ? l.GetDouble()
+                              : 0
+                    };
+                    _components.Add(comp);
+
+                    if (type == "switch" && item.TryGetProperty("state", out var state) && state.GetString() == "on")
+                    {
+                        _circuitState.SwitchStates[comp.Id] = true;
+                    }
+                }
+            }
+
+            if (doc.RootElement.TryGetProperty("availableComponents", out var availableArray))
+            {
+                foreach (var item in availableArray.EnumerateArray())
+                {
+                    var type = item.GetProperty("type").GetString();
+                    if (!string.IsNullOrEmpty(type)) _availableTypes.Add(type);
+                }
+            }
+        }
+        catch
+        {
+            // Neplatný nebo prázdný ConfigJson - pokračujeme s prázdnou plochou.
+        }
+
+        // "wire" is never something a student places - a wire is created by clicking
+        // two components, so it must not appear as an addable palette item.
+        _availableTypes = _availableTypes.Where(t => t != "wire").Distinct().ToList();
+
+        if (_availableTypes.Count == 0 && _components.Count == 0)
+        {
+            _availableTypes.AddRange(DefaultPalette);
+        }
+
+        // A battery is always offered, even when the exercise's ConfigJson restricts
+        // the palette to a smaller set, so the student can always power a circuit.
+        if (!_availableTypes.Contains("battery"))
+        {
+            _availableTypes.Insert(0, "battery");
+        }
+
+        EvaluateCircuit();
     }
 
     private void AddComponent(string type)
     {
-        var id = $"comp_{_componentCounter++}";
+        var id = $"usr_{_componentCounter++}";
         var defaultValue = type switch
         {
             "battery" => 9.0,
             "resistor" => 100.0,
             "bulb" => 10.0,
             "capacitor" => 100.0,
+            "fuse" => 2.0,
+            "solarcell" => 6.0,
+            "photoresistor" => 50.0,
             _ => 0.0
         };
-        
-        _components.Add(new ComponentInstance
+
+        _components.Add(new PlacedComponent
         {
             Id = id,
             Type = type,
@@ -1073,19 +559,18 @@
 
     private void OnComponentMouseDown(MouseEventArgs e, string componentId)
     {
-        if (e.Button == 0) // Left click
+        if (e.Button != 0) return;
+
+        _draggingComponent = componentId;
+        _hasDragged = false;
+        _mouseDownX = e.ClientX;
+        _mouseDownY = e.ClientY;
+
+        var comp = _components.FirstOrDefault(c => c.Id == componentId);
+        if (comp != null)
         {
-            _draggingComponent = componentId;
-            _hasDragged = false;
-            _mouseDownX = e.ClientX;
-            _mouseDownY = e.ClientY;
-            
-            var comp = _components.FirstOrDefault(c => c.Id == componentId);
-            if (comp != null)
-            {
-                _dragOffsetX = e.ClientX - comp.X;
-                _dragOffsetY = e.ClientY - comp.Y;
-            }
+            _dragOffsetX = e.ClientX - comp.X;
+            _dragOffsetY = e.ClientY - comp.Y;
         }
     }
 
@@ -1093,29 +578,19 @@
     {
         _mouseX = e.OffsetX;
         _mouseY = e.OffsetY;
-        
-        if (_draggingComponent != null)
+
+        if (_draggingComponent == null) return;
+
+        var distance = Math.Sqrt(Math.Pow(e.ClientX - _mouseDownX, 2) + Math.Pow(e.ClientY - _mouseDownY, 2));
+        if (distance > 5) _hasDragged = true;
+
+        if (_hasDragged)
         {
-            var distance = Math.Sqrt(Math.Pow(e.ClientX - _mouseDownX, 2) + Math.Pow(e.ClientY - _mouseDownY, 2));
-            
-            // Pokud se myš pohnula víc než 5px, považujeme to za drag
-            if (distance > 5)
+            var comp = _components.FirstOrDefault(c => c.Id == _draggingComponent);
+            if (comp != null)
             {
-                _hasDragged = true;
-            }
-            
-            if (_hasDragged)
-            {
-                var comp = _components.FirstOrDefault(c => c.Id == _draggingComponent);
-                if (comp != null)
-                {
-                    comp.X = e.ClientX - _dragOffsetX;
-                    comp.Y = e.ClientY - _dragOffsetY;
-                    
-                    // Keep within bounds
-                    comp.X = Math.Max(0, Math.Min(comp.X, 800));
-                    comp.Y = Math.Max(0, Math.Min(comp.Y, 420));
-                }
+                comp.X = Math.Max(0, Math.Min(e.ClientX - _dragOffsetX, 800));
+                comp.Y = Math.Max(0, Math.Min(e.ClientY - _dragOffsetY, 340));
             }
         }
     }
@@ -1124,10 +599,9 @@
     {
         if (_draggingComponent != null && !_hasDragged)
         {
-            // Bylo to jen kliknutí, ne tažení
             OnComponentClick(_draggingComponent);
         }
-        
+
         _draggingComponent = null;
         _hasDragged = false;
     }
@@ -1136,8 +610,7 @@
     {
         var comp = _components.FirstOrDefault(c => c.Id == componentId);
         if (comp == null) return;
-        
-        // Create connection mode - platí pro všechny komponenty
+
         if (_connectingFrom == null)
         {
             _connectingFrom = componentId;
@@ -1145,21 +618,26 @@
         }
         else if (_connectingFrom != componentId)
         {
-            // Create connection
-            var connId = $"conn_{_connections.Count + 1}";
-            _connections.Add(new ConnectionInstance
+            var alreadyWired = _connections.Any(c =>
+                (c.From == _connectingFrom && c.To == componentId) ||
+                (c.To == _connectingFrom && c.From == componentId));
+
+            if (!alreadyWired)
             {
-                Id = connId,
-                From = _connectingFrom,
-                To = componentId
-            });
+                _connections.Add(new ConnectionInstance
+                {
+                    Id = $"conn_{_connections.Count + 1}",
+                    From = _connectingFrom,
+                    To = componentId
+                });
+            }
+
             _connectingFrom = null;
             _selectedComponent = null;
             EvaluateCircuit();
         }
         else
         {
-            // Clicked same component - cancel connection
             _connectingFrom = null;
             _selectedComponent = null;
         }
@@ -1167,181 +645,132 @@
 
     private void OnComponentRightClick(string componentId)
     {
-        // Remove component and all its connections
+        var comp = _components.FirstOrDefault(c => c.Id == componentId);
+        if (comp == null) return;
+
         _components.RemoveAll(c => c.Id == componentId);
         _connections.RemoveAll(c => c.From == componentId || c.To == componentId);
-        
+
         if (_selectedComponent == componentId)
         {
             _selectedComponent = null;
             _connectingFrom = null;
         }
-        
+
+        EvaluateCircuit();
+    }
+
+    private void OnWireRightClick(string connectionId)
+    {
+        _connections.RemoveAll(c => c.Id == connectionId);
         EvaluateCircuit();
     }
 
     private void ToggleSwitch(string switchId)
     {
-        var currentState = _circuitState.SwitchStates.GetValueOrDefault(switchId, false);
-        _circuitState.SwitchStates[switchId] = !currentState;
+        var current = _circuitState.SwitchStates.GetValueOrDefault(switchId, false);
+        _circuitState.SwitchStates[switchId] = !current;
         EvaluateCircuit();
-        StateHasChanged();
+    }
+
+    // Unlike ToggleSwitch, a push-button only conducts while actively held down.
+    private void SetPushButtonState(string buttonId, bool pressed)
+    {
+        _circuitState.SwitchStates[buttonId] = pressed;
+        EvaluateCircuit();
     }
 
     private void EvaluateCircuit()
     {
-        // Preserve switch states when creating new circuit state
         var previousSwitchStates = new Dictionary<string, bool>(_circuitState.SwitchStates);
-        _circuitState = new CircuitState();
-        _circuitState.SwitchStates = previousSwitchStates;
-        
-        // Check for battery
-        var batteries = _components.Where(c => c.Type == "battery").ToList();
-        if (!batteries.Any())
+        _circuitState = new CircuitState { SwitchStates = previousSwitchStates };
+
+        // "solarcell" is a second power-source type alongside "battery" - both contribute voltage the same way.
+        var powerSources = _components.Where(c => c.Type is "battery" or "solarcell").ToList();
+        if (!powerSources.Any())
         {
             _circuitState.HasPower = false;
             return;
         }
-        
+
         _circuitState.HasPower = true;
-        _circuitState.Voltage = batteries.Sum(b => b.Value); // Série - napětí se sčítá
-        
-        // Build graph
+        _circuitState.Voltage = powerSources.Sum(b => b.Value);
+
         var graph = new Dictionary<string, List<string>>();
-        foreach (var comp in _components)
-        {
-            graph[comp.Id] = new List<string>();
-        }
-        
+        foreach (var comp in _components) graph[comp.Id] = new List<string>();
         foreach (var conn in _connections)
         {
-            if (graph.ContainsKey(conn.From))
-                graph[conn.From].Add(conn.To);
-            if (graph.ContainsKey(conn.To))
-                graph[conn.To].Add(conn.From);
+            if (graph.ContainsKey(conn.From)) graph[conn.From].Add(conn.To);
+            if (graph.ContainsKey(conn.To)) graph[conn.To].Add(conn.From);
         }
-        
-        // Pro každou baterii hledáme uzavřenou smyčku
-        foreach (var battery in batteries)
+
+        foreach (var source in powerSources)
         {
-            // Hledáme cestu zpět k baterii (uzavřený obvod)
-            var pathFound = FindClosedCircuit(battery.Id, battery.Id, new HashSet<string>(), graph, new List<string>());
-            
-            if (pathFound.found)
+            var pathFound = FindClosedCircuit(source.Id, source.Id, new HashSet<string>(), graph, new List<string>());
+            if (!pathFound.found) continue;
+
+            _circuitState.CircuitClosed = true;
+            var visited = new HashSet<string>(pathFound.path);
+
+            double totalResistance = 0;
+            foreach (var compId in visited)
             {
-                _circuitState.CircuitClosed = true;
-                
-                // Označit všechny komponenty a spojení v cestě jako aktivní
-                var visited = new HashSet<string>(pathFound.path);
-                
-                // Vypočítat celkový odpor v cestě
-                double totalResistance = 0;
-                var bulbsInPath = new List<ComponentInstance>();
-                
-                foreach (var compId in visited)
+                var comp = _components.FirstOrDefault(c => c.Id == compId);
+                if (comp == null) continue;
+
+                totalResistance += comp.Type switch
                 {
-                    var comp = _components.FirstOrDefault(c => c.Id == compId);
-                    if (comp != null)
-                    {
-                        if (comp.Type == "resistor")
-                        {
-                            totalResistance += comp.Value;
-                        }
-                        else if (comp.Type == "bulb")
-                        {
-                            // R = U² / P (odpor žárovky při daném výkonu a napětí)
-                            var bulbResistance = (_circuitState.Voltage * _circuitState.Voltage) / comp.Value;
-                            totalResistance += bulbResistance;
-                            bulbsInPath.Add(comp);
-                        }
-                        else if (comp.Type == "motor")
-                        {
-                            totalResistance += 5; // Motor má typicky malý odpor
-                        }
-                        else if (comp.Type == "led")
-                        {
-                            totalResistance += 100; // LED má vyšší odpor
-                        }
-                        else if (comp.Type == "buzzer")
-                        {
-                            totalResistance += 50;
-                        }
-                    }
-                }
-                
-                // Minimální odpor (aby nedošlo k dělení nulou)
-                if (totalResistance < 0.1)
-                    totalResistance = 0.1;
-                
-                _circuitState.TotalResistance = totalResistance;
-                
-                // Ohmův zákon: I = U / R
-                _circuitState.Current = _circuitState.Voltage / totalResistance;
-                
-                // Výkon: P = U * I
-                _circuitState.Power = _circuitState.Voltage * _circuitState.Current;
-                
-                // Kontrola žárovek
-                foreach (var bulb in bulbsInPath)
+                    "resistor" or "bulb" => comp.Value,
+                    "photoresistor" => GetPhotoresistorResistance(comp.Value),
+                    "motor" => 5,
+                    "led" => 100,
+                    "buzzer" => 50,
+                    "coil" => 2,
+                    _ => 0
+                };
+            }
+
+            if (totalResistance < 0.1) totalResistance = 0.1;
+
+            _circuitState.TotalResistance = totalResistance;
+            _circuitState.Current = _circuitState.Voltage / totalResistance;
+            _circuitState.Power = _circuitState.Voltage * _circuitState.Current;
+
+            var blownFuse = _components.FirstOrDefault(c =>
+                c.Type == "fuse" && visited.Contains(c.Id) && c.Value > 0 && _circuitState.Current > c.Value);
+            if (blownFuse != null)
+            {
+                _circuitState.BlownFuses.Add(blownFuse.Id);
+                _circuitState.CircuitClosed = false;
+                _circuitState.Warning = $"⚠️ Pojistka „{blownFuse.Label}“ shořela - proud {_circuitState.Current:F2}A překročil mez {blownFuse.Value:F1}A.";
+                continue;
+            }
+
+            if (_circuitState.Current > 3)
+            {
+                _circuitState.Warning = "⚠️ Obvodem prochází velký proud - zvyšte odpor nebo snižte napětí.";
+            }
+
+            foreach (var compId in visited)
+            {
+                var comp = _components.FirstOrDefault(c => c.Id == compId);
+                if (comp != null)
                 {
-                    var actualPower = _circuitState.Current * _circuitState.Current * ((_circuitState.Voltage * _circuitState.Voltage) / bulb.Value);
-                    
-                    _circuitState.ComponentMetrics[bulb.Id] = new ComponentMetrics
-                    {
-                        Current = _circuitState.Current,
-                        Voltage = _circuitState.Voltage,
-                        Power = actualPower
-                    };
-                    
-                    if (actualPower > bulb.Value * 1.5)
-                    {
-                        _circuitState.Warning = $"⚠️ {bulb.Label} je přetížená! ({actualPower:F1}W > {bulb.Value}W)";
-                    }
-                    else if (actualPower < bulb.Value * 0.5)
-                    {
-                        _circuitState.Warning = $"💡 {bulb.Label} svítí slabě ({actualPower:F1}W < {bulb.Value}W)";
-                    }
+                    _circuitState.ComponentMetrics[comp.Id] = new ComponentMetrics { Current = _circuitState.Current };
                 }
-                
-                // Metriky pro další komponenty
-                foreach (var compId in visited)
-                {
-                    var comp = _components.FirstOrDefault(c => c.Id == compId);
-                    if (comp != null && !_circuitState.ComponentMetrics.ContainsKey(comp.Id))
-                    {
-                        _circuitState.ComponentMetrics[comp.Id] = new ComponentMetrics
-                        {
-                            Current = _circuitState.Current,
-                            Voltage = _circuitState.Voltage,
-                            Power = _circuitState.Current * _circuitState.Current * (comp.Type == "resistor" ? comp.Value : 0)
-                        };
-                    }
-                }
-                
-                // Označit spojení jako živá
-                for (int i = 0; i < pathFound.path.Count - 1; i++)
-                {
-                    var from = pathFound.path[i];
-                    var to = pathFound.path[i + 1];
-                    
-                    var conn = _connections.FirstOrDefault(c => 
-                        (c.From == from && c.To == to) || 
-                        (c.To == from && c.From == to));
-                    
-                    if (conn != null)
-                    {
-                        _circuitState.LiveConnections.Add(conn.Id);
-                    }
-                }
-                
-                // Rozsviť žárovky v cestě
-                foreach (var bulb in _components.Where(c => c.Type == "bulb" || c.Type == "led" || c.Type == "motor" || c.Type == "buzzer"))
-                {
-                    if (visited.Contains(bulb.Id))
-                    {
-                        _circuitState.LitBulbs.Add(bulb.Id);
-                    }
-                }
+            }
+
+            foreach (var comp in _components.Where(c => c.Type is "bulb" or "led" or "motor" or "buzzer"))
+            {
+                if (visited.Contains(comp.Id)) _circuitState.LitComponents.Add(comp.Id);
+            }
+
+            for (int i = 0; i < pathFound.path.Count - 1; i++)
+            {
+                var conn = _connections.FirstOrDefault(c =>
+                    (c.From == pathFound.path[i] && c.To == pathFound.path[i + 1]) ||
+                    (c.To == pathFound.path[i] && c.From == pathFound.path[i + 1]));
+                if (conn != null) _circuitState.LiveConnections.Add(conn.Id);
             }
         }
     }
@@ -1350,38 +779,30 @@
     {
         path.Add(current);
         visited.Add(current);
-        
+
         var currentComp = _components.FirstOrDefault(c => c.Id == current);
-        
-        // Pokud je vypínač vypnutý, blokuje cestu
-        if (currentComp?.Type == "switch" && !_circuitState.SwitchStates.GetValueOrDefault(current, false) && path.Count > 1)
+        if (currentComp?.Type is "switch" or "pushbutton" && !_circuitState.SwitchStates.GetValueOrDefault(current, false) && path.Count > 1)
         {
             path.RemoveAt(path.Count - 1);
             visited.Remove(current);
             return (false, path);
         }
-        
-        // Procházíme sousedy
+
         foreach (var neighbor in graph.GetValueOrDefault(current, new List<string>()))
         {
-            // Pokud jsme se vrátili k začátku a cesta má aspoň 3 uzly (uzavřená smyčka)
             if (neighbor == start && path.Count >= 3)
             {
-                path.Add(neighbor); // Uzavřít smyčku
+                path.Add(neighbor);
                 return (true, new List<string>(path));
             }
-            
-            // Pokračovat hledáním, pokud jsme tam ještě nebyli
+
             if (!visited.Contains(neighbor))
             {
                 var result = FindClosedCircuit(start, neighbor, visited, graph, path);
-                if (result.found)
-                {
-                    return result;
-                }
+                if (result.found) return result;
             }
         }
-        
+
         path.RemoveAt(path.Count - 1);
         visited.Remove(current);
         return (false, path);
@@ -1389,111 +810,117 @@
 
     private void Reset()
     {
-        _components.Clear();
-        _connections.Clear();
-        _componentCounter = 1;
-        _draggingComponent = null;
-        _connectingFrom = null;
-        _selectedComponent = null;
-        _circuitState = new CircuitState();
+        LoadConfig();
     }
 
-    private string GetValueDisplay(ComponentInstance comp)
+    private double GetBrightness(PlacedComponent comp)
     {
-        return comp.Type switch
-        {
-            "battery" => $"{comp.Value}V",
-            "resistor" => $"{comp.Value}Ω",
-            "bulb" => $"{comp.Value}W",
-            "capacitor" => $"{comp.Value}μF",
-            _ => ""
-        };
+        if (!_circuitState.LitComponents.Contains(comp.Id)) return 0;
+        if (!_circuitState.ComponentMetrics.TryGetValue(comp.Id, out var metrics)) return 0;
+        return metrics.Current;
     }
 
-    private double GetBrightness(ComponentInstance comp)
+    private string GetBrightnessClass(double current)
     {
-        // Pro všechny spotřebiče (nejen žárovky)
-        if (!_circuitState.LitBulbs.Contains(comp.Id))
-            return 0;
-        
-        if (!_circuitState.ComponentMetrics.ContainsKey(comp.Id))
-            return 0;
-        
-        var metrics = _circuitState.ComponentMetrics[comp.Id];
-        
-        // Pro žárovky: poměr skutečného výkonu k jmenovitému
-        if (comp.Type == "bulb")
-        {
-            if (metrics.Power < 0.1) return 0; // Nepočítá se
-            return metrics.Power / comp.Value;
-        }
-        
-        // Pro ostatní: jen kontrola, zda teče proud
-        if (metrics.Current < 0.01) return 0; // Minimální proud pro aktivaci
-        
-        return 1.0; // Aktivní
-    }
-
-    private string GetBrightnessClass(double brightness)
-    {
-        if (brightness == 0) return "";
-        if (brightness < 0.5) return "bulb-dim";
-        if (brightness > 1.2) return "bulb-bright";
+        if (current <= 0) return "";
+        if (current < 0.5) return "bulb-dim";
+        if (current > 2) return "bulb-bright";
         return "bulb-lit";
     }
 
-    private string GetBulbColor(double brightness)
+    // More light -> lower resistance, like a real LDR. lightPercent is 0 (dark) - 100 (bright).
+    private static double GetPhotoresistorResistance(double lightPercent)
     {
-        if (brightness == 0) return "#6c757d"; // Vypnuto - šedá
-        if (brightness < 0.3) return "#ff4400"; // Velmi slabé - červeno-oranžová
-        if (brightness < 0.6) return "#ff8800"; // Slabé - oranžová
-        if (brightness < 0.9) return "#ffbb00"; // Mírně slabé - žluto-oranžová
-        if (brightness <= 1.2) return "#ffc107"; // Normální - žlutá
-        return "#ffee00"; // Přetížené - intenzivní žlutá
+        const double minResistance = 50, maxResistance = 5000;
+        var clamped = Math.Clamp(lightPercent, 0, 100);
+        return maxResistance - clamped / 100.0 * (maxResistance - minResistance);
     }
 
-    private string GetBulbOpacity(double brightness)
+    private string GetComponentColor(string type, bool isActive, bool isSwitchOn) => type switch
     {
-        if (brightness == 0) return "1";
-        if (brightness < 0.3) return "0.4";
-        if (brightness < 0.6) return "0.6";
-        if (brightness < 0.9) return "0.8";
-        return "1";
-    }
+        "battery" => "var(--color-accent-2-600)",
+        "bulb" or "led" => isActive ? "var(--color-accent-500)" : "var(--color-neutral-500)",
+        "switch" or "pushbutton" => isSwitchOn ? "var(--color-accent-2-600)" : "var(--color-neutral-500)",
+        "resistor" or "coil" => "var(--color-accent-700)",
+        "capacitor" => "var(--color-accent-2-500)",
+        "motor" => isActive ? "var(--color-accent-600)" : "var(--color-neutral-500)",
+        "buzzer" => isActive ? "var(--color-accent-600)" : "var(--color-neutral-500)",
+        "fuse" => "var(--color-accent-800)",
+        "ammeter" or "voltmeter" => "var(--color-neutral-700)",
+        "photoresistor" => "var(--color-accent-400)",
+        "solarcell" => "var(--color-accent-500)",
+        _ => "var(--color-neutral-500)"
+    };
 
-    private string GetComponentTypeLabel(string type)
+    private string GetIconName(string id, string type, bool isActive, bool isSwitchOn) => type switch
     {
-        return type switch
-        {
-            "battery" => "Baterie",
-            "bulb" => "Žárovka",
-            "switch" => "Přepínač",
-            "resistor" => "Odpor",
-            "capacitor" => "Kondenzátor",
-            "led" => "LED",
-            "motor" => "Motor",
-            "buzzer" => "Bzučák",
-            _ => type
-        };
-    }
+        "battery" => "battery-charging",
+        "bulb" => isActive ? "lightbulb" : "lightbulb-off",
+        "switch" => isSwitchOn ? "toggle-right" : "toggle-left",
+        "pushbutton" => isSwitchOn ? "circle-dot" : "circle",
+        "resistor" => "activity",
+        "capacitor" => "battery-medium",
+        "led" => isActive ? "lightbulb" : "lightbulb-off",
+        "motor" => "fan",
+        "buzzer" => "volume-2",
+        "fuse" => _circuitState.BlownFuses.Contains(id) ? "shield-off" : "shield",
+        "ammeter" => "gauge",
+        "voltmeter" => "zap",
+        "coil" => "orbit",
+        "photoresistor" => "eye",
+        "solarcell" => "sun",
+        "wire" => "minus",
+        _ => "help-circle"
+    };
 
-    private string GetBootstrapIcon(string type)
+    private string GetValueDisplay(PlacedComponent comp) => comp.Type switch
     {
-        return type switch
-        {
-            "battery" => "battery-charging",
-            "bulb" => "lightbulb",
-            "switch" => "toggle-on",
-            "resistor" => "activity",
-            "capacitor" => "battery-half",
-            "led" => "lightbulb",
-            "motor" => "fan",
-            "buzzer" => "volume-up",
-            _ => "question-circle"
-        };
-    }
+        "battery" or "solarcell" => $"{comp.Value:0.#}V",
+        "resistor" or "bulb" => $"{comp.Value:0.#}Ω",
+        "capacitor" => $"{comp.Value:0.#}μF",
+        "fuse" => $"{comp.Value:0.#}A",
+        "photoresistor" => $"{comp.Value:0.#}% světla",
+        _ => ""
+    };
 
-    private class ComponentInstance
+    private string GetUnit(string type) => type switch
+    {
+        "battery" or "solarcell" => "V",
+        "capacitor" => "μF",
+        "fuse" => "A",
+        _ => "Ω"
+    };
+
+    private int GetValueStep(string type) => type switch
+    {
+        "battery" or "solarcell" => 1,
+        "capacitor" => 10,
+        "fuse" => 1,
+        _ => 5
+    };
+
+    private string GetComponentTypeLabel(string type) => type switch
+    {
+        "battery" => "Baterie",
+        "bulb" => "Žárovka",
+        "switch" => "Přepínač",
+        "resistor" => "Odpor",
+        "capacitor" => "Kondenzátor",
+        "led" => "LED",
+        "motor" => "Motor",
+        "buzzer" => "Bzučák",
+        "fuse" => "Pojistka",
+        "ammeter" => "Ampérmetr",
+        "voltmeter" => "Voltmetr",
+        "coil" => "Cívka",
+        "photoresistor" => "Fotorezistor",
+        "solarcell" => "Sluneční článek",
+        "pushbutton" => "Tlačítko",
+        "wire" => "Vodič",
+        _ => type
+    };
+
+    private class PlacedComponent
     {
         public string Id { get; set; } = "";
         public string Type { get; set; } = "";
@@ -1514,8 +941,9 @@
     {
         public bool HasPower { get; set; }
         public bool CircuitClosed { get; set; }
-        public HashSet<string> LitBulbs { get; set; } = new();
+        public HashSet<string> LitComponents { get; set; } = new();
         public HashSet<string> LiveConnections { get; set; } = new();
+        public HashSet<string> BlownFuses { get; set; } = new();
         public Dictionary<string, bool> SwitchStates { get; set; } = new();
         public Dictionary<string, ComponentMetrics> ComponentMetrics { get; set; } = new();
         public double Voltage { get; set; }
@@ -1528,7 +956,5 @@
     private class ComponentMetrics
     {
         public double Current { get; set; }
-        public double Voltage { get; set; }
-        public double Power { get; set; }
     }
 }

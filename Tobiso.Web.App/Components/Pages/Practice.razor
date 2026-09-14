@@ -269,7 +269,8 @@
         }
     }
 
-    private string ExerciseHref(InteractiveExerciseResponse ex) => $"/exercise/{ex.Id}";
+    private string ExerciseHref(InteractiveExerciseResponse ex) =>
+        ex.PostIds.Count > 0 ? $"/post/{ex.PostIds[0]}?exercise={ex.Id}" : "#";
 
     private string ExercisePostTitle(InteractiveExerciseResponse ex) =>
         ex.PostIds.Count > 0 && _postTitles.TryGetValue(ex.PostIds[0], out var title) ? title : "";

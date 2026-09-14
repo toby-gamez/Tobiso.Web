@@ -319,7 +319,7 @@ public class InteractiveExerciseService : IInteractiveExerciseService
             ExerciseTypeConstants.Timeline => ValidateTimeline(userRoot, solutionRoot, explanation),
             ExerciseTypeConstants.DragDrop => ValidateDragDrop(userRoot, solutionRoot, explanation),
             ExerciseTypeConstants.Matching => ValidateMatching(userRoot, solutionRoot, explanation),
-            // Circuit / Molecule / unknown: fall back to raw-JSON equality.
+            // Circuit is a free-play sandbox (not graded) / Molecule / unknown: fall back to raw-JSON equality.
             _ => ValidateFallback(userRoot, solutionRoot, explanation)
         };
     }

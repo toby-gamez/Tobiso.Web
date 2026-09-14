@@ -237,6 +237,7 @@ else
                             {
                                 case ExerciseTypeConstants.Circuit:
                                     <h6>Fyzikální obvod</h6>
+                                    <p class="muted">Jde o volnou hernu (playground), ne o testované cvičení - žák si obvod jen poskládá a zkouší. ConfigJson určuje předvyplněné komponenty a nabídku k přidání; SolutionJson se u tohoto typu nepoužívá, ale je stále povinné (stačí <code>{}</code> nebo poznámka).</p>
                                     <p><strong>Příklad ConfigJson:</strong></p>
                                     <pre class="code-preview">@GetCircuitExample()</pre>
                                     break;
@@ -626,20 +627,22 @@ else
     private string GetCircuitConfigExample() => @"{
   ""components"": [
     { ""id"": ""battery-1"", ""type"": ""battery"", ""voltage"": 12, ""x"": 50, ""y"": 100 },
-    { ""id"": ""bulb-1"", ""type"": ""bulb"", ""resistance"": 6, ""x"": 200, ""y"": 100 }
+    { ""id"": ""switch-1"", ""type"": ""switch"", ""state"": ""off"", ""x"": 200, ""y"": 100 },
+    { ""id"": ""bulb-1"", ""type"": ""bulb"", ""resistance"": 6, ""x"": 350, ""y"": 100 }
   ],
   ""availableComponents"": [
-    { ""type"": ""bulb"", ""label"": ""Žárovka"" },
+    { ""type"": ""resistor"", ""label"": ""Odpor"" },
     { ""type"": ""switch"", ""label"": ""Přepínač"" }
   ]
 }";
 
     private string GetCircuitSolutionExample() => @"{
   ""correctConnections"": [
-    { ""from"": ""battery-1"", ""to"": ""bulb-1"" },
+    { ""from"": ""battery-1"", ""to"": ""switch-1"" },
+    { ""from"": ""switch-1"", ""to"": ""bulb-1"" },
     { ""from"": ""bulb-1"", ""to"": ""battery-1"" }
   ],
-  ""explanation"": ""Správně zapojený obvod""
+  ""explanation"": ""Správně zapojený sériový obvod: baterie → přepínač → žárovka → zpět k baterii. Žárovka se rozsvítí až po zapnutí přepínače.""
 }";
 
     private string GetTimelineConfigExample() => @"{

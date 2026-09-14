@@ -79,7 +79,7 @@
 
 @code {
     private readonly record struct SearchItem(
-        int Id, string Title, bool IsCategory, List<string> Grades,
+        int Id, string Title, bool IsCategory, List<string> Grades, string? FilePath = null,
         string? WordBefore = null, string? MatchWord = null, string? WordAfter = null);
 
     private bool _open;
@@ -128,13 +128,15 @@
                                 && _categoryNames.TryGetValue(p.CategoryId.Value, out var categoryName)
                                 && TextSearch.ContainsIgnoreDiacritics(categoryName, q)))
                 .Take(8)
-                .Select(p => new SearchItem(p.Id, p.Title, false, p.AvailableGradeNames))
+                .Select(p => new SearchItem(p.Id, p.Title, false, p.AvailableGradeNames, FilePath: p.FilePath))
                 .ToList();
 
             var matchedPostIds = postMatches.Select(p => p.Id).ToHashSet();
             var contentMatches = _contentResults
                 .Where(r => matchedPostIds.Add(r.PostId))
-                .Select(r => new SearchItem(r.PostId, r.Title, false, [], r.WordBefore, r.MatchWord, r.WordAfter));
+                .Select(r => new SearchItem(r.PostId, r.Title, false, [],
+                    FilePath: _posts.FirstOrDefault(p => p.Id == r.PostId)?.FilePath,
+                    WordBefore: r.WordBefore, MatchWord: r.MatchWord, WordAfter: r.WordAfter));
 
             return [.. categoryMatches, .. postMatches, .. contentMatches];
         }
@@ -278,7 +280,7 @@
     private void Go(SearchItem item)
     {
         _open = false;
-        Nav.NavigateTo(item.IsCategory ? $"/categories/{item.Id}" : $"/post/{item.Id}");
+        Nav.NavigateTo(item.IsCategory ? $"/categories/{item.Id}" : PostSlug.Url(item.Id, item.FilePath));
     }
 
     public async ValueTask DisposeAsync()

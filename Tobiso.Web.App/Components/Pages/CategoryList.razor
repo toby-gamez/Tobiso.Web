@@ -65,7 +65,7 @@
             <div class="post-list">
                 @foreach (var post in _postsInCategory)
                 {
-                    <a class="post-row lift" href="/post/@(post.Id)">
+                    <a class="post-row lift" href="@PostSlug.Url(post.Id, post.FilePath)">
                         <span class="post-row-main">
                             <span class="post-row-title">@post.Title</span>
                         </span>
