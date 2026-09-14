@@ -31,6 +31,7 @@ public class TobisoDbContext : DbContext
     public DbSet<AiCreditTransaction> AiCreditTransactions { get; set; }
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
+    public DbSet<UserNote> UserNotes { get; set; }
     public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
     public DbSet<AnonymousAiUsage> AnonymousAiUsages { get; set; }
 
@@ -337,6 +338,26 @@ public class TobisoDbContext : DbContext
 
             entity.HasOne(e => e.User)
                 .WithMany(u => u.ReadPosts)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Post)
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.PostId }).IsUnique();
+        });
+
+        // Configure UserNote
+        modelBuilder.Entity<UserNote>(entity =>
+        {
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Notes)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

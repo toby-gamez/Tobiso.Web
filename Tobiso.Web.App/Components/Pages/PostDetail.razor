@@ -158,10 +158,37 @@ else
                     <button class="more-item"><i data-lucide="table-2" style="color:var(--color-accent-2-600)"></i> Porovnat s…</button>
                     <button class="more-item"><i data-lucide="list-ordered" style="color:var(--color-accent-2-600)"></i> Krok za krokem</button>
                     <div style="grid-column:1/-1; height:1px; background:var(--color-divider); margin:var(--space-1) 0"></div>
-                    <button class="more-item"><i data-lucide="printer"></i> Vytisknout (PDF)</button>
-                    <button class="more-item"><i data-lucide="file-text"></i> Tahák (PDF)</button>
-                    <button class="more-item"><i data-lucide="alarm-clock"></i> Pomodoro</button>
-                    <button class="more-item"><i data-lucide="notebook-pen"></i> Poznámky</button>
+                    <button class="more-item" @onclick="PrintPost"><i data-lucide="printer"></i> Vytisknout (PDF)</button>
+                    <button class="more-item" @onclick="DownloadCheatSheet"><i data-lucide="file-text"></i> Tahák (PDF)</button>
+                    <button class="more-item" @onclick="TogglePomodoro"><i data-lucide="alarm-clock"></i> Pomodoro</button>
+                    <button class="more-item @(_notesOpen ? "active" : "")" @onclick="ToggleNotes"><i data-lucide="notebook-pen"></i> Poznámky</button>
+                </div>
+            }
+
+            @if (_notesOpen)
+            {
+                <div class="notes-panel">
+                    @if (!_userId.HasValue)
+                    {
+                        <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">
+                            Pro poznámky se musíš <a href="/prihlaseni">přihlásit</a>.
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="panel-label">Moje poznámky k článku</div>
+                        <textarea class="notes-textarea" placeholder="Piš si sem poznámky k tomuto článku…"
+                                  @bind="_noteContent" @bind:event="oninput" @onblur="SaveNote"></textarea>
+                        <div class="notes-footer">
+                            <button class="pill pill-on" style="font-size:13px; padding:8px 16px" disabled="@_noteSaving" @onclick="SaveNote">
+                                @(_noteSaving ? "Ukládám…" : "Uložit")
+                            </button>
+                            @if (_noteSavedAt.HasValue)
+                            {
+                                <span style="font-size:13px; color:var(--color-neutral-600)">Uloženo @_noteSavedAt.Value.ToString("HH:mm")</span>
+                            }
+                        </div>
+                    }
                 </div>
             }
 
@@ -359,7 +386,11 @@ else
     private List<PostSummaryResponse> _allPosts = [];
     private List<PersonSummaryResponse> _allPeople = [];
     private List<InteractiveExerciseResponse> _exercises = [];
-    private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked;
+    private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked, _notesOpen;
+    private string _noteContent = "";
+    private bool _noteSaving;
+    private bool _noteLoaded;
+    private DateTime? _noteSavedAt;
     private string _readingFont = "figtree";
     private string _readingSize = "md";
     private string _readingWidth = "mid";
@@ -459,6 +490,10 @@ else
         _myDifficultyVote = null;
         _votingDifficulty = false;
         _needsDifficultyCheck = true;
+        _notesOpen = false;
+        _noteLoaded = false;
+        _noteContent = "";
+        _noteSavedAt = null;
         try { _difficulty = await AnonymApi.GetPostDifficulty(_post.Id); }
         catch { _difficulty = null; }
 
@@ -676,6 +711,45 @@ else
             await UserProgressService.AddBookmarkAsync(uid, _post.Id);
         _bookmarked = !_bookmarked;
     }
+
+    private async Task ToggleNotes()
+    {
+        _notesOpen = !_notesOpen;
+        if (_notesOpen && _userId.HasValue && !_noteLoaded && _post != null)
+        {
+            _noteLoaded = true;
+            _noteContent = await UserProgressService.GetNoteAsync(_userId.Value, _post.Id) ?? "";
+        }
+    }
+
+    private async Task SaveNote()
+    {
+        if (!_userId.HasValue || _post == null || _noteSaving) return;
+        _noteSaving = true;
+        try
+        {
+            await UserProgressService.SaveNoteAsync(_userId.Value, _post.Id, _noteContent);
+            _noteSavedAt = DateTime.Now;
+        }
+        finally
+        {
+            _noteSaving = false;
+        }
+    }
+
+    private async Task PrintPost()
+    {
+        if (_post == null) return;
+        await JS.InvokeVoidAsync("open", $"/api/Pdf/generate/post/{_post.Id}", "_blank");
+    }
+
+    private async Task DownloadCheatSheet()
+    {
+        if (_post == null) return;
+        await JS.InvokeVoidAsync("open", $"/api/Pdf/cheatsheet/{_post.Id}", "_blank");
+    }
+
+    private async Task TogglePomodoro() => await JS.InvokeVoidAsync("togglePomodoroWidget");
 
     private async Task RateDifficulty(int rating)
     {

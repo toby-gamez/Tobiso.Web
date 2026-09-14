@@ -13,6 +13,8 @@ public interface IUserProgressService
     Task RemoveBookmarkAsync(int userId, int postId);
     Task<UserStatsDto> GetStatsAsync(int userId);
     Task<ContinueReadingDto?> GetContinueReadingAsync(int userId);
+    Task<string?> GetNoteAsync(int userId, int postId);
+    Task SaveNoteAsync(int userId, int postId, string content);
 }
 
 public class UserProgressService : IUserProgressService
@@ -156,5 +158,29 @@ public class UserProgressService : IUserProgressService
         var categoryPath = cat == null ? null : cat.Parent == null ? cat.Name : $"{cat.Parent.Name} · {cat.Name}";
 
         return new ContinueReadingDto(record.PostId, record.Post.Title, record.ScrollPercent, categoryPath, record.Post.FilePath);
+    }
+
+    public async Task<string?> GetNoteAsync(int userId, int postId) =>
+        (await _db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId))?.Content;
+
+    public async Task SaveNoteAsync(int userId, int postId, string content)
+    {
+        var note = await _db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId);
+        if (note == null)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return;
+            _db.UserNotes.Add(new UserNote { UserId = userId, PostId = postId, Content = content, UpdatedAt = DateTime.UtcNow });
+        }
+        else if (string.IsNullOrWhiteSpace(content))
+        {
+            _db.UserNotes.Remove(note);
+        }
+        else
+        {
+            note.Content = content;
+            note.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
     }
 }
