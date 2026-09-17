@@ -27,6 +27,7 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
         Task<List<string>> GenerateFunFactsAsync(int postId);
         Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
+        Task<string> GenerateExamSummaryAsync(int postId);
         Task<string> ExplainWhyAsync(string sentence, string articleContext);
         Task<List<KeyTermEntry>> GenerateKeyTermsAsync(int postId);
         Task<string> GenerateComparisonAsync(int postId, string compareTo);

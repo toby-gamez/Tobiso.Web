@@ -48,6 +48,11 @@
     justify-content: flex-start;
 }
 
+:root:not([data-theme="light"]) .search-btn,
+[data-theme="dark"] .search-btn {
+    color: var(--color-text);
+}
+
 /* The lucide "search" glyph's magnifying-glass handle pulls its visual
    weight below the icon's own box center, so it reads as sitting lower
    than the "Hledat…" label next to it; nudge it up to optically match.

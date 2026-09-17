@@ -20,6 +20,7 @@ namespace Tobiso.Web.App.Services
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
         Task<List<string>> GenerateFunFactsAsync(int postId);
         Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
+        Task<string> GenerateExamSummaryAsync(int postId);
         Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatchAsync(int batchSize = 30);
     }
 }

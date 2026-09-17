@@ -42,7 +42,7 @@
     z-index: 30;
     display: flex;
     flex-direction: column;
-    min-width: 150px;
+    min-width: 220px;
     padding: var(--space-2);
     gap: 2px;
     background: var(--color-neutral-100);
@@ -66,6 +66,24 @@
 
 .version-item:hover { background: var(--color-neutral-200); }
 .version-item.active { background: var(--color-accent-200); color: var(--color-accent-800); font-weight: 700; }
+
+.version-dropdown-divider {
+    height: 1px;
+    background: var(--color-divider);
+    margin: 4px 4px;
+}
+
+.ai-rewrite-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-accent-700);
+}
+
+.ai-rewrite-trigger:hover,
+.ai-rewrite-trigger.active {
+    background: var(--color-accent-100);
+}
 
 .post-meta {
     display: flex;
@@ -165,6 +183,19 @@
 .more-item:hover { background: var(--color-surface); }
 .more-item.active { background: var(--color-accent-100); color: var(--color-accent-800); }
 
+.more-item-help {
+    display: inline-flex;
+    flex: none;
+    color: var(--color-neutral-500);
+    cursor: help;
+}
+
+.more-item-help:hover { color: var(--color-accent-600); }
+
+.ai-tool-title .more-item-help {
+    margin-left: 2px;
+}
+
 .notes-panel {
     display: flex;
     flex-direction: column;
@@ -199,6 +230,33 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
+}
+
+.notes-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    color: var(--color-neutral-700);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    background: var(--color-neutral-100);
+    cursor: pointer;
+    margin-bottom: var(--space-6);
+    transition: background 120ms ease;
+}
+
+.notes-preview:hover { background: var(--color-surface); }
+.notes-preview i { flex-shrink: 0; color: var(--color-accent-600); }
+
+.notes-preview-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Prose variants */
@@ -289,6 +347,284 @@
 .facts-panel li { display: flex; gap: 10px; }
 .facts-bullet { color: var(--color-accent-600); flex: none; }
 
+/* "Více" AI tool panel */
+.ai-tool-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-6);
+}
+
+.ai-tool-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.ai-tool-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-heading);
+    font-size: 17px;
+}
+
+.ai-tool-error {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent-700);
+}
+
+.ai-tool-text {
+    font-size: 15px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.ai-tool-result {
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.ai-tool-result-title {
+    font-family: var(--font-heading);
+    font-size: 16px;
+}
+
+.ai-tool-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+}
+
+.ai-tool-bullets li { display: flex; gap: 10px; }
+
+.ai-tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.ai-tool-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+}
+
+.ai-tool-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.ai-tool-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-accent-200);
+    color: var(--color-accent-800);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ai-tool-solution {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-neutral-700);
+    padding-top: var(--space-1);
+    white-space: pre-line;
+}
+
+.ai-tool-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding-left: 1.4em;
+    font-size: 14px;
+}
+
+.ai-tool-steps li { display: flex; flex-direction: column; gap: 2px; }
+.ai-tool-steps span { color: var(--color-neutral-700); }
+
+/* Markdown rendered inside an AI tool panel (compare table, exam summary, rewrite content) -
+   mirrors the #article-prose table/heading/list rules in organic.css, scoped via ::deep since
+   MarkdownContent's output isn't visible to this component's own CSS scope otherwise. */
+.ai-tool-markdown ::deep p { margin: 0 0 1em; }
+.ai-tool-markdown ::deep h2 { font-family: var(--font-heading); font-size: 21px; margin: 1.2em 0 0.4em; }
+.ai-tool-markdown ::deep h3 { font-family: var(--font-heading); font-size: 18px; margin: 1em 0 0.3em; }
+.ai-tool-markdown ::deep ul,
+.ai-tool-markdown ::deep ol { margin: 0 0 1em; padding-left: 1.4em; }
+.ai-tool-markdown ::deep li { margin-bottom: 0.35em; }
+.ai-tool-markdown ::deep strong { font-weight: 700; }
+
+.ai-tool-compare-table ::deep table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.ai-tool-compare-table ::deep th {
+    background: var(--color-surface);
+    font-weight: 700;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--color-divider);
+}
+
+.ai-tool-compare-table ::deep td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--color-divider);
+    vertical-align: top;
+}
+
+.ai-rewrite-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--color-accent-100);
+    border: 1px solid var(--color-accent-300);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-accent-800);
+}
+
+.ai-rewrite-banner span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-rewrite-banner i { color: var(--color-accent-600); }
+
+.ai-tool-followup {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.ai-tool-followup .input { flex: 1; }
+
+.ai-tool-send {
+    background: var(--color-accent-600);
+    color: var(--color-on-accent);
+    flex: none;
+}
+
+.ai-tool-send:hover:not(:disabled) { background: var(--color-accent-700); }
+.ai-tool-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ai-tool-linklike {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    font: inherit;
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.ai-tool-linklike:hover:not(:disabled) { color: var(--color-accent-700); }
+.ai-tool-linklike:disabled { opacity: 0.6; cursor: not-allowed; }
+
+:root:not([data-theme="light"]) .ai-tool-linklike,
+[data-theme="dark"] .ai-tool-linklike {
+    color: var(--color-text);
+}
+
+/* Flashcards - same design/interaction as /practice/flashcards (Flashcards.razor.css) */
+.quiz-progress-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    margin-bottom: 8px;
+}
+
+.flashcard {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+    perspective: 1200px;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.flashcard-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-6);
+    text-align: center;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-divider);
+    background: var(--color-neutral-100);
+    backface-visibility: hidden;
+    transition: transform 400ms ease;
+    font-size: 20px;
+}
+
+.flashcard-front { transform: rotateY(0deg); }
+
+.flashcard-back {
+    transform: rotateY(180deg);
+    background: var(--color-accent-2-100);
+}
+
+.flashcard.flipped .flashcard-front { transform: rotateY(-180deg); }
+.flashcard.flipped .flashcard-back { transform: rotateY(0deg); }
+
+.flashcard-hint { font-size: 13px; color: var(--color-neutral-600); }
+
+.ai-flashcard-done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-8);
+    text-align: center;
+}
+
+.ai-flashcard-done i { font-size: 24px; color: var(--color-text); }
+
 .exercise-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -328,6 +664,48 @@
 
 .exercise-title { font-family: var(--font-heading); font-size: 18px; }
 .exercise-desc { font-size: 14px; color: var(--color-neutral-600); }
+
+.quiz-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    max-width: 68ch;
+    margin-top: var(--space-8);
+    padding: var(--space-6);
+    background: var(--color-accent-200);
+    border-radius: var(--radius-lg);
+}
+
+.quiz-cta-text {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.quiz-cta-text h2 {
+    font-size: 22px;
+    margin: 0;
+}
+
+.quiz-cta-text p {
+    font-size: 14px;
+    color: var(--color-neutral-700);
+    margin: 2px 0 0;
+}
+
+.quiz-cta-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--color-accent-600);
+    color: var(--color-bg);
+}
 
 .ai-ask-panel {
     max-width: 68ch;

@@ -56,12 +56,9 @@ else
                     @if (_currentVersion != null)
                     {
                         <span class="grade-chip" style="font-size:13px; font-weight:600; padding:6px 14px">@(_currentVersion.GradeName ?? "-")</span>
-                        @if (_versions.Count > 1)
-                        {
-                            <button class="icon-btn" @onclick="ToggleVersions" aria-label="Vybrat ročník">
-                                <i data-lucide="chevron-down"></i>
-                            </button>
-                        }
+                        <button class="icon-btn" @onclick="ToggleVersions" aria-label="Vybrat ročník">
+                            <i data-lucide="chevron-down"></i>
+                        </button>
                     }
                     @if (_versionsOpen)
                     {
@@ -73,6 +70,13 @@ else
                                     @v.GradeName
                                 </button>
                             }
+                            @if (_versions.Count > 1)
+                            {
+                                <div class="version-dropdown-divider"></div>
+                            }
+                            <button class="version-item ai-rewrite-trigger @(_activeAiTool == "rewrite" ? "active" : "")" @onclick="OpenRewriteFromDropdown" title="@AiToolDescription("rewrite")">
+                                <i data-lucide="sparkles"></i> Jiný ročník
+                            </button>
                         </div>
                     }
                 </div>
@@ -114,6 +118,40 @@ else
                 </button>
             </div>
 
+            @if (_notesOpen)
+            {
+                <div class="notes-panel">
+                    @if (!_userId.HasValue)
+                    {
+                        <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">
+                            Pro poznámky se musíš <a href="/prihlaseni">přihlásit</a>.
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="panel-label"><i data-lucide="notebook-pen"></i> Moje poznámky k článku</div>
+                        <textarea class="notes-textarea" placeholder="Piš si sem poznámky k tomuto článku…"
+                                  @bind="_noteContent" @bind:event="oninput" @onblur="SaveNote"></textarea>
+                        <div class="notes-footer">
+                            <button class="pill pill-on" style="font-size:13px; padding:8px 16px" disabled="@_noteSaving" @onclick="SaveNoteAndClose">
+                                @(_noteSaving ? "Ukládám…" : "Uložit")
+                            </button>
+                            @if (_noteSavedAt.HasValue)
+                            {
+                                <span style="font-size:13px; color:var(--color-neutral-600)">Uloženo @_noteSavedAt.Value.ToString("HH:mm")</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(_noteContent))
+            {
+                <button class="notes-preview" @onclick="ToggleNotes">
+                    <i data-lucide="notebook-pen"></i>
+                    <span class="notes-preview-text">@_noteContent</span>
+                </button>
+            }
+
             @if (_readingOpen)
             {
                 <div class="reading-panel">
@@ -148,15 +186,38 @@ else
             {
                 <div class="more-panel">
                     <div class="more-panel-label">Nástroje k článku</div>
-                    <button class="more-item"><i data-lucide="layers" style="color:var(--color-accent-600)"></i> Kartičky</button>
-                    <button class="more-item"><i data-lucide="pencil-line" style="color:var(--color-accent-600)"></i> Procvičovací úlohy</button>
-                    <button class="more-item"><i data-lucide="users" style="color:var(--color-accent-600)"></i> Přepsat pro ročník</button>
-                    <button class="more-item"><i data-lucide="help-circle" style="color:var(--color-accent-600)"></i> Co může přijít v testu</button>
-                    <button class="more-item"><i data-lucide="globe-2" style="color:var(--color-accent-2-600)"></i> Reálné využití</button>
-                    <button class="more-item"><i data-lucide="wand-2" style="color:var(--color-accent-2-600)"></i> Co kdyby?</button>
-                    <button class="more-item"><i data-lucide="message-square-quote" style="color:var(--color-accent-2-600)"></i> Zkus to vysvětlit</button>
-                    <button class="more-item"><i data-lucide="table-2" style="color:var(--color-accent-2-600)"></i> Porovnat s…</button>
-                    <button class="more-item"><i data-lucide="list-ordered" style="color:var(--color-accent-2-600)"></i> Krok za krokem</button>
+                    <button class="more-item @(_activeAiTool == "flashcards" ? "active" : "")" @onclick="ToggleFlashcards">
+                        <i data-lucide="layers" style="color:var(--color-accent-600)"></i> <span style="flex:1">Kartičky</span>
+                        <span class="more-item-help" title="@AiToolDescription("flashcards")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "practice" ? "active" : "")" @onclick="TogglePractice">
+                        <i data-lucide="pencil-line" style="color:var(--color-accent-600)"></i> <span style="flex:1">Procvičovací úlohy</span>
+                        <span class="more-item-help" title="@AiToolDescription("practice")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "exam" ? "active" : "")" @onclick="ToggleExam">
+                        <i data-lucide="help-circle" style="color:var(--color-accent-600)"></i> <span style="flex:1">Co může přijít v testu</span>
+                        <span class="more-item-help" title="@AiToolDescription("exam")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "realworld" ? "active" : "")" @onclick="ToggleRealWorld">
+                        <i data-lucide="globe-2" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Reálné využití</span>
+                        <span class="more-item-help" title="@AiToolDescription("realworld")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "whatif" ? "active" : "")" @onclick="ToggleWhatIf">
+                        <i data-lucide="wand-2" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Co kdyby?</span>
+                        <span class="more-item-help" title="@AiToolDescription("whatif")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "feynman" ? "active" : "")" @onclick="ToggleFeynman">
+                        <i data-lucide="message-square-quote" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Zkus to vysvětlit</span>
+                        <span class="more-item-help" title="@AiToolDescription("feynman")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "compare" ? "active" : "")" @onclick="ToggleCompare">
+                        <i data-lucide="table-2" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Porovnat s…</span>
+                        <span class="more-item-help" title="@AiToolDescription("compare")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "stepsolver" ? "active" : "")" @onclick="ToggleStepSolver">
+                        <i data-lucide="list-ordered" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Krok za krokem</span>
+                        <span class="more-item-help" title="@AiToolDescription("stepsolver")"><i data-lucide="info"></i></span>
+                    </button>
                     <div style="grid-column:1/-1; height:1px; background:var(--color-divider); margin:var(--space-1) 0"></div>
                     <button class="more-item" @onclick="PrintPost"><i data-lucide="printer"></i> Vytisknout (PDF)</button>
                     <button class="more-item" @onclick="DownloadCheatSheet"><i data-lucide="file-text"></i> Tahák (PDF)</button>
@@ -165,35 +226,301 @@ else
                 </div>
             }
 
-            @if (_notesOpen)
+            @if (_activeAiTool != null)
             {
-                <div class="notes-panel">
-                    @if (!_userId.HasValue)
+                <div class="ai-tool-panel" id="ai-tool-panel">
+                    <div class="ai-tool-header">
+                        <span class="ai-tool-title">
+                            <i data-lucide="@AiToolIcon(_activeAiTool)"></i> @AiToolTitle(_activeAiTool)
+                            <span class="more-item-help" title="@AiToolDescription(_activeAiTool)"><i data-lucide="info"></i></span>
+                        </span>
+                        <button class="icon-btn" @onclick="CloseAiTool" aria-label="Zavřít">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    @if (_aiToolLoading)
                     {
-                        <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">
-                            Pro poznámky se musíš <a href="/prihlaseni">přihlásit</a>.
-                        </p>
-                    }
-                    else
-                    {
-                        <div class="panel-label">Moje poznámky k článku</div>
-                        <textarea class="notes-textarea" placeholder="Piš si sem poznámky k tomuto článku…"
-                                  @bind="_noteContent" @bind:event="oninput" @onblur="SaveNote"></textarea>
-                        <div class="notes-footer">
-                            <button class="pill pill-on" style="font-size:13px; padding:8px 16px" disabled="@_noteSaving" @onclick="SaveNote">
-                                @(_noteSaving ? "Ukládám…" : "Uložit")
-                            </button>
-                            @if (_noteSavedAt.HasValue)
-                            {
-                                <span style="font-size:13px; color:var(--color-neutral-600)">Uloženo @_noteSavedAt.Value.ToString("HH:mm")</span>
-                            }
+                        <div style="display:flex; flex-direction:column; gap:8px">
+                            <div class="skeleton" style="height:16px; width:70%"></div>
+                            <div class="skeleton" style="height:16px; width:50%"></div>
+                            <div class="skeleton" style="height:16px; width:60%"></div>
                         </div>
+                    }
+                    else if (_aiToolError != null)
+                    {
+                        <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">@_aiToolError</p>
+                    }
+                    else if (_activeAiTool == "flashcards")
+                    {
+                        @if (_flashcards.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Pro tento článek se nepodařilo vytvořit kartičky.</p>
+                        }
+                        else if (_flashcardIndex >= _flashcards.Count)
+                        {
+                            <div class="ai-flashcard-done">
+                                <i data-lucide="check-circle-2"></i>
+                                <h3 style="margin:0">Hotovo!</h3>
+                                <p style="margin:0; color:var(--color-neutral-600)">Prošel/prošla jsi @_flashcards.Count kartiček.</p>
+                                <button class="pill pill-on" @onclick="RestartFlashcards"><i data-lucide="rotate-cw"></i> Projít znovu</button>
+                            </div>
+                        }
+                        else
+                        {
+                            var card = _flashcards[_flashcardIndex];
+                            <div class="quiz-progress-label">
+                                <span>Kartičky</span>
+                                <span>@(_flashcardIndex + 1) z @_flashcards.Count</span>
+                            </div>
+                            <div class="progress-bar"><div class="progress-bar-fill" style="width:@(FlashcardProgress)%"></div></div>
+
+                            <button class="flashcard @(_flashcardFlipped ? "flipped" : "")" @onclick="@(() => _flashcardFlipped = !_flashcardFlipped)">
+                                <div class="flashcard-face flashcard-front">
+                                    <span>@card.Term</span>
+                                    <span class="flashcard-hint">Klikni pro odpověď</span>
+                                </div>
+                                <div class="flashcard-face flashcard-back">
+                                    <span>@card.Definition</span>
+                                </div>
+                            </button>
+
+                            @if (_flashcardFlipped)
+                            {
+                                <div style="display:flex; gap:var(--space-2)">
+                                    <button class="pill" style="flex:1; justify-content:center" @onclick="@(() => AdvanceFlashcard(false))">
+                                        <i data-lucide="rotate-ccw"></i> Musím zopakovat
+                                    </button>
+                                    <button class="pill pill-on" style="flex:1; justify-content:center" @onclick="@(() => AdvanceFlashcard(true))">
+                                        <i data-lucide="check"></i> Umím
+                                    </button>
+                                </div>
+                            }
+                        }
+                    }
+                    else if (_activeAiTool == "practice")
+                    {
+                        @if (_practiceProblems.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Procvičovací úlohy se nepodařilo vygenerovat.</p>
+                        }
+                        else
+                        {
+                            <div class="ai-tool-list">
+                                @foreach (var (p, i) in _practiceProblems.Select((p, i) => (p, i)))
+                                {
+                                    <div class="ai-tool-item">
+                                        <div class="ai-tool-item-header">
+                                            <span class="ai-tool-index">@(i + 1)</span>
+                                            <span style="flex:1">@p.ProblemText</span>
+                                            @if (!string.IsNullOrWhiteSpace(p.Difficulty))
+                                            {
+                                                <span class="grade-chip">@p.Difficulty</span>
+                                            }
+                                        </div>
+                                        @if (_practiceRevealed.Contains(i))
+                                        {
+                                            <div class="ai-tool-solution">@p.Solution</div>
+                                        }
+                                        else
+                                        {
+                                            <button class="pill" style="font-size:13px; padding:7px 14px; align-self:flex-start" @onclick="@(() => { _practiceRevealed.Add(i); })">Zobrazit řešení</button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else if (_activeAiTool == "rewrite")
+                    {
+                        @if (_grades.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Ročníky se nepodařilo načíst.</p>
+                        }
+                        else
+                        {
+                            <p style="margin:0 0 var(--space-1); font-size:14px; color:var(--color-neutral-600)">
+                                Vyber ročník - AI přepíše celý text článku níže na stránce.
+                            </p>
+                            <div class="seg-control" style="flex-wrap:wrap">
+                                @foreach (var g in _grades.OrderBy(g => g.Level))
+                                {
+                                    <button class="seg-btn @(_rewriteGradeId == g.Id ? "active" : "")" disabled="@_rewriteLoading" @onclick="@(() => SelectRewriteGrade(g))">@g.Name</button>
+                                }
+                            </div>
+                            @if (_rewriteLoading)
+                            {
+                                <div style="display:flex; flex-direction:column; gap:8px; margin-top:var(--space-3)">
+                                    <div class="skeleton" style="height:14px; width:90%"></div>
+                                    <div class="skeleton" style="height:14px; width:75%"></div>
+                                </div>
+                            }
+                            else if (_rewriteError != null)
+                            {
+                                <p class="ai-tool-error">@_rewriteError</p>
+                            }
+                        }
+                    }
+                    else if (_activeAiTool == "exam")
+                    {
+                        @if (string.IsNullOrWhiteSpace(_examSummary))
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Shrnutí se nepodařilo vygenerovat.</p>
+                        }
+                        else
+                        {
+                            <div class="ai-tool-markdown ai-tool-exam-summary">
+                                <MarkdownContent Content="@_examSummary" ContainerId="ai-exam-summary" DetectLead="false" />
+                            </div>
+                            <button class="pill" style="align-self:flex-start" @onclick="GeneratePracticeFromExam">
+                                <i data-lucide="pencil-line"></i> Vygenerovat procvičovací úlohy
+                            </button>
+                        }
+                    }
+                    else if (_activeAiTool == "realworld")
+                    {
+                        @if (_realWorldApps.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Příklady se nepodařilo najít.</p>
+                        }
+                        else
+                        {
+                            <ul class="ai-tool-bullets">
+                                @foreach (var app in _realWorldApps)
+                                {
+                                    <li><span class="facts-bullet">✳</span> @app</li>
+                                }
+                            </ul>
+                        }
+                    }
+                    else if (_activeAiTool == "whatif")
+                    {
+                        @if (_whatIfResult != null)
+                        {
+                            <div class="ai-tool-result">
+                                <div class="ai-tool-result-title">@_whatIfResult.Scenario</div>
+                                <p style="margin:8px 0 0">@_whatIfResult.Explanation</p>
+                            </div>
+                        }
+                        @if (_whatIfError != null)
+                        {
+                            <p class="ai-tool-error">@_whatIfError</p>
+                        }
+                        <div class="ai-tool-followup">
+                            <input class="input" @bind="_whatIfQuestion" @bind:event="oninput" @onkeydown="HandleWhatIfKeydown"
+                                   placeholder="Zeptej se na vlastní otázku „co kdyby…”" disabled="@_whatIfLoading" />
+                            <button class="icon-btn ai-tool-send" disabled="@_whatIfLoading" @onclick="AskWhatIf" aria-label="Zeptat se">
+                                <i data-lucide="send"></i>
+                            </button>
+                        </div>
+                        <button class="ai-tool-linklike" disabled="@_whatIfLoading" @onclick="AskWhatIfRandom">
+                            <i data-lucide="shuffle"></i> @(_whatIfLoading ? "Přemýšlím…" : "Jiná náhodná otázka")
+                        </button>
+                    }
+                    else if (_activeAiTool == "feynman")
+                    {
+                        <div class="field">
+                            <label>Vysvětli tuto látku vlastními slovy</label>
+                            <textarea class="input notes-textarea" style="min-height:120px" @bind="_feynmanExplanation" @bind:event="oninput"
+                                      placeholder="Zkus vysvětlit, jako bys to učil mladšího spolužáka…"></textarea>
+                        </div>
+                        <button class="pill pill-on" style="font-size:14px; padding:9px 16px; margin-top:var(--space-3)"
+                                disabled="@(_feynmanLoading || string.IsNullOrWhiteSpace(_feynmanExplanation))" @onclick="SubmitFeynman">
+                            @(_feynmanLoading ? "Hodnotím…" : "Ohodnotit")
+                        </button>
+                        @if (_feynmanError != null)
+                        {
+                            <p class="ai-tool-error">@_feynmanError</p>
+                        }
+                        @if (_feynmanResult != null)
+                        {
+                            <div class="ai-tool-result">
+                                <div style="display:flex; align-items:center; gap:10px">
+                                    <span class="grade-chip">@_feynmanResult.Score / 10</span>
+                                    <span>@_feynmanResult.Feedback</span>
+                                </div>
+                                @if (_feynmanResult.StrongPoints.Count > 0)
+                                {
+                                    <div class="panel-label" style="margin-top:12px">Co ti šlo</div>
+                                    <ul class="ai-tool-bullets">
+                                        @foreach (var s in _feynmanResult.StrongPoints)
+                                        {
+                                            <li><span class="facts-bullet">✓</span> @s</li>
+                                        }
+                                    </ul>
+                                }
+                                @if (_feynmanResult.MissingPoints.Count > 0)
+                                {
+                                    <div class="panel-label" style="margin-top:12px">Co ti uniklo</div>
+                                    <ul class="ai-tool-bullets">
+                                        @foreach (var m in _feynmanResult.MissingPoints)
+                                        {
+                                            <li><span class="facts-bullet">＋</span> @m</li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        }
+                    }
+                    else if (_activeAiTool == "compare")
+                    {
+                        <div class="field">
+                            <label>Porovnat s</label>
+                            <input class="input" @bind="_compareTerm" @bind:event="oninput" @onkeydown="HandleCompareKeydown" placeholder="Např. mitóza" />
+                        </div>
+                        <button class="pill pill-on" style="font-size:14px; padding:9px 16px; margin-top:var(--space-3)"
+                                disabled="@(_compareLoading || string.IsNullOrWhiteSpace(_compareTerm))" @onclick="SubmitCompare">
+                            @(_compareLoading ? "Porovnávám…" : "Porovnat")
+                        </button>
+                        @if (_compareError != null)
+                        {
+                            <p class="ai-tool-error">@_compareError</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_compareMarkdown))
+                        {
+                            <div class="ai-tool-markdown ai-tool-compare-table">
+                                <MarkdownContent Content="@_compareMarkdown" ContainerId="ai-compare-table" DetectLead="false" />
+                            </div>
+                        }
+                    }
+                    else if (_activeAiTool == "stepsolver")
+                    {
+                        @if (_stepSolverSteps.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Postup se nepodařilo vygenerovat.</p>
+                        }
+                        else
+                        {
+                            <ol class="ai-tool-steps">
+                                @foreach (var s in _stepSolverSteps)
+                                {
+                                    <li><strong>@s.Step</strong><span>@s.Explanation</span></li>
+                                }
+                            </ol>
+                        }
                     }
                 </div>
             }
 
+            @if (_rewrittenContent != null)
+            {
+                <div class="ai-rewrite-banner">
+                    <span><i data-lucide="sparkles"></i> Text níže byl přepsán pomocí AI pro @_rewrittenGradeName.</span>
+                    <button class="pill" style="font-size:13px; padding:7px 14px" @onclick="RevertRewrite">
+                        <i data-lucide="undo-2"></i> Zpět na originál
+                    </button>
+                </div>
+            }
+
             <div id="article-prose" class="@ProseClass">
-                @if (_currentVersion != null)
+                @if (_rewrittenContent != null)
+                {
+                    <MarkdownContent Content="@_rewrittenContent"
+                                     ContainerId="article-prose"
+                                     DetectLead="false"
+                                     OnHeadingsExtracted="OnHeadingsExtracted" />
+                }
+                else if (_currentVersion != null)
                 {
                     <MarkdownContent Content="@_currentVersion.Content"
                                      AllPosts="@_allPosts"
@@ -277,10 +604,16 @@ else
 
             @if (_questions.Count > 0)
             {
-                <div id="quiz-section" style="margin-top:var(--space-8)">
-                    <h2 style="font-size:28px; margin-bottom:var(--space-4)">Ověř si porozumění</h2>
-                    <a href="/practice/quiz/@_post.Id" class="pill pill-on" style="font-size:15px; padding:11px 22px">
-                        Spustit kvíz (@CzechPlural.Otazky(_questions.Count)) <i data-lucide="arrow-right"></i>
+                <div id="quiz-section" class="quiz-cta">
+                    <div class="quiz-cta-text">
+                        <span class="quiz-cta-icon"><i data-lucide="file-check-2"></i></span>
+                        <div>
+                            <h2>Ověř si porozumění</h2>
+                            <p>Zjisti, jak dobře látku ovládáš (@CzechPlural.Otazky(_questions.Count)).</p>
+                        </div>
+                    </div>
+                    <a href="/practice/quiz/@_post.Id" class="pill pill-on" style="font-size:15px; padding:11px 22px; flex-shrink:0">
+                        Spustit kvíz <i data-lucide="arrow-right"></i>
                     </a>
                 </div>
             }
@@ -414,6 +747,55 @@ else
     private bool _needsExerciseScroll;
     private IJSObjectReference? _lightboxModule;
 
+    // "Více" AI tools (Kartičky, Procvičovací úlohy, Přepsat pro ročník, ...)
+    private string? _activeAiTool;
+    private bool _aiToolLoading;
+    private string? _aiToolError;
+
+    private List<FlashcardCard> _flashcards = [];
+    private bool _flashcardsLoaded;
+    private int _flashcardIndex;
+    private bool _flashcardFlipped;
+
+    private List<PracticeProblem> _practiceProblems = [];
+    private bool _practiceLoaded;
+    private readonly HashSet<int> _practiceRevealed = [];
+
+    private List<GradeResponse> _grades = [];
+    private int? _rewriteGradeId;
+    private bool _rewriteLoading;
+    private string? _rewriteError;
+    // The AI rewrite replaces the real article body (#article-prose) rather than showing in a
+    // separate box, so these live outside the "Více" tool state - they persist even after the
+    // rewrite panel is closed, until reverted or the post/grade version changes.
+    private string? _rewrittenContent;
+    private string? _rewrittenGradeName;
+
+    private string? _examSummary;
+    private bool _examLoaded;
+
+    private List<string> _realWorldApps = [];
+    private bool _realWorldLoaded;
+
+    private string _whatIfQuestion = "";
+    private bool _whatIfLoading;
+    private bool _whatIfLoaded;
+    private string? _whatIfError;
+    private WhatIfResponse? _whatIfResult;
+
+    private string _feynmanExplanation = "";
+    private bool _feynmanLoading;
+    private string? _feynmanError;
+    private EvaluateComprehensionResponse? _feynmanResult;
+
+    private string _compareTerm = "";
+    private bool _compareLoading;
+    private string? _compareError;
+    private string? _compareMarkdown;
+
+    private List<SolverStep> _stepSolverSteps = [];
+    private bool _stepSolverLoaded;
+
     private InteractiveExerciseResponse? _openExercise =>
         _exercises.FirstOrDefault(e => e.Id == _openExerciseId);
 
@@ -494,6 +876,38 @@ else
         _noteLoaded = false;
         _noteContent = "";
         _noteSavedAt = null;
+
+        _activeAiTool = null;
+        _aiToolLoading = false;
+        _aiToolError = null;
+        _flashcards = [];
+        _flashcardsLoaded = false;
+        _flashcardIndex = 0;
+        _flashcardFlipped = false;
+        _practiceProblems = [];
+        _practiceLoaded = false;
+        _practiceRevealed.Clear();
+        _grades = [];
+        _rewriteGradeId = null;
+        _rewriteError = null;
+        _rewrittenContent = null;
+        _rewrittenGradeName = null;
+        _examSummary = null;
+        _examLoaded = false;
+        _realWorldApps = [];
+        _realWorldLoaded = false;
+        _whatIfQuestion = "";
+        _whatIfLoaded = false;
+        _whatIfResult = null;
+        _whatIfError = null;
+        _feynmanExplanation = "";
+        _feynmanResult = null;
+        _feynmanError = null;
+        _compareTerm = "";
+        _compareMarkdown = null;
+        _compareError = null;
+        _stepSolverSteps = [];
+        _stepSolverLoaded = false;
         try { _difficulty = await AnonymApi.GetPostDifficulty(_post.Id); }
         catch { _difficulty = null; }
 
@@ -505,6 +919,9 @@ else
             var bookmarkIds = await UserProgressService.GetBookmarkIdsAsync(uid);
             _bookmarked = bookmarkIds.Contains(_post.Id);
             _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+
+            _noteContent = await UserProgressService.GetNoteAsync(uid, _post.Id) ?? "";
+            _noteLoaded = true;
         }
         else
         {
@@ -685,7 +1102,15 @@ else
         _readPercent = 0;
         _lastPersistedPercent = -1;
         _allPeople = [];
+        _rewrittenContent = null;
+        _rewrittenGradeName = null;
         _ = DetectPersonMentions(_loadGeneration);
+    }
+
+    private void RevertRewrite()
+    {
+        _rewrittenContent = null;
+        _rewrittenGradeName = null;
     }
 
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;
@@ -722,6 +1147,11 @@ else
         }
     }
 
+    // Blur-triggered autosave (leaving the textarea) persists silently without closing the
+    // panel. The Uložit button below always closes on click, deliberately not sharing the
+    // _noteSaving guard for that part: a blur fired by the button's own mousedown can still be
+    // in flight when the click is dispatched, and gating the close on _noteSaving would make it
+    // unreliable depending on exactly how that race resolves.
     private async Task SaveNote()
     {
         if (!_userId.HasValue || _post == null || _noteSaving) return;
@@ -734,6 +1164,445 @@ else
         finally
         {
             _noteSaving = false;
+        }
+    }
+
+    private async Task SaveNoteAndClose()
+    {
+        await SaveNote();
+        _notesOpen = false;
+    }
+
+    // ── "Více" AI tools ─────────────────────────────────────────────────
+
+    private static string AiToolIcon(string tool) => tool switch
+    {
+        "flashcards" => "layers",
+        "practice" => "pencil-line",
+        "rewrite" => "sparkles",
+        "exam" => "help-circle",
+        "realworld" => "globe-2",
+        "whatif" => "wand-2",
+        "feynman" => "message-square-quote",
+        "compare" => "table-2",
+        "stepsolver" => "list-ordered",
+        _ => "sparkles",
+    };
+
+    private static string AiToolTitle(string tool) => tool switch
+    {
+        "flashcards" => "Kartičky",
+        "practice" => "Procvičovací úlohy",
+        "rewrite" => "Přepsat pro jiný ročník",
+        "exam" => "Co může přijít v testu",
+        "realworld" => "Reálné využití",
+        "whatif" => "Co kdyby?",
+        "feynman" => "Zkus to vysvětlit",
+        "compare" => "Porovnat s…",
+        "stepsolver" => "Krok za krokem",
+        _ => "",
+    };
+
+    private static string AiToolDescription(string tool) => tool switch
+    {
+        "flashcards" => "AI vytvoří kartičky pojem/definice z tohoto článku, které si můžeš procvičit.",
+        "practice" => "AI vygeneruje cvičné úlohy s podrobným řešením krok za krokem.",
+        "rewrite" => "AI přepíše celý článek do jazyka srozumitelného pro zvolený ročník.",
+        "exam" => "AI shrne, na co se nejvíce zaměřit při přípravě na test nebo zkoušení.",
+        "realworld" => "AI najde konkrétní příklady využití tématu v běžném životě.",
+        "whatif" => "AI vymyslí a zodpoví zajímavou myšlenkovou otázku „co kdyby“ k tématu článku.",
+        "feynman" => "Vysvětli látku vlastními slovy a AI ti řekne, co ti šlo a co ti uniklo.",
+        "compare" => "AI porovná téma článku s pojmem, který zadáš, v přehledné tabulce.",
+        "stepsolver" => "AI vyřeší hlavní příklad z článku krok za krokem.",
+        _ => "",
+    };
+
+    private void CloseAiTool() => _activeAiTool = null;
+
+    // Toggles the panel to `tool` (or closes it if already open) and clears any error left over
+    // from a previously opened tool, which would otherwise incorrectly render for this one too
+    // since the panel dispatches on _aiToolError before it dispatches on _activeAiTool.
+    // Returns true when the panel is now open on `tool` (i.e. the caller should load its data).
+    private bool SwitchAiTool(string tool)
+    {
+        _activeAiTool = _activeAiTool == tool ? null : tool;
+        _aiToolError = null;
+        return _activeAiTool == tool;
+    }
+
+    // Every "Více" tool shares the same free-tier quota AND the same per-student credit cost
+    // as AiChatBox and the raw HTTP AI endpoints (see IAiUsageGuard / AiController.Ask) - calling
+    // AiService directly from Blazor bypasses AiController, so this component must enforce both
+    // itself, or a logged-in student could use every tool here for free while the chat still
+    // charges credits. Returns the denial message rather than writing to a shared field, since
+    // callers store it in different per-tool error fields.
+    private async Task<(bool Allowed, string? Message)> TryConsumeAiUsageAsync()
+    {
+        // Pre-flight credit check, mirroring AiChatBox.Send: cheaper to fail before spending
+        // an OpenAI call than after. The actual deduction happens post-hoc via
+        // DeductAiCreditIfLoggedInAsync, once the call has actually produced something.
+        if (_userId is { } uid)
+        {
+            var user = await UserService.GetByIdAsync(uid);
+            if ((user?.Credits ?? 0) < 1)
+                return (false, "Nemáš dostatek kreditů.");
+        }
+
+        try
+        {
+            var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
+            return decision.Allowed ? (true, null) : (false, decision.DeniedMessage ?? "Denní limit dotazů byl vyčerpán.");
+        }
+        catch
+        {
+            return (false, "Nepodařilo se ověřit denní limit dotazů.");
+        }
+    }
+
+    // Deducts 1 credit for a logged-in student after a successful generation (mirrors
+    // AiChatBox.Send / AiController.Ask, which deduct post-hoc once the answer exists rather
+    // than before). Best-effort: if the deduction fails (e.g. a concurrent request already
+    // spent the last credit), the already-generated result is kept either way.
+    private async Task DeductAiCreditIfLoggedInAsync()
+    {
+        if (_userId is not { } uid) return;
+        if (await UserService.DeductCreditsAsync(uid, 1, "ai_ask"))
+            _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+    }
+
+    private async Task ToggleFlashcards()
+    {
+        if (!SwitchAiTool("flashcards") || _flashcardsLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            var resp = await AiService.GenerateFlashcardsAsync(_post.Id);
+            await DeductAiCreditIfLoggedInAsync();
+            _flashcards = resp.Cards;
+            _flashcardIndex = 0;
+            _flashcardFlipped = false;
+            _flashcardsLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Kartičky se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    private double FlashcardProgress => _flashcards.Count == 0 ? 0 : (double)(_flashcardIndex + 1) / _flashcards.Count * 100;
+
+    private const int FlashcardFlipTransitionMs = 400;
+
+    // Ephemeral AI flashcards aren't tied to QuestionAttempt progress tracking like
+    // /practice/flashcards, so "knewIt" has no server-side effect - instead, "Musím zopakovat"
+    // requeues the card at the end of the deck (list length stays constant) so it comes back
+    // around for review, while "Umím" advances past it for good.
+    private async Task AdvanceFlashcard(bool knewIt)
+    {
+        var current = _flashcards[_flashcardIndex];
+        _flashcardFlipped = false;
+        StateHasChanged();
+        await Task.Delay(FlashcardFlipTransitionMs);
+        if (_disposed) return;
+
+        if (knewIt)
+        {
+            _flashcardIndex++;
+        }
+        else
+        {
+            _flashcards.RemoveAt(_flashcardIndex);
+            _flashcards.Add(current);
+        }
+        StateHasChanged();
+    }
+
+    private void RestartFlashcards()
+    {
+        _flashcardIndex = 0;
+        _flashcardFlipped = false;
+    }
+
+    private async Task TogglePractice()
+    {
+        if (!SwitchAiTool("practice") || _practiceLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            var resp = await AiService.GeneratePracticeProblemsAsync(_post.Id, 3, _currentVersion?.GradeId);
+            await DeductAiCreditIfLoggedInAsync();
+            _practiceProblems = resp.Problems;
+            _practiceRevealed.Clear();
+            _practiceLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Procvičovací úlohy se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    // The trigger lives inside the grade version-dropdown, so opening it should also close
+    // that dropdown rather than leaving both open at once.
+    private async Task OpenRewriteFromDropdown()
+    {
+        _versionsOpen = false;
+        await ToggleRewrite();
+    }
+
+    private async Task ToggleRewrite()
+    {
+        if (!SwitchAiTool("rewrite") || _grades.Count > 0) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            _grades = await AnonymApi.GetGrades();
+        }
+        catch
+        {
+            _aiToolError = "Ročníky se nepodařilo načíst.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    private async Task SelectRewriteGrade(GradeResponse grade)
+    {
+        if (_post == null || _rewriteLoading) return;
+
+        _rewriteGradeId = grade.Id;
+        _rewriteLoading = true;
+        _rewriteError = null;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _rewriteError = message; return; }
+            var resp = await AiService.RewriteForGradeAsync(_post.Id, grade.Level);
+            await DeductAiCreditIfLoggedInAsync();
+
+            // Replaces the real article body rather than showing in the tool panel, so close
+            // the panel and jump straight to the rewritten article once it's ready.
+            _rewrittenContent = resp.Content;
+            _rewrittenGradeName = grade.Name;
+            CloseAiTool();
+            await JS.InvokeVoidAsync("scrollToId", "article-prose");
+        }
+        catch
+        {
+            _rewriteError = "Přepis se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _rewriteLoading = false;
+        }
+    }
+
+    private async Task ToggleExam()
+    {
+        if (!SwitchAiTool("exam") || _examLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            _examSummary = await AiService.GenerateExamSummaryAsync(_post.Id);
+            await DeductAiCreditIfLoggedInAsync();
+            _examLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Shrnutí se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    // "Vygenerovat procvičovací úlohy" from the exam-summary tool switches straight to the
+    // practice-problems tool rather than duplicating a question list here.
+    private async Task GeneratePracticeFromExam() => await TogglePractice();
+
+    private async Task ToggleRealWorld()
+    {
+        if (!SwitchAiTool("realworld") || _realWorldLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            var resp = await AiService.GetRealWorldApplicationsAsync(_post.Id);
+            await DeductAiCreditIfLoggedInAsync();
+            _realWorldApps = resp.Applications;
+            _realWorldLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Příklady se nepodařilo najít. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    // Opening the tool auto-generates a first scenario (empty UserQuestion lets the AI invent
+    // its own, per GetWhatIfScenarioAsync) instead of requiring the visitor to type something
+    // before they see anything - typing is only needed for a follow-up question afterwards.
+    private async Task ToggleWhatIf()
+    {
+        if (!SwitchAiTool("whatif") || _whatIfLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            _whatIfResult = await AiService.GetWhatIfScenarioAsync(new WhatIfRequest { PostId = _post.Id, UserQuestion = "" });
+            await DeductAiCreditIfLoggedInAsync();
+            _whatIfLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Odpověď se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    private async Task AskWhatIf()
+    {
+        if (_post == null || _whatIfLoading) return;
+
+        _whatIfLoading = true;
+        _whatIfError = null;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _whatIfError = message; return; }
+            _whatIfResult = await AiService.GetWhatIfScenarioAsync(new WhatIfRequest { PostId = _post.Id, UserQuestion = _whatIfQuestion });
+            await DeductAiCreditIfLoggedInAsync();
+            _whatIfQuestion = "";
+        }
+        catch
+        {
+            _whatIfError = "Odpověď se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _whatIfLoading = false;
+        }
+    }
+
+    private Task AskWhatIfRandom()
+    {
+        _whatIfQuestion = "";
+        return AskWhatIf();
+    }
+
+    private async Task HandleWhatIfKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AskWhatIf();
+    }
+
+    private void ToggleFeynman() => SwitchAiTool("feynman");
+
+    private async Task SubmitFeynman()
+    {
+        if (_post == null || _feynmanLoading || string.IsNullOrWhiteSpace(_feynmanExplanation)) return;
+
+        _feynmanLoading = true;
+        _feynmanError = null;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _feynmanError = message; return; }
+            _feynmanResult = await AiService.EvaluateComprehensionAsync(new EvaluateComprehensionRequest { PostId = _post.Id, StudentExplanation = _feynmanExplanation });
+            await DeductAiCreditIfLoggedInAsync();
+        }
+        catch
+        {
+            _feynmanError = "Hodnocení se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _feynmanLoading = false;
+        }
+    }
+
+    private void ToggleCompare() => SwitchAiTool("compare");
+
+    private async Task HandleCompareKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SubmitCompare();
+    }
+
+    private async Task SubmitCompare()
+    {
+        if (_post == null || _compareLoading || string.IsNullOrWhiteSpace(_compareTerm)) return;
+
+        _compareLoading = true;
+        _compareError = null;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _compareError = message; return; }
+            _compareMarkdown = await AiService.GenerateComparisonAsync(_post.Id, _compareTerm);
+            await DeductAiCreditIfLoggedInAsync();
+        }
+        catch
+        {
+            _compareError = "Srovnání se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _compareLoading = false;
+        }
+    }
+
+    private async Task ToggleStepSolver()
+    {
+        if (!SwitchAiTool("stepsolver") || _stepSolverLoaded || _post == null) return;
+
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            var resp = await AiService.GenerateStepSolverAsync(_post.Id);
+            await DeductAiCreditIfLoggedInAsync();
+            _stepSolverSteps = resp.Steps;
+            _stepSolverLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Postup se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
         }
     }
 

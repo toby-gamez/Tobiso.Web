@@ -24,7 +24,7 @@
 
 .pill-on {
     background: var(--color-accent-600);
-    color: var(--color-bg);
+    color: var(--color-on-accent);
     border-color: transparent;
 }
 
@@ -244,6 +244,13 @@ a.sage-tint {
 
 #article-prose a:hover {
     color: var(--color-accent-800);
+}
+
+/* MarkdownContent wraps every rendered <table> in this, but it was never styled anywhere -
+   without it a wide table (e.g. many comparison columns) overflows and forces the whole
+   page to scroll horizontally on narrow viewports instead of just the table. */
+.table-scroll-wrapper {
+    overflow-x: auto;
 }
 
 #article-prose table {
@@ -670,7 +677,7 @@ svg.lucide {
 
 .seg-btn.active {
     background: var(--color-accent-600);
-    color: var(--color-bg);
+    color: var(--color-on-accent);
     border-color: transparent;
 }
 
@@ -716,7 +723,7 @@ svg.lucide {
 
 .chip-sel {
     background: var(--color-accent-600);
-    color: var(--color-bg);
+    color: var(--color-on-accent);
     border-color: transparent;
 }
 
@@ -831,6 +838,11 @@ svg.lucide {
 .help-btn:hover,
 .help-btn:focus-visible {
     background: var(--color-neutral-100);
+    color: var(--color-text);
+}
+
+:root:not([data-theme="light"]) .help-btn,
+[data-theme="dark"] .help-btn {
     color: var(--color-text);
 }
 

@@ -698,6 +698,45 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        [HttpGet("exam-summary/{postId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetExamSummary(int postId)
+        {
+            if (postId <= 0) return BadRequest();
+
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostExamSummaries.FirstOrDefaultAsync(s => s.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+                return Ok(new { summary = cached.Summary });
+
+            var rateKey = GetRateKey();
+            if (!await TryConsumeRateLimit(rateKey))
+                return StatusCode(429, new { message = "Denní limit dotazů byl vyčerpán." });
+
+            try
+            {
+                var summary = await _aiService.GenerateExamSummaryAsync(postId);
+                if (cached != null)
+                {
+                    cached.Summary = summary;
+                    cached.GeneratedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    _db.PostExamSummaries.Add(new PostExamSummary { PostId = postId, Summary = summary });
+                }
+                await _db.SaveChangesAsync();
+
+                return Ok(new { summary });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Exam-summary failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
         [HttpPost("evaluate-comprehension")]
         [AllowAnonymous]
         public async Task<IActionResult> EvaluateComprehension([FromBody] EvaluateComprehensionRequest request)

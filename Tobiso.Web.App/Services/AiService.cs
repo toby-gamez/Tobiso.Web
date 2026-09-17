@@ -996,6 +996,8 @@ namespace Tobiso.Web.App.Services
                 $"Jsi tvůrce cvičných úloh pro výuku. Na základě obsahu článku vygeneruj PŘESNĚ {count} cvičných úloh. " +
                 "Pro každou úlohu urči obtížnost (lehká/střední/těžká) a napiš podrobné řešení krok za krokem. " +
                 "Úlohy musí být výpočetní nebo analytické – nevytvářej jen faktické otázky. " +
+                "FORMÁTOVÁNÍ ŘEŠENÍ (důležité): Každý krok řešení piš na NOVÝ řádek (odděluj je znakem \\n), nepiš řešení jako jeden souvislý odstavec. " +
+                "Pro násobení a dělení VŽDY používej znaky × a ÷ (nikdy *, / nebo x). " +
                 "Vrať POUZE platný JSON (bez markdown): {\"problems\":[{\"problemText\":\"...\",\"solution\":\"...\",\"difficulty\":\"lehká|střední|těžká\"}]}";
 
             var messages = new List<object>
@@ -1064,15 +1066,19 @@ namespace Tobiso.Web.App.Services
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
             var post = await _postService.GetById(postId);
-            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var version = PostVersionSelector.SelectForGrade(post?.Versions, targetGrade);
+            var versionContent = version?.Content ?? string.Empty;
             var articleContext = PrepareArticleContext(versionContent);
             var title = post?.Title ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(articleContext)) return new RewriteGradeResponse();
 
-            var systemPrompt = $"Jsi pedagog. Přepiš následující vzdělávací text tak, aby byl srozumitelný pro žáka {targetGrade}. ročníku základní školy. " +
-                "Přizpůsob slovní zásobu, délku vět a hloubku vysvětlení věkové skupině. Zachovej klíčové informace a fakta. " +
-                "Odpovídej čistým textem v češtině, bez markdown formátování a bez úvodní věty jako 'Přepsaný text:'.";
+            var systemPrompt = $"Jsi zkušený český pedagog. Přepiš CELÝ následující vzdělávací text tak, aby byl srozumitelný a zajímavý pro žáka {targetGrade}. ročníku základní školy. " +
+                "Jde o PŘEPIS celého článku, ne o shrnutí ani zkrácení – zachovej všechny klíčové informace, fakta i strukturu (nadpisy, odstavce, případně seznamy) z původního textu, jen je přeformuluj pro danou věkovou skupinu. " +
+                "Přizpůsob slovní zásobu a délku vět věku žáka. " +
+                "DŮLEŽITÉ pro nižší ročníky: žák v tomto věku nemusí znát odborné pojmy, jednotky ani značky (např. co je '1,5 V' nebo 'zinko-uhlíkový článek') – při PRVNÍM výskytu každého takového pojmu ho krátce jednoduše vysvětli (např. přirovnáním z běžného života), místo aby ses spoléhal na to, že ho žák už zná. " +
+                "Piš v Markdownu – používej nadpisy (##, ###), odstavce a odrážky tam, kde to dává smysl, stejně jako v původním článku. " +
+                "Odpovídej v češtině, bez úvodní věty jako 'Přepsaný text:' a bez závěrečného shrnutí navíc.";
 
             var messages = new List<object>
             {
@@ -1080,7 +1086,7 @@ namespace Tobiso.Web.App.Services
                 new { role = "user", content = $"Téma: {title}\n\n{articleContext}" }
             };
 
-            var payload = new { model, messages, max_tokens = 1200, temperature = 0.4 };
+            var payload = new { model, messages, max_tokens = 3000, temperature = 0.4 };
             var client = _httpClientFactory.CreateClient("OpenAI");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
@@ -1567,6 +1573,23 @@ namespace Tobiso.Web.App.Services
             catch { return new List<string>(); }
         }
 
+        // AskRawJsonAsync forces response_format=json_object, which makes the model wrap a
+        // requested bare JSON array in an object (key name of its choosing) rather than return
+        // the array directly. Accept either shape: a root array, or the first array-valued
+        // property of a root object.
+        private static JsonElement? FindJsonArray(JsonElement root)
+        {
+            if (root.ValueKind == JsonValueKind.Array) return root;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in root.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Array) return prop.Value;
+                }
+            }
+            return null;
+        }
+
         public async Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId)
         {
             var post = await _postService.GetById(postId);
@@ -1581,10 +1604,10 @@ namespace Tobiso.Web.App.Services
             try
             {
                 using var doc = JsonDocument.Parse(jsonRaw);
-                var root = doc.RootElement;
+                var arrayEl = FindJsonArray(doc.RootElement);
                 var questions = new List<ExamQuestion>();
-                if (root.ValueKind == JsonValueKind.Array)
-                    foreach (var el in root.EnumerateArray())
+                if (arrayEl.HasValue)
+                    foreach (var el in arrayEl.Value.EnumerateArray())
                     {
                         var q = el.TryGetProperty("question", out var qp) ? qp.GetString() ?? "" : "";
                         var a = el.TryGetProperty("answer", out var ap) ? ap.GetString() ?? "" : "";
@@ -1594,6 +1617,55 @@ namespace Tobiso.Web.App.Services
                 return questions;
             }
             catch { return new List<ExamQuestion>(); }
+        }
+
+        public async Task<string> GenerateExamSummaryAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var content = PrepareArticleContext(post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+            var title = post?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+
+            var apiKey = _configuration["OpenAI:ApiKey"];
+            var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+            if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
+
+            var systemPrompt = "Jsi zkušený pedagog. Na základě obsahu článku napiš stručné shrnutí toho, na CO by se měl žák nejvíce zaměřit při přípravě na test nebo zkoušení z tohoto tématu – konkrétní pojmy, vztahy, vzorce nebo fakta, která se často zkoušejí. " +
+                "Nepiš žádné otázky ani odpovědi, jen shrnutí věcí k naučení. " +
+                "Piš v Markdownu jako odrážkový seznam (znak '-'), 4–7 odrážek, každá odrážka jedna konkrétní věc, max. 20 slov. Bez úvodu a bez závěru. Odpovídej česky.";
+            var userPrompt = $"Téma: {title}\n\n{content}";
+
+            var messages = new List<object>
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = userPrompt }
+            };
+
+            var payload = new { model, messages, max_tokens = 400, temperature = 0.3 };
+            var client = _httpClientFactory.CreateClient("OpenAI");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("https://api.openai.com/v1/chat/completions",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "OpenAI exam-summary request failed for postId={PostId}", postId);
+                throw;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                && choices[0].TryGetProperty("message", out var msg) && msg.TryGetProperty("content", out var cnt))
+                return cnt.GetString()?.Trim() ?? string.Empty;
+
+            return string.Empty;
         }
 
         public async Task<string> ExplainWhyAsync(string sentence, string articleContext)
@@ -1701,10 +1773,10 @@ namespace Tobiso.Web.App.Services
             try
             {
                 using var doc = JsonDocument.Parse(jsonRaw);
-                var root = doc.RootElement;
+                var arrayEl = FindJsonArray(doc.RootElement);
                 var steps = new List<SolverStep>();
-                if (root.ValueKind == JsonValueKind.Array)
-                    foreach (var el in root.EnumerateArray())
+                if (arrayEl.HasValue)
+                    foreach (var el in arrayEl.Value.EnumerateArray())
                     {
                         var s = el.TryGetProperty("step", out var sp) ? sp.GetString() ?? "" : "";
                         var e = el.TryGetProperty("explanation", out var ep) ? ep.GetString() ?? "" : "";

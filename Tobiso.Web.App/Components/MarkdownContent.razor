@@ -15,6 +15,12 @@
     [Parameter] public string ContainerId { get; set; } = "content";
     /// <summary>Raised after each render with the level-2 headings found in the content, in document order, as (Text, Anchor id) - lets a host page build a table of contents that links to real element ids.</summary>
     [Parameter] public EventCallback<List<(string Text, string Anchor)>> OnHeadingsExtracted { get; set; }
+    /// <summary>Whether to look for a "..." ... "..." delimited lead paragraph and style it as .post-lead.
+    /// This is an authoring convention for real articles - disable it for AI-generated content (rewrites,
+    /// summaries, ...), which wasn't written with that marker in mind and may contain incidental "..."
+    /// (ellipses) that would otherwise be misread as lead-paragraph delimiters and swallow large chunks
+    /// of the text, or silently lose their ellipsis when stripped.</summary>
+    [Parameter] public bool DetectLead { get; set; } = true;
 
     private string _renderedHtml = string.Empty;
     private readonly List<(string Text, string Anchor)> _headings = [];
@@ -160,12 +166,15 @@
             return $"<span style=\"color:gray; text-decoration:line-through;\">{linkText}</span>";
         });
 
-        // Wrap text between ... ... into the lead-paragraph div
-        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
-        html = dotsRegex.Replace(html, m => $"<div class=\"post-lead\">{m.Groups[2].Value}</div>", 1);
-        var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
-        html = singleDotsRegex.Replace(html, "");
-        html = html.Replace("...", "");
+        if (DetectLead)
+        {
+            // Wrap text between ... ... into the lead-paragraph div
+            var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
+            html = dotsRegex.Replace(html, m => $"<div class=\"post-lead\">{m.Groups[2].Value}</div>", 1);
+            var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
+            html = singleDotsRegex.Replace(html, "");
+            html = html.Replace("...", "");
+        }
 
         // Callout blocks: !!!tip ... !!! and !!!sidefact ... !!!
         // These are regex-matched on the rendered HTML (similar to the intro pattern above).

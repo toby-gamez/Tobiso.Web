@@ -70,6 +70,11 @@
     height: 20px;
 }
 
+:root:not([data-theme="light"]) .search-close-btn,
+[data-theme="dark"] .search-close-btn {
+    color: var(--color-text);
+}
+
 @media (max-width: 767px) {
     .search-esc-hint {
         display: none;
