@@ -796,3 +796,7 @@
 @media (max-width: 900px) {
     .post-toc { display: none; }
 }
+
+@media (max-width: 480px) {
+    .toolbar { border-radius: var(--radius-lg); }
+}
