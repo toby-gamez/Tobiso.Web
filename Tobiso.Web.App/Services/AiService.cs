@@ -10,6 +10,9 @@ using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Shared.Helpers;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.Interfaces;
+using Tobiso.Api.Infrastructure.Data;
+using Tobiso.Web.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Tobiso.Web.App.Services
 {
@@ -21,8 +24,9 @@ namespace Tobiso.Web.App.Services
         private readonly IAiRateLimitService _rateLimitService;
         private readonly IGradeService _gradeService;
         private readonly IQuestionService _questionService;
+        private readonly TobisoDbContext _db;
 
-        public AiService(IHttpClientFactory httpClientFactory, IConfiguration configuration, IPostService postService, IAiRateLimitService rateLimitService, IGradeService gradeService, IQuestionService questionService)
+        public AiService(IHttpClientFactory httpClientFactory, IConfiguration configuration, IPostService postService, IAiRateLimitService rateLimitService, IGradeService gradeService, IQuestionService questionService, TobisoDbContext db)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
@@ -30,6 +34,41 @@ namespace Tobiso.Web.App.Services
             _rateLimitService = rateLimitService;
             _gradeService = gradeService;
             _questionService = questionService;
+            _db = db;
+        }
+
+        // Backs Blazor call sites (e.g. PostDetail.ToggleFacts) that need the same per-post cache
+        // AiController.GetFunFacts uses, but must call in-process rather than over HTTP: a
+        // Refit call back into this same app carries no Authorization header, so it always looks
+        // anonymous to AiController's rate limiter - a logged-in user with daily quota left would
+        // still be judged against the anonymous lifetime cap and get a spurious 429.
+        public async Task<List<string>?> TryGetCachedFunFactsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var postLastEdit = post?.Versions?.Max(v => v.LastEdit ?? v.LastFix) ?? DateTime.MinValue;
+            var cached = await _db.PostFunFacts.FirstOrDefaultAsync(f => f.PostId == postId);
+            if (cached != null && cached.GeneratedAt >= postLastEdit)
+            {
+                try { return JsonSerializer.Deserialize<List<string>>(cached.FactsJson) ?? new(); }
+                catch { }
+            }
+            return null;
+        }
+
+        public async Task SaveFunFactsCacheAsync(int postId, List<string> facts)
+        {
+            var cached = await _db.PostFunFacts.FirstOrDefaultAsync(f => f.PostId == postId);
+            var json = JsonSerializer.Serialize(facts);
+            if (cached != null)
+            {
+                cached.FactsJson = json;
+                cached.GeneratedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _db.PostFunFacts.Add(new PostFunFact { PostId = postId, FactsJson = json });
+            }
+            await _db.SaveChangesAsync();
         }
 
         private string PrepareArticleContext(string content)
@@ -1562,10 +1601,10 @@ namespace Tobiso.Web.App.Services
             try
             {
                 using var doc = JsonDocument.Parse(jsonRaw);
-                var root = doc.RootElement;
+                var arrayEl = FindJsonArray(doc.RootElement);
                 var facts = new List<string>();
-                if (root.ValueKind == JsonValueKind.Array)
-                    foreach (var el in root.EnumerateArray())
+                if (arrayEl.HasValue)
+                    foreach (var el in arrayEl.Value.EnumerateArray())
                         if (el.ValueKind == JsonValueKind.String && el.GetString() is string s)
                             facts.Add(s);
                 return facts;

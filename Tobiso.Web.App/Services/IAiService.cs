@@ -22,5 +22,10 @@ namespace Tobiso.Web.App.Services
         Task<List<ExamQuestion>> GenerateExamQuestionsAsync(int postId);
         Task<string> GenerateExamSummaryAsync(int postId);
         Task<FlashcardEligibilityBatchResult> ClassifyFlashcardEligibilityBatchAsync(int batchSize = 30);
+
+        // Cache access for callers that generate/consume fun facts in-process (Blazor pages),
+        // bypassing the HTTP AiController surface entirely - see AiService.TryGetCachedFunFactsAsync.
+        Task<List<string>?> TryGetCachedFunFactsAsync(int postId);
+        Task SaveFunFactsCacheAsync(int postId, List<string> facts);
     }
 }

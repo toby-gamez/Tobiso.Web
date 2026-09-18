@@ -14,6 +14,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IAiService AiService
+@inject Tobiso.Web.App.Services.IAiService AppAiService
 @inject Tobiso.Web.App.Services.IAiUsageGuard UsageGuard
 
 <PageTitle>@(_post?.Title ?? "Článek") - Tobiso</PageTitle>
@@ -1662,8 +1663,23 @@ else
             _factsLoading = true;
             try
             {
-                var response = await AnonymApi.GetFunFacts(_post.Id);
-                _facts = response.Facts;
+                var cached = await AppAiService.TryGetCachedFunFactsAsync(_post.Id);
+                if (cached != null)
+                {
+                    _facts = cached;
+                }
+                else
+                {
+                    // Fun facts are free (no credit deduction), same as DetectPersonMentions below -
+                    // consume straight from the shared free-tier quota rather than TryConsumeAiUsageAsync,
+                    // which also gates on student credit balance for the paid "Více" tools.
+                    var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+                    var auth = await AuthState.GetAuthenticationStateAsync();
+                    var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
+                    if (!decision.Allowed) { _factsError = decision.DeniedMessage ?? "Denní limit dotazů byl vyčerpán."; return; }
+                    _facts = await AiService.GenerateFunFactsAsync(_post.Id);
+                    await AppAiService.SaveFunFactsCacheAsync(_post.Id, _facts);
+                }
                 _factsLoaded = true;
             }
             catch
