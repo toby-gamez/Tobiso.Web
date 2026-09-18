@@ -242,3 +242,40 @@ window.getDifficultyVote = (postId) => {
 window.setDifficultyVote = (postId, rating) => {
     try { localStorage.setItem(`tobiso-difficulty-${postId}`, String(rating)); } catch (e) { /* ignore */ }
 };
+
+// PostDetail toolbar "Sdílet" button. Bound as a genuine DOM click listener - NOT a Blazor
+// @onclick - because navigator.share()/navigator.clipboard.writeText() require the browser's
+// transient user-activation, which an @onclick would already have spent by the time its
+// server round-trip returns and invokes this via JS interop (both APIs then reject with
+// NotAllowedError). Calling them directly from the real click event keeps the activation
+// intact; .NET is only invoked afterwards to show feedback for the clipboard-fallback case,
+// which needs no activation. data-share-url/title are refreshed by Blazor on every render
+// (post navigation swaps them), so this only needs to bind once per button element.
+window.bindSharePost = (dotNetRef) => {
+    const btn = document.getElementById('share-post-btn');
+    if (!btn || btn.dataset.shareBound === '1') return;
+    btn.dataset.shareBound = '1';
+
+    btn.addEventListener('click', async () => {
+        const url = btn.dataset.shareUrl;
+        const title = btn.dataset.shareTitle;
+        if (!url) return;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({ title, url });
+                return;
+            } catch (e) {
+                if (e?.name === 'AbortError') return; // user closed the share sheet
+                // Fall through to clipboard copy for other failures.
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(url);
+            dotNetRef.invokeMethodAsync('OnShareResult', true);
+        } catch (e) {
+            dotNetRef.invokeMethodAsync('OnShareResult', false);
+        }
+    });
+};

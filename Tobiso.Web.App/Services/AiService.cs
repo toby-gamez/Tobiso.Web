@@ -190,7 +190,7 @@ namespace Tobiso.Web.App.Services
             return new AiChatResponse { Answer = contentText.Trim(), RemainingQuestions = remaining };
         }
 
-        public async Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt)
+        public async Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt, int maxTokens = 500)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
@@ -207,7 +207,7 @@ namespace Tobiso.Web.App.Services
             {
                 model = model,
                 messages = messages,
-                max_tokens = 500,
+                max_tokens = maxTokens,
                 response_format = new { type = "json_object" }
             };
 
@@ -1903,7 +1903,10 @@ namespace Tobiso.Web.App.Services
 
             var systemPrompt = "Jsi pedagog. Z článku extrahuj 6–12 klíčových pojmů a jejich vzájemné vztahy jako myšlenkovou mapu. Vrať výhradně jako JSON objekt: {\"nodes\": [{\"id\": \"n1\", \"label\": \"Pojem\"}], \"edges\": [{\"source\": \"n1\", \"target\": \"n2\", \"label\": \"je součástí\"}]}. Bez dalšího textu.";
             var userPrompt = $"Téma: {title}\n\n{content}";
-            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt);
+            // AskRawJsonAsync's default 500-token budget truncates mid-JSON for a full 12-node
+            // graph plus edge labels, which throws in JsonDocument.Parse below and silently
+            // returns an empty map - bump it for this call's larger expected payload.
+            var jsonRaw = await AskRawJsonAsync(systemPrompt, userPrompt, maxTokens: 1000);
 
             try
             {
@@ -1928,7 +1931,11 @@ namespace Tobiso.Web.App.Services
                         });
                 return new ConceptMapResponse { Nodes = nodes, Edges = edges };
             }
-            catch { return new ConceptMapResponse(); }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to parse concept-map response for postId={PostId}. Raw: {Raw}", postId, jsonRaw);
+                return new ConceptMapResponse();
+            }
         }
 
         public async Task<FormulaVarsResponse> ExtractFormulaVarsAsync(int postId)

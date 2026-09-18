@@ -1,0 +1,158 @@
+.image-upload-page h1 {
+    margin-bottom: var(--space-6);
+}
+
+.upload-field-label {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: var(--space-2);
+}
+
+.base-address-note {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+    margin-bottom: var(--space-4);
+}
+
+.upload-dropzone {
+    border: 2px dashed var(--color-divider);
+    border-radius: var(--radius-lg);
+    padding: var(--space-8);
+    text-align: center;
+    background: var(--color-neutral-100);
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.dropzone-active {
+    border-color: var(--color-accent-500);
+    background: var(--color-accent-100);
+}
+
+.upload-dropzone-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.upload-dropzone-status .spinner {
+    font-size: 28px;
+    color: var(--color-accent-600);
+}
+
+.upload-hint {
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
+.upload-link-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--color-accent-700);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.gallery-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin: var(--space-8) 0 var(--space-4);
+    flex-wrap: wrap;
+}
+
+.gallery-loading,
+.gallery-empty {
+    text-align: center;
+    padding: var(--space-6);
+    color: var(--color-neutral-600);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.gallery-empty {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-4);
+}
+
+.gallery-tile {
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.gallery-tile-icon {
+    height: 130px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    color: var(--color-accent-600);
+    /* Lucide icons are sized in 1em (see organic.css "svg.lucide"), so the
+       effective pixel size is driven by font-size here, not width/height. */
+    font-size: 56px;
+}
+
+.gallery-tile-icon i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gallery-tile-body {
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gallery-tile-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gallery-tile-size {
+    font-size: 12px;
+    color: var(--color-neutral-600);
+}
+
+.gallery-tile-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.gallery-tile-copy-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.gallery-tile-copy-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.gallery-tile-delete-btn {
+    flex-shrink: 0;
+}

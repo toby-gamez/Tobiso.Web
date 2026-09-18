@@ -234,6 +234,7 @@ app.Use(async (context, next) =>
         "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; " +
         "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
         "img-src 'self' https: data:; " +
+        "media-src 'self' https:; " +
         "connect-src 'self'; " +
         "frame-ancestors 'none'";
     await next();

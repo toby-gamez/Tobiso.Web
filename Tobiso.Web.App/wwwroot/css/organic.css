@@ -285,15 +285,38 @@ a.sage-tint {
 }
 
 /* Article figure: washed-treated image + caption/source row (docs/design/PostBody.dc.html) */
+/* Images float right with prose wrapping on the left, EXCEPT ones sourced "Zdroj: Tobiso"
+   (.post-figure--static), which stay full-width/inline as before. */
 .post-figure {
-    margin: var(--space-8) 0;
+    float: right;
+    clear: right;
+    margin: 0 0 var(--space-5) var(--space-6);
     max-width: 300px;
+}
+
+.post-figure.post-figure--static {
+    float: none;
+    clear: both;
+    margin: var(--space-8) 0;
+}
+
+#article-prose h2,
+#article-prose h3 {
+    clear: right;
+}
+
+@media (max-width: 640px) {
+    .post-figure {
+        float: none;
+        clear: both;
+        margin: var(--space-8) 0;
+        max-width: 100%;
+    }
 }
 
 .post-figure .washed {
     border-radius: var(--radius-lg);
     overflow: hidden;
-    background: var(--color-surface);
 }
 
 .post-figure img {
@@ -302,6 +325,9 @@ a.sage-tint {
     max-width: 300px;
     height: auto;
     cursor: zoom-in;
+    /* Rounded here too, not just on .washed: some mobile browsers don't clip a
+       filtered child to a parent's overflow:hidden + border-radius correctly. */
+    border-radius: var(--radius-lg);
     filter: saturate(0.85) sepia(0.05);
     transition: filter 150ms ease, opacity 150ms ease;
 }
@@ -313,17 +339,64 @@ a.sage-tint {
 
 .post-figure figcaption {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    justify-content: space-between;
+    flex-direction: column;
+    gap: var(--space-1);
     font-size: 13px;
     color: var(--color-neutral-700);
     margin-top: var(--space-2);
 }
 
+/* Truncate long captions/sources inline (the figure is narrow) — up to 3 lines
+   is fine, anything longer is clipped with an ellipsis. The full text still
+   shows in the lightbox opened by clicking the image. */
+.post-figure-caption,
+.post-figure-source {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .post-figure-source {
     opacity: .75;
-    flex-shrink: 0;
+}
+
+/* Article video embed: *[alt](videos/x.mp4) */
+.post-video {
+    margin: var(--space-8) 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-surface);
+}
+
+.post-video video {
+    display: block;
+    width: 100%;
+    max-height: 480px;
+    /* Some browsers composite <video> in a hardware layer that a parent's
+       overflow:hidden alone doesn't reliably clip - round it directly too. */
+    border-radius: inherit;
+}
+
+/* Article document download link: _[label](documents/x.docx) */
+.post-document-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-4) 0;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-full, 999px);
+    background: var(--color-accent-100);
+    color: var(--color-accent-700);
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 120ms ease;
+}
+
+.post-document-link:hover {
+    background: var(--color-accent-200);
 }
 
 /* Image lightbox: click-to-enlarge overlay for article figures */
@@ -359,38 +432,55 @@ a.sage-tint {
     animation: lightbox-scalein 160ms ease;
 }
 
+.img-lightbox-frame {
+    display: inline-block;
+    line-height: 0;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    max-width: 100%;
+}
+
 .img-lightbox-wrapper img {
     max-width: 92vw;
     max-height: 82vh;
     object-fit: contain;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    background: var(--color-surface);
     cursor: zoom-out;
     display: block;
 }
 
 .img-lightbox-meta {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-2);
     margin-top: var(--space-3);
     font-size: 13px;
-    line-height: 1.4;
+    line-height: 1.5;
+}
+
+.img-lightbox-caption,
+.img-lightbox-source {
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-line;
 }
 
 .img-lightbox-caption {
     color: var(--color-on-accent);
     opacity: .92;
-    flex: 1;
 }
 
 .img-lightbox-source {
     color: var(--color-on-accent);
     opacity: .65;
     font-style: italic;
-    flex-shrink: 0;
+}
+
+.img-lightbox-caption a,
+.img-lightbox-source a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .img-lightbox-close {

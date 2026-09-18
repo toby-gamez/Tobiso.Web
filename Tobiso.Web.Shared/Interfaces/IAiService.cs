@@ -10,7 +10,7 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<AiChatResponse> AskAsync(AiChatRequest request, string clientKey);
         IAsyncEnumerable<string> AskStreamAsync(AiChatRequest request, CancellationToken cancellationToken = default);
         Task<List<string>> DetectPeopleInTextAsync(string content);
-        Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt);
+        Task<string> AskRawJsonAsync(string systemPrompt, string userPrompt, int maxTokens = 500);
         Task<PersonResponse> GetPersonInfoAsync(string name);
         Task<GrammarCheckResponse> CheckGrammarAsync(string content);
         Task<string> GenerateCheatSheetAsync(string title, string content, string ratio = "1x1");

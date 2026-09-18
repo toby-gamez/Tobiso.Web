@@ -1,3 +1,4 @@
+@using Markdig
 @using System.Text.RegularExpressions
 @using System.Globalization
 @using System.Text
@@ -21,6 +22,11 @@
     /// (ellipses) that would otherwise be misread as lead-paragraph delimiters and swallow large chunks
     /// of the text, or silently lose their ellipsis when stripped.</summary>
     [Parameter] public bool DetectLead { get; set; } = true;
+
+    // Used only for figure caption/source lines so bare URLs (e.g. "Autor: ... https://commons.wikimedia.org/...")
+    // render as real links, without turning on auto-linking for the whole article body.
+    private static readonly Markdig.MarkdownPipeline _captionPipeline =
+        new Markdig.MarkdownPipelineBuilder().UseAutoLinks().Build();
 
     private string _renderedHtml = string.Empty;
     private readonly List<(string Text, string Anchor)> _headings = [];
@@ -79,6 +85,10 @@
         // Group images with captions/sources BEFORE conversion while paragraph structure is clear
         content = PreprocessImageGroups(content);
 
+        // Convert standalone *[alt](videos/x.mp4) and _[label](documents/x.docx) paragraphs
+        // to raw <video>/download-link HTML BEFORE conversion, same reasoning as images above.
+        content = PreprocessMediaEmbeds(content);
+
         var html = Markdig.Markdown.ToHtml(content);
 
         // Process addendum markers (--DOD-x--) AFTER HTML conversion
@@ -105,6 +115,22 @@
             return match.Value;
         });
 
+        // Fix video src: add prefix to relative <video> src attributes (same convention as <img> above)
+        var videoRegex = new Regex("<video\\s+[^>]*src=\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+        html = videoRegex.Replace(html, match =>
+        {
+            var origSrc = match.Groups[1].Value;
+            if (origSrc.Contains("http")) return match.Value;
+            if (origSrc.Contains("videos"))
+            {
+                var fullSrc = origSrc.StartsWith("/")
+                    ? $"https://files.tobiso.com{origSrc}"
+                    : $"https://files.tobiso.com/{origSrc}";
+                return match.Value.Replace(origSrc, fullSrc);
+            }
+            return match.Value;
+        });
+
         // Process links
         var linkRegex = new Regex("<a\\s+href=\\\"([^\\\"]+)\\\"(.*?)>(.*?)<\\/a>", RegexOptions.IgnoreCase);
         html = linkRegex.Replace(html, match =>
@@ -116,7 +142,7 @@
             if (origHref.Contains("http"))
                 return $"<a href=\"{origHref}\" target=\"_blank\" rel=\"noopener noreferrer\"{attrs}>{linkText}</a>";
 
-            if (origHref.Contains("files"))
+            if (origHref.Contains("files") || origHref.Contains("documents"))
             {
                 var fullUrl = origHref.StartsWith("/")
                     ? $"https://files.tobiso.com{origHref}"
@@ -339,11 +365,16 @@
             var sourceAttr = System.Net.WebUtility.HtmlEncode(sourceRaw);
 
             // The visible figcaption runs through Markdig so authored links/bold still work.
-            var captionHtml = StripParagraphTag(Markdig.Markdown.ToHtml(captionRaw));
-            var sourceHtml = StripParagraphTag(Markdig.Markdown.ToHtml(sourceRaw));
+            var captionHtml = StripParagraphTag(Markdig.Markdown.ToHtml(captionRaw, _captionPipeline));
+            var sourceHtml = StripParagraphTag(Markdig.Markdown.ToHtml(sourceRaw, _captionPipeline));
+
+            // Images sourced "Zdroj: Tobiso" are our own renders/diagrams and stay full-width/inline
+            // rather than floating right with wrapped text, per editorial convention.
+            var isTobisoSource = sourceRaw.Contains("Zdroj: Tobiso", StringComparison.OrdinalIgnoreCase);
+            var figureClass = isTobisoSource ? "post-figure post-figure--static" : "post-figure";
 
             var sb = new System.Text.StringBuilder();
-            sb.Append("<figure class=\"post-figure\">");
+            sb.Append($"<figure class=\"{figureClass}\">");
             sb.Append($"<div class=\"washed\"><img src=\"{imgSrc}\" alt=\"{imgAlt}\" data-caption=\"{captionAttr}\" data-source=\"{sourceAttr}\" /></div>");
             if (!string.IsNullOrWhiteSpace(captionHtml) || !string.IsNullOrWhiteSpace(sourceHtml))
             {
@@ -369,6 +400,48 @@
         if (html.StartsWith("<p>") && html.EndsWith("</p>"))
             return html.Substring(3, html.Length - 7);
         return html;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Video / document embed pre-processing:
+    //   *[alt videa](videos/x.mp4)               -> <video> block
+    //   _[jméno odkazu pro download](documents/x.docx) -> download link
+    // Each must be its own paragraph (blank line before/after), same authoring
+    // convention as the "![alt](images/x.png)" syntax handled by PreprocessImageGroups.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string PreprocessMediaEmbeds(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return content;
+
+        var paras = Regex.Split(content, @"\r?\n[ \t]*\r?\n")
+                         .Select(p => p.Trim('\r', '\n', ' ', '\t'));
+
+        var videoRx = new Regex(@"^\*\[([^\]]*)\]\(([^)]+)\)\s*$");
+        var docRx = new Regex(@"^_\[([^\]]*)\]\(([^)]+)\)\s*$");
+
+        var result = paras.Select(para =>
+        {
+            var videoM = videoRx.Match(para);
+            if (videoM.Success)
+            {
+                var alt = System.Net.WebUtility.HtmlEncode(videoM.Groups[1].Value);
+                var src = videoM.Groups[2].Value;
+                return $"<div class=\"post-video\"><video controls preload=\"metadata\" src=\"{src}\" aria-label=\"{alt}\"></video></div>";
+            }
+
+            var docM = docRx.Match(para);
+            if (docM.Success)
+            {
+                var label = System.Net.WebUtility.HtmlEncode(docM.Groups[1].Value);
+                var src = docM.Groups[2].Value;
+                return $"<a href=\"{src}\" class=\"post-document-link\" download><i data-lucide=\"file-down\"></i>{label}</a>";
+            }
+
+            return para;
+        });
+
+        return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

@@ -111,6 +111,10 @@ else
                     <i data-lucide="volume-2"></i> Poslech
                 </button>
                 <span style="flex:1"></span>
+                <button id="share-post-btn" class="icon-btn" data-share-url="@ShareUrl" data-share-title="@_post.Title"
+                        aria-label="Sdílet" title="@(_shareFeedback ?? "Sdílet")">
+                    <i data-lucide="@(_shareFeedback == "Odkaz zkopírován" ? "check" : "share-2")"></i>
+                </button>
                 <button class="icon-btn @(_bookmarked ? "bookmarked" : "")" @onclick="ToggleBookmark" aria-label="Záložka">
                     <i data-lucide="bookmark"></i>
                 </button>
@@ -218,6 +222,10 @@ else
                     <button class="more-item @(_activeAiTool == "stepsolver" ? "active" : "")" @onclick="ToggleStepSolver">
                         <i data-lucide="list-ordered" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Krok za krokem</span>
                         <span class="more-item-help" title="@AiToolDescription("stepsolver")"><i data-lucide="info"></i></span>
+                    </button>
+                    <button class="more-item @(_activeAiTool == "mindmap" ? "active" : "")" @onclick="ToggleMindMap">
+                        <i data-lucide="network" style="color:var(--color-accent-2-600)"></i> <span style="flex:1">Myšlenková mapa</span>
+                        <span class="more-item-help" title="@AiToolDescription("mindmap")"><i data-lucide="info"></i></span>
                     </button>
                     <div style="grid-column:1/-1; height:1px; background:var(--color-divider); margin:var(--space-1) 0"></div>
                     <button class="more-item" @onclick="PrintPost"><i data-lucide="printer"></i> Vytisknout (PDF)</button>
@@ -500,6 +508,23 @@ else
                             </ol>
                         }
                     }
+                    else if (_activeAiTool == "mindmap")
+                    {
+                        @if (_mindMap == null || _mindMap.Nodes.Count == 0)
+                        {
+                            <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">Myšlenkovou mapu se nepodařilo vygenerovat.</p>
+                        }
+                        else
+                        {
+                            <p style="margin:0 0 var(--space-1); font-size:13px; color:var(--color-neutral-600)">
+                                Přetáhni uzly, kolečkem myši přibliž a klikni na uzel pro přiblížení na jeho větev.
+                            </p>
+                            <div id="mindmap-@_post!.Id" class="mindmap-svg-wrap"></div>
+                            <button class="pill" style="align-self:flex-start; font-size:13px; padding:7px 14px" @onclick="RegenerateMindMap">
+                                <i data-lucide="rotate-cw"></i> Vygenerovat znovu
+                            </button>
+                        }
+                    }
                 </div>
             }
 
@@ -721,6 +746,7 @@ else
     private List<PersonSummaryResponse> _allPeople = [];
     private List<InteractiveExerciseResponse> _exercises = [];
     private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked, _notesOpen;
+    private string? _shareFeedback;
     private string _noteContent = "";
     private bool _noteSaving;
     private bool _noteLoaded;
@@ -796,6 +822,11 @@ else
 
     private List<SolverStep> _stepSolverSteps = [];
     private bool _stepSolverLoaded;
+
+    private ConceptMapResponse? _mindMap;
+    private bool _mindMapLoaded;
+    private bool _mindMapRendered;
+    private IJSObjectReference? _mindMapModule;
 
     private InteractiveExerciseResponse? _openExercise =>
         _exercises.FirstOrDefault(e => e.Id == _openExerciseId);
@@ -877,6 +908,7 @@ else
         _noteLoaded = false;
         _noteContent = "";
         _noteSavedAt = null;
+        _shareFeedback = null;
 
         _activeAiTool = null;
         _aiToolLoading = false;
@@ -909,6 +941,9 @@ else
         _compareError = null;
         _stepSolverSteps = [];
         _stepSolverLoaded = false;
+        _mindMap = null;
+        _mindMapLoaded = false;
+        _mindMapRendered = false;
         try { _difficulty = await AnonymApi.GetPostDifficulty(_post.Id); }
         catch { _difficulty = null; }
 
@@ -1017,6 +1052,18 @@ else
     {
         await JS.InvokeVoidAsync("initLucide");
 
+        if (_post != null)
+        {
+            _selfRef ??= DotNetObjectReference.Create(this);
+            // Bound as a plain DOM click listener (not @onclick) so navigator.share/clipboard
+            // fire synchronously inside the real click event - going through a Blazor Server
+            // round-trip first (an @onclick calling into JS afterwards) loses the browser's
+            // transient user-activation by the time the call reaches the client, and both
+            // APIs then reject with NotAllowedError. JS re-invokes .NET only for the feedback
+            // icon/tooltip afterwards, which needs no activation. Idempotent on the JS side.
+            await JS.InvokeVoidAsync("bindSharePost", _selfRef);
+        }
+
         if (_needsScrollInit && _currentVersion != null)
         {
             _needsScrollInit = false;
@@ -1049,6 +1096,17 @@ else
             {
                 _lightboxModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/image-lightbox.js");
                 await _lightboxModule.InvokeVoidAsync("initImageLightbox", "article-prose");
+            }
+            catch { /* progressive enhancement only */ }
+        }
+
+        if (_activeAiTool == "mindmap" && !_mindMapRendered && _mindMap is { Nodes.Count: > 0 } && _post != null)
+        {
+            try
+            {
+                _mindMapModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/mind-map.js");
+                await _mindMapModule.InvokeVoidAsync("renderMindMap", $"mindmap-{_post.Id}", _mindMap);
+                _mindMapRendered = true;
             }
             catch { /* progressive enhancement only */ }
         }
@@ -1090,6 +1148,7 @@ else
         _disposed = true;
         try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
         if (_lightboxModule != null) { try { await _lightboxModule.DisposeAsync(); } catch { } }
+        if (_mindMapModule != null) { try { await _mindMapModule.DisposeAsync(); } catch { } }
         _selfRef?.Dispose();
         _loadGate.Dispose();
     }
@@ -1136,6 +1195,26 @@ else
         else
             await UserProgressService.AddBookmarkAsync(uid, _post.Id);
         _bookmarked = !_bookmarked;
+    }
+
+    private const int ShareFeedbackMs = 2000;
+
+    private string ShareUrl => _post == null ? "" : Nav.ToAbsoluteUri(PostSlug.Url(_post.Id, _post.FilePath)).ToString();
+
+    // Called back from the JS click listener bound in OnAfterRenderAsync (see bindSharePost in
+    // lucide-init.js) after a clipboard-copy fallback - the native share sheet needs no
+    // feedback here since the OS already shows its own UI. Briefly swap the icon/tooltip to
+    // confirm the copy (or report the failure) before reverting.
+    [JSInvokable]
+    public async Task OnShareResult(bool copied)
+    {
+        if (_disposed) return;
+        _shareFeedback = copied ? "Odkaz zkopírován" : "Sdílení se nezdařilo";
+        StateHasChanged();
+        await Task.Delay(ShareFeedbackMs);
+        if (_disposed) return;
+        _shareFeedback = null;
+        StateHasChanged();
     }
 
     private async Task ToggleNotes()
@@ -1187,6 +1266,7 @@ else
         "feynman" => "message-square-quote",
         "compare" => "table-2",
         "stepsolver" => "list-ordered",
+        "mindmap" => "network",
         _ => "sparkles",
     };
 
@@ -1201,6 +1281,7 @@ else
         "feynman" => "Zkus to vysvětlit",
         "compare" => "Porovnat s…",
         "stepsolver" => "Krok za krokem",
+        "mindmap" => "Myšlenková mapa",
         _ => "",
     };
 
@@ -1215,6 +1296,7 @@ else
         "feynman" => "Vysvětli látku vlastními slovy a AI ti řekne, co ti šlo a co ti uniklo.",
         "compare" => "AI porovná téma článku s pojmem, který zadáš, v přehledné tabulce.",
         "stepsolver" => "AI vyřeší hlavní příklad z článku krok za krokem.",
+        "mindmap" => "AI vytvoří myšlenkovou mapu klíčových pojmů z tohoto článku a jejich vztahů.",
         _ => "",
     };
 
@@ -1600,6 +1682,45 @@ else
         catch
         {
             _aiToolError = "Postup se nepodařilo vygenerovat. Zkus to prosím znovu později.";
+        }
+        finally
+        {
+            _aiToolLoading = false;
+        }
+    }
+
+    private async Task ToggleMindMap()
+    {
+        if (!SwitchAiTool("mindmap") || _mindMapLoaded || _post == null) return;
+        await LoadMindMap();
+    }
+
+    // Unlike the other cached-once tools, a mind map is cheap to regenerate and the extraction
+    // is non-deterministic enough that a reroll is worth offering - see the "Vygenerovat znovu"
+    // button in the panel, which calls this directly without going through SwitchAiTool.
+    private async Task RegenerateMindMap()
+    {
+        _mindMapLoaded = false;
+        _mindMap = null;
+        _mindMapRendered = false;
+        await LoadMindMap();
+    }
+
+    private async Task LoadMindMap()
+    {
+        if (_post == null) return;
+        _aiToolLoading = true;
+        try
+        {
+            var (allowed, message) = await TryConsumeAiUsageAsync();
+            if (!allowed) { _aiToolError = message; return; }
+            _mindMap = await AiService.GenerateConceptMapAsync(_post.Id);
+            await DeductAiCreditIfLoggedInAsync("mindmap");
+            _mindMapLoaded = true;
+        }
+        catch
+        {
+            _aiToolError = "Myšlenkovou mapu se nepodařilo vygenerovat. Zkus to prosím znovu později.";
         }
         finally
         {

@@ -1,33 +1,32 @@
-@page "/images"
+@page "/videos"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using System.Text
 @using Microsoft.JSInterop
 @using Refit
 @using Tobiso.Web.Shared.Interfaces
-@inject ITobisoWebApi Api
 @inject IJSRuntime JSRuntime
-@inject ILogger<ImageUpload> Logger
+@inject ILogger<VideoUpload> Logger
 @inject IConfiguration Configuration
 @inject HttpClient HttpClient
 
-<PageTitle>Správa obrázků</PageTitle>
+<PageTitle>Správa videí</PageTitle>
 
 <div class="image-upload-page">
-    <h1>Správa obrázků</h1>
+    <h1>Správa videí</h1>
 
     <div class="panel">
         <div class="panel-body">
-            <label class="upload-field-label">Nahrát nový obrázek</label>
+            <label class="upload-field-label">Nahrát nové video</label>
             <div class="base-address-note">Aktuální files base: <strong>@GetBaseAddress()</strong></div>
 
-            @if (!string.IsNullOrEmpty(currentImageUrl))
+            @if (!string.IsNullOrEmpty(currentVideoUrl))
             {
                 <div class="current-image-preview">
-                    <img src="@GetFullImageUrl(currentImageUrl)" alt="Current image" />
+                    <video data-src="@GetFullFileUrl(currentVideoUrl)" controls preload="metadata" style="max-height:200px;max-width:300px;"></video>
                     <div>
-                        <button type="button" class="btn btn-danger btn-sm" @onclick="RemoveImage" disabled="@isUploading">
-                            <i data-lucide="trash-2"></i> Odstranit obrázek
+                        <button type="button" class="btn btn-danger btn-sm" @onclick="RemoveVideo" disabled="@isUploading">
+                            <i data-lucide="trash-2"></i> Odstranit video
                         </button>
                     </div>
                 </div>
@@ -44,24 +43,24 @@
                 {
                     <div class="upload-dropzone-status">
                         <i data-lucide="loader-2" class="spinner"></i>
-                        <p>Nahrávám obrázek...</p>
+                        <p>Nahrávám video...</p>
                     </div>
                 }
                 else
                 {
                     <div class="upload-dropzone-status">
                         <p>
-                            Přetáhněte obrázek sem, nebo
+                            Přetáhněte video sem, nebo
                             <button type="button" class="upload-link-btn" @onclick="TriggerFileInput">klikněte pro výběr</button>
                         </p>
-                        <span class="upload-hint">Podporované: JPG, PNG, WEBP (max 10MB)</span>
+                        <span class="upload-hint">Podporované: MP4 (max 200MB)</span>
                     </div>
                 }
             </div>
 
             <InputFile @ref="fileInput"
                        OnChange="HandleFileSelected"
-                       accept="image/*"
+                       accept="video/mp4"
                        style="display: none;" />
 
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -77,35 +76,35 @@
     </div>
 
     <div class="gallery-header">
-        <h3>Nahrané obrázky</h3>
+        <h3>Nahraná videa</h3>
     </div>
 
-    @if (isLoadingImages)
+    @if (isLoadingVideos)
     {
         <div class="gallery-loading">
             <i data-lucide="loader-2" class="spinner"></i>
-            <p>Načítám seznam obrázků...</p>
+            <p>Načítám seznam videí...</p>
         </div>
     }
-    else if (images?.Any() == true)
+    else if (videos?.Any() == true)
     {
         <div class="gallery-grid">
-            @foreach (var image in images)
+            @foreach (var video in videos)
             {
                 <div class="gallery-tile">
-                    <img src="@GetFullImageUrl(image.Url)" class="gallery-tile-thumb" alt="@image.OriginalFileName" />
+                    <video data-src="@GetFullFileUrl(video.Url)" class="gallery-tile-thumb" controls preload="metadata"></video>
                     <div class="gallery-tile-body">
-                        <div class="gallery-tile-name" aria-label="Název souboru: @image.OriginalFileName">@image.OriginalFileName</div>
-                        <span class="gallery-tile-size">@(image.Size / 1024) KB</span>
+                        <div class="gallery-tile-name" aria-label="Název souboru: @video.OriginalFileName">@video.OriginalFileName</div>
+                        <span class="gallery-tile-size">@(video.Size / 1024) KB</span>
                         <div class="gallery-tile-actions">
                             <button type="button" class="btn btn-primary btn-sm gallery-tile-copy-btn"
                                     title="Kopírovat URL"
-                                    @onclick="() => CopyImageUrl(GetFullImageUrl(image.Url))">
+                                    @onclick="() => CopyVideoUrl(GetFullFileUrl(video.Url))">
                                 <i data-lucide="clipboard"></i> <span class="gallery-tile-copy-label">Kopírovat URL</span>
                             </button>
                             <button type="button" class="btn btn-danger btn-sm gallery-tile-delete-btn"
-                                    title="Odstranit obrázek"
-                                    @onclick="() => DeleteImage(image.FileName)"
+                                    title="Odstranit video"
+                                    @onclick="() => DeleteVideo(video.FileName)"
                                     disabled="@isUploading">
                                 <i data-lucide="trash-2"></i>
                             </button>
@@ -118,7 +117,7 @@
     else
     {
         <div class="gallery-empty callout-sidefact">
-            <i data-lucide="info"></i> Zatím nebyly nahrány žádné obrázky.
+            <i data-lucide="info"></i> Zatím nebyla nahrána žádná videa.
         </div>
     }
 </div>
@@ -129,50 +128,50 @@
     private bool isDragOver = false;
     private string? errorMessage;
     private string? successMessage;
-    private string? currentImageUrl;
-    private bool isLoadingImages = false;
-    private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? images;
+    private string? currentVideoUrl;
+    private bool isLoadingVideos = false;
+    private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? videos;
 
-    // Allow any image/* content type except WEBP (image/webp)
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
+    private const long MaxFileSize = 200 * 1024 * 1024; // 200MB
+    private const string Category = "videos";
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadImages();
+        await LoadVideos();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JSRuntime.InvokeVoidAsync("initLucide");
+        await JSRuntime.InvokeVoidAsync("initVideoSources");
     }
 
-    private async Task LoadImages()
+    private async Task LoadVideos()
     {
         try
         {
-            isLoadingImages = true;
+            isLoadingVideos = true;
             StateHasChanged();
 
-            // Use files base address (full URL) so UI and API calls are consistent
             var filesBase = GetBaseAddress().TrimEnd('/');
-            var listUrl = filesBase + "/api/files/images";
+            var listUrl = filesBase + $"/api/files/{Category}";
             var req = new HttpRequestMessage(HttpMethod.Get, listUrl);
             var auth = await GetAuthorizationHeaderAsync();
             if (auth != null) req.Headers.Authorization = auth;
             var resp = await HttpClient.SendAsync(req);
             resp.EnsureSuccessStatusCode();
             var content = await resp.Content.ReadAsStringAsync();
-            images = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
+            videos = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.ToList() ?? new List<Tobiso.Web.Shared.DTOs.FileUploadResponse>();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při načítání obrázků: {ex.Message}";
-            Logger.LogError(ex, "Error loading images");
+            errorMessage = $"Chyba při načítání videí: {ex.Message}";
+            Logger.LogError(ex, "Error loading videos");
         }
         finally
         {
-            isLoadingImages = false;
+            isLoadingVideos = false;
             StateHasChanged();
         }
     }
@@ -218,38 +217,36 @@
         {
             ClearMessages();
 
-            // Validate file: allow all image/* types except WEBP
-            var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
-            if (!contentType.StartsWith("image/") || contentType == "image/webp")
+            // Validate by extension: content-type sniffing for video/* is unreliable
+            // across browsers/OSes, so require a literal .mp4 extension.
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            if (ext != ".mp4")
             {
-                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, SVG.";
+                errorMessage = $"Typ souboru '{ext}' není podporován. Je povolen pouze formát MP4.";
                 return;
             }
 
             if (file.Size > MaxFileSize)
             {
-                errorMessage = $"Velikost souboru ({file.Size / (1024 * 1024):F1}MB) překračuje maximální povolenou velikost 10MB.";
+                errorMessage = $"Velikost souboru ({file.Size / (1024 * 1024):F1}MB) překračuje maximální povolenou velikost 200MB.";
                 return;
             }
 
             isUploading = true;
             StateHasChanged();
 
-            // Create stream for upload
             using var stream = file.OpenReadStream(MaxFileSize);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            // Upload via API - STEJNĚ jako v SentrySMP
-            // Upload to files API using the configured files base address
             var filesBase = GetBaseAddress().TrimEnd('/');
-            var uploadUrl = filesBase + "/api/files/images/upload";
+            var uploadUrl = filesBase + $"/api/files/{Category}/upload";
 
             using var multipart = new MultipartFormDataContent();
             ms.Position = 0;
             var streamContent = new StreamContent(ms);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("video/mp4");
             multipart.Add(streamContent, "file", file.Name);
 
             var req = new HttpRequestMessage(HttpMethod.Post, uploadUrl) { Content = multipart };
@@ -261,29 +258,25 @@
             var response = System.Text.Json.JsonSerializer.Deserialize<Tobiso.Web.Shared.DTOs.FileUploadResponse>(uploadJson,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            // Update current image URL
-            currentImageUrl = response.Url;
+            currentVideoUrl = response?.Url;
 
-            successMessage = "Obrázek byl úspěšně nahrán!";
-            Logger.LogInformation("Successfully uploaded image: {FileName}", file.Name);
+            successMessage = "Video bylo úspěšně nahráno!";
+            Logger.LogInformation("Successfully uploaded video: {FileName}", file.Name);
 
-            // Force re-render to show uploaded image
             StateHasChanged();
 
-            // Clear success message after 3 seconds
             _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reload images to show the new one
-            await LoadImages();
+            await LoadVideos();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při nahrávání obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error uploading image");
+            errorMessage = $"Chyba při nahrávání videa: {ex.Message}";
+            Logger.LogError(ex, "Error uploading video");
         }
         finally
         {
@@ -292,20 +285,19 @@
         }
     }
 
-    private async Task RemoveImage()
+    private async Task RemoveVideo()
     {
-        if (string.IsNullOrEmpty(currentImageUrl)) return;
+        if (string.IsNullOrEmpty(currentVideoUrl)) return;
 
         try
         {
-            // Extract filename from URL for deletion
-            var fileName = currentImageUrl?.Contains("/") == true ?
-                Path.GetFileName(new Uri(currentImageUrl).LocalPath) : currentImageUrl;
+            var fileName = currentVideoUrl?.Contains("/") == true ?
+                Path.GetFileName(new Uri(currentVideoUrl).LocalPath) : currentVideoUrl;
 
             if (!string.IsNullOrEmpty(fileName))
             {
                 var filesBase = GetBaseAddress().TrimEnd('/');
-                var deleteUrl = filesBase + $"/api/files/images/{Uri.EscapeDataString(fileName)}";
+                var deleteUrl = filesBase + $"/api/files/{Category}/{Uri.EscapeDataString(fileName)}";
                 var req = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
                 var authH = await GetAuthorizationHeaderAsync();
                 if (authH != null) req.Headers.Authorization = authH;
@@ -316,11 +308,10 @@
                 }
             }
 
-            currentImageUrl = null;
+            currentVideoUrl = null;
 
-            successMessage = "Obrázek byl úspěšně odstraněn!";
+            successMessage = "Video bylo úspěšně odstraněno!";
 
-            // Clear success message after 3 seconds
             _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
@@ -329,19 +320,18 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při odstraňování obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error removing image");
+            errorMessage = $"Chyba při odstraňování videa: {ex.Message}";
+            Logger.LogError(ex, "Error removing video");
         }
     }
 
-    private async Task CopyImageUrl(string imageUrl)
+    private async Task CopyVideoUrl(string videoUrl)
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", imageUrl);
-            successMessage = "URL obrázku byla zkopírována do schránky!";
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", videoUrl);
+            successMessage = "URL videa byla zkopírována do schránky!";
 
-            // Clear success message after 2 seconds
             _ = Task.Delay(2000).ContinueWith(t =>
             {
                 successMessage = null;
@@ -351,49 +341,46 @@
         catch (Exception ex)
         {
             errorMessage = $"Chyba při kopírování URL: {ex.Message}";
-            Logger.LogError(ex, "Error copying image URL");
+            Logger.LogError(ex, "Error copying video URL");
         }
     }
 
-    private async Task DeleteImage(string fileName)
+    private async Task DeleteVideo(string fileName)
     {
         try
         {
             ClearMessages();
 
-            var filesBaseForDelete = GetBaseAddress().TrimEnd('/');
-            var deleteUrl2 = filesBaseForDelete + $"/api/files/images/{Uri.EscapeDataString(fileName)}";
-            var req2 = new HttpRequestMessage(HttpMethod.Delete, deleteUrl2);
-            var authH2 = await GetAuthorizationHeaderAsync();
-            if (authH2 != null) req2.Headers.Authorization = authH2;
-            var delResp2 = await HttpClient.SendAsync(req2);
-            if (!delResp2.IsSuccessStatusCode)
+            var filesBase = GetBaseAddress().TrimEnd('/');
+            var deleteUrl = filesBase + $"/api/files/{Category}/{Uri.EscapeDataString(fileName)}";
+            var req = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            var authH = await GetAuthorizationHeaderAsync();
+            if (authH != null) req.Headers.Authorization = authH;
+            var delResp = await HttpClient.SendAsync(req);
+            if (!delResp.IsSuccessStatusCode)
             {
-                throw new Exception($"Delete failed: {delResp2.StatusCode}");
+                throw new Exception($"Delete failed: {delResp.StatusCode}");
             }
 
-            // Remove from current image if it's the same
-            if (currentImageUrl?.Contains(fileName) == true)
+            if (currentVideoUrl?.Contains(fileName) == true)
             {
-                currentImageUrl = null;
+                currentVideoUrl = null;
             }
 
-            successMessage = "Obrázek byl úspěšně smazán!";
+            successMessage = "Video bylo úspěšně smazáno!";
 
-            // Clear success message after 3 seconds
             _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reload images to reflect the deletion
-            await LoadImages();
+            await LoadVideos();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při mazání obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error deleting image: {FileName}", fileName);
+            errorMessage = $"Chyba při mazání videa: {ex.Message}";
+            Logger.LogError(ex, "Error deleting video: {FileName}", fileName);
         }
     }
 
@@ -405,22 +392,20 @@
 
     private const string FilesBaseAddress = "https://files.tobiso.com";
 
-    private string GetFullImageUrl(string imageUrl)
+    private string GetFullFileUrl(string url)
     {
-        if (string.IsNullOrEmpty(imageUrl))
+        if (string.IsNullOrEmpty(url))
             return string.Empty;
 
-        // Pokud už je URL plná (obsahuje http/https), oprav špatný host (API vrací www.tobiso.com)
-        if (imageUrl.StartsWith("http://") || imageUrl.StartsWith("https://"))
+        if (url.StartsWith("http://") || url.StartsWith("https://"))
         {
-            var uri = new Uri(imageUrl);
+            var uri = new Uri(url);
             if (!string.Equals(uri.Host, "files.tobiso.com", StringComparison.OrdinalIgnoreCase))
                 return $"{FilesBaseAddress}{uri.PathAndQuery}";
-            return imageUrl;
+            return url;
         }
 
-        // Ensure leading slash on imageUrl
-        var relative = imageUrl.StartsWith('/') ? imageUrl : "/" + imageUrl;
+        var relative = url.StartsWith('/') ? url : "/" + url;
         return $"{FilesBaseAddress}{relative}";
     }
 
@@ -453,5 +438,4 @@
 
         return null;
     }
-
 }

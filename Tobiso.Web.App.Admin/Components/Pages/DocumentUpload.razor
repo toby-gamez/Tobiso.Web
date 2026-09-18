@@ -1,37 +1,24 @@
-@page "/images"
+@page "/documents"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using System.Text
 @using Microsoft.JSInterop
 @using Refit
 @using Tobiso.Web.Shared.Interfaces
-@inject ITobisoWebApi Api
 @inject IJSRuntime JSRuntime
-@inject ILogger<ImageUpload> Logger
+@inject ILogger<DocumentUpload> Logger
 @inject IConfiguration Configuration
 @inject HttpClient HttpClient
 
-<PageTitle>Správa obrázků</PageTitle>
+<PageTitle>Správa dokumentů</PageTitle>
 
 <div class="image-upload-page">
-    <h1>Správa obrázků</h1>
+    <h1>Správa dokumentů</h1>
 
     <div class="panel">
         <div class="panel-body">
-            <label class="upload-field-label">Nahrát nový obrázek</label>
+            <label class="upload-field-label">Nahrát nový dokument</label>
             <div class="base-address-note">Aktuální files base: <strong>@GetBaseAddress()</strong></div>
-
-            @if (!string.IsNullOrEmpty(currentImageUrl))
-            {
-                <div class="current-image-preview">
-                    <img src="@GetFullImageUrl(currentImageUrl)" alt="Current image" />
-                    <div>
-                        <button type="button" class="btn btn-danger btn-sm" @onclick="RemoveImage" disabled="@isUploading">
-                            <i data-lucide="trash-2"></i> Odstranit obrázek
-                        </button>
-                    </div>
-                </div>
-            }
 
             <div class="upload-dropzone @(isDragOver ? "dropzone-active" : "")"
                  @ondragover="HandleDragOver"
@@ -44,24 +31,24 @@
                 {
                     <div class="upload-dropzone-status">
                         <i data-lucide="loader-2" class="spinner"></i>
-                        <p>Nahrávám obrázek...</p>
+                        <p>Nahrávám dokument...</p>
                     </div>
                 }
                 else
                 {
                     <div class="upload-dropzone-status">
                         <p>
-                            Přetáhněte obrázek sem, nebo
+                            Přetáhněte dokument sem, nebo
                             <button type="button" class="upload-link-btn" @onclick="TriggerFileInput">klikněte pro výběr</button>
                         </p>
-                        <span class="upload-hint">Podporované: JPG, PNG, WEBP (max 10MB)</span>
+                        <span class="upload-hint">Podporované: DOCX, PDF, PPTX, XLSX (max 25MB)</span>
                     </div>
                 }
             </div>
 
             <InputFile @ref="fileInput"
                        OnChange="HandleFileSelected"
-                       accept="image/*"
+                       accept=".docx,.pdf,.pptx,.xlsx"
                        style="display: none;" />
 
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -77,35 +64,37 @@
     </div>
 
     <div class="gallery-header">
-        <h3>Nahrané obrázky</h3>
+        <h3>Nahrané dokumenty</h3>
     </div>
 
-    @if (isLoadingImages)
+    @if (isLoadingDocuments)
     {
         <div class="gallery-loading">
             <i data-lucide="loader-2" class="spinner"></i>
-            <p>Načítám seznam obrázků...</p>
+            <p>Načítám seznam dokumentů...</p>
         </div>
     }
-    else if (images?.Any() == true)
+    else if (documents?.Any() == true)
     {
         <div class="gallery-grid">
-            @foreach (var image in images)
+            @foreach (var doc in documents)
             {
                 <div class="gallery-tile">
-                    <img src="@GetFullImageUrl(image.Url)" class="gallery-tile-thumb" alt="@image.OriginalFileName" />
+                    <div class="gallery-tile-icon">
+                        <i data-lucide="@GetIconFor(doc.OriginalFileName)"></i>
+                    </div>
                     <div class="gallery-tile-body">
-                        <div class="gallery-tile-name" aria-label="Název souboru: @image.OriginalFileName">@image.OriginalFileName</div>
-                        <span class="gallery-tile-size">@(image.Size / 1024) KB</span>
+                        <div class="gallery-tile-name" aria-label="Název souboru: @doc.OriginalFileName">@doc.OriginalFileName</div>
+                        <span class="gallery-tile-size">@(doc.Size / 1024) KB</span>
                         <div class="gallery-tile-actions">
                             <button type="button" class="btn btn-primary btn-sm gallery-tile-copy-btn"
                                     title="Kopírovat URL"
-                                    @onclick="() => CopyImageUrl(GetFullImageUrl(image.Url))">
+                                    @onclick="() => CopyDocumentUrl(GetFullFileUrl(doc.Url))">
                                 <i data-lucide="clipboard"></i> <span class="gallery-tile-copy-label">Kopírovat URL</span>
                             </button>
                             <button type="button" class="btn btn-danger btn-sm gallery-tile-delete-btn"
-                                    title="Odstranit obrázek"
-                                    @onclick="() => DeleteImage(image.FileName)"
+                                    title="Odstranit dokument"
+                                    @onclick="() => DeleteDocument(doc.FileName)"
                                     disabled="@isUploading">
                                 <i data-lucide="trash-2"></i>
                             </button>
@@ -118,7 +107,7 @@
     else
     {
         <div class="gallery-empty callout-sidefact">
-            <i data-lucide="info"></i> Zatím nebyly nahrány žádné obrázky.
+            <i data-lucide="info"></i> Zatím nebyly nahrány žádné dokumenty.
         </div>
     }
 </div>
@@ -129,16 +118,16 @@
     private bool isDragOver = false;
     private string? errorMessage;
     private string? successMessage;
-    private string? currentImageUrl;
-    private bool isLoadingImages = false;
-    private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? images;
+    private bool isLoadingDocuments = false;
+    private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? documents;
 
-    // Allow any image/* content type except WEBP (image/webp)
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
+    private static readonly string[] AllowedExts = { ".docx", ".pdf", ".pptx", ".xlsx" };
+    private const long MaxFileSize = 25 * 1024 * 1024; // 25MB
+    private const string Category = "documents";
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadImages();
+        await LoadDocuments();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -146,33 +135,32 @@
         await JSRuntime.InvokeVoidAsync("initLucide");
     }
 
-    private async Task LoadImages()
+    private async Task LoadDocuments()
     {
         try
         {
-            isLoadingImages = true;
+            isLoadingDocuments = true;
             StateHasChanged();
 
-            // Use files base address (full URL) so UI and API calls are consistent
             var filesBase = GetBaseAddress().TrimEnd('/');
-            var listUrl = filesBase + "/api/files/images";
+            var listUrl = filesBase + $"/api/files/{Category}";
             var req = new HttpRequestMessage(HttpMethod.Get, listUrl);
             var auth = await GetAuthorizationHeaderAsync();
             if (auth != null) req.Headers.Authorization = auth;
             var resp = await HttpClient.SendAsync(req);
             resp.EnsureSuccessStatusCode();
             var content = await resp.Content.ReadAsStringAsync();
-            images = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
+            documents = System.Text.Json.JsonSerializer.Deserialize<List<Tobiso.Web.Shared.DTOs.FileUploadResponse>>(content,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.ToList() ?? new List<Tobiso.Web.Shared.DTOs.FileUploadResponse>();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při načítání obrázků: {ex.Message}";
-            Logger.LogError(ex, "Error loading images");
+            errorMessage = $"Chyba při načítání dokumentů: {ex.Message}";
+            Logger.LogError(ex, "Error loading documents");
         }
         finally
         {
-            isLoadingImages = false;
+            isLoadingDocuments = false;
             StateHasChanged();
         }
     }
@@ -218,38 +206,36 @@
         {
             ClearMessages();
 
-            // Validate file: allow all image/* types except WEBP
-            var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
-            if (!contentType.StartsWith("image/") || contentType == "image/webp")
+            // Validate by extension: MIME sniffing for Office/PDF documents is unreliable
+            // across browsers/OSes, so match the allow-list against the file extension.
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            if (!AllowedExts.Contains(ext))
             {
-                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, SVG.";
+                errorMessage = $"Typ souboru '{ext}' není podporován. Jsou povoleny: {string.Join(", ", AllowedExts)}.";
                 return;
             }
 
             if (file.Size > MaxFileSize)
             {
-                errorMessage = $"Velikost souboru ({file.Size / (1024 * 1024):F1}MB) překračuje maximální povolenou velikost 10MB.";
+                errorMessage = $"Velikost souboru ({file.Size / (1024 * 1024):F1}MB) překračuje maximální povolenou velikost 25MB.";
                 return;
             }
 
             isUploading = true;
             StateHasChanged();
 
-            // Create stream for upload
             using var stream = file.OpenReadStream(MaxFileSize);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            // Upload via API - STEJNĚ jako v SentrySMP
-            // Upload to files API using the configured files base address
             var filesBase = GetBaseAddress().TrimEnd('/');
-            var uploadUrl = filesBase + "/api/files/images/upload";
+            var uploadUrl = filesBase + $"/api/files/{Category}/upload";
 
             using var multipart = new MultipartFormDataContent();
             ms.Position = 0;
             var streamContent = new StreamContent(ms);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetContentType(ext));
             multipart.Add(streamContent, "file", file.Name);
 
             var req = new HttpRequestMessage(HttpMethod.Post, uploadUrl) { Content = multipart };
@@ -257,33 +243,24 @@
             if (authHeader != null) req.Headers.Authorization = authHeader;
             var uploadResp = await HttpClient.SendAsync(req);
             uploadResp.EnsureSuccessStatusCode();
-            var uploadJson = await uploadResp.Content.ReadAsStringAsync();
-            var response = System.Text.Json.JsonSerializer.Deserialize<Tobiso.Web.Shared.DTOs.FileUploadResponse>(uploadJson,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            // Update current image URL
-            currentImageUrl = response.Url;
+            successMessage = "Dokument byl úspěšně nahrán!";
+            Logger.LogInformation("Successfully uploaded document: {FileName}", file.Name);
 
-            successMessage = "Obrázek byl úspěšně nahrán!";
-            Logger.LogInformation("Successfully uploaded image: {FileName}", file.Name);
-
-            // Force re-render to show uploaded image
             StateHasChanged();
 
-            // Clear success message after 3 seconds
             _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reload images to show the new one
-            await LoadImages();
+            await LoadDocuments();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při nahrávání obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error uploading image");
+            errorMessage = $"Chyba při nahrávání dokumentu: {ex.Message}";
+            Logger.LogError(ex, "Error uploading document");
         }
         finally
         {
@@ -292,56 +269,13 @@
         }
     }
 
-    private async Task RemoveImage()
-    {
-        if (string.IsNullOrEmpty(currentImageUrl)) return;
-
-        try
-        {
-            // Extract filename from URL for deletion
-            var fileName = currentImageUrl?.Contains("/") == true ?
-                Path.GetFileName(new Uri(currentImageUrl).LocalPath) : currentImageUrl;
-
-            if (!string.IsNullOrEmpty(fileName))
-            {
-                var filesBase = GetBaseAddress().TrimEnd('/');
-                var deleteUrl = filesBase + $"/api/files/images/{Uri.EscapeDataString(fileName)}";
-                var req = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
-                var authH = await GetAuthorizationHeaderAsync();
-                if (authH != null) req.Headers.Authorization = authH;
-                var delResp = await HttpClient.SendAsync(req);
-                if (!delResp.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Delete failed: {delResp.StatusCode}");
-                }
-            }
-
-            currentImageUrl = null;
-
-            successMessage = "Obrázek byl úspěšně odstraněn!";
-
-            // Clear success message after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(t =>
-            {
-                successMessage = null;
-                InvokeAsync(StateHasChanged);
-            });
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Chyba při odstraňování obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error removing image");
-        }
-    }
-
-    private async Task CopyImageUrl(string imageUrl)
+    private async Task CopyDocumentUrl(string url)
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", imageUrl);
-            successMessage = "URL obrázku byla zkopírována do schránky!";
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            successMessage = "URL dokumentu byla zkopírována do schránky!";
 
-            // Clear success message after 2 seconds
             _ = Task.Delay(2000).ContinueWith(t =>
             {
                 successMessage = null;
@@ -351,49 +285,41 @@
         catch (Exception ex)
         {
             errorMessage = $"Chyba při kopírování URL: {ex.Message}";
-            Logger.LogError(ex, "Error copying image URL");
+            Logger.LogError(ex, "Error copying document URL");
         }
     }
 
-    private async Task DeleteImage(string fileName)
+    private async Task DeleteDocument(string fileName)
     {
         try
         {
             ClearMessages();
 
-            var filesBaseForDelete = GetBaseAddress().TrimEnd('/');
-            var deleteUrl2 = filesBaseForDelete + $"/api/files/images/{Uri.EscapeDataString(fileName)}";
-            var req2 = new HttpRequestMessage(HttpMethod.Delete, deleteUrl2);
-            var authH2 = await GetAuthorizationHeaderAsync();
-            if (authH2 != null) req2.Headers.Authorization = authH2;
-            var delResp2 = await HttpClient.SendAsync(req2);
-            if (!delResp2.IsSuccessStatusCode)
+            var filesBase = GetBaseAddress().TrimEnd('/');
+            var deleteUrl = filesBase + $"/api/files/{Category}/{Uri.EscapeDataString(fileName)}";
+            var req = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            var authH = await GetAuthorizationHeaderAsync();
+            if (authH != null) req.Headers.Authorization = authH;
+            var delResp = await HttpClient.SendAsync(req);
+            if (!delResp.IsSuccessStatusCode)
             {
-                throw new Exception($"Delete failed: {delResp2.StatusCode}");
+                throw new Exception($"Delete failed: {delResp.StatusCode}");
             }
 
-            // Remove from current image if it's the same
-            if (currentImageUrl?.Contains(fileName) == true)
-            {
-                currentImageUrl = null;
-            }
+            successMessage = "Dokument byl úspěšně smazán!";
 
-            successMessage = "Obrázek byl úspěšně smazán!";
-
-            // Clear success message after 3 seconds
             _ = Task.Delay(3000).ContinueWith(t =>
             {
                 successMessage = null;
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reload images to reflect the deletion
-            await LoadImages();
+            await LoadDocuments();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Chyba při mazání obrázku: {ex.Message}";
-            Logger.LogError(ex, "Error deleting image: {FileName}", fileName);
+            errorMessage = $"Chyba při mazání dokumentu: {ex.Message}";
+            Logger.LogError(ex, "Error deleting document: {FileName}", fileName);
         }
     }
 
@@ -403,24 +329,43 @@
         successMessage = null;
     }
 
+    private static string GetIconFor(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "file-text",
+            ".pptx" => "presentation",
+            ".xlsx" => "file-spreadsheet",
+            _ => "file"
+        };
+    }
+
+    private static string GetContentType(string ext) => ext switch
+    {
+        ".pdf" => "application/pdf",
+        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        _ => "application/octet-stream"
+    };
+
     private const string FilesBaseAddress = "https://files.tobiso.com";
 
-    private string GetFullImageUrl(string imageUrl)
+    private string GetFullFileUrl(string url)
     {
-        if (string.IsNullOrEmpty(imageUrl))
+        if (string.IsNullOrEmpty(url))
             return string.Empty;
 
-        // Pokud už je URL plná (obsahuje http/https), oprav špatný host (API vrací www.tobiso.com)
-        if (imageUrl.StartsWith("http://") || imageUrl.StartsWith("https://"))
+        if (url.StartsWith("http://") || url.StartsWith("https://"))
         {
-            var uri = new Uri(imageUrl);
+            var uri = new Uri(url);
             if (!string.Equals(uri.Host, "files.tobiso.com", StringComparison.OrdinalIgnoreCase))
                 return $"{FilesBaseAddress}{uri.PathAndQuery}";
-            return imageUrl;
+            return url;
         }
 
-        // Ensure leading slash on imageUrl
-        var relative = imageUrl.StartsWith('/') ? imageUrl : "/" + imageUrl;
+        var relative = url.StartsWith('/') ? url : "/" + url;
         return $"{FilesBaseAddress}{relative}";
     }
 
@@ -453,5 +398,4 @@
 
         return null;
     }
-
 }

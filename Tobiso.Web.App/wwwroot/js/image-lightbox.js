@@ -29,10 +29,17 @@ function openLightbox(src, alt, caption, source) {
     const wrapper = document.createElement('div');
     wrapper.className = 'img-lightbox-wrapper';
 
+    // The rounded corners + shadow live on this frame (not on the <img> itself) because
+    // some mobile browsers don't reliably clip a replaced element (img/object-fit) to its
+    // own border-radius, which showed up as square bottom corners on mobile.
+    const frame = document.createElement('div');
+    frame.className = 'img-lightbox-frame';
+
     const imgEl = document.createElement('img');
     imgEl.src = src;
     imgEl.alt = alt || '';
-    wrapper.appendChild(imgEl);
+    frame.appendChild(imgEl);
+    wrapper.appendChild(frame);
 
     const captionPlain = stripMarkdown(caption);
     const sourcePlain = stripMarkdown(source);
@@ -44,14 +51,14 @@ function openLightbox(src, alt, caption, source) {
         if (captionPlain) {
             const cap = document.createElement('span');
             cap.className = 'img-lightbox-caption';
-            cap.textContent = captionPlain;
+            appendTextWithLinks(cap, captionPlain);
             meta.appendChild(cap);
         }
 
         if (sourcePlain) {
             const srcEl = document.createElement('span');
             srcEl.className = 'img-lightbox-source';
-            srcEl.textContent = sourcePlain;
+            appendTextWithLinks(srcEl, sourcePlain);
             meta.appendChild(srcEl);
         }
 
@@ -63,7 +70,7 @@ function openLightbox(src, alt, caption, source) {
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', e => {
-        if (e.target === overlay || e.target === closeBtn || e.target === imgEl) closeLightbox();
+        if (e.target === overlay || e.target === closeBtn || e.target === imgEl || e.target === frame) closeLightbox();
     });
     closeBtn.addEventListener('click', () => closeLightbox());
 
@@ -79,6 +86,43 @@ function closeLightbox() {
     if (window.__lightboxEscHandler) {
         document.removeEventListener('keydown', window.__lightboxEscHandler);
         delete window.__lightboxEscHandler;
+    }
+}
+
+// Appends text to el, turning any bare http(s):// URL into a real, clickable link
+// (e.g. "Autor: ... https://commons.wikimedia.org/..."). Built with DOM nodes rather
+// than innerHTML since the source text isn't pre-sanitized.
+function appendTextWithLinks(el, text) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = urlRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            el.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+
+        let url = match[0];
+        // Trailing punctuation is usually sentence punctuation, not part of the URL.
+        const trailingMatch = url.match(/[.,;:!?)\]}'"]+$/);
+        let trailing = '';
+        if (trailingMatch) {
+            trailing = trailingMatch[0];
+            url = url.slice(0, url.length - trailing.length);
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = url;
+        el.appendChild(a);
+        if (trailing) el.appendChild(document.createTextNode(trailing));
+
+        lastIndex = urlRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+        el.appendChild(document.createTextNode(text.slice(lastIndex)));
     }
 }
 

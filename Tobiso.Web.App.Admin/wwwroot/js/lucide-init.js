@@ -42,6 +42,23 @@ window.initLucide = () => {
     }
 };
 
+// Blazor applies a <video> element's src via a plain setAttribute during DOM
+// diffing, which does not reliably kick off the browser's resource-selection
+// algorithm the way parsing real HTML (e.g. direct navigation) does - the
+// element can be left showing "no supported source" even though the URL is
+// fine. Setting src as a real property (not just an attribute) and calling
+// load() explicitly, the same imperative-fixup pattern as initLucide() above,
+// works reliably.
+window.initVideoSources = () => {
+    document.querySelectorAll('video[data-src]').forEach((el) => {
+        const src = el.getAttribute('data-src');
+        if (!src || el.getAttribute('data-src-applied') === src) return;
+        el.src = src;
+        el.load();
+        el.setAttribute('data-src-applied', src);
+    });
+};
+
 window.setTheme = (theme) => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('tobiso-admin-theme', theme);

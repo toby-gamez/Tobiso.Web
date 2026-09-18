@@ -22,7 +22,8 @@ builder.Services.AddCors(options =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            b.WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:7273", "https://localhost:7273")
+            b.WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:7273", "https://localhost:7273",
+                          "https://localhost:7270", "https://localhost:7271")
              .AllowAnyMethod()
              .AllowAnyHeader()
              .AllowCredentials();
@@ -66,8 +67,10 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Ensure folders exist
-var filesRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "images");
-Directory.CreateDirectory(filesRoot);
+foreach (var folder in new[] { "images", "videos", "documents" })
+{
+    Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "wwwroot", folder));
+}
 
 // Prevent the browser from MIME-sniffing served images as something executable (e.g. HTML/JS)
 // if a client-supplied Content-Type or file content is ever misidentified.
@@ -76,6 +79,11 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     await next();
 });
+
+// CORS must run before UseStaticFiles: the static files middleware short-circuits the
+// pipeline once it serves a file, so registering UseCors after it (as before) meant
+// image/video/document responses never got Access-Control-Allow-Origin/-Headers at all.
+app.UseCors("Default");
 
 // Serve static files from wwwroot/images at /images
 app.UseStaticFiles(new StaticFileOptions
@@ -96,8 +104,6 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
-
-app.UseCors("Default");
 
 app.UseAuthentication();
 app.UseAuthorization();
