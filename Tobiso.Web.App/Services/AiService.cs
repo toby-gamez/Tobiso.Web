@@ -312,7 +312,7 @@ namespace Tobiso.Web.App.Services
             var messages = new List<object>
             {
                 new { role = "system", content = systemPrompt },
-                new { role = "user", content = $"Extract all real person full names mentioned in the following text. Return a JSON array of names only.\n\nText:\n{trimmed}" }
+                new { role = "user", content = $"Extract all real, well-known/notable person names mentioned in the following text (e.g. historical figures, scientists, authors, public figures). Do not include generic or common first names that are not themselves referring to a specific well-known person - for example \"Petra\" or \"Adam\" alone are common Czech given names, not notable people, and should be excluded unless the text clearly identifies a specific notable individual by that name. Return a JSON array of names only.\n\nText:\n{trimmed}" }
             };
 
             var payload = new

@@ -205,17 +205,17 @@ namespace Tobiso.Web.Api.Services
                             {
                                 try
                                 {
-                                    // Replace https://tobiso.com with https://www.tobiso.com
+                                    // Replace https://tobiso.com with https://files.tobiso.com
                                     if (src.StartsWith("https://tobiso.com/", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        src = src.Replace("https://tobiso.com/", "https://www.tobiso.com/");
+                                        src = src.Replace("https://tobiso.com/", "https://files.tobiso.com/");
                                         Console.WriteLine($"[PdfService] Transformed https src to: {src}");
                                     }
                                     else if (!src.Contains("http"))
                                     {
                                         if (src.Contains("images"))
                                         {
-                                            src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+                                            src = src.StartsWith("/") ? $"https://files.tobiso.com{src}" : $"https://files.tobiso.com/{src}";
                                             Console.WriteLine($"[PdfService] Transformed src to: {src}");
                                         }
                                     }
@@ -263,16 +263,16 @@ namespace Tobiso.Web.Api.Services
                     {
                         try
                         {
-                            // Replace https://tobiso.com with https://www.tobiso.com
+                            // Replace https://tobiso.com with https://files.tobiso.com
                             if (src.StartsWith("https://tobiso.com/", StringComparison.OrdinalIgnoreCase))
                             {
-                                src = src.Replace("https://tobiso.com/", "https://www.tobiso.com/");
+                                src = src.Replace("https://tobiso.com/", "https://files.tobiso.com/");
                             }
                             else if (!src.Contains("http"))
                             {
                                 if (src.Contains("images"))
                                 {
-                                    src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+                                    src = src.StartsWith("/") ? $"https://files.tobiso.com{src}" : $"https://files.tobiso.com/{src}";
                                 }
                             }
                             
@@ -404,10 +404,10 @@ namespace Tobiso.Web.Api.Services
                                     {
                                         if (src.Contains("images"))
                                         {
-                                            src = src.StartsWith("/") ? $"https://tobiso.com{src}" : $"https://tobiso.com/{src}";
+                                            src = src.StartsWith("/") ? $"https://files.tobiso.com{src}" : $"https://files.tobiso.com/{src}";
                                         }
                                     }
-                                    
+
                                     var imageBytes = DownloadImage(src);
                                     if (imageBytes != null && imageBytes.Length > 0)
                                     {

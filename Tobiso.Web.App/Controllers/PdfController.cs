@@ -159,7 +159,7 @@ public class PdfController : ControllerBase
             if (origSrc.Contains("http")) return match.Value;
             if (origSrc.Contains("images"))
             {
-                var fullSrc = origSrc.StartsWith("/") ? $"https://www.tobiso.com{origSrc}" : $"https://www.tobiso.com/{origSrc}";
+                var fullSrc = origSrc.StartsWith("/") ? $"https://files.tobiso.com{origSrc}" : $"https://files.tobiso.com/{origSrc}";
                 return match.Value.Replace(origSrc, fullSrc);
             }
             return match.Value;
@@ -182,7 +182,7 @@ public class PdfController : ControllerBase
             // Apply same image path transformation
             if (src.Contains("images") && !src.Contains("http"))
             {
-                src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+                src = src.StartsWith("/") ? $"https://files.tobiso.com{src}" : $"https://files.tobiso.com/{src}";
             }
             return $"<p><img src=\"{src}\" alt=\"\" /></p>";
         }, RegexOptions.IgnoreCase);
@@ -192,7 +192,7 @@ public class PdfController : ControllerBase
             var src = match.Groups[1].Value;
             if (src.Contains("images") && !src.Contains("http"))
             {
-                src = src.StartsWith("/") ? $"https://www.tobiso.com{src}" : $"https://www.tobiso.com/{src}";
+                src = src.StartsWith("/") ? $"https://files.tobiso.com{src}" : $"https://files.tobiso.com/{src}";
                 return $"<img src=\"{src}\" alt=\"\" />";
             }
             return match.Value;

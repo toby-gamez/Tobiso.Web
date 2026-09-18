@@ -32,6 +32,10 @@ function createEditor(textareaId, dotNetRef, placeholder, initialValue) {
             placeholder: placeholder || 'Začněte psát váš Markdown obsah...',
             spellChecker: false,
             autofocus: false,
+            // We load Font Awesome ourselves (App.razor) - without this, EasyMDE always injects
+            // its own <link> to the long-dead maxcdn.bootstrapcdn.com/font-awesome, since its
+            // "already loaded" detection only recognizes stylesheets from that same dead host.
+            autoDownloadFontAwesome: false,
             autosave: {
                 enabled: false
             },

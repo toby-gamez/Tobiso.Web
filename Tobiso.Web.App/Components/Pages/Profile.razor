@@ -93,6 +93,42 @@
                 </div>
             }
         </div>
+
+        <div>
+            <h2>Využití AI</h2>
+            <div class="profile-ai-summary">
+                <div class="soft stat-card">
+                    <span class="stat-card-label">Otázek tento měsíc</span>
+                    <span class="stat-card-value">@(_aiUsage?.QuestionsThisMonth ?? 0)</span>
+                </div>
+                <div class="soft stat-card">
+                    <span class="stat-card-label">Kreditů utraceno tento měsíc</span>
+                    <span class="stat-card-value">@(_aiUsage?.CreditsSpentThisMonth ?? 0)</span>
+                </div>
+            </div>
+
+            @if (_aiUsage == null || _aiUsage.RecentActivity.Count == 0)
+            {
+                <p style="color:var(--color-neutral-600)">Zatím žádná aktivita.</p>
+            }
+            else
+            {
+                <div class="ai-usage-list">
+                    @foreach (var entry in _aiUsage.RecentActivity)
+                    {
+                        <div class="ai-usage-row">
+                            <i data-lucide="@(entry.Delta >= 0 ? "plus-circle" : "minus-circle")"
+                               style="color:@(entry.Delta >= 0 ? "var(--color-accent-2-600)" : "var(--color-accent-600)")"></i>
+                            <span class="ai-usage-reason">@ReasonLabel(entry.Reason)</span>
+                            <span class="ai-usage-date">@entry.CreatedAt.ToLocalTime().ToString("d. M. yyyy HH:mm")</span>
+                            <span class="ai-usage-delta" style="color:@(entry.Delta >= 0 ? "var(--color-accent-2-700)" : "var(--color-accent-700)")">
+                                @(entry.Delta >= 0 ? "+" : "")@entry.Delta
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     }
 </div>
 
@@ -103,6 +139,7 @@
     private string _displayName = "";
     private string _email = "";
     private UserStatsDto? _stats;
+    private AiUsageDto? _aiUsage;
 
     private int MaxSubject => _stats?.PerSubject.Count > 0 ? _stats.PerSubject.Max(s => s.Count) : 0;
 
@@ -131,6 +168,7 @@
             if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
 
             _stats = await UserProgressService.GetStatsAsync(_userId);
+            _aiUsage = await UserProgressService.GetAiUsageAsync(_userId);
             var user = await UserService.GetByIdAsync(_userId);
             _credits = user?.Credits ?? 0;
             _email = user?.Email ?? "";
@@ -141,6 +179,28 @@
     }
 
     public void Dispose() => _disposed = true;
+
+    // Feature names match the "Více" AI tool identifiers in PostDetail.razor (AiToolTitle) -
+    // DeductAiCreditIfLoggedInAsync there passes the tool name as the reason so usage history
+    // can show which specific AI feature was used, not just a generic "AI otázka" for everything.
+    private static string ReasonLabel(string reason) => reason switch
+    {
+        "ai_ask" => "AI chat",
+        "flashcards" => "Kartičky",
+        "practice" => "Procvičovací úlohy",
+        "rewrite" => "Přepsat pro jiný ročník",
+        "exam" => "Co může přijít v testu",
+        "realworld" => "Reálné využití",
+        "whatif" => "Co kdyby?",
+        "feynman" => "Zkus to vysvětlit",
+        "compare" => "Porovnat s…",
+        "stepsolver" => "Krok za krokem",
+        "facts" => "Věděl jsi, že…?",
+        "daily_bonus" => "Denní bonus",
+        "read_streak_bonus" => "Čtenářská odměna",
+        "registration_bonus" => "Registrace",
+        _ => reason
+    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender) =>
         await JS.InvokeVoidAsync("initLucide");

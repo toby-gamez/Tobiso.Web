@@ -12,6 +12,7 @@ public interface IUserProgressService
     Task AddBookmarkAsync(int userId, int postId);
     Task RemoveBookmarkAsync(int userId, int postId);
     Task<UserStatsDto> GetStatsAsync(int userId);
+    Task<AiUsageDto> GetAiUsageAsync(int userId);
     Task<ContinueReadingDto?> GetContinueReadingAsync(int userId);
     Task<string?> GetNoteAsync(int userId, int postId);
     Task SaveNoteAsync(int userId, int postId, string content);
@@ -140,6 +141,29 @@ public class UserProgressService : IUserProgressService
             .ToList();
 
         return new UserStatsDto(streak, totalRead, perSubject, badges);
+    }
+
+    public async Task<AiUsageDto> GetAiUsageAsync(int userId)
+    {
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var transactions = await _db.AiCreditTransactions
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        // Count of AI-feature uses (chat + every "Více" tool), not just "ai_ask" - each is a
+        // distinct reason now (see PostDetail.DeductAiCreditIfLoggedInAsync) but all currently
+        // cost 1 credit, so this is any spend event rather than a reason-specific filter.
+        var questionsThisMonth = transactions.Count(t => t.Delta < 0 && t.CreatedAt >= monthStart);
+        var spentThisMonth = -transactions.Where(t => t.Delta < 0 && t.CreatedAt >= monthStart).Sum(t => t.Delta);
+        var spentTotal = -transactions.Where(t => t.Delta < 0).Sum(t => t.Delta);
+
+        var recent = transactions.Take(20)
+            .Select(t => new AiUsageEntryDto(t.Delta, t.Reason, t.CreatedAt))
+            .ToList();
+
+        return new AiUsageDto(questionsThisMonth, spentThisMonth, spentTotal, recent);
     }
 
     public async Task<ContinueReadingDto?> GetContinueReadingAsync(int userId)

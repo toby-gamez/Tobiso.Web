@@ -73,12 +73,52 @@ else
             </div>
             <GrammarCheckPanel Issues="grammarIssues" />
         </div>
-        <div class="checkbox-field">
-            <input type="checkbox" id="isFix" @bind="_isFixSelected" />
-            <label for="isFix">Oprava (Fix)</label>
-        </div>
+        <fieldset class="choice-group @(_selectedGradeId.HasValue && !CanSaveVersion ? "choice-group-incomplete" : "")">
+            <legend>Typ úpravy <span class="required-mark">*</span></legend>
+            <div class="radio-field">
+                <input type="radio" id="editTypeFix" name="editType" checked="@(_editType == "fix")" @onchange="SetEditTypeFix" />
+                <label for="editTypeFix">
+                    <span class="radio-title">Oprava (Fix)</span>
+                    <span class="radio-desc">Malá oprava — automaticky se označí jako zkontrolováno</span>
+                </label>
+            </div>
+            <div class="radio-field">
+                <input type="radio" id="editTypeEdit" name="editType" checked="@(_editType == "edit")" @onchange="SetEditTypeEdit" />
+                <label for="editTypeEdit">
+                    <span class="radio-title">Velká úprava (Edit)</span>
+                    <span class="radio-desc">Nový obsah nebo funkce</span>
+                </label>
+            </div>
+
+            @if (_editType == "edit")
+            {
+                <div class="choice-subgroup">
+                    <div class="choice-subgroup-label">Byl nový obsah zkontrolován? <span class="required-mark">*</span></div>
+                    <div class="radio-field">
+                        <input type="radio" id="checkedYes" name="isCheckedChoice" checked="@(_isCheckedChoice == true)" @onchange="SetCheckedYes" />
+                        <label for="checkedYes">
+                            <span class="radio-title">Ano, obsah byl zkontrolován</span>
+                        </label>
+                    </div>
+                    <div class="radio-field">
+                        <input type="radio" id="checkedNo" name="isCheckedChoice" checked="@(_isCheckedChoice == false)" @onchange="SetCheckedNo" />
+                        <label for="checkedNo">
+                            <span class="radio-title">Ne, ještě nebyl zkontrolován</span>
+                        </label>
+                    </div>
+                </div>
+            }
+
+            @if (_selectedGradeId.HasValue && !CanSaveVersion)
+            {
+                <p class="choice-hint">
+                    <i data-lucide="alert-circle"></i>
+                    Vyberte typ úpravy@(_editType == "edit" ? " a zda byl obsah zkontrolován" : "") před uložením.
+                </p>
+            }
+        </fieldset>
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Uložit změny</button>
+            <button type="submit" class="btn btn-primary" disabled="@(_selectedGradeId.HasValue && !CanSaveVersion)">Uložit změny</button>
             <button type="button" class="btn btn-secondary" @onclick="GoBack">Zpět</button>
             <button type="button" class="btn btn-danger" @onclick="OnDeletePost">Smazat</button>
             <button type="button" class="btn btn-secondary" title="Vygenerovat tahák (PDF) pomocí AI" @onclick="OpenCheatSheetModal">
@@ -133,6 +173,7 @@ else
                                 <th>Obsah</th>
                                 <th>Poslední editace</th>
                                 <th>Poslední oprava</th>
+                                <th>Zkontrolováno</th>
                                 <th>Akce</th>
                             </tr>
                         </thead>
@@ -167,6 +208,7 @@ else
                                     <td class="muted truncate-cell">@Truncate(version.Content, 80)</td>
                                     <td>@(version.LastEdit?.ToString("g") ?? "-")</td>
                                     <td>@(version.LastFix?.ToString("g") ?? "-")</td>
+                                    <td>@(version.IsChecked == true ? "Ano" : version.IsChecked == false ? "Ne" : "-")</td>
                                     <td>
                                         <div class="row-actions">
                                             <button class="btn btn-ghost btn-sm"
@@ -271,7 +313,23 @@ else
     private List<CategoryResponse> categories = new();
     private List<GradeResponse> grades = new();
     private string? errorMessage;
-    private bool _isFixSelected = false;
+    /// <summary>
+    /// "fix" | "edit" | null. Never defaulted from the loaded version - reset to null on every
+    /// load and after every save, so every save requires an explicit, conscious choice.
+    /// </summary>
+    private string? _editType;
+    /// <summary>Only relevant when _editType == "edit". Never defaulted - must be explicitly chosen.</summary>
+    private bool? _isCheckedChoice;
+
+    /// <summary>True once the admin has made all choices required to save the currently selected version.</summary>
+    private bool CanSaveVersion =>
+        _editType == "fix" ||
+        (_editType == "edit" && _isCheckedChoice.HasValue);
+
+    private void SetEditTypeFix() { _editType = "fix"; _isCheckedChoice = null; }
+    private void SetEditTypeEdit() { _editType = "edit"; _isCheckedChoice = null; }
+    private void SetCheckedYes() => _isCheckedChoice = true;
+    private void SetCheckedNo() => _isCheckedChoice = false;
     /// <summary>Tracks the currently selected grade independently of the loaded version.</summary>
     private int? _selectedGradeId;
     /// <summary>Content being edited (bound to MarkdownEditor instead of post.Content).</summary>
@@ -324,7 +382,9 @@ else
                         _editLastEdit = ver.LastEdit;
                     }
                 }
-                _isFixSelected = _editLastFix.HasValue && (_editLastEdit == null || _editLastFix > _editLastEdit);
+                // Intentionally not inferred from the loaded version - the admin must choose every time.
+                _editType = null;
+                _isCheckedChoice = null;
                 _versions = post.Versions?.ToList() ?? new List<PostVersionResponse>();
             }
         }
@@ -421,6 +481,15 @@ else
     private async Task HandleValidSubmit()
     {
         if (post == null) return;
+
+        // Belt-and-suspenders: the submit button is already disabled in this state, but never
+        // let a save through without an explicit, freshly-made choice for the selected version.
+        if (_selectedGradeId.HasValue && !CanSaveVersion)
+        {
+            errorMessage = "Vyberte typ úpravy" + (_editType == "edit" ? " a zda byl obsah zkontrolován" : "") + " před uložením.";
+            return;
+        }
+
         try
         {
             // 1. Save post metadata (title, filePath, category)
@@ -434,8 +503,11 @@ else
             // 2. Save version content for the selected grade
             if (_selectedGradeId.HasValue)
             {
-                var lastFix = _isFixSelected ? DateTime.UtcNow : _editLastFix;
-                var lastEdit = _isFixSelected ? _editLastEdit : DateTime.UtcNow;
+                var isFix = _editType == "fix";
+                var lastFix = isFix ? DateTime.UtcNow : _editLastFix;
+                var lastEdit = isFix ? _editLastEdit : DateTime.UtcNow;
+                // Fix implies checked automatically; an Edit uses whatever the admin explicitly chose.
+                var isChecked = isFix ? true : _isCheckedChoice;
 
                 var versions = (await Api.GetVersionsByPost(Id))?.ToList() ?? new List<PostVersionResponse>();
                 var existing = versions.FirstOrDefault(v => v.GradeId == _selectedGradeId.Value);
@@ -445,7 +517,8 @@ else
                     {
                         Content = _editContent,
                         LastFix = lastFix,
-                        LastEdit = lastEdit
+                        LastEdit = lastEdit,
+                        IsChecked = isChecked
                     });
                 }
                 else
@@ -456,13 +529,20 @@ else
                         GradeId = _selectedGradeId.Value,
                         Content = _editContent,
                         LastFix = lastFix,
-                        LastEdit = lastEdit
+                        LastEdit = lastEdit,
+                        IsChecked = isChecked
                     });
                 }
+
+                _editLastFix = lastFix;
+                _editLastEdit = lastEdit;
             }
 
             errorMessage = null;
             _successMessage = "Změny uloženy.";
+            // Force a fresh, explicit choice for the next save too.
+            _editType = null;
+            _isCheckedChoice = null;
             await LoadVersionsAsync();
         }
         catch (Exception ex)
@@ -495,7 +575,6 @@ else
                     await markdownEditor.SetValue(_editContent);
                     await markdownEditor.ClearHighlights();
                 }
-                _isFixSelected = _editLastFix.HasValue && (_editLastEdit == null || _editLastFix > _editLastEdit);
             }
             else
             {
@@ -508,8 +587,10 @@ else
                     await markdownEditor.SetValue(string.Empty);
                     await markdownEditor.ClearHighlights();
                 }
-                _isFixSelected = false;
             }
+            // Switching grades means a different version - the choice must be made fresh, never carried over.
+            _editType = null;
+            _isCheckedChoice = null;
             grammarIssues.Clear();
         }
         catch (Exception ex)
@@ -572,7 +653,8 @@ else
                 _editContent = string.Empty;
                 _editLastEdit = null;
                 _editLastFix = null;
-                _isFixSelected = false;
+                _editType = null;
+                _isCheckedChoice = null;
                 if (markdownEditor != null)
                 {
                     await markdownEditor.SetValue(string.Empty);

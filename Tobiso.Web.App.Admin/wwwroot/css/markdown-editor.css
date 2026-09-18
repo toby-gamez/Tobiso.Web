@@ -1,0 +1,98 @@
+/* EasyMDE skin - overrides the library's inline default colors (loaded from a
+   CDN, so it ships its own hardcoded palette) to match the Organic tokens.
+   Must be linked AFTER easymde.min.css in App.razor so these rules win the
+   cascade at equal specificity. */
+
+.EasyMDEContainer .CodeMirror {
+    background: var(--color-neutral-100);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    border-top: 0;
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: 15px;
+}
+
+.EasyMDEContainer .CodeMirror-cursor {
+    border-left-color: var(--color-text);
+}
+
+.EasyMDEContainer .CodeMirror-selected,
+.EasyMDEContainer .CodeMirror-focused .CodeMirror-selected {
+    background: var(--color-accent-200);
+}
+
+.EasyMDEContainer .CodeMirror-gutters {
+    background: var(--color-neutral-100);
+    border-right-color: var(--color-divider);
+}
+
+.editor-toolbar {
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+}
+
+.editor-toolbar button {
+    color: var(--color-text);
+}
+
+.editor-toolbar button:hover,
+.editor-toolbar button.active {
+    background: var(--color-accent-200);
+    border-color: var(--color-accent-400);
+    color: var(--color-accent-800);
+}
+
+.editor-toolbar i.separator {
+    border-left-color: var(--color-divider);
+    border-right-color: transparent;
+}
+
+.editor-toolbar.disabled-for-preview button:not(.no-disable) {
+    opacity: 0.4;
+}
+
+.editor-toolbar button:after {
+    color: inherit;
+}
+
+.editor-statusbar {
+    color: var(--color-neutral-600);
+    background: var(--color-neutral-100);
+    border: 1px solid var(--color-divider);
+    border-top: 0;
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    padding: 6px 12px;
+}
+
+.editor-preview,
+.editor-preview-side {
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.editor-preview-active-side {
+    border: 1px solid var(--color-divider);
+}
+
+.CodeMirror-placeholder {
+    color: var(--color-neutral-500) !important;
+}
+
+.editor-toolbar.fullscreen,
+.CodeMirror-fullscreen {
+    background: var(--color-bg);
+}
+
+/* Grammar-check highlights (markText'd in markdown-editor.js) had no styling
+   at all before this - the marks were invisible. */
+.grammar-error {
+    text-decoration: underline wavy var(--color-accent-600);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    cursor: help;
+}

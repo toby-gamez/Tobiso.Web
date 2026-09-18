@@ -9,6 +9,7 @@ public class UpdateVersionRequest
     public string Content { get; set; } = string.Empty;
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
+    public bool? IsChecked { get; set; }
 }
 
 public class UpdateVersionGradeRequest

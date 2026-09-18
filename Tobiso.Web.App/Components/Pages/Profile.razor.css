@@ -70,3 +70,30 @@
 
 .profile-badge-name { font-family: var(--font-heading); font-size: 16px; }
 .profile-badge-level { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+
+.profile-ai-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.ai-usage-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.ai-usage-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+}
+
+.ai-usage-reason { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-usage-date { color: var(--color-neutral-600); font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+.ai-usage-delta { font-family: var(--font-heading); font-weight: 600; flex-shrink: 0; }

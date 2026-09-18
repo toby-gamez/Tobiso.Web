@@ -100,7 +100,7 @@
 
 .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: var(--space-4);
 }
 
@@ -143,4 +143,20 @@
     display: flex;
     gap: 6px;
     margin-top: 4px;
+}
+
+.gallery-tile-copy-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.gallery-tile-copy-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.gallery-tile-delete-btn {
+    flex-shrink: 0;
 }

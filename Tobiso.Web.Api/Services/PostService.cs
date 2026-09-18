@@ -50,7 +50,8 @@ public class PostService : IPostService
         GradeLevel = v.Grade?.Level,
         Content = v.Content,
         LastFix = v.LastFix,
-        LastEdit = v.LastEdit
+        LastEdit = v.LastEdit,
+        IsChecked = v.IsChecked
     };
 
     /// <summary>

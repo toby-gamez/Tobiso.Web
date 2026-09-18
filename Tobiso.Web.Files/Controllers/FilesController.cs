@@ -12,15 +12,15 @@ namespace Tobiso.Web.Files.Controllers;
 [Authorize(AuthenticationSchemes = "Basic")]
 public class FilesController : ControllerBase
 {
+    private const string FilesBaseAddress = "https://files.tobiso.com";
+
     private readonly ILogger<FilesController> _logger;
     private readonly IWebHostEnvironment _environment;
-    private readonly IConfiguration _configuration;
 
-    public FilesController(ILogger<FilesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
+    public FilesController(ILogger<FilesController> logger, IWebHostEnvironment environment)
     {
         _logger = logger;
         _environment = environment;
-        _configuration = configuration;
     }
 
     [HttpPost("upload")]
@@ -78,8 +78,7 @@ public class FilesController : ControllerBase
                 await file.CopyToAsync(stream);
             }
 
-            var baseUrl = _configuration["Api:BaseAddress"] ?? Request.Scheme + "://" + Request.Host;
-            var fileUrl = $"{baseUrl}/images/{fileName}";
+            var fileUrl = $"{FilesBaseAddress}/images/{fileName}";
 
             var response = new FileUploadResponse
             {
@@ -112,8 +111,6 @@ public class FilesController : ControllerBase
                 return Ok(new List<FileUploadResponse>());
             }
 
-            var baseUrl = _configuration["Api:BaseAddress"] ?? Request.Scheme + "://" + Request.Host;
-
             var files = Directory.GetFiles(imagesPath)
                 .Select(filePath =>
                 {
@@ -124,7 +121,7 @@ public class FilesController : ControllerBase
                     {
                         FileName = fileName,
                         OriginalFileName = fileName,
-                        Url = $"{baseUrl}/images/{fileName}",
+                        Url = $"{FilesBaseAddress}/images/{fileName}",
                         Size = fileInfo.Length,
                         ContentType = GetContentType(fileName)
                     };

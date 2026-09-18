@@ -231,8 +231,8 @@ app.Use(async (context, next) =>
     context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
         "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
-        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
-        "font-src 'self' https://cdn.jsdelivr.net; " +
+        "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; " +
+        "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
         "img-src 'self' https: data:; " +
         "connect-src 'self'; " +
         "frame-ancestors 'none'";

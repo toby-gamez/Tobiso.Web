@@ -38,7 +38,8 @@ public class PostVersionService : IPostVersionService
                 GradeLevel = v.Grade != null ? v.Grade.Level : (int?)null,
                 Content = v.Content,
                 LastFix = v.LastFix,
-                LastEdit = v.LastEdit
+                LastEdit = v.LastEdit,
+                IsChecked = v.IsChecked
             })
             .ToListAsync();
     }
@@ -60,7 +61,8 @@ public class PostVersionService : IPostVersionService
             GradeId = req.GradeId,
             Content = req.Content,
             LastFix = req.LastFix,
-            LastEdit = req.LastEdit
+            LastEdit = req.LastEdit,
+            IsChecked = req.IsChecked
         };
         _context.PostVersions.Add(entity);
         await _context.SaveChangesAsync();
@@ -74,7 +76,8 @@ public class PostVersionService : IPostVersionService
             GradeLevel = grade.Level,
             Content = entity.Content,
             LastFix = entity.LastFix,
-            LastEdit = entity.LastEdit
+            LastEdit = entity.LastEdit,
+            IsChecked = entity.IsChecked
         };
     }
 
@@ -86,6 +89,7 @@ public class PostVersionService : IPostVersionService
         entity.Content = req.Content;
         entity.LastFix = req.LastFix;
         entity.LastEdit = req.LastEdit;
+        entity.IsChecked = req.IsChecked;
         await _context.SaveChangesAsync();
         return true;
     }

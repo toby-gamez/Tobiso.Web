@@ -16,4 +16,8 @@ public class PostVersion
     // Like before: LastFix (minor) and LastEdit (major)
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
+
+    // Nullable so it survives independently of LastFix/LastEdit: a version can be
+    // marked checked even on a LastEdit (e.g. new features), not just on a LastFix.
+    public bool? IsChecked { get; set; }
 }

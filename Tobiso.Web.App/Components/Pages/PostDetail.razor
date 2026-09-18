@@ -87,7 +87,7 @@ else
                 <span><i data-lucide="book-open"></i> @CzechPlural.Slova(WordCount) · @ReadTime min čtení</span>
                 <span style="opacity:.4">·</span>
                 <span>Upraveno @FormatDateTime(MostRecentEdit)</span>
-                @if (_currentVersion?.LastFix.HasValue == true)
+                @if (_currentVersion?.IsChecked == true)
                 {
                     <span style="opacity:.4">·</span>
                     <span style="color:var(--color-accent-2-700)"><i data-lucide="check-circle-2"></i> Zkontrolováno</span>
@@ -1266,10 +1266,10 @@ else
     // AiChatBox.Send / AiController.Ask, which deduct post-hoc once the answer exists rather
     // than before). Best-effort: if the deduction fails (e.g. a concurrent request already
     // spent the last credit), the already-generated result is kept either way.
-    private async Task DeductAiCreditIfLoggedInAsync()
+    private async Task DeductAiCreditIfLoggedInAsync(string reason)
     {
         if (_userId is not { } uid) return;
-        if (await UserService.DeductCreditsAsync(uid, 1, "ai_ask"))
+        if (await UserService.DeductCreditsAsync(uid, 1, reason))
             _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
     }
 
@@ -1283,7 +1283,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             var resp = await AiService.GenerateFlashcardsAsync(_post.Id);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("flashcards");
             _flashcards = resp.Cards;
             _flashcardIndex = 0;
             _flashcardFlipped = false;
@@ -1343,7 +1343,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             var resp = await AiService.GeneratePracticeProblemsAsync(_post.Id, 3, _currentVersion?.GradeId);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("practice");
             _practiceProblems = resp.Problems;
             _practiceRevealed.Clear();
             _practiceLoaded = true;
@@ -1397,7 +1397,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _rewriteError = message; return; }
             var resp = await AiService.RewriteForGradeAsync(_post.Id, grade.Level);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("rewrite");
 
             // Replaces the real article body rather than showing in the tool panel, so close
             // the panel and jump straight to the rewritten article once it's ready.
@@ -1426,7 +1426,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             _examSummary = await AiService.GenerateExamSummaryAsync(_post.Id);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("exam");
             _examLoaded = true;
         }
         catch
@@ -1453,7 +1453,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             var resp = await AiService.GetRealWorldApplicationsAsync(_post.Id);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("realworld");
             _realWorldApps = resp.Applications;
             _realWorldLoaded = true;
         }
@@ -1480,7 +1480,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             _whatIfResult = await AiService.GetWhatIfScenarioAsync(new WhatIfRequest { PostId = _post.Id, UserQuestion = "" });
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("whatif");
             _whatIfLoaded = true;
         }
         catch
@@ -1504,7 +1504,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _whatIfError = message; return; }
             _whatIfResult = await AiService.GetWhatIfScenarioAsync(new WhatIfRequest { PostId = _post.Id, UserQuestion = _whatIfQuestion });
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("whatif");
             _whatIfQuestion = "";
         }
         catch
@@ -1541,7 +1541,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _feynmanError = message; return; }
             _feynmanResult = await AiService.EvaluateComprehensionAsync(new EvaluateComprehensionRequest { PostId = _post.Id, StudentExplanation = _feynmanExplanation });
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("feynman");
         }
         catch
         {
@@ -1571,7 +1571,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _compareError = message; return; }
             _compareMarkdown = await AiService.GenerateComparisonAsync(_post.Id, _compareTerm);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("compare");
         }
         catch
         {
@@ -1593,7 +1593,7 @@ else
             var (allowed, message) = await TryConsumeAiUsageAsync();
             if (!allowed) { _aiToolError = message; return; }
             var resp = await AiService.GenerateStepSolverAsync(_post.Id);
-            await DeductAiCreditIfLoggedInAsync();
+            await DeductAiCreditIfLoggedInAsync("stepsolver");
             _stepSolverSteps = resp.Steps;
             _stepSolverLoaded = true;
         }
@@ -1670,15 +1670,14 @@ else
                 }
                 else
                 {
-                    // Fun facts are free (no credit deduction), same as DetectPersonMentions below -
-                    // consume straight from the shared free-tier quota rather than TryConsumeAiUsageAsync,
-                    // which also gates on student credit balance for the paid "Více" tools.
-                    var deviceId = await JS.InvokeAsync<string>("getDeviceId");
-                    var auth = await AuthState.GetAuthenticationStateAsync();
-                    var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
-                    if (!decision.Allowed) { _factsError = decision.DeniedMessage ?? "Denní limit dotazů byl vyčerpán."; return; }
+                    // Facts used to auto-generate alongside the article, so they were free. Now
+                    // that they're generated on request like the other "Více" tools, they cost a
+                    // credit the same way.
+                    var (allowed, message) = await TryConsumeAiUsageAsync();
+                    if (!allowed) { _factsError = message; return; }
                     _facts = await AiService.GenerateFunFactsAsync(_post.Id);
                     await AppAiService.SaveFunFactsCacheAsync(_post.Id, _facts);
+                    await DeductAiCreditIfLoggedInAsync("facts");
                 }
                 _factsLoaded = true;
             }
