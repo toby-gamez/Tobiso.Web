@@ -138,6 +138,7 @@ public class PostService : IPostService
                 Title = p.Title,
                 CategoryId = p.CategoryId,
                 FilePath = p.FilePath,
+                CreatedAt = p.CreatedAt,
                 // Aggregate most recent timestamps across all versions for "last updated" display
                 LastEdit = p.Versions.Max(v => (DateTime?)v.LastEdit),
                 LastFix  = p.Versions.Max(v => (DateTime?)v.LastFix),

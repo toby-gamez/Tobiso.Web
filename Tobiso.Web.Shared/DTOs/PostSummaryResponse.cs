@@ -14,6 +14,8 @@ public class PostSummaryResponse
     public DateTime? LastEdit { get; set; }
     /// <summary>Most recent LastFix timestamp across all versions, for "last updated" display.</summary>
     public DateTime? LastFix { get; set; }
+    /// <summary>Fallback timestamp when no version has ever been edited or fixed.</summary>
+    public DateTime CreatedAt { get; set; }
     /// <summary>Grade names available for this post, ordered by level (e.g. ["6. třída", "9. třída"]).</summary>
     public List<string> AvailableGradeNames { get; set; } = new();
 }

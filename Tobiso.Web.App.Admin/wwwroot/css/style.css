@@ -71,3 +71,11 @@ img {
     outline: 2px solid var(--color-accent-600);
     outline-offset: 2px;
 }
+
+/* Blazor's FocusOnNavigate programmatically focuses the page h1 on every
+   route change for screen readers; headings aren't interactive, so suppress
+   the visible ring it would otherwise trigger. */
+h1:focus,
+h1:focus-visible {
+    outline: none;
+}

@@ -116,6 +116,15 @@ a.sage-tint {
     margin-top: 2px;
 }
 
+.post-row-side {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
 .post-row-grades {
     display: inline-flex;
     gap: 6px;
@@ -125,8 +134,8 @@ a.sage-tint {
 .post-row-date {
     font-size: 13px;
     color: var(--color-neutral-600);
-    width: 96px;
     text-align: right;
+    white-space: nowrap;
     flex-shrink: 0;
 }
 

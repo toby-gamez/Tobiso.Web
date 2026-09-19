@@ -69,13 +69,15 @@
                         <span class="post-row-main">
                             <span class="post-row-title">@post.Title</span>
                         </span>
-                        <span class="post-row-grades">
-                            @foreach (var g in post.AvailableGradeNames.Take(3))
-                            {
-                                <span class="grade-chip">@g</span>
-                            }
+                        <span class="post-row-side">
+                            <span class="post-row-grades">
+                                @foreach (var g in post.AvailableGradeNames.Take(3))
+                                {
+                                    <span class="grade-chip">@g</span>
+                                }
+                            </span>
+                            <span class="post-row-date">@FormatDate(LastUpdated(post))</span>
                         </span>
-                        <span class="post-row-date">@FormatDate(LastUpdated(post))</span>
                     </a>
                 }
             </div>
@@ -224,10 +226,9 @@
 
     private string CategoryPath(int? id) => id.HasValue && _categoryPaths.TryGetValue(id.Value, out var p) ? p : "";
 
-    private static DateTime? LastUpdated(PostSummaryResponse post)
-        => post.LastEdit > post.LastFix ? post.LastEdit : post.LastFix;
+    private static DateTime LastUpdated(PostSummaryResponse post)
+        => new[] { post.LastEdit, post.LastFix, post.CreatedAt }
+            .Max()!.Value;
 
-    private static string FormatDate(DateTime? dt) => dt.HasValue
-        ? dt.Value.ToString("d. M. yyyy")
-        : "";
+    private static string FormatDate(DateTime dt) => dt.ToString("d. M. yyyy");
 }
