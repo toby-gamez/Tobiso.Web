@@ -389,6 +389,34 @@ a.sage-tint {
     border-radius: inherit;
 }
 
+/* Featured post video (PostVideo: YouTube URL set per-post in admin) */
+.post-video-embed {
+    margin: var(--space-6) 0;
+}
+
+.post-video-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-surface);
+}
+
+.post-video-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.post-video-embed-caption {
+    margin-top: var(--space-2);
+    font-size: 13px;
+    color: var(--color-neutral-600);
+}
+
 /* Article document download link: _[label](documents/x.docx) */
 .post-document-link {
     display: inline-flex;

@@ -1,6 +1,7 @@
 @page "/post/{Id:int}"
 @page "/post/{Slug}"
 @implements IAsyncDisposable
+@using System.Text.RegularExpressions
 @using System.Threading
 @using Tobiso.Web.Shared.Interfaces
 @inject IPostService PostService
@@ -93,6 +94,23 @@ else
                     <span style="color:var(--color-accent-2-700)"><i data-lucide="check-circle-2"></i> Zkontrolováno</span>
                 }
             </div>
+
+            @if (_video != null && YoutubeEmbedUrl(_video) is { } videoEmbedUrl)
+            {
+                <div class="post-video-embed">
+                    <div class="post-video-frame">
+                        <iframe src="@videoEmbedUrl"
+                                title="@(string.IsNullOrWhiteSpace(_video.Label) ? _post.Title : _video.Label)"
+                                loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowfullscreen></iframe>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_video.Label))
+                    {
+                        <div class="post-video-embed-caption">@_video.Label</div>
+                    }
+                </div>
+            }
 
             <div class="toolbar">
                 <button class="toolbar-btn" @onclick="ScrollToQuiz">
@@ -745,6 +763,7 @@ else
     private List<PostSummaryResponse> _allPosts = [];
     private List<PersonSummaryResponse> _allPeople = [];
     private List<InteractiveExerciseResponse> _exercises = [];
+    private PostVideoResponse? _video;
     private bool _versionsOpen, _readingOpen, _moreOpen, _factsOpen, _bookmarked, _notesOpen;
     private string? _shareFeedback;
     private string _noteContent = "";
@@ -887,6 +906,7 @@ else
         _questions = await QuestionService.GetByPostId(_post.Id);
         _allPosts = await PostService.GetSummaries();
         _exercises = await ExerciseService.GetByPostIdAsync(_post.Id);
+        _video = await PostService.GetVideo(_post.Id);
         _openExerciseId = Exercise.HasValue && _exercises.Any(e => e.Id == Exercise.Value) ? Exercise.Value : null;
         _needsExerciseScroll = _openExerciseId.HasValue;
 
@@ -1171,6 +1191,20 @@ else
     {
         _rewrittenContent = null;
         _rewrittenGradeName = null;
+    }
+
+    private static readonly Regex YoutubeIdPattern = new(
+        @"(?:youtube(?:-nocookie)?\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})",
+        RegexOptions.Compiled);
+
+    private static string? YoutubeEmbedUrl(PostVideoResponse video)
+    {
+        var match = YoutubeIdPattern.Match(video.YoutubeUrl);
+        if (!match.Success) return null;
+
+        var url = $"https://www.youtube-nocookie.com/embed/{match.Groups[1].Value}";
+        if (video.Timestamp > 0) url += $"?start={video.Timestamp}";
+        return url;
     }
 
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;

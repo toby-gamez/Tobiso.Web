@@ -26,6 +26,8 @@ public interface IPostService
     Task<PostResponse?> Create(CreatePostRequest req);
     Task<PostLinkResponse?> GetRandomAsync();
     Task<PostLinkResponse?> GetArticleOfTheDayAsync();
+    /// <summary>Returns the post's featured YouTube video, or null if none is set.</summary>
+    Task<PostVideoResponse?> GetVideo(int id);
 }
 
 public class PostService : IPostService
@@ -272,6 +274,22 @@ public class PostService : IPostService
             .ToListAsync();
         if (posts.Count == 0) return null;
         return posts[DateTime.UtcNow.DayOfYear % posts.Count];
+    }
+
+    public async Task<PostVideoResponse?> GetVideo(int id)
+    {
+        var video = await _context.PostVideos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.PostId == id);
+
+        if (video == null || string.IsNullOrWhiteSpace(video.YoutubeUrl)) return null;
+
+        return new PostVideoResponse
+        {
+            YoutubeUrl = video.YoutubeUrl,
+            Timestamp = video.Timestamp,
+            Label = video.Label
+        };
     }
 
     public async Task<PostResponse?> Create(CreatePostRequest req)

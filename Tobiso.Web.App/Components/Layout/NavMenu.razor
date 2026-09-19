@@ -287,7 +287,10 @@
     private bool IsActive(string path)
     {
         var current = new Uri(Nav.Uri).AbsolutePath;
-        return path == "/" ? current == "/" : current.StartsWith(path);
+        if (path == "/") return current == "/";
+        return current.Length == path.Length
+            ? current == path
+            : current.StartsWith(path) && current[path.Length] == '/';
     }
 
     private static string SubjectIcon(string name)
@@ -302,6 +305,7 @@
         if (n.Contains("fyzik")) return "magnet";
         if (n.Contains("přírod") || n.Contains("biolog")) return "flower-2";
         if (n.Contains("země") || n.Contains("geog")) return "globe";
+        if (n.Contains("odborn")) return "wrench";
         return "book";
     }
 }
