@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Tobiso.Api.Authentication;
 using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.App.Authentication;
@@ -38,11 +39,31 @@ public class JwtTokenService
 
     public string? GenerateToken(string username, string password)
     {
-        var expectedUsername = _config["Auth:Basic:Username"];
-        var expectedPassword = _config["Auth:Basic:Password"];
-        var userId           = _config["Auth:Basic:UserId"] ?? "1";
+        var expectedUsername     = _config["Auth:Basic:Username"];
+        var expectedPasswordHash = _config["Auth:Basic:PasswordHash"];
+        var expectedPassword     = _config["Auth:Basic:Password"];
+        var userId               = _config["Auth:Basic:UserId"] ?? "1";
 
-        if (username != expectedUsername || password != expectedPassword)
+        var usernameMatch = CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(username ?? string.Empty),
+            Encoding.UTF8.GetBytes(expectedUsername ?? string.Empty));
+
+        // Prefer a PBKDF2 hash (Auth:Basic:PasswordHash). Fall back to a plaintext
+        // Auth:Basic:Password for backward compatibility while configs are migrated.
+        // Mirrors BasicAuthHandler.cs - keep both in sync.
+        bool passwordMatch;
+        if (!string.IsNullOrEmpty(expectedPasswordHash))
+        {
+            passwordMatch = PasswordHasher.Verify(password ?? string.Empty, expectedPasswordHash);
+        }
+        else
+        {
+            passwordMatch = CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(password ?? string.Empty),
+                Encoding.UTF8.GetBytes(expectedPassword ?? string.Empty));
+        }
+
+        if (!usernameMatch || !passwordMatch)
         {
             _logger.LogWarning("JWT login failed - invalid credentials for user {Username}", username);
             return null;
