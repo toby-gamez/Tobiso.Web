@@ -54,7 +54,7 @@
                             Přetáhněte obrázek sem, nebo
                             <button type="button" class="upload-link-btn" @onclick="TriggerFileInput">klikněte pro výběr</button>
                         </p>
-                        <span class="upload-hint">Podporované: JPG, PNG, WEBP (max 10MB)</span>
+                        <span class="upload-hint">Podporované: JPG, PNG, GIF, WEBP, SVG (max 10MB)</span>
                     </div>
                 }
             </div>
@@ -133,7 +133,6 @@
     private bool isLoadingImages = false;
     private List<Tobiso.Web.Shared.DTOs.FileUploadResponse>? images;
 
-    // Allow any image/* content type except WEBP (image/webp)
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
 
     protected override async Task OnInitializedAsync()
@@ -218,11 +217,12 @@
         {
             ClearMessages();
 
-            // Validate file: allow all image/* types except WEBP
+            // Validate file: allow all image/* types (server re-validates by extension and
+            // sanitizes SVGs before storing, so this is just a fast client-side pre-check).
             var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
-            if (!contentType.StartsWith("image/") || contentType == "image/webp")
+            if (!contentType.StartsWith("image/"))
             {
-                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, SVG.";
+                errorMessage = $"Typ souboru '{file.ContentType}' není podporován. Jsou povoleny: JPEG, PNG, GIF, WEBP, SVG.";
                 return;
             }
 

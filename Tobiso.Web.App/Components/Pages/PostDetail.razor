@@ -3,6 +3,7 @@
 @implements IAsyncDisposable
 @using System.Text.RegularExpressions
 @using System.Threading
+@using Tobiso.Web.App.Helpers
 @using Tobiso.Web.Shared.Interfaces
 @inject IPostService PostService
 @inject ICategoryService CategoryService
@@ -17,6 +18,8 @@
 @inject IAiService AiService
 @inject Tobiso.Web.App.Services.IAiService AppAiService
 @inject Tobiso.Web.App.Services.IAiUsageGuard UsageGuard
+@inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
+@inject IGradeService GradeService
 
 <PageTitle>@(_post?.Title ?? "Článek") - Tobiso</PageTitle>
 
@@ -87,7 +90,7 @@ else
             <div class="post-meta">
                 <span><i data-lucide="book-open"></i> @CzechPlural.Slova(WordCount) · @ReadTime min čtení</span>
                 <span style="opacity:.4">·</span>
-                <span>Upraveno @FormatDateTime(MostRecentEdit)</span>
+                <span>Upraveno <span data-utc-date="@(MostRecentEdit.HasValue ? LocalDate.ToUtcAttribute(MostRecentEdit.Value) : null)" data-utc-format="datetime">@FormatDateTime(MostRecentEdit)</span></span>
                 @if (_currentVersion?.IsChecked == true)
                 {
                     <span style="opacity:.4">·</span>
@@ -896,7 +899,15 @@ else
         if (post == null) return;
         _post = post;
         _versions = _post.Versions ?? [];
-        _currentVersion = _versions.FirstOrDefault();
+
+        var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+        int? preferredLevel = null;
+        if (preferredGradeId.HasValue)
+        {
+            var grade = await GradeService.GetById(preferredGradeId.Value);
+            preferredLevel = grade?.Level;
+        }
+        _currentVersion = PostVersionSelector.SelectForGrade(_versions, preferredLevel);
 
         var allCats = await CategoryService.GetAll();
         if (_post.CategoryId.HasValue)
@@ -1071,6 +1082,7 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JS.InvokeVoidAsync("initLucide");
+        await JS.InvokeVoidAsync("localizeDates");
 
         if (_post != null)
         {

@@ -42,6 +42,30 @@ window.initLucide = () => {
     }
 };
 
+// Blazor Server renders post/category dates in the SERVER's time zone (they're stored
+// as UTC in the DB). To show the VIEWER's local time instead, the server renders a
+// UTC ISO timestamp into data-utc-date (plus a server-time fallback as the element's
+// text, in case JS never runs) and this walks the DOM afterwards to re-format each one
+// using the browser's own time zone. data-utc-format picks "date" (d. M. yyyy) or
+// "datetime" (d. M. yyyy v HH:mm); "date" is the default.
+const pad2 = (n) => String(n).padStart(2, '0');
+
+window.localizeDates = () => {
+    document.querySelectorAll('[data-utc-date]').forEach((el) => {
+        const iso = el.getAttribute('data-utc-date');
+        if (!iso) return;
+        const date = new Date(iso);
+        if (isNaN(date.getTime())) return;
+
+        // Date getters (as opposed to getUTC*) already return the browser's local time.
+        let text = `${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()}`;
+        if (el.getAttribute('data-utc-format') === 'datetime') {
+            text += ` v ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+        }
+        el.textContent = text;
+    });
+};
+
 window.setTheme = (theme) => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('tobiso-theme', theme);

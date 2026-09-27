@@ -747,6 +747,37 @@ a.sage-tint {
     color: var(--color-accent-2-900);
 }
 
+/* Box-stack diagram */
+.box-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-6) 0;
+    max-width: 68ch;
+}
+
+.box-stack-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-accent-200);
+    border: 1px solid var(--color-accent-600);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.box-stack-title {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    color: var(--color-accent-900);
+}
+
+.box-stack-desc {
+    font-size: 13px;
+    color: var(--color-accent-700);
+}
+
 /* Stats row */
 .stat-card {
     padding: var(--space-6);

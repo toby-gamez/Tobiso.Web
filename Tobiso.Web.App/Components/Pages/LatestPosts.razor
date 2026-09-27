@@ -1,5 +1,6 @@
 @page "/nejnovejsi"
 @page "/latest"
+@using Tobiso.Web.App.Helpers
 @implements IDisposable
 @inject IPostService PostService
 @inject ICategoryService CategoryService
@@ -48,7 +49,7 @@
                                 <span class="grade-chip">@g</span>
                             }
                         </span>
-                        <span class="post-row-date">@FormatDate(LastUpdated(post))</span>
+                        <span class="post-row-date" data-utc-date="@LocalDate.ToUtcAttribute(LastUpdated(post))">@FormatDate(LastUpdated(post))</span>
                     </span>
                 </a>
             }
@@ -99,6 +100,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await JS.InvokeVoidAsync("initLucide");
+        await JS.InvokeVoidAsync("localizeDates");
     }
 
     private void SetFilter(int? catId) => _activeFilter = catId;

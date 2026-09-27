@@ -89,6 +89,18 @@
         // to raw <video>/download-link HTML BEFORE conversion, same reasoning as images above.
         content = PreprocessMediaEmbeds(content);
 
+        // Convert "| Title |" / "| Title :: description |" line stacks to a vertical
+        // box diagram BEFORE conversion, same reasoning as images/media above.
+        content = PreprocessBoxStacks(content);
+
+        // Escape list markers that immediately follow another list marker on the SAME
+        // line (e.g. "- 5. tridu", "- - poznamka") BEFORE conversion. Authors never
+        // intentionally nest lists this way (see FormattingLegend.razor - only flat
+        // "- item" / "1. item" lists are documented), so Markdig parsing that leading
+        // number/dash as the start of a nested <ol>/<ul> is always a false positive:
+        // it's just a number or dash that happens to be the item's own text.
+        content = PreventFalseNestedListMarkers(content);
+
         var html = Markdig.Markdown.ToHtml(content);
 
         // Process addendum markers (--DOD-x--) AFTER HTML conversion
@@ -442,6 +454,110 @@
         });
 
         return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Box-stack diagrams:
+    //   | Uživatelské programy |
+    //   | GUI |
+    //   | jádro :: řídí přístup k hardwaru |
+    //   ...
+    // A paragraph where every line is "| ... |" renders as a vertical stack of
+    // boxes (layered/architecture diagrams). ":: " after the title adds an
+    // optional description inside the box. Runs BEFORE Markdig, same reasoning
+    // as images/media above, so it never competes with ConvertMarkdownTablesToHtml,
+    // which only fires on paragraphs that have a "---" header-separator row -
+    // box-stack blocks never have one, so real tables are unaffected.
+    // Leading/trailing commas next to the pipes (a leftover from hand-drawn
+    // ASCII diagrams, e.g. "|, jádro |") are stripped as punctuation noise.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string PreprocessBoxStacks(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return content;
+
+        var paras = Regex.Split(content, @"\r?\n[ \t]*\r?\n");
+        var rowRx = new Regex(@"^\|(.*)\|$");
+        var separatorRx = new Regex(@"^[\|\s:\-]+$");
+
+        var result = paras.Select(para =>
+        {
+            var lines = Regex.Split(para.Trim('\r', '\n'), @"\r?\n")
+                              .Select(l => l.Trim())
+                              .Where(l => l.Length > 0)
+                              .ToList();
+
+            if (lines.Count == 0 || !lines.All(l => rowRx.IsMatch(l))) return para;
+            if (lines.Any(l => separatorRx.IsMatch(l) && l.Contains('-'))) return para;
+
+            var sb = new StringBuilder();
+            sb.Append("<div class=\"box-stack\">");
+            foreach (var line in lines)
+            {
+                var inner = rowRx.Match(line).Groups[1].Value.Trim();
+                if (inner.StartsWith(",")) inner = inner.Substring(1).TrimStart();
+                if (inner.EndsWith(",")) inner = inner.Substring(0, inner.Length - 1).TrimEnd();
+                if (inner.Length == 0) continue;
+
+                var parts = inner.Split(["::"], 2, StringSplitOptions.None);
+                var title = System.Net.WebUtility.HtmlEncode(parts[0].Trim());
+
+                sb.Append("<div class=\"box-stack-item\">");
+                sb.Append($"<span class=\"box-stack-title\">{title}</span>");
+                if (parts.Length > 1)
+                {
+                    var desc = System.Net.WebUtility.HtmlEncode(parts[1].Trim());
+                    if (desc.Length > 0)
+                        sb.Append($"<span class=\"box-stack-desc\">{desc}</span>");
+                }
+                sb.Append("</div>");
+            }
+            sb.Append("</div>");
+            return sb.ToString();
+        });
+
+        return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // False nested-list-marker prevention:
+    //   "- 5. tridu ma tato skola"  ->  "- 5\. tridu ma tato skola"
+    //   "- - poznamka k bodu"       ->  "- \- poznamka k bodu"
+    // Without escaping, Markdig reads the leading "5." / "-" of the item's own
+    // text as the start of a nested <ol>/<ul> inside that <li>. Escaping only the
+    // marker punctuation keeps the visible text identical while forcing it to
+    // render as plain text instead of a sub-list.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private string PreventFalseNestedListMarkers(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input ?? string.Empty;
+
+        var (protectedText, regions) = ProtectCodeRegions(input);
+
+        var itemRx = new Regex(@"^(?<indent>[ \t]*)(?<marker>[-*+]|\d+[.)])(?<sep>[ \t]+)(?<content>.*)$");
+        var nestedMarkerRx = new Regex(@"^(?<inner>[-*+]|\d+[.)])(?<innersep>[ \t]+)");
+
+        var lines = protectedText.Replace("\r\n", "\n").Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var m = itemRx.Match(lines[i]);
+            if (!m.Success) continue;
+
+            var content = m.Groups["content"].Value;
+            var innerM = nestedMarkerRx.Match(content);
+            if (!innerM.Success) continue;
+
+            var inner = innerM.Groups["inner"].Value;
+            var escapedInner = inner.Length == 1
+                ? "\\" + inner
+                : inner.Substring(0, inner.Length - 1) + "\\" + inner[^1];
+
+            var newContent = escapedInner + content.Substring(inner.Length);
+            lines[i] = $"{m.Groups["indent"].Value}{m.Groups["marker"].Value}{m.Groups["sep"].Value}{newContent}";
+        }
+
+        return RestoreCodeRegions(string.Join("\n", lines), regions);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

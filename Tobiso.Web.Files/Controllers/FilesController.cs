@@ -16,12 +16,12 @@ public class FilesController : ControllerBase
 
     // Per-category config: physical folder name (also the public URL segment), allowed
     // extensions (server-derived, never trusting the client-supplied ContentType), and
-    // max upload size. SVG is intentionally excluded from images: it can carry inline
-    // <script> and would execute when served inline.
+    // max upload size. SVG uploads are run through SvgSanitizer before being written to
+    // disk, since they can otherwise carry inline <script> that executes when served.
     private static readonly Dictionary<string, (string Folder, string[] Exts, long MaxSize)> Categories =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["images"] = ("images", new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" }, 10 * 1024 * 1024L),
+            ["images"] = ("images", new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg" }, 10 * 1024 * 1024L),
             ["videos"] = ("videos", new[] { ".mp4" }, 200 * 1024 * 1024L),
             ["documents"] = ("documents", new[] { ".docx", ".pdf", ".pptx", ".xlsx" }, 25 * 1024 * 1024L),
         };
@@ -86,8 +86,20 @@ public class FilesController : ControllerBase
                 return BadRequest(new { error = "Neplatný název souboru" });
             }
 
-            using (var stream = new FileStream(filePath, FileMode.CreateNew))
+            if (ext == ".svg")
             {
+                await using var uploadStream = file.OpenReadStream();
+                if (!SvgSanitizer.TrySanitize(uploadStream, out var sanitized, out var sanitizeError))
+                {
+                    return BadRequest(new { error = sanitizeError });
+                }
+
+                await using var outStream = new FileStream(filePath, FileMode.CreateNew);
+                await outStream.WriteAsync(sanitized!);
+            }
+            else
+            {
+                await using var stream = new FileStream(filePath, FileMode.CreateNew);
                 await file.CopyToAsync(stream);
             }
 
@@ -210,6 +222,7 @@ public class FilesController : ControllerBase
             ".png" => "image/png",
             ".gif" => "image/gif",
             ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
             ".mp4" => "video/mp4",
             ".pdf" => "application/pdf",
             ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
