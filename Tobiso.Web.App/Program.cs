@@ -163,6 +163,17 @@ services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
+
+// Kronika (interactive history timeline)
+services.AddMemoryCache();
+services.AddScoped<IChronicleItemService, ChronicleItemService>();
+services.AddScoped<IChronicleCategoryService, ChronicleCategoryService>();
+services.AddScoped<IChronicleLinkService, ChronicleLinkService>();
+services.AddScoped<IChroniclePeriodizationService, ChroniclePeriodizationService>();
+services.AddScoped<IChronicleRegionService, ChronicleRegionService>();
+services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
+services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
+services.AddScoped<IChronicleImportService, ChronicleImportService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
 services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.PdfService>();
 

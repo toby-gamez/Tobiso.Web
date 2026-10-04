@@ -137,6 +137,17 @@ services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 
+// Kronika (interactive history timeline)
+services.AddMemoryCache();
+services.AddScoped<IChronicleItemService, ChronicleItemService>();
+services.AddScoped<IChronicleCategoryService, ChronicleCategoryService>();
+services.AddScoped<IChronicleLinkService, ChronicleLinkService>();
+services.AddScoped<IChroniclePeriodizationService, ChroniclePeriodizationService>();
+services.AddScoped<IChronicleRegionService, ChronicleRegionService>();
+services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
+services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
+services.AddScoped<IChronicleImportService, ChronicleImportService>();
+
 services.AddSingleton<CredentialStore>();
 services.AddTransient<AuthenticationHeaderHandler>();
 services.AddTransient<HttpLoggingHandler>();

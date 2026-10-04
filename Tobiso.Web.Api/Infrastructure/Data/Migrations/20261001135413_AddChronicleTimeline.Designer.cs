@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001135413_AddChronicleTimeline")]
+    partial class AddChronicleTimeline
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -591,9 +594,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("Color")
                         .HasMaxLength(7)
                         .HasColumnType("nvarchar(7)");
-
-                    b.Property<bool>("DefaultCollapsed")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -8,6 +8,29 @@ public class TobisoDbContext : DbContext
     public TobisoDbContext(DbContextOptions<TobisoDbContext> options)
         : base(options) { }
 
+    // Bumps ChronicleCacheVersion whenever a kronika entity changes, so ChronicleAxisService's
+    // cached layouts invalidate without every Chronicle* service having to call it manually.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var touchedChronicle = ChangeTrackerHasChronicleChanges();
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        if (touchedChronicle) Tobiso.Web.Api.Services.ChronicleCacheVersion.Bump();
+        return result;
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var touchedChronicle = ChangeTrackerHasChronicleChanges();
+        var result = await base.SaveChangesAsync(cancellationToken);
+        if (touchedChronicle) Tobiso.Web.Api.Services.ChronicleCacheVersion.Bump();
+        return result;
+    }
+
+    private bool ChangeTrackerHasChronicleChanges() =>
+        ChangeTracker.Entries().Any(e =>
+            e.State != EntityState.Unchanged &&
+            e.Entity.GetType().Name.StartsWith("Chronicle", StringComparison.Ordinal));
+
     public DbSet<Category> Categories { get; set; }
     public DbSet<Post> Posts { get; set; }
     public DbSet<PostVersion> PostVersions { get; set; }
@@ -45,6 +68,24 @@ public class TobisoDbContext : DbContext
     public DbSet<PostAiDemo> PostAiDemos { get; set; }
     public DbSet<PostRelatedSuggestion> PostRelatedSuggestions { get; set; }
     public DbSet<PostExamSummary> PostExamSummaries { get; set; }
+
+    // Kronika (interactive history timeline)
+    public DbSet<ChronicleItem> ChronicleItems { get; set; }
+    public DbSet<ChronicleEvent> ChronicleEvents { get; set; }
+    public DbSet<ChroniclePerson> ChroniclePersons { get; set; }
+    public DbSet<ChronicleCategory> ChronicleCategories { get; set; }
+    public DbSet<ChronicleItemCategory> ChronicleItemCategories { get; set; }
+    public DbSet<ChronicleItemLink> ChronicleItemLinks { get; set; }
+    public DbSet<ChronicleEventPerson> ChronicleEventPersons { get; set; }
+    public DbSet<ChroniclePeriodization> ChroniclePeriodizations { get; set; }
+    public DbSet<ChroniclePeriod> ChroniclePeriods { get; set; }
+    public DbSet<ChronicleRegion> ChronicleRegions { get; set; }
+    public DbSet<ChronicleItemRegion> ChronicleItemRegions { get; set; }
+    public DbSet<ChroniclePolity> ChroniclePolities { get; set; }
+    public DbSet<ChroniclePolityTerritory> ChroniclePolityTerritories { get; set; }
+    public DbSet<ChronicleAxis> ChronicleAxes { get; set; }
+    public DbSet<ChronicleAxisEntry> ChronicleAxisEntries { get; set; }
+    public DbSet<ChronicleSource> ChronicleSources { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -387,6 +428,216 @@ public class TobisoDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.UserId, e.QuestionId }).IsUnique();
+        });
+
+        // --- Kronika (interactive history timeline) ---
+
+        // ChronicleItem: TPH base for events and people
+        modelBuilder.Entity<ChronicleItem>(entity =>
+        {
+            entity.HasDiscriminator<string>("ItemType")
+                .HasValue<ChronicleEvent>("Event")
+                .HasValue<ChroniclePerson>("Person");
+
+            entity.Property(e => e.Slug).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.ReliabilityNote).HasMaxLength(500);
+            entity.Property(e => e.LessonSlug).HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.Slug).IsUnique();
+            entity.HasIndex(e => new { e.StartYear, e.EndYear });
+
+            entity.HasOne(e => e.MinGrade)
+                .WithMany()
+                .HasForeignKey(e => e.MinGradeId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ChroniclePerson>(entity =>
+        {
+            entity.Property(e => e.Occupation).HasMaxLength(200);
+        });
+
+        // ChronicleCategory
+        modelBuilder.Entity<ChronicleCategory>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Color).HasMaxLength(7);
+
+            entity.HasOne(e => e.Parent)
+                .WithMany(e => e.Children)
+                .HasForeignKey(e => e.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Join table: ChronicleItemCategory
+        modelBuilder.Entity<ChronicleItemCategory>(entity =>
+        {
+            entity.HasKey(e => new { e.ItemId, e.CategoryId });
+
+            entity.HasOne(e => e.Item)
+                .WithMany(i => i.Categories)
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Category)
+                .WithMany(c => c.Items)
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Causality: ChronicleItemLink
+        modelBuilder.Entity<ChronicleItemLink>(entity =>
+        {
+            entity.Property(e => e.Explanation).IsRequired().HasMaxLength(500);
+
+            entity.HasOne(e => e.From)
+                .WithMany()
+                .HasForeignKey(e => e.FromId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // NoAction on this side: Cascade on both From and To would be two cascade paths
+            // into ChronicleItem, which SQL Server rejects (same pattern as AiChatSessionPost above).
+            entity.HasOne(e => e.To)
+                .WithMany()
+                .HasForeignKey(e => e.ToId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => new { e.FromId, e.ToId, e.Type }).IsUnique();
+            entity.ToTable(t => t.HasCheckConstraint("CK_ChronicleItemLink_DifferentItems", "[FromId] <> [ToId]"));
+        });
+
+        // Join table: ChronicleEventPerson (role chips)
+        modelBuilder.Entity<ChronicleEventPerson>(entity =>
+        {
+            entity.HasKey(e => new { e.EventId, e.PersonId });
+            entity.Property(e => e.Note).HasMaxLength(300);
+
+            entity.HasOne(e => e.Event)
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // NoAction: same multiple-cascade-path reason as ChronicleItemLink.To above.
+            entity.HasOne(e => e.Person)
+                .WithMany()
+                .HasForeignKey(e => e.PersonId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Periodization / Period
+        modelBuilder.Entity<ChroniclePeriodization>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<ChroniclePeriod>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Color).HasMaxLength(7);
+
+            entity.HasOne(e => e.Periodization)
+                .WithMany(p => p.Periods)
+                .HasForeignKey(e => e.PeriodizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.StartEvent)
+                .WithMany()
+                .HasForeignKey(e => e.StartEventId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => new { e.PeriodizationId, e.Order }).IsUnique();
+        });
+
+        // Region (materialized path) / Polity
+        modelBuilder.Entity<ChronicleRegion>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Path).IsRequired().HasMaxLength(400);
+
+            entity.HasOne(e => e.Parent)
+                .WithMany()
+                .HasForeignKey(e => e.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.Path);
+        });
+
+        modelBuilder.Entity<ChronicleItemRegion>(entity =>
+        {
+            entity.HasKey(e => new { e.ItemId, e.RegionId });
+
+            entity.HasOne(e => e.Item)
+                .WithMany(i => i.Regions)
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Region)
+                .WithMany(r => r.Items)
+                .HasForeignKey(e => e.RegionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChroniclePolity>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<ChroniclePolityTerritory>(entity =>
+        {
+            entity.HasOne(e => e.Polity)
+                .WithMany(p => p.Territories)
+                .HasForeignKey(e => e.PolityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Region)
+                .WithMany(r => r.PolityTerritories)
+                .HasForeignKey(e => e.RegionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.PolityId, e.RegionId });
+        });
+
+        // Axis (display definition) / AxisEntry
+        modelBuilder.Entity<ChronicleAxis>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Slug).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.Slug).IsUnique();
+        });
+
+        modelBuilder.Entity<ChronicleAxisEntry>(entity =>
+        {
+            entity.HasOne(e => e.Axis)
+                .WithMany(a => a.Entries)
+                .HasForeignKey(e => e.AxisId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Item)
+                .WithMany()
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Category)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_ChronicleAxisEntry_ItemOrCategory",
+                "([ItemId] IS NOT NULL AND [CategoryId] IS NULL) OR ([ItemId] IS NULL AND [CategoryId] IS NOT NULL)"));
+        });
+
+        // Sources
+        modelBuilder.Entity<ChronicleSource>(entity =>
+        {
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.Url).HasMaxLength(500);
+
+            entity.HasOne(e => e.Item)
+                .WithMany(i => i.Sources)
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
