@@ -158,6 +158,7 @@ services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
 services.AddScoped<PersonModalService>();
+services.AddScoped<AccountRequiredModalService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();

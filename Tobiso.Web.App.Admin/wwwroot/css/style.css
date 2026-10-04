@@ -23,6 +23,13 @@ body {
     min-height: 100vh;
 }
 
+/* accent-600/color-on-accent are theme-invariant (see variables.css), so this
+   stays legible without needing separate light/dark overrides. */
+::selection {
+    background: var(--color-accent-600);
+    color: var(--color-on-accent);
+}
+
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     font-weight: 700;

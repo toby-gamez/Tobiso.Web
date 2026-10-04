@@ -15,7 +15,8 @@ public interface IAiUsageGuard
     /// A stable identity for an anonymous caller - the persistent per-browser device id for
     /// Blazor-originated calls, or the IP/X-Device-Id-derived key AiController already computes
     /// for raw HTTP callers. Ignored for authenticated callers (who are keyed by account id
-    /// instead), but always used to look up any purchased bonus quota.
+    /// instead), but always used to look up any purchased bonus quota. Also used to look up
+    /// an anonymous caller's own daily usage (see AnonymousUsageService).
     /// </param>
     Task<AiUsageDecision> TryConsumeAsync(ClaimsPrincipal? user, string anonymousKey, string? clientId = null);
 }
@@ -68,14 +69,14 @@ public class AiUsageGuard : IAiUsageGuard
                 allowed ? null : "Denní limit dotazů byl vyčerpán.", false);
         }
 
-        // Anonymous: a fixed lifetime allowance that never renews - "N requests, ever" - plus
+        // Anonymous: a daily allowance (renews every UTC day, like the authenticated limit) plus
         // any purchased bonus quota on top.
-        var anonBase = int.TryParse(_configuration["OpenAI:AnonymousLifetimeRequests"], out var al) ? al : 20;
+        var anonBase = int.TryParse(_configuration["OpenAI:AnonymousDailyRequests"], out var al) ? al : 20;
         var anonLimit = anonBase + _rateLimitService.GetBonusTotal(anonymousKey);
         var anonAllowed = await _anonymousUsage.TryConsumeAsync(anonymousKey, anonLimit);
         var anonRemaining = await _anonymousUsage.GetRemainingAsync(anonymousKey, anonLimit);
         return new AiUsageDecision(anonAllowed, anonRemaining,
-            anonAllowed ? null : "Vyčerpal jsi všechny AI dotazy zdarma. Zaregistruj se a získej dalších 20 kreditů.",
+            anonAllowed ? null : "Vyčerpal jsi dnešní limit AI dotazů zdarma. Zkus to zítra, nebo se zaregistruj a získej víc kreditů.",
             !anonAllowed);
     }
 }

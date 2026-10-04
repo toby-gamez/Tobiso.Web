@@ -209,39 +209,95 @@
     private bool _darkMode;
     private string? _userName;
     private string _initials = "";
+    private bool _disposed;
 
     protected override async Task OnInitializedAsync()
     {
-        var grades = ScopedServices.GetRequiredService<IGradeService>();
-        var categories = ScopedServices.GetRequiredService<ICategoryService>();
+        // Subscribe before the first await: on a fresh circuit (e.g. right after
+        // login's forceLoad redirect) the JWT isn't restored from localStorage yet
+        // when this runs, so we'd otherwise render as anonymous and never recover
+        // since NavMenu lives in the Layout and isn't recreated on navigation.
+        AuthState.AuthenticationStateChanged += OnAuthStateChanged;
 
-        _grades = await grades.GetAll();
-        var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
-        _selectedGrade = preferredGradeId.HasValue ? _grades.FirstOrDefault(g => g.Id == preferredGradeId.Value) : null;
-        _subjects = [.. (await categories.GetTree()).Where(c => !string.Equals(c.Name?.Trim(), "More", StringComparison.OrdinalIgnoreCase))];
+        try
+        {
+            var grades = ScopedServices.GetRequiredService<IGradeService>();
+            var categories = ScopedServices.GetRequiredService<ICategoryService>();
 
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        var user = auth.User;
+            _grades = await grades.GetAll();
+            var preferredGradeId = await PreferenceService.GetPreferredGradeIdAsync();
+            _selectedGrade = (preferredGradeId.HasValue ? _grades.FirstOrDefault(g => g.Id == preferredGradeId.Value) : null)
+                ?? _grades.FirstOrDefault(g => g.Level == 9);
+            _subjects = [.. (await categories.GetTree()).Where(c => !string.Equals(c.Name?.Trim(), "More", StringComparison.OrdinalIgnoreCase))];
+
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            ApplyAuthState(auth.User);
+        }
+        catch (Exception) when (_disposed)
+        {
+            // Component (and its OwningComponentBase scope) was disposed - e.g. the
+            // circuit tore down mid-navigation - while these awaits were in flight.
+        }
+    }
+
+    private void ApplyAuthState(ClaimsPrincipal user)
+    {
         if (user.Identity?.IsAuthenticated == true)
         {
             _userName = user.FindFirst(ClaimTypes.Name)?.Value;
-            if (!string.IsNullOrEmpty(_userName))
-                _initials = string.Concat(_userName.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString().ToUpper() : ""));
+            _initials = !string.IsNullOrEmpty(_userName)
+                ? string.Concat(_userName.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString().ToUpper() : ""))
+                : "";
         }
+        else
+        {
+            _userName = null;
+            _initials = "";
+        }
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            var auth = await task;
+            if (_disposed) return;
+            ApplyAuthState(auth.User);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        _disposed = true;
+        AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
+        base.Dispose(disposing);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        try
         {
-            await JS.InvokeVoidAsync("initLucide");
-            var saved = await JS.InvokeAsync<string>("getTheme");
-            _darkMode = saved == "dark";
-            StateHasChanged();
+            if (firstRender)
+            {
+                await JS.InvokeVoidAsync("initLucide");
+                var saved = await JS.InvokeAsync<string>("getTheme");
+                _darkMode = saved == "dark";
+                StateHasChanged();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("initLucide");
+            }
         }
-        else
+        catch (JSDisconnectedException)
         {
-            await JS.InvokeVoidAsync("initLucide");
+            // NavMenu lives in the Layout and re-renders on every navigation; if the
+            // circuit disconnects (tab switch, reconnect, navigating away) while this
+            // JS call is in flight, there's nothing to recover - the UI is torn down.
         }
     }
 
@@ -254,7 +310,7 @@
     private async Task Logout()
     {
         await CredentialStore.ClearAsync(JS);
-        Nav.NavigateTo("/prihlaseni", forceLoad: true);
+        Nav.NavigateTo("/", forceLoad: true);
     }
 
     private void ToggleGradeMenu() => _gradeMenuOpen = !_gradeMenuOpen;

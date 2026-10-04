@@ -315,7 +315,8 @@ public class PostService : IPostService
                 GradeId = req.GradeId.Value,
                 Content = req.Content,
                 LastFix = req.IsFix ? now : null,
-                LastEdit = req.IsFix ? null : now
+                LastEdit = req.IsFix ? null : now,
+                IsChecked = req.IsFix ? true : req.IsChecked
             });
             await _context.SaveChangesAsync();
         }

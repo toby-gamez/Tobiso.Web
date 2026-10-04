@@ -20,7 +20,13 @@
 
 .EasyMDEContainer .CodeMirror-selected,
 .EasyMDEContainer .CodeMirror-focused .CodeMirror-selected {
-    background: var(--color-accent-200);
+    background: var(--color-accent-500) !important;
+}
+
+.EasyMDEContainer .CodeMirror-line::selection,
+.EasyMDEContainer .CodeMirror-line > span::selection,
+.EasyMDEContainer .CodeMirror-line > span > span::selection {
+    background: var(--color-accent-500) !important;
 }
 
 .EasyMDEContainer .CodeMirror-gutters {

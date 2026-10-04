@@ -52,12 +52,52 @@
         </div>
         <GrammarCheckPanel Issues="grammarIssues" />
     </div>
-    <div class="checkbox-field">
-        <input type="checkbox" id="isFix" @bind="request.IsFix" />
-        <label for="isFix">Oprava (Fix)</label>
-    </div>
+    <fieldset class="choice-group @(!CanSave ? "choice-group-incomplete" : "")">
+        <legend>Typ úpravy <span class="required-mark">*</span></legend>
+        <div class="radio-field">
+            <input type="radio" id="editTypeFix" name="editType" checked="@(_editType == "fix")" @onchange="SetEditTypeFix" />
+            <label for="editTypeFix">
+                <span class="radio-title">Oprava (Fix)</span>
+                <span class="radio-desc">Malá oprava — automaticky se označí jako zkontrolováno</span>
+            </label>
+        </div>
+        <div class="radio-field">
+            <input type="radio" id="editTypeEdit" name="editType" checked="@(_editType == "edit")" @onchange="SetEditTypeEdit" />
+            <label for="editTypeEdit">
+                <span class="radio-title">Velká úprava (Edit)</span>
+                <span class="radio-desc">Nový obsah nebo funkce</span>
+            </label>
+        </div>
+
+        @if (_editType == "edit")
+        {
+            <div class="choice-subgroup">
+                <div class="choice-subgroup-label">Byl nový obsah zkontrolován? <span class="required-mark">*</span></div>
+                <div class="radio-field">
+                    <input type="radio" id="checkedYes" name="isCheckedChoice" checked="@(_isCheckedChoice == true)" @onchange="SetCheckedYes" />
+                    <label for="checkedYes">
+                        <span class="radio-title">Ano, obsah byl zkontrolován</span>
+                    </label>
+                </div>
+                <div class="radio-field">
+                    <input type="radio" id="checkedNo" name="isCheckedChoice" checked="@(_isCheckedChoice == false)" @onchange="SetCheckedNo" />
+                    <label for="checkedNo">
+                        <span class="radio-title">Ne, ještě nebyl zkontrolován</span>
+                    </label>
+                </div>
+            </div>
+        }
+
+        @if (!CanSave)
+        {
+            <p class="choice-hint">
+                <i data-lucide="alert-circle"></i>
+                Vyberte typ úpravy@(_editType == "edit" ? " a zda byl obsah zkontrolován" : "") před uložením.
+            </p>
+        }
+    </fieldset>
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Přidat článek</button>
+        <button type="submit" class="btn btn-primary" disabled="@(!CanSave)">Přidat článek</button>
         <button type="button" class="btn btn-secondary" @onclick="GoBack">Zpět</button>
     </div>
 </EditForm>
@@ -84,6 +124,22 @@
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
     private List<CreateQuestionRequest> pendingQuestions = new();
+
+    /// <summary>"fix" | "edit" | null. Never defaulted - every save requires an explicit, conscious choice.</summary>
+    private string? _editType;
+    /// <summary>Only relevant when _editType == "edit". Never defaulted - must be explicitly chosen.</summary>
+    private bool? _isCheckedChoice;
+
+    /// <summary>True once the admin has made all choices required to save the initial version (or no version is being created).</summary>
+    private bool CanSave =>
+        !request.GradeId.HasValue ||
+        _editType == "fix" ||
+        (_editType == "edit" && _isCheckedChoice.HasValue);
+
+    private void SetEditTypeFix() { _editType = "fix"; _isCheckedChoice = null; }
+    private void SetEditTypeEdit() { _editType = "edit"; _isCheckedChoice = null; }
+    private void SetCheckedYes() => _isCheckedChoice = true;
+    private void SetCheckedNo() => _isCheckedChoice = false;
 
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
@@ -157,6 +213,18 @@
 
     private async Task HandleValidSubmit()
     {
+        // Belt-and-suspenders: the submit button is already disabled in this state, but never
+        // let a save through without an explicit, freshly-made choice.
+        if (!CanSave)
+        {
+            errorMessage = "Vyberte typ úpravy" + (_editType == "edit" ? " a zda byl obsah zkontrolován" : "") + " před uložením.";
+            return;
+        }
+
+        request.IsFix = _editType == "fix";
+        // Fix implies checked automatically; an Edit uses whatever the admin explicitly chose.
+        request.IsChecked = request.IsFix ? true : _isCheckedChoice;
+
         try
         {
             var created = await Api.CreatePost(request);

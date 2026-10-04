@@ -25,6 +25,11 @@
     border-radius: var(--radius-lg);
 }
 
+.home-card-credits {
+    flex: 1 1 320px;
+    justify-content: center;
+}
+
 .home-cards {
     display: flex;
     flex-wrap: wrap;

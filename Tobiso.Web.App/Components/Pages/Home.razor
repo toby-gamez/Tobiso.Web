@@ -1,8 +1,12 @@
 @page "/"
+@using Tobiso.Web.App.Services
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject IUserProgressService UserProgressService
 @inject IUserService UserService
+@inject IAnonymousUsageService AnonymousUsage
+@inject IAiRateLimitService AiRateLimit
+@inject IConfiguration Configuration
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -36,7 +40,6 @@
             </div>
         </div>
     }
-
     <div class="home-cards">
         @if (_continueReading != null)
         {
@@ -63,6 +66,23 @@
                 </span>
             </a>
         }
+        @if (_anonCreditsRemaining is int remaining)
+        {
+            <div class="stat-card credits-card home-card-credits">
+                <span class="stat-card-label" style="color:var(--color-accent-800)">AI dotazy zdarma</span>
+                <span class="stat-card-value" style="color:var(--color-accent-800)">@remaining / @_anonCreditsLimit</span>
+                @if (remaining > 0)
+                {
+                    <span class="stat-card-sub" style="color:var(--color-accent-800)">Dnešní zdarma dotazy na AI. Obnoví se zítra.</span>
+                }
+                else
+                {
+                    <span class="stat-card-sub" style="color:var(--color-accent-800)">
+                        Dnešní dotazy zdarma jsou vyčerpané. <a href="/registrace">Zaregistruj se</a> a získej víc kreditů.
+                    </span>
+                }
+            </div>
+        }
     </div>
 
     <div class="subject-section">
@@ -84,6 +104,9 @@
     private bool _loading = true;
     private UserStatsDto? _stats;
     private int _credits;
+    private int? _anonCreditsRemaining;
+    private int _anonCreditsLimit = 20;
+    private bool _anonCreditsLoaded;
     private PostLinkResponse? _articleOfDay;
     private ContinueReadingDto? _continueReading;
     private List<CategoryTreeResponse> _rootCategories = [];
@@ -94,48 +117,152 @@
 
     private bool _disposed;
 
+    // Home's injected services (PostService, CategoryService, UserProgressService,
+    // UserService) share one scoped DbContext for the whole circuit. OnInitializedAsync
+    // and OnAuthStateChanged are two independent async entry points into this
+    // component, so without serializing them a NotifyStateChanged firing mid-load
+    // races the initial load on the same DbContext (EF's ConcurrencyDetector throws
+    // "A second operation was started on this context instance...").
+    private readonly SemaphoreSlim _dbLock = new(1, 1);
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            // Subscribe before the first await: on a fresh circuit (e.g. right after
+            // login's forceLoad redirect) the JWT isn't restored from localStorage yet
+            // when this runs, so we'd otherwise render as anonymous and never recover.
+            AuthState.AuthenticationStateChanged += OnAuthStateChanged;
+
             var auth = await AuthState.GetAuthenticationStateAsync();
-            var user = auth.User;
-            if (user.Identity?.IsAuthenticated == true)
+
+            await _dbLock.WaitAsync();
+            try
             {
-                _userName = user.FindFirst(ClaimTypes.Name)?.Value;
-                if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
-                {
-                    _stats = await UserProgressService.GetStatsAsync(uid);
-                    _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
-                    _continueReading = await UserProgressService.GetContinueReadingAsync(uid);
-                }
+                await LoadForUser(auth.User);
+
+                _greeting = GetGreeting();
+
+                _articleOfDay = await PostService.GetArticleOfTheDayAsync();
+                _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
+                _summaries = await PostService.GetSummaries();
+
+                _subtitle = _articleOfDay != null
+                    ? $"Dnes tě čeká článek: {_articleOfDay.Title}."
+                    : "Vyber si téma a začni studovat.";
+
+                _loading = false;
             }
-
-            _greeting = GetGreeting();
-
-            _articleOfDay = await PostService.GetArticleOfTheDayAsync();
-            _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
-            _summaries = await PostService.GetSummaries();
-
-            _subtitle = _articleOfDay != null
-                ? $"Dnes tě čeká článek: {_articleOfDay.Title}."
-                : "Vyber si téma a začni studovat.";
-
-            _loading = false;
+            finally
+            {
+                _dbLock.Release();
+            }
         }
         catch (Exception) when (_disposed)
         {
         }
     }
 
-    public void Dispose() => _disposed = true;
+    private async Task LoadForUser(ClaimsPrincipal user)
+    {
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
+            {
+                _stats = await UserProgressService.GetStatsAsync(uid);
+                _credits = (await UserService.GetByIdAsync(uid))?.Credits ?? 0;
+                _continueReading = await UserProgressService.GetContinueReadingAsync(uid);
+            }
+        }
+        else
+        {
+            _userName = null;
+            _stats = null;
+            _credits = 0;
+            _continueReading = null;
+        }
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            var auth = await task;
+
+            await _dbLock.WaitAsync();
+            try
+            {
+                await LoadForUser(auth.User);
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
+        _dbLock.Dispose();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Not gated on firstRender: the actual first paint happens before the
         // awaited data (_rootCategories, _articleOfDay) loads, so the icons that
         // depend on it only exist in the DOM from the second render onward.
-        await JS.InvokeVoidAsync("initLucide");
+        try
+        {
+            await JS.InvokeVoidAsync("initLucide");
+
+            // Anonymous visitors' remaining AI quota lives in a browser-persisted device id
+            // (not available until the circuit is interactive), so it's fetched here rather than
+            // in OnInitializedAsync. Gated on _loading rather than firstRender: the first render
+            // can happen before LoadForUser resolves, same reasoning as initLucide above.
+            if (!_loading && _stats == null && !_anonCreditsLoaded)
+            {
+                _anonCreditsLoaded = true;
+                await LoadAnonymousCreditsAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected (e.g. navigating away) while this call was in
+            // flight - nothing to recover from, UI is being torn down regardless.
+        }
+    }
+
+    private async Task LoadAnonymousCreditsAsync()
+    {
+        var deviceId = await JS.InvokeAsync<string>("getDeviceId");
+        var key = $"device:{deviceId}";
+        var baseLimit = int.TryParse(Configuration["OpenAI:AnonymousDailyRequests"], out var al) ? al : 20;
+        _anonCreditsLimit = baseLimit + AiRateLimit.GetBonusTotal(key);
+
+        // AnonymousUsage shares the same scoped TobisoDbContext as PostService/UserProgressService/
+        // etc. used elsewhere in this component, so this needs the same _dbLock as LoadForUser -
+        // otherwise this can race OnInitializedAsync/OnAuthStateChanged on that DbContext instance.
+        await _dbLock.WaitAsync();
+        try
+        {
+            _anonCreditsRemaining = await AnonymousUsage.GetRemainingAsync(key, _anonCreditsLimit);
+        }
+        finally
+        {
+            _dbLock.Release();
+        }
+
+        if (!_disposed)
+            StateHasChanged();
     }
 
     private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);

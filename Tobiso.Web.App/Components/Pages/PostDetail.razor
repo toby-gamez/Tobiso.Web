@@ -20,6 +20,7 @@
 @inject Tobiso.Web.App.Services.IAiUsageGuard UsageGuard
 @inject Tobiso.Web.App.Services.IPreferenceService PreferenceService
 @inject IGradeService GradeService
+@inject Tobiso.Web.App.Services.AccountRequiredModalService AccountModal
 
 <PageTitle>@(_post?.Title ?? "Článek") - Tobiso</PageTitle>
 
@@ -147,27 +148,18 @@ else
             @if (_notesOpen)
             {
                 <div class="notes-panel">
-                    @if (!_userId.HasValue)
-                    {
-                        <p style="margin:0; font-size:14px; color:var(--color-neutral-600)">
-                            Pro poznámky se musíš <a href="/prihlaseni">přihlásit</a>.
-                        </p>
-                    }
-                    else
-                    {
-                        <div class="panel-label"><i data-lucide="notebook-pen"></i> Moje poznámky k článku</div>
-                        <textarea class="notes-textarea" placeholder="Piš si sem poznámky k tomuto článku…"
-                                  @bind="_noteContent" @bind:event="oninput" @onblur="SaveNote"></textarea>
-                        <div class="notes-footer">
-                            <button class="pill pill-on" style="font-size:13px; padding:8px 16px" disabled="@_noteSaving" @onclick="SaveNoteAndClose">
-                                @(_noteSaving ? "Ukládám…" : "Uložit")
-                            </button>
-                            @if (_noteSavedAt.HasValue)
-                            {
-                                <span style="font-size:13px; color:var(--color-neutral-600)">Uloženo @_noteSavedAt.Value.ToString("HH:mm")</span>
-                            }
-                        </div>
-                    }
+                    <div class="panel-label"><i data-lucide="notebook-pen"></i> Moje poznámky k článku</div>
+                    <textarea class="notes-textarea" placeholder="Piš si sem poznámky k tomuto článku…"
+                              @bind="_noteContent" @bind:event="oninput" @onblur="SaveNote"></textarea>
+                    <div class="notes-footer">
+                        <button class="pill pill-on" style="font-size:13px; padding:8px 16px" disabled="@_noteSaving" @onclick="SaveNoteAndClose">
+                            @(_noteSaving ? "Ukládám…" : "Uložit")
+                        </button>
+                        @if (_noteSavedAt.HasValue)
+                        {
+                            <span style="font-size:13px; color:var(--color-neutral-600)">Uloženo @_noteSavedAt.Value.ToString("HH:mm")</span>
+                        }
+                    </div>
                 </div>
             }
             else if (!string.IsNullOrWhiteSpace(_noteContent))
@@ -541,7 +533,7 @@ else
                                 Přetáhni uzly, kolečkem myši přibliž a klikni na uzel pro přiblížení na jeho větev.
                             </p>
                             <div id="mindmap-@_post!.Id" class="mindmap-svg-wrap"></div>
-                            <button class="pill" style="align-self:flex-start; font-size:13px; padding:7px 14px" @onclick="RegenerateMindMap">
+                            <button class="pill" style="align-self:flex-start; font-size:13px; padding:7px 14px" @onclick="RegenerateMindMap" disabled="@_aiToolLoading">
                                 <i data-lucide="rotate-cw"></i> Vygenerovat znovu
                             </button>
                         }
@@ -734,11 +726,13 @@ else
             @if (_tocHeaders.Count > 0)
             {
                 <div class="panel-label" style="margin-bottom:var(--space-1)">Obsah</div>
-                @foreach (var (text, anchor) in _tocHeaders)
-                {
-                    <a href="#@anchor" class="toc-link @(anchor == _activeAnchor ? "active" : "")"
-                       @onclick="@(() => ScrollToHeading(anchor))" @onclick:preventDefault="true">@text</a>
-                }
+                <div class="toc-links">
+                    @foreach (var (text, anchor) in _tocHeaders)
+                    {
+                        <a href="#@anchor" class="toc-link @(anchor == _activeAnchor ? "active" : "")"
+                           @onclick="@(() => ScrollToHeading(anchor))" @onclick:preventDefault="true">@text</a>
+                    }
+                </div>
             }
             <div class="toc-progress">
                 <div class="panel-label" style="margin-bottom:6px">Přečteno</div>
@@ -1232,8 +1226,13 @@ else
 
     private async Task ToggleBookmark()
     {
+        if (_post == null) return;
         var auth = await AuthState.GetAuthenticationStateAsync();
-        if (!auth.User.Identity?.IsAuthenticated == true || _post == null) return;
+        if (auth.User.Identity?.IsAuthenticated != true)
+        {
+            AccountModal.Show("Pro ukládání záložek se musíš přihlásit.");
+            return;
+        }
         if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid)) return;
 
         if (_bookmarked)
@@ -1265,6 +1264,12 @@ else
 
     private async Task ToggleNotes()
     {
+        if (!_notesOpen && !_userId.HasValue)
+        {
+            AccountModal.Show("Pro poznámky se musíš přihlásit.");
+            return;
+        }
+
         _notesOpen = !_notesOpen;
         if (_notesOpen && _userId.HasValue && !_noteLoaded && _post != null)
         {
@@ -1743,9 +1748,13 @@ else
 
     // Unlike the other cached-once tools, a mind map is cheap to regenerate and the extraction
     // is non-deterministic enough that a reroll is worth offering - see the "Vygenerovat znovu"
-    // button in the panel, which calls this directly without going through SwitchAiTool.
+    // button in the panel, which calls this directly without going through SwitchAiTool. Guarded
+    // on _aiToolLoading (checked here, not just inside LoadMindMap) because a double-click fired
+    // two overlapping regenerations before this check existed, each deducting its own AI credit
+    // for what the user experienced as one click.
     private async Task RegenerateMindMap()
     {
+        if (_aiToolLoading) return;
         _mindMapLoaded = false;
         _mindMap = null;
         _mindMapRendered = false;

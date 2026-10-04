@@ -153,9 +153,17 @@ window.scrollToId = (id) => {
 let readingScrollHandler = null;
 let readingRaf = null;
 let readingProgressPending = false;
+let readingLastActiveId = null;
+
+function scrollActiveTocLinkIntoView(id) {
+    if (!id) return;
+    const link = document.querySelector(`.toc-links a[href="#${id}"]`);
+    link?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
 
 window.initReadingProgress = (dotNetRef, articleSelector) => {
     window.disposeReadingProgress();
+    readingLastActiveId = null;
 
     const compute = () => {
         readingRaf = null;
@@ -180,6 +188,11 @@ window.initReadingProgress = (dotNetRef, articleSelector) => {
         });
         const headings = article.querySelectorAll('h2[id]');
         if (!activeId && headings.length > 0) activeId = headings[0].id;
+
+        if (activeId !== readingLastActiveId) {
+            readingLastActiveId = activeId;
+            scrollActiveTocLinkIntoView(activeId);
+        }
 
         // Guard against overlapping calls: a scroll-heavy session can trigger a new
         // frame before the previous invocation's server round-trip (including its DB
@@ -255,7 +268,12 @@ window.getDeviceId = () => {
         }
         return id;
     } catch (e) {
-        return '';
+        // localStorage is unavailable (private browsing, blocked site data, etc). Fall back to a
+        // random id generated fresh each call rather than a fixed string - a fixed fallback would
+        // make every such visitor share one bucket, so one person exhausting it locks out everyone
+        // else on the fallback path too. This value won't persist across reloads, but that's better
+        // than a shared quota.
+        return crypto.randomUUID();
     }
 };
 

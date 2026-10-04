@@ -14,4 +14,6 @@ public class CreatePostRequest
     public string Content { get; set; } = string.Empty;
     /// <summary>True = minor fix (LastFix), false = major edit (LastEdit).</summary>
     public bool IsFix { get; set; } = false;
+    /// <summary>Only relevant when IsFix is false - whether the new content was checked.</summary>
+    public bool? IsChecked { get; set; }
 }
