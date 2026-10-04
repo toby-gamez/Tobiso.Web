@@ -1006,10 +1006,9 @@ else
         List<string> names;
         try
         {
-            var deviceId = await JS.InvokeAsync<string>("getDeviceId");
-            var auth = await AuthState.GetAuthenticationStateAsync();
-            var decision = await UsageGuard.TryConsumeAsync(auth.User, $"device:{deviceId}");
-            names = decision.Allowed ? await AiService.DetectPeopleInTextAsync(content) : [];
+            // Deliberately not routed through UsageGuard: name detection runs automatically on
+            // every post open, so it must not spend the visitor's free quota or credits.
+            names = await AiService.DetectPeopleInTextAsync(content);
         }
         catch
         {

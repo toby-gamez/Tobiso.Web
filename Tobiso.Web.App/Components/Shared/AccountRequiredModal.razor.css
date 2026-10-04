@@ -1,0 +1,55 @@
+.account-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh var(--space-4) var(--space-4);
+}
+
+.account-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background: var(--color-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-6);
+}
+
+.account-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-neutral-600);
+    cursor: pointer;
+}
+
+.account-close:hover {
+    background: var(--color-neutral-200);
+}
+
+.account-title {
+    margin: 0 var(--space-6) var(--space-3) 0;
+}
+
+.account-message {
+    margin: 0 0 var(--space-5);
+    color: var(--color-neutral-700);
+}
+
+.account-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
