@@ -8,7 +8,7 @@ namespace Tobiso.Web.App.Controllers;
 [ApiController]
 [Route("api/user")]
 [Authorize]
-public class UserController(IUserProgressService progressService) : ControllerBase
+public class UserController(IUserProgressService progressService, IUserDataExportService exportService) : ControllerBase
 {
     private int? GetUserId()
     {
@@ -53,6 +53,17 @@ public class UserController(IUserProgressService progressService) : ControllerBa
         if (userId == null) return Unauthorized();
         await progressService.RemoveBookmarkAsync(userId.Value, postId);
         return Ok();
+    }
+
+    // GET /api/user/export - downloads all data stored about the signed-in user as JSON
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportData()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        var bytes = await exportService.ExportAsync(userId.Value);
+        if (bytes == null) return NotFound();
+        return File(bytes, "application/json", $"tobiso-moje-data-{DateTime.UtcNow:yyyyMMdd}.json");
     }
 
     // GET /api/user/stats

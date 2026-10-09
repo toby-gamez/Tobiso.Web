@@ -97,3 +97,20 @@
 .ai-usage-reason { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-usage-date { color: var(--color-neutral-600); font-size: 13px; white-space: nowrap; flex-shrink: 0; }
 .ai-usage-delta { font-family: var(--font-heading); font-weight: 600; flex-shrink: 0; }
+
+.profile-export,
+.profile-danger {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    align-items: flex-start;
+}
+
+.profile-export h2,
+.profile-danger h2 { margin: 0; }
+.profile-export p,
+.profile-danger p { margin: 0; color: var(--color-neutral-600); }
+.profile-danger .field { width: 100%; max-width: 360px; }
+.profile-danger-error { color: var(--color-accent-700) !important; font-weight: 600; }
+.profile-danger-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }

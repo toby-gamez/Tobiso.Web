@@ -28,6 +28,11 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
+    // forceLoad navigations (login/logout) tear the circuit down while the JS call is in
+    // flight, so the framework logs a harmless TaskCanceledException. Drop that noise.
+    .Filter.ByExcluding(e =>
+        e.Exception is TaskCanceledException tce
+        && (tce.StackTrace?.Contains("RemoteNavigationManager") ?? false))
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -225,6 +230,8 @@ services.AddEndpointsApiExplorer();
 
 services.AddScoped<JwtTokenService>();
 services.AddScoped<IUserService, UserService>();
+services.AddScoped<ILegalNoticeService, LegalNoticeService>();
+services.AddScoped<IUserDataExportService, UserDataExportService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddScoped<IUserProgressService, UserProgressService>();
 services.AddScoped<IQuestionAttemptService, QuestionAttemptService>();
@@ -355,12 +362,12 @@ app.Use(async (context, next) =>
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "script-src 'self' https://cdn.jsdelivr.net https://www.googletagmanager.com 'unsafe-inline'; " +
         "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline'; " +
         "font-src 'self' https://fonts.gstatic.com; " +
         "img-src 'self' https: data:; " +
         "media-src 'self' https:; " +
-        "connect-src 'self'; " +
+        "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; " +
         "frame-ancestors 'none'";
     await next();
 });

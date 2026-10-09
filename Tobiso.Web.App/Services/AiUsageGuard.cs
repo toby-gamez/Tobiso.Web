@@ -44,6 +44,11 @@ public class AiUsageGuard : IAiUsageGuard
     {
         var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+        // Logged-in students pay with credits only (checked/deducted by the callers); the free
+        // daily allowance is a logged-out perk and must be neither shown nor consumed for them.
+        if (user?.Identity?.IsAuthenticated == true && user.FindFirst("role")?.Value == "student")
+            return new AiUsageDecision(true, 0, null, false);
+
         if (user?.Identity?.IsAuthenticated == true && !string.IsNullOrEmpty(userId))
         {
             // Renews daily - renewal is a benefit of having an account. Keyed by account id

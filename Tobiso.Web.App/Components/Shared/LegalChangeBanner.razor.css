@@ -1,4 +1,4 @@
-.cookie-banner {
+.legal-banner {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -10,14 +10,14 @@
     box-shadow: var(--shadow-lg);
 }
 
-.cookie-icon {
+.legal-banner-icon {
     flex-shrink: 0;
     width: 22px;
     height: 22px;
     color: var(--color-accent-600);
 }
 
-.cookie-text {
+.legal-banner-text {
     flex: 1 1 220px;
     margin: 0;
     font-size: 14px;
@@ -25,23 +25,23 @@
     color: var(--color-text);
 }
 
-.cookie-actions {
+.legal-banner-actions {
     display: flex;
     gap: var(--space-2);
     margin-left: auto;
 }
 
 @media (max-width: 600px) {
-    .cookie-banner {
+    .legal-banner {
         padding: var(--space-4);
     }
 
-    .cookie-actions {
+    .legal-banner-actions {
         margin-left: 0;
         width: 100%;
     }
 
-    .cookie-actions .pill {
+    .legal-banner-actions .pill {
         flex: 1;
         justify-content: center;
     }

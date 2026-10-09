@@ -68,6 +68,7 @@ else
                     }
                     @if (_versionsOpen)
                     {
+                        <div class="version-backdrop" @onclick="ToggleVersions"></div>
                         <div class="version-dropdown">
                             @foreach (var v in _versions)
                             {
@@ -202,8 +203,14 @@ else
 
             @if (_moreOpen)
             {
-                <div class="more-panel">
-                    <div class="more-panel-label">Nástroje k článku</div>
+                <div class="more-backdrop" @onclick="ToggleMore"></div>
+                <div class="more-panel" @onclick="CloseMoreOnMobile">
+                    <div class="more-panel-label">
+                        <span>Nástroje k článku</span>
+                        <button class="icon-btn more-panel-close" @onclick="ToggleMore" @onclick:stopPropagation="true" aria-label="Zavřít">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
                     <button class="more-item @(_activeAiTool == "flashcards" ? "active" : "")" @onclick="ToggleFlashcards">
                         <i data-lucide="layers" style="color:var(--color-accent-600)"></i> <span style="flex:1">Kartičky</span>
                         <span class="more-item-help" title="@AiToolDescription("flashcards")"><i data-lucide="info"></i></span>
@@ -599,7 +606,7 @@ else
 
             @if (_exercises.Count > 0)
             {
-                <div id="exercises-section" style="margin-top:var(--space-8)">
+                <div id="exercises-section" class="exercises-section" style="margin-top:var(--space-8)">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-3)">
                         <h2 style="font-size:27px; margin:0"><i data-lucide="puzzle" style="color:var(--color-accent-2-600)"></i> Interaktivní cvičení</h2>
                         <span style="font-size:13px; color:var(--color-neutral-600)">@CzechPlural.Of(_exercises.Count, "cvičení", "cvičení", "cvičení")</span>
@@ -1215,6 +1222,13 @@ else
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;
     private void ToggleReading() => _readingOpen = !_readingOpen;
     private void ToggleMore() => _moreOpen = !_moreOpen;
+
+    // On mobile the "Více" panel is a modal sheet, so close it once a tool is picked.
+    private async Task CloseMoreOnMobile()
+    {
+        if (await JS.InvokeAsync<bool>("isMobileViewport"))
+            _moreOpen = false;
+    }
 
     private async Task OnAiAnswered(string _)
     {

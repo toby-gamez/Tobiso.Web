@@ -71,6 +71,8 @@ window.setTheme = (theme) => {
     localStorage.setItem('tobiso-theme', theme);
 };
 
+window.isSystemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
 window.getTheme = () => {
     return localStorage.getItem('tobiso-theme') || 'system';
 };
@@ -320,4 +322,18 @@ window.bindSharePost = (dotNetRef) => {
             dotNetRef.invokeMethodAsync('OnShareResult', false);
         }
     });
+};
+window.isMobileViewport = () => window.matchMedia('(max-width: 640px)').matches;
+
+// Saves a .NET stream (DotNetStreamReference) to the user's disk via a temporary blob link.
+window.downloadFileFromStream = async (fileName, streamRef) => {
+    const buffer = await streamRef.arrayBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 };

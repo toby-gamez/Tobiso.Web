@@ -135,6 +135,7 @@ services.AddScoped<IEventService, EventService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
+services.AddScoped<IAdminUserService, AdminUserService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 
 // Kronika (interactive history timeline)

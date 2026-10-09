@@ -1,0 +1,114 @@
+.usr-page {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.usr-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.usr-header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.usr-filters {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.usr-search {
+    max-width: 320px;
+}
+
+.usr-message {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-divider);
+    margin-bottom: var(--space-4);
+    font-size: 14px;
+}
+
+.usr-message.error {
+    border-color: #c0392b;
+    color: #c0392b;
+}
+
+.usr-empty {
+    padding: var(--space-6) 0;
+    text-align: center;
+    opacity: .7;
+}
+
+.usr-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+}
+
+.usr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.usr-table th,
+.usr-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-divider);
+    vertical-align: middle;
+}
+
+.usr-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.usr-table .num {
+    text-align: right;
+}
+
+.usr-name {
+    font-weight: 600;
+}
+
+.usr-email {
+    font-size: 12px;
+    opacity: .7;
+}
+
+.usr-actions {
+    white-space: nowrap;
+    text-align: right;
+}
+
+.usr-panel {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.usr-panel .input {
+    width: auto;
+    max-width: 220px;
+}
+
+.usr-panel .usr-reason {
+    max-width: 280px;
+}
+
+.usr-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    font-size: 14px;
+}

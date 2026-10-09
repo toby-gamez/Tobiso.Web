@@ -14,7 +14,11 @@
 <AddendumModal />
 <PersonModal />
 <AccountRequiredModal />
-<CookieConsentBanner />
+@* Cookie banner first = lowest (column-reverse), so the legal notice stacks above it when both show. *@
+<div class="floating-stack">
+    <CookieConsentBanner />
+    <LegalChangeBanner />
+</div>
 
 @code {
     private SearchModal? _search;

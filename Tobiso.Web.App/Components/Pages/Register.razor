@@ -1,11 +1,12 @@
-@page "/prihlaseni"
+@page "/registrace"
 @layout AuthLayout
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject IUserService UserService
 @inject StudentCredentialStore CredentialStore
+@inject JwtTokenService JwtService
 
-<PageTitle>Přihlášení - Tobiso</PageTitle>
+<PageTitle>Registrace - Tobiso</PageTitle>
 
 <div class="login-card">
     <div class="login-brand">
@@ -14,36 +15,33 @@
     </div>
 
     <div>
-        <h1 class="login-title">Přihlášení</h1>
-        <p class="login-sub">Účet ti uloží záložky, poznámky a kredity na všech zařízeních.</p>
+        <h1 class="login-title">Registrace</h1>
+        <p class="login-sub">Vytvoř si účet zdarma a získej 20 kreditů na AI asistenta.</p>
     </div>
 
     <div class="field">
-        <label for="log-mail">E-mail</label>
-        <input id="log-mail" class="input" type="email" placeholder="tvuj@email.cz"
+        <label for="reg-name">Jméno</label>
+        <input id="reg-name" class="input" type="text" placeholder="Jak ti máme říkat?"
+               @bind="_displayName" @bind:event="oninput" />
+    </div>
+
+    <div class="field">
+        <label for="reg-mail">E-mail</label>
+        <input id="reg-mail" class="input" type="email" placeholder="tvuj@email.cz"
                @bind="_email" @bind:event="oninput" />
     </div>
 
     <div class="field">
-        <label for="log-pass">Heslo</label>
-        <input id="log-pass" class="input" type="password" placeholder="••••••••"
-               @bind="_password" @bind:event="oninput"
-               @onkeydown="@(async e => { if (e.Key == "Enter") await Submit(); })" />
+        <label for="reg-pass">Heslo</label>
+        <input id="reg-pass" class="input" type="password" placeholder="Alespoň 10 znaků"
+               @bind="_password" @bind:event="oninput" />
     </div>
 
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="login-error">@_error</div>
-    }
-
-    <button class="pill pill-on login-submit" @onclick="Submit" disabled="@_submitting">
-        @if (_submitting) { <span>Přihlašuji…</span> } else { <span>Přihlásit se</span> }
-    </button>
-
-    <div class="login-divider">
-        <span class="divider-line"></span>
-        <span>nebo</span>
-        <span class="divider-line"></span>
+    <div class="field">
+        <label for="reg-pass2">Heslo znovu</label>
+        <input id="reg-pass2" class="input" type="password" placeholder="••••••••"
+               @bind="_password2" @bind:event="oninput"
+               @onkeydown="@(async e => { if (e.Key == "Enter") await Submit(); })" />
     </div>
 
     <label class="consent">
@@ -53,6 +51,21 @@
             a potvrzuji, že mi je alespoň 15 let, nebo mám souhlas rodiče či zákonného zástupce.
         </span>
     </label>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="login-error">@_error</div>
+    }
+
+    <button class="pill pill-on login-submit" @onclick="Submit" disabled="@(_submitting || !_accepted)">
+        @if (_submitting) { <span>Vytvářím účet…</span> } else { <span>Zaregistrovat se</span> }
+    </button>
+
+    <div class="login-divider">
+        <span class="divider-line"></span>
+        <span>nebo</span>
+        <span class="divider-line"></span>
+    </div>
 
     <a href="@(_accepted ? "/api/auth/google-login?terms=true" : null)" class="pill login-google @(_accepted ? "" : "is-disabled")"
        aria-disabled="@(_accepted ? "false" : "true")">
@@ -66,19 +79,29 @@
     </a>
 
     <p class="login-register">
-        Nemáš účet?
-        <a href="/registrace">Zaregistruj se</a> - dostaneš 20 kreditů.
+        Už máš účet?
+        <a href="/prihlaseni">Přihlas se</a>
     </p>
 </div>
 
 @code {
+    private string _displayName = "";
     private string _email = "";
     private string _password = "";
+    private string _password2 = "";
     private string _error = "";
     private bool _submitting;
     private bool _accepted;
 
-    [Inject] private JwtTokenService JwtService { get; set; } = null!;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (ErrorCode == "terms")
+            _error = "Pro vytvoření účtu přes Google nejdřív potvrď souhlas s podmínkami.";
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -87,21 +110,44 @@
 
     private async Task Submit()
     {
+        if (!_accepted)
+        {
+            _error = "Pro registraci musíš souhlasit s podmínkami.";
+            return;
+        }
         if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
         {
             _error = "Vyplň e-mail i heslo.";
             return;
         }
+        if (!_email.Contains('@'))
+        {
+            _error = "Zadej platný e-mail.";
+            return;
+        }
+        if (_password.Length < 10)
+        {
+            _error = "Heslo musí mít alespoň 10 znaků.";
+            return;
+        }
+        if (_password != _password2)
+        {
+            _error = "Hesla se neshodují.";
+            return;
+        }
+
         _submitting = true;
         _error = "";
         StateHasChanged();
 
         try
         {
-            var user = await UserService.LoginAsync(_email.Trim(), _password);
+            var email = _email.Trim();
+            var name = string.IsNullOrWhiteSpace(_displayName) ? email : _displayName.Trim();
+            var user = await UserService.RegisterAsync(email, name, _password, _accepted);
             if (user == null)
             {
-                _error = "Nesprávný e-mail nebo heslo.";
+                _error = "Tento e-mail je již zaregistrován.";
             }
             else
             {
@@ -112,7 +158,7 @@
         }
         catch
         {
-            _error = "Přihlášení se nezdařilo. Zkus to prosím znovu.";
+            _error = "Registrace se nezdařila. Zkus to prosím znovu.";
         }
         finally
         {

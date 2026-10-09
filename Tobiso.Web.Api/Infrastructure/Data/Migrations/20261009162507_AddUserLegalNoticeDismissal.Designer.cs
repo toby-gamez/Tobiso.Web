@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tobiso.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Tobiso.Api.Infrastructure.Data;
 namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(TobisoDbContext))]
-    partial class TobisoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009162507_AddUserLegalNoticeDismissal")]
+    partial class AddUserLegalNoticeDismissal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -277,9 +280,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
-
-                    b.Property<int?>("PreferredGradeId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("TermsAcceptedAt")
                         .HasColumnType("datetime2");

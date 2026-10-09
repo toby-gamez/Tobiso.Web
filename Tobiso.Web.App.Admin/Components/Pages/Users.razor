@@ -1,0 +1,198 @@
+@page "/users"
+@using Tobiso.Web.Api.Services
+@using Microsoft.AspNetCore.Authorization
+@inject IAdminUserService UserService
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+
+<PageTitle>Účty – Admin</PageTitle>
+
+<div class="usr-page">
+    <div class="usr-header">
+        <h1>Uživatelské účty</h1>
+        @if (result != null)
+        {
+            <span class="badge">@result.TotalCount celkem</span>
+        }
+    </div>
+
+    <div class="usr-filters">
+        <input class="input usr-search" placeholder="Hledat e-mail nebo jméno…"
+               @bind="search" @bind:event="oninput" @onkeydown="OnSearchKey" />
+        <button class="btn btn-secondary btn-sm" @onclick="Search"><i data-lucide="search"></i> Hledat</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="usr-message @(messageIsError ? "error" : "")">@message</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="usr-empty">Načítání…</div>
+    }
+    else if (result == null || result.Items.Count == 0)
+    {
+        <div class="usr-empty">Žádné účty.</div>
+    }
+    else
+    {
+        <div class="usr-table-wrap">
+            <table class="usr-table">
+                <thead>
+                    <tr>
+                        <th>Uživatel</th>
+                        <th>Přihlášení</th>
+                        <th class="num">Kredity</th>
+                        <th class="num">Chaty</th>
+                        <th>Registrace</th>
+                        <th>Poslední přihlášení</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in result.Items)
+                    {
+                        <tr>
+                            <td>
+                                <div class="usr-name">@u.DisplayName</div>
+                                <div class="usr-email">@u.Email</div>
+                            </td>
+                            <td>
+                                @if (u.HasPassword) { <span class="badge">Heslo</span> }
+                                @if (u.HasGoogle) { <span class="badge badge-info">Google</span> }
+                            </td>
+                            <td class="num">@u.Credits</td>
+                            <td class="num">@u.ChatCount</td>
+                            <td>@u.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            <td>@(u.LastLoginAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "–")</td>
+                            <td class="usr-actions">
+                                <button class="btn btn-secondary btn-sm" @onclick="() => OpenPanel(u.Id, PanelKind.Credits)">
+                                    <i data-lucide="coins"></i> Kredity
+                                </button>
+                                <button class="btn btn-secondary btn-sm" @onclick="() => OpenPanel(u.Id, PanelKind.Password)">
+                                    <i data-lucide="key-round"></i> Heslo
+                                </button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => Delete(u)">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        @if (panelUserId == u.Id)
+                        {
+                            <tr class="usr-panel-row">
+                                <td colspan="7">
+                                    @if (panelKind == PanelKind.Credits)
+                                    {
+                                        <div class="usr-panel">
+                                            <input class="input" type="number" placeholder="Změna (+/−)" @bind="creditDelta" />
+                                            <input class="input usr-reason" placeholder="Důvod (volitelné)" @bind="creditReason" />
+                                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => ApplyCredits(u)">Použít</button>
+                                            <button class="btn btn-ghost btn-sm" @onclick="ClosePanel">Zrušit</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="usr-panel">
+                                            <input class="input" type="text" placeholder="Nové heslo (min. 8 znaků)" @bind="newPassword" autocomplete="off" />
+                                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => ApplyPassword(u)">Nastavit heslo</button>
+                                            <button class="btn btn-ghost btn-sm" @onclick="ClosePanel">Zrušit</button>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="usr-pager">
+            <button class="btn btn-ghost btn-sm" disabled="@(pageNo <= 1)" @onclick="() => GoTo(pageNo - 1)">‹ Předchozí</button>
+            <span>Strana @pageNo / @TotalPages</span>
+            <button class="btn btn-ghost btn-sm" disabled="@(pageNo >= TotalPages)" @onclick="() => GoTo(pageNo + 1)">Další ›</button>
+        </div>
+    }
+</div>
+
+@code {
+    private const int PageSize = 25;
+    private enum PanelKind { Credits, Password }
+
+    private AdminUserPage? result;
+    private bool isLoading = true, busy, messageIsError;
+    private string? search, activeSearch, message;
+    private int pageNo = 1;
+
+    private int? panelUserId;
+    private PanelKind panelKind;
+    private int creditDelta;
+    private string? creditReason, newPassword;
+
+    private int TotalPages => result == null ? 1 : Math.Max(1, (int)Math.Ceiling(result.TotalCount / (double)PageSize));
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JSRuntime.InvokeVoidAsync("initLucide");
+
+    private async Task Load()
+    {
+        isLoading = true;
+        try { result = await UserService.GetPagedAsync(activeSearch, pageNo, PageSize); }
+        finally { isLoading = false; }
+    }
+
+    private async Task Search() { activeSearch = search; pageNo = 1; ClosePanel(); await Load(); }
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Search(); }
+    private async Task GoTo(int p) { pageNo = Math.Clamp(p, 1, TotalPages); ClosePanel(); await Load(); }
+
+    private void OpenPanel(int id, PanelKind kind)
+    {
+        panelUserId = id; panelKind = kind;
+        creditDelta = 0; creditReason = null; newPassword = null; message = null;
+    }
+
+    private void ClosePanel() => panelUserId = null;
+
+    private void Report(string text, bool error = false) { message = text; messageIsError = error; }
+
+    private async Task ApplyCredits(AdminUserRow u)
+    {
+        if (creditDelta == 0) { Report("Zadejte nenulovou změnu.", true); return; }
+        busy = true;
+        try
+        {
+            var ok = await UserService.AdjustCreditsAsync(u.Id, creditDelta, creditReason);
+            if (ok) { Report($"Kredity uživatele {u.Email} upraveny o {creditDelta:+#;-#}."); ClosePanel(); await Load(); }
+            else Report("Úprava se nezdařila (zůstatek by byl záporný nebo účet neexistuje).", true);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task ApplyPassword(AdminUserRow u)
+    {
+        if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 8) { Report("Heslo musí mít alespoň 8 znaků.", true); return; }
+        busy = true;
+        try
+        {
+            var ok = await UserService.SetPasswordAsync(u.Id, newPassword);
+            if (ok) { Report($"Heslo uživatele {u.Email} bylo změněno."); ClosePanel(); await Load(); }
+            else Report("Účet neexistuje.", true);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task Delete(AdminUserRow u)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Opravdu smazat účet {u.Email}? Smažou se i jeho chaty, poznámky, záložky a pokrok. Akci nelze vrátit."))
+            return;
+
+        var ok = await UserService.DeleteAsync(u.Id);
+        Report(ok ? $"Účet {u.Email} byl smazán." : "Účet neexistuje.", !ok);
+        ClosePanel();
+        await Load();
+        if (result != null && result.Items.Count == 0 && pageNo > 1) { pageNo--; await Load(); }
+    }
+}

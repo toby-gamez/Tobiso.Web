@@ -2,8 +2,11 @@
 @implements IDisposable
 @inject IUserProgressService UserProgressService
 @inject IUserService UserService
+@inject IUserDataExportService ExportService
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject StudentCredentialStore CredentialStore
 
 <PageTitle>Profil - Tobiso</PageTitle>
 
@@ -129,6 +132,46 @@
                 </div>
             }
         </div>
+
+        <div class="soft profile-export">
+            <h2>Moje data</h2>
+            <p>Stáhni si všechna data, která o tobě uchováváme (účet, záložky, poznámky, pokrok, kredity a historii AI chatů), ve formátu JSON.</p>
+            @if (!string.IsNullOrEmpty(_exportError))
+            {
+                <p class="profile-danger-error">@_exportError</p>
+            }
+            <button class="pill" disabled="@_exporting" @onclick="ExportData">
+                @(_exporting ? "Připravuji…" : "Stáhnout má data")
+            </button>
+        </div>
+
+        <div class="soft profile-danger">
+            <h2>Smazat účet</h2>
+            <p>Smazáním účtu trvale odstraníš svůj profil, kredity, historii AI chatů, poznámky, záložky a pokrok. Tuto akci nelze vrátit.</p>
+            @if (!_confirmingDelete)
+            {
+                <button class="pill" @onclick="() => _confirmingDelete = true">Smazat můj účet</button>
+            }
+            else
+            {
+                <div class="field">
+                    <label for="delete-confirm">@(_hasPassword ? "Pro potvrzení zadej své heslo" : "Pro potvrzení zadej svůj e-mail (" + _email + ")")</label>
+                    <input id="delete-confirm" class="input" autocomplete="off"
+                           type="@(_hasPassword ? "password" : "text")"
+                           @bind="_deleteConfirm" @bind:event="oninput" />
+                </div>
+                @if (!string.IsNullOrEmpty(_deleteError))
+                {
+                    <p class="profile-danger-error">@_deleteError</p>
+                }
+                <div class="profile-danger-actions">
+                    <button class="pill pill-on" disabled="@(_deleting || string.IsNullOrWhiteSpace(_deleteConfirm))" @onclick="DeleteAccount">
+                        @(_deleting ? "Mažu…" : "Trvale smazat účet")
+                    </button>
+                    <button class="pill" disabled="@_deleting" @onclick="CancelDelete">Zrušit</button>
+                </div>
+            }
+        </div>
     }
 </div>
 
@@ -155,6 +198,66 @@
     }
 
     private bool _disposed;
+    private bool _hasPassword, _confirmingDelete, _deleting;
+    private string _deleteConfirm = "", _deleteError = "";
+
+    private bool _exporting;
+    private string _exportError = "";
+
+    private async Task ExportData()
+    {
+        _exporting = true;
+        _exportError = "";
+        try
+        {
+            var bytes = await ExportService.ExportAsync(_userId);
+            if (bytes == null)
+            {
+                _exportError = "Účet se nepodařilo najít.";
+                return;
+            }
+            using var stream = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("downloadFileFromStream", $"tobiso-moje-data-{DateTime.UtcNow:yyyyMMdd}.json", streamRef);
+        }
+        catch
+        {
+            _exportError = "Export se nezdařil. Zkus to prosím znovu.";
+        }
+        finally { _exporting = false; }
+    }
+
+    private void CancelDelete()
+    {
+        _confirmingDelete = false;
+        _deleteConfirm = _deleteError = "";
+    }
+
+    private async Task DeleteAccount()
+    {
+        _deleting = true;
+        _deleteError = "";
+        try
+        {
+            var result = await UserService.DeleteAccountAsync(
+                _userId,
+                _hasPassword ? _deleteConfirm : null,
+                _hasPassword ? null : _deleteConfirm);
+
+            switch (result)
+            {
+                case DeleteAccountResult.Deleted:
+                case DeleteAccountResult.NotFound:
+                    await CredentialStore.ClearAsync(JS);
+                    Nav.NavigateTo("/", forceLoad: true);
+                    break;
+                default:
+                    _deleteError = _hasPassword ? "Nesprávné heslo." : "E-mail se neshoduje.";
+                    break;
+            }
+        }
+        finally { _deleting = false; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -172,6 +275,7 @@
             var user = await UserService.GetByIdAsync(_userId);
             _credits = user?.Credits ?? 0;
             _email = user?.Email ?? "";
+            _hasPassword = !string.IsNullOrEmpty(user?.PasswordHash);
         }
         catch (Exception) when (_disposed)
         {

@@ -1,0 +1,88 @@
+@page "/pravni-dokumenty"
+@page "/legal"
+@inject IPostService PostService
+
+<PageTitle>@(_en ? "Legal documents" : "Právní dokumenty") - Tobiso</PageTitle>
+
+<div class="legal-page">
+    <div class="legal-head">
+        <h1>@(_en ? "Legal documents" : "Právní dokumenty")</h1>
+        <div class="filter-pills" role="group" aria-label="Language">
+            <button class="pill @(!_en ? "pill-on" : "")" @onclick="@(() => SetLang(false))">Čeština</button>
+            <button class="pill @(_en ? "pill-on" : "")" @onclick="@(() => SetLang(true))">English</button>
+        </div>
+    </div>
+
+    <div class="filter-pills">
+        <button class="pill @(_doc == "privacy" ? "pill-on" : "")" @onclick='@(() => SetDoc("privacy"))'>@(_en ? "Privacy Policy" : "Zásady ochrany osobních údajů")</button>
+        <button class="pill @(_doc == "terms" ? "pill-on" : "")" @onclick='@(() => SetDoc("terms"))'>@(_en ? "Terms of Use" : "Podmínky použití")</button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="skeleton" style="height:300px; border-radius:var(--radius-lg)"></div>
+    }
+    else if (_content == null)
+    {
+        <p>@(_en ? "The document could not be loaded." : "Dokument se nepodařilo načíst.")</p>
+    }
+    else
+    {
+        <div id="article-prose">
+            <MarkdownContent Content="@_content" ContainerId="article-prose" DetectLead="false" />
+        </div>
+        @if (_updated.HasValue)
+        {
+            <p class="legal-updated">
+                @(_en ? "Last updated" : "Naposledy aktualizováno"): @_updated.Value.ToString(_en ? "MMMM d, yyyy" : "d. MMMM yyyy", _en ? EnCulture : CsCulture)
+            </p>
+        }
+    }
+</div>
+
+@code {
+    private bool _en;
+    private string _doc = "privacy";
+    private bool _loading = true;
+    private string? _content;
+    private DateTime? _updated;
+    private static readonly System.Globalization.CultureInfo CsCulture = new("cs-CZ");
+    private static readonly System.Globalization.CultureInfo EnCulture = new("en-US");
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task SetLang(bool en)
+    {
+        if (_en == en) return;
+        _en = en;
+        await Load();
+    }
+
+    private async Task SetDoc(string doc)
+    {
+        if (_doc == doc) return;
+        _doc = doc;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _loading = true;
+        _content = null;
+        _updated = null;
+        var slug = (_doc == "privacy" ? "privacy-policy-" : "terms-of-use-") + (_en ? "en" : "cs");
+        try
+        {
+            var post = await PostService.GetBySlug(slug);
+            var versions = post?.Versions;
+            var version = Tobiso.Web.Shared.Helpers.PostVersionSelector.SelectForGrade(versions, null);
+            _content = version?.Content;
+            _updated = version?.LastEdit ?? version?.LastFix;
+        }
+        catch
+        {
+            _content = null;
+        }
+        _loading = false;
+    }
+}

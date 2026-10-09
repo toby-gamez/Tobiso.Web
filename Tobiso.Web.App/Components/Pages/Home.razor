@@ -66,7 +66,7 @@
                 </span>
             </a>
         }
-        @if (_anonCreditsRemaining is int remaining)
+        @if (_userName == null && _anonCreditsRemaining is int remaining)
         {
             <div class="stat-card credits-card home-card-credits">
                 <span class="stat-card-label" style="color:var(--color-accent-800)">AI dotazy zdarma</span>
@@ -168,6 +168,7 @@
         if (user.Identity?.IsAuthenticated == true)
         {
             _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            _anonCreditsRemaining = null;
             if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int uid))
             {
                 _stats = await UserProgressService.GetStatsAsync(uid);

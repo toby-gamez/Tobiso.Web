@@ -207,11 +207,11 @@
         if (DetectLead)
         {
             // Wrap text between ... ... into the lead-paragraph div
-            var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
+            // Only the first two "..." in the post act as markers; longer dot runs (e.g. leaders) are left alone
+            var dotsRegex = new Regex(@"((?<!\.)\.\.\.(?!\.)\s*)(.*?)(\s*(?<!\.)\.\.\.(?!\.))", RegexOptions.Singleline);
             html = dotsRegex.Replace(html, m => $"<div class=\"post-lead\">{m.Groups[2].Value}</div>", 1);
             var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
             html = singleDotsRegex.Replace(html, "");
-            html = html.Replace("...", "");
         }
 
         // Callout blocks: !!!tip ... !!! and !!!sidefact ... !!!

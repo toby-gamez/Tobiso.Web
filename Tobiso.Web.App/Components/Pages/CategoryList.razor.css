@@ -36,6 +36,25 @@
     color: var(--color-text);
 }
 
+.intro-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-accent-100);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+}
+
+.intro-card > i:last-child {
+    margin-left: auto;
+}
+
+.intro-icon {
+    display: inline-flex;
+    color: var(--color-accent-700);
+}
+
 .subcategory-name {
     display: block;
     font-family: var(--font-heading);
@@ -71,6 +90,17 @@
     border-radius: var(--radius-lg);
     cursor: pointer;
     color: var(--color-text);
+}
+
+.subject-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.subject-chevron,
+.subject-root-card ::deep svg.subject-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .subject-icon {

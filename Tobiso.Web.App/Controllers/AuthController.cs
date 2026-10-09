@@ -70,7 +70,10 @@ public class AuthController : ControllerBase
         if (req.Password.Length < 10)
             return BadRequest(new { message = "Heslo musí mít alespoň 10 znaků." });
 
-        var user = await _userService.RegisterAsync(req.Email, req.DisplayName ?? req.Email, req.Password);
+        if (!req.AcceptedTerms)
+            return BadRequest(new { message = "Pro registraci je nutný souhlas s Podmínkami použití a Zásadami ochrany osobních údajů." });
+
+        var user = await _userService.RegisterAsync(req.Email, req.DisplayName ?? req.Email, req.Password, acceptedTerms: true);
         if (user == null)
             return Conflict(new { message = "Tento email je již zaregistrován." });
 
@@ -111,10 +114,12 @@ public class AuthController : ControllerBase
 
     [HttpGet("google-login")]
     [AllowAnonymous]
-    public IActionResult GoogleLogin()
+    public IActionResult GoogleLogin([FromQuery] bool terms = false)
     {
         var redirectUrl = Url.Action(nameof(GoogleCallback), "Auth");
         var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+        // Carried through the OAuth round-trip so the callback knows whether the user consented.
+        if (terms) properties.Items["terms"] = "1";
         return Challenge(properties, "Google");
     }
 
@@ -137,7 +142,13 @@ public class AuthController : ControllerBase
         if (string.IsNullOrEmpty(googleId) || string.IsNullOrEmpty(email))
             return Redirect("/prihlaseni?error=google");
 
-        var user = await _userService.FindOrCreateGoogleUserAsync(googleId, email, name ?? email, picture);
+        var acceptedTerms = result.Properties?.Items.TryGetValue("terms", out var t) == true && t == "1";
+        var user = await _userService.FindOrCreateGoogleUserAsync(googleId, email, name ?? email, picture, acceptedTerms);
+        if (user == null)
+        {
+            await HttpContext.SignOutAsync("TempCookie");
+            return Redirect("/registrace?error=terms");
+        }
         var token = _jwtService.GenerateStudentToken(user);
 
         await HttpContext.SignOutAsync("TempCookie");

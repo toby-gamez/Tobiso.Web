@@ -15,7 +15,7 @@
         gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied' });
         try {
             if (localStorage.getItem('tobiso-cookie-consent') === 'accepted') {
-                gtag('consent', 'default', { analytics_storage: 'granted' });
+                gtag('consent', 'update', { analytics_storage: 'granted' });
             }
         } catch (e) { /* localStorage unavailable */ }
         gtag('js', new Date());

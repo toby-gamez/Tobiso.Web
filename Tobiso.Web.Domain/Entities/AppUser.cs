@@ -11,6 +11,11 @@ public class AppUser
     public int Credits { get; set; } = 20;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public DateTime? TermsAcceptedAt { get; set; }
+    public string? TermsVersion { get; set; }
+    // Change date (LastEdit of the legal articles) of the last notice the user closed; suppresses re-showing it.
+    public DateTime? LegalNoticeDismissedFor { get; set; }
+    public int? PreferredGradeId { get; set; }
     public DateTime? LastDailyBonusAt { get; set; }
     public DateTime? LastReadBonusAt { get; set; }
 

@@ -2,19 +2,24 @@ using Microsoft.EntityFrameworkCore;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
+using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.Api.Services;
 
 public interface IUserService
 {
-    Task<AppUser?> RegisterAsync(string email, string displayName, string password);
-    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null);
+    Task<AppUser?> RegisterAsync(string email, string displayName, string password, bool acceptedTerms);
+    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null, bool acceptedTerms = false);
     Task<AppUser?> LoginAsync(string email, string password);
     Task<AppUser?> GetByIdAsync(int id);
+    Task SetPreferredGradeAsync(int userId, int? gradeId);
     Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
     Task<bool> ClaimDailyBonusAsync(int userId, int amount);
     Task<bool> ClaimReadBonusAsync(int userId, int amount);
+    Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail);
 }
+
+public enum DeleteAccountResult { Deleted, NotFound, InvalidCredentials }
 
 public class UserService : IUserService
 {
@@ -22,8 +27,11 @@ public class UserService : IUserService
 
     public UserService(TobisoDbContext db) => _db = db;
 
-    public async Task<AppUser?> RegisterAsync(string email, string displayName, string password)
+    public async Task<AppUser?> RegisterAsync(string email, string displayName, string password, bool acceptedTerms)
     {
+        if (!acceptedTerms)
+            throw new ArgumentException("Terms must be accepted to register.", nameof(acceptedTerms));
+
         var normalizedEmail = email.ToLowerInvariant();
         if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail))
             return null;
@@ -33,7 +41,9 @@ public class UserService : IUserService
             Email = normalizedEmail,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             PasswordHash = PasswordHasher.Hash(password),
-            Credits = 20
+            Credits = 20,
+            TermsAcceptedAt = DateTime.UtcNow,
+            TermsVersion = LegalConstants.TermsVersion
         };
         _db.Users.Add(user);
         _db.AiCreditTransactions.Add(new AiCreditTransaction
@@ -44,13 +54,18 @@ public class UserService : IUserService
         return user;
     }
 
-    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null)
+    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null, bool acceptedTerms = false)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId);
         if (user != null)
         {
             user.LastLoginAt = DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
+            if (acceptedTerms && user.TermsAcceptedAt == null)
+            {
+                user.TermsAcceptedAt = DateTime.UtcNow;
+                user.TermsVersion = LegalConstants.TermsVersion;
+            }
             await _db.SaveChangesAsync();
             return user;
         }
@@ -62,9 +77,17 @@ public class UserService : IUserService
             user.GoogleId = googleId;
             user.LastLoginAt = DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
+            if (acceptedTerms && user.TermsAcceptedAt == null)
+            {
+                user.TermsAcceptedAt = DateTime.UtcNow;
+                user.TermsVersion = LegalConstants.TermsVersion;
+            }
             await _db.SaveChangesAsync();
             return user;
         }
+
+        // A brand-new account may only be created once the user has accepted the terms.
+        if (!acceptedTerms) return null;
 
         user = new AppUser
         {
@@ -72,7 +95,9 @@ public class UserService : IUserService
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             GoogleId = googleId,
             AvatarUrl = avatarUrl,
-            Credits = 20
+            Credits = 20,
+            TermsAcceptedAt = DateTime.UtcNow,
+            TermsVersion = LegalConstants.TermsVersion
         };
         _db.Users.Add(user);
         _db.AiCreditTransactions.Add(new AiCreditTransaction
@@ -101,6 +126,10 @@ public class UserService : IUserService
     // made against the same context instance, since those bypass the change tracker entirely.
     public Task<AppUser?> GetByIdAsync(int id) =>
         _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
+
+    public async Task SetPreferredGradeAsync(int userId, int? gradeId) =>
+        await _db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.PreferredGradeId, gradeId));
 
     // Deduct is a single conditional UPDATE (guarded by the balance check in the WHERE
     // clause) rather than read-then-write, so two concurrent requests can't both read a
@@ -179,5 +208,27 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
         return true;
+    }
+
+    // Self-service deletion. Password accounts must re-enter their password; Google-only
+    // accounts have none, so they confirm by typing their email instead. Related rows
+    // (chats, notes, bookmarks, progress, credit log) are removed by cascade.
+    public async Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null) return DeleteAccountResult.NotFound;
+
+        if (!string.IsNullOrEmpty(user.PasswordHash))
+        {
+            if (string.IsNullOrEmpty(password) || !PasswordHasher.Verify(password, user.PasswordHash))
+                return DeleteAccountResult.InvalidCredentials;
+        }
+        else if (!string.Equals(confirmEmail?.Trim(), user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            return DeleteAccountResult.InvalidCredentials;
+        }
+
+        await _db.Users.Where(u => u.Id == userId).ExecuteDeleteAsync();
+        return DeleteAccountResult.Deleted;
     }
 }

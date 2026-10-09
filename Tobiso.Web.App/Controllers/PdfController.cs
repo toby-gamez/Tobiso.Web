@@ -258,11 +258,11 @@ public class PdfController : ControllerBase
         });
 
         // Wrap text in dots into div with class intro
-        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
-        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
+        // Only the first two "..." in the post act as markers; longer dot runs (e.g. leaders) are left alone
+        var dotsRegex = new Regex(@"((?<!\.)\.\.\.(?!\.)\s*)(.*?)(\s*(?<!\.)\.\.\.(?!\.))", RegexOptions.Singleline);
+        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>", 1);
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
-        html = html.Replace("...", "");
         html = ConvertMarkdownTablesToHtml(html);
         return html;
     }

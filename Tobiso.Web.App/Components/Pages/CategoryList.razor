@@ -40,6 +40,18 @@
         }
     </div>
 
+    @if (_introPost != null)
+    {
+        <a class="intro-card lift" href="@PostSlug.Url(_introPost.Id, _introPost.FilePath)">
+            <span class="intro-icon"><i data-lucide="book-open"></i></span>
+            <span>
+                <span class="subcategory-name">Úvod</span>
+                <span class="subcategory-count">Začni tady – úvod do tématu @_currentCategory?.Name</span>
+            </span>
+            <i data-lucide="chevron-right"></i>
+        </a>
+    }
+
     @if (_children.Count > 0)
     {
         <div class="subcategory-grid">
@@ -92,11 +104,11 @@
             {
                 <a class="subject-root-card lift" href="/categories/@(root.Id)">
                     <span class="subject-icon"><i data-lucide="@SubjectIcon(root.Name)"></i></span>
-                    <span>
+                    <span class="subject-text">
                         <span class="subcategory-name">@root.Name</span>
                         <span class="subcategory-count">@CategoryCountLabel(root.Id)</span>
                     </span>
-                    <i data-lucide="chevron-right"></i>
+                    <i data-lucide="chevron-right" class="subject-chevron"></i>
                 </a>
             }
         </div>
@@ -112,6 +124,7 @@
     private List<CategoryResponse> _children = [];
     private List<PostSummaryResponse> _allPosts = [];
     private List<PostSummaryResponse> _postsInCategory = [];
+    private PostSummaryResponse? _introPost;
     private List<CategoryResponse> _allCategories = [];
     private List<CategoryTreeResponse> _rootCategories = [];
     private Dictionary<int, string> _categoryPaths = [];
@@ -171,8 +184,10 @@
             _currentCategory = _allCategories.FirstOrDefault(c => c.Id == CategoryId);
             _ancestors = await CategoryService.GetAncestors(CategoryId.Value);
             _children = [.. _allCategories.Where(c => c.ParentId == CategoryId.Value && !IsMore(c.Name))];
-            _postsInCategory = [.. _allPosts
-                .Where(p => p.CategoryId == CategoryId.Value)
+            var inCategory = _allPosts.Where(p => p.CategoryId == CategoryId.Value).ToList();
+            _introPost = inCategory.FirstOrDefault(p => IsIntro(p, _currentCategory));
+            _postsInCategory = [.. inCategory
+                .Where(p => p != _introPost)
                 .OrderByDescending(LastUpdated)];
         }
         else
@@ -182,6 +197,7 @@
             _ancestors = [];
             _children = [];
             _postsInCategory = [];
+            _introPost = null;
         }
     }
 
@@ -191,12 +207,17 @@
         await JS.InvokeVoidAsync("localizeDates");
     }
 
+    // A post titled the same as its category is that category's intro ("Úvod"), not a regular article.
+    private static bool IsIntro(PostSummaryResponse post, CategoryResponse? category)
+        => category != null && string.Equals(post.Title?.Trim(), category.Name?.Trim(), StringComparison.OrdinalIgnoreCase);
+
     private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
 
     // Recursively counts posts in this category and every descendant category.
     private int PostCountFor(int catId)
     {
-        var direct = _allPosts.Count(p => p.CategoryId == catId);
+        var cat = _allCategories.FirstOrDefault(c => c.Id == catId);
+        var direct = _allPosts.Count(p => p.CategoryId == catId && !IsIntro(p, cat));
         var childIds = _allCategories.Where(c => c.ParentId == catId).Select(c => c.Id);
         return direct + childIds.Sum(PostCountFor);
     }
