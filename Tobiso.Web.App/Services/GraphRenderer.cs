@@ -111,7 +111,7 @@ public static class GraphRenderer
         public double? Min, Max, Step;
     }
 
-    private sealed record Series(string? Name, List<(double X, double Y)> Points, bool Smooth, bool Dashed, string Color);
+    private sealed record Series(string? Name, List<(double X, double Y)> Points, bool Smooth, bool Dashed, bool ShowDots, string Color);
     private sealed record Marker(string? Name, double X, double Y, string Color);
 
     private sealed class Graph
@@ -159,7 +159,7 @@ public static class GraphRenderer
                     var points = PointRegex.Matches(value).Select(p => (ParseNum(p.Groups["x"].Value), ParseNum(p.Groups["y"].Value))).ToList();
                     if (points.Count == 0) break;
 
-                    bool smooth = false, dashed = false;
+                    bool smooth = false, dashed = false, showDots = true;
                     string? color = argColor;
                     foreach (var token in PointRegex.Replace(value, " ").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
                     {
@@ -168,10 +168,11 @@ public static class GraphRenderer
                             case "linear" or "linearni" or "primka" or "rovna": smooth = false; break;
                             case "smooth" or "curved" or "hladka" or "zakrivena" or "oblouk": smooth = true; break;
                             case "dashed" or "carkovana" or "prerusovana": dashed = true; break;
+                            case "nodots" or "bezbodu": showDots = false; break;
                             default: color ??= ResolveColor(token); break;
                         }
                     }
-                    graph.Series.Add(new Series(name, points, smooth, dashed, color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
+                    graph.Series.Add(new Series(name, points, smooth, dashed, showDots, color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
                     break;
                 }
                 case "point" or "bod":
@@ -284,6 +285,9 @@ public static class GraphRenderer
         var (yMin, yMax) = ResolveRange(g.Y, allY);
         var xStep = ResolveStep(g.X.Step, xMin, xMax);
         var yStep = ResolveStep(g.Y.Step, yMin, yMax);
+        // Every step gets a labelled tick and the axes end on one, so e.g. "0-45 (10)" runs to 50.
+        (xMin, xMax) = SnapToStep(xMin, xMax, xStep);
+        (yMin, yMax) = SnapToStep(yMin, yMax, yStep);
 
         double Sx(double x) => MarginLeft + (x - xMin) / (xMax - xMin) * PlotW;
         double Sy(double y) => MarginTop + PlotH - (y - yMin) / (yMax - yMin) * PlotH;
@@ -297,6 +301,9 @@ public static class GraphRenderer
         var axisY = Sy(Math.Clamp(0, yMin, yMax)); // screen y of the x axis
         var axisX = Sx(Math.Clamp(0, xMin, xMax)); // screen x of the y axis
         var xAxisAtEdge = axisY >= plotBottom - 0.5;
+        // Only negative y: the x axis runs along the top, so its numbers go above it (and the
+        // axis title to the bottom) instead of colliding with the y labels and the data below.
+        var xAxisAtTop = !xAxisAtEdge && axisY <= MarginTop + 0.5;
         var yAxisAtEdge = axisX <= MarginLeft + 0.5;
         // Origin strictly inside: print a single "0" at the crossing instead of one per axis.
         var interiorOrigin = xMin < 0 && xMax > 0 && yMin < 0 && yMax > 0;
@@ -308,13 +315,24 @@ public static class GraphRenderer
 
         // Grid + tick labels. Presentation attributes are a fallback (e.g. PDF); CSS classes win on the
         // site, where text is drawn larger in the small inline figure and normal-sized in the lightbox.
+        // Every step gets a tick mark and grid line; labels are thinned (every 2nd, 5th… multiple of
+        // the step, so 0 always keeps its label) only when they would otherwise overlap.
+        var xEvery = LabelEvery(Ticks(xMin, xMax, xStep).Select(v => FormatTick(v, xStep).Length).DefaultIfEmpty(1).Max() * 12 + 8, PlotW * xStep / (xMax - xMin));
+        var yEvery = LabelEvery(24, PlotH * yStep / (yMax - yMin));
         foreach (var x in Ticks(xMin, xMax, xStep))
         {
             var sx = Sx(x);
             if (Math.Abs(sx - axisX) > 0.5)
                 svg.Append($"<line class=\"pg-grid\" x1=\"{F(sx)}\" y1=\"{F(MarginTop)}\" x2=\"{F(sx)}\" y2=\"{F(plotBottom)}\" stroke=\"#ddd\"/>");
             svg.Append($"<line class=\"pg-axis\" x1=\"{F(sx)}\" y1=\"{F(axisY)}\" x2=\"{F(sx)}\" y2=\"{F(axisY + 5)}\" stroke=\"#444\"/>");
-            if (interiorOrigin && x == 0) continue;
+            if (interiorOrigin && x == 0 || Math.Round(x / xStep) % xEvery != 0) continue;
+            if (xAxisAtTop)
+            {
+                // The label at the y axis would sit on the axis arrow - nudge it to the right.
+                var onYAxis = Math.Abs(sx - axisX) <= 0.5;
+                svg.Append($"<text class=\"pg-tick\" x=\"{F(onYAxis ? sx + 8 : sx)}\" y=\"{F(axisY - 10)}\" text-anchor=\"{(onYAxis ? "start" : "middle")}\" font-size=\"14\">{FormatTick(x, xStep)}</text>");
+                continue;
+            }
             svg.Append($"<text class=\"pg-tick\" x=\"{F(sx)}\" y=\"{F(axisY + 26)}\" text-anchor=\"middle\" font-size=\"14\">{FormatTick(x, xStep)}</text>");
         }
         foreach (var y in Ticks(yMin, yMax, yStep))
@@ -323,7 +341,9 @@ public static class GraphRenderer
             if (Math.Abs(sy - axisY) > 0.5)
                 svg.Append($"<line class=\"pg-grid\" x1=\"{F(MarginLeft)}\" y1=\"{F(sy)}\" x2=\"{F(plotRight)}\" y2=\"{F(sy)}\" stroke=\"#ddd\"/>");
             svg.Append($"<line class=\"pg-axis\" x1=\"{F(axisX - 5)}\" y1=\"{F(sy)}\" x2=\"{F(axisX)}\" y2=\"{F(sy)}\" stroke=\"#444\"/>");
-            if (interiorOrigin && y == 0) continue;
+            if (interiorOrigin && y == 0 || Math.Round(y / yStep) % yEvery != 0) continue;
+            // Right under the crossing the "0" of the origin already sits there.
+            if (interiorOrigin && sy > axisY && sy - axisY < 34) continue;
             svg.Append($"<text class=\"pg-tick\" x=\"{F(axisX - 10)}\" y=\"{F(sy)}\" dy=\"0.35em\" text-anchor=\"end\" font-size=\"14\">{FormatTick(y, yStep)}</text>");
         }
         if (interiorOrigin)
@@ -337,7 +357,7 @@ public static class GraphRenderer
 
         // Axis labels: along the edge when the axis is on the plot border, otherwise next to its arrow.
         if (g.X.Label.Length > 0)
-            svg.Append(xAxisAtEdge
+            svg.Append(xAxisAtEdge || xAxisAtTop
                 ? $"<text class=\"pg-label\" x=\"{F(MarginLeft + PlotW / 2)}\" y=\"{F(Height - 8)}\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.X.Label)}</text>"
                 : $"<text class=\"pg-label\" x=\"{F(plotRight + 20)}\" y=\"{F(axisY - 12)}\" text-anchor=\"end\" font-size=\"15\">{Enc(g.X.Label)}</text>");
         if (g.Y.Label.Length > 0)
@@ -354,11 +374,17 @@ public static class GraphRenderer
             var color = Enc(s.Color);
             if (s.Points.Count == 1)
             {
-                svg.Append($"<circle cx=\"{F(Sx(s.Points[0].X))}\" cy=\"{F(Sy(s.Points[0].Y))}\" r=\"4\" fill=\"{color}\"/>");
+                svg.Append($"<circle class=\"pg-point\" cx=\"{F(Sx(s.Points[0].X))}\" cy=\"{F(Sy(s.Points[0].Y))}\" r=\"5\" fill=\"{color}\" stroke=\"#fff\" stroke-width=\"1.5\"/>");
                 continue;
             }
             var dash = s.Dashed ? " stroke-dasharray=\"8 6\"" : "";
             svg.Append($"<path d=\"{BuildPath(s, Sx, Sy)}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}/>");
+        }
+        // Each authored point of a curve is a visible dot on top of the line ("nodots" turns it off).
+        foreach (var s in g.Series.Where(ser => ser.ShowDots && ser.Points.Count > 1))
+        {
+            foreach (var (x, y) in s.Points)
+                svg.Append($"<circle class=\"pg-point\" cx=\"{F(Sx(x))}\" cy=\"{F(Sy(y))}\" r=\"5\" fill=\"{Enc(s.Color)}\" stroke=\"#fff\" stroke-width=\"1.5\"/>");
         }
         foreach (var p in g.Markers)
         {
@@ -429,7 +455,20 @@ public static class GraphRenderer
         var span = max - min;
         // Ignore steps that would draw an unreadable forest of ticks.
         if (step is > 0 && span / step.Value <= 40) return step.Value;
+        // Short axes count 1, 2, 3…; longer ones get a round step (2, 5, 10, 20…).
+        if (span >= 2 && span <= 20) return 1;
         return NiceStep(span / 8);
+    }
+
+    // How many ticks apart labels must be so that a label of the given size fits between them.
+    private static int LabelEvery(double labelSize, double tickSpacing) =>
+        tickSpacing <= 0 ? 1 : Math.Max(1, (int)Math.Ceiling(labelSize / tickSpacing));
+
+    private static (double Min, double Max) SnapToStep(double min, double max, double step)
+    {
+        var snappedMin = Math.Floor(min / step + 1e-9) * step;
+        var snappedMax = Math.Ceiling(max / step - 1e-9) * step;
+        return snappedMax - snappedMin > 1e-9 ? (snappedMin, snappedMax) : (min, max);
     }
 
     private static double NiceStep(double raw)
