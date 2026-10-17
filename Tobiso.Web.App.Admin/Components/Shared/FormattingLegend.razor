@@ -173,6 +173,30 @@ note: Červená křivka zobrazuje rychlost
                     </table>
                     <p class="fl-note"><b>Kvadranty:</b> osy se kříží v počátku [0;0]. Když se rozsah dopočítává z dat, zobrazí se jen kvadranty, které jsou potřeba — při samých kladných číslech jen 1. kvadrant (osy vlevo a dole), se zápornými y i 4. kvadrant (osa x vede středem) atd. Ručně zadaný rozsah se použije přesně tak, jak je napsaný, i když v části grafu nejsou data. Rozsah, který neobsahuje nulu (např. <code>-30..-20</code>), má osu na nejbližším okraji. Popisky na osách se píšou s desetinnou čárkou; když se osy kříží uvnitř grafu, nula se v počátku vypíše jen jednou.</p>
 
+                    <h6>Funkce</h6>
+                    <pre class="fl-pre">[graf2]
+x: -5..5
+y: -5..10
+function: y = 2x + 1 BLUE
+function(name: parabola): y = x^2 - 3 RED
+function(name: odmocnina, od: 0): y = sqrt(x) GREEN dashed
+function: y = sin(x)
+[/graf2]</pre>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>function: y = předpis BARVA</code></td><td>Nakreslí funkci přes celou šířku grafu (také <code>funkce:</code>, <code>fce:</code>). <code>y =</code> nebo <code>f(x) =</code> na začátku je nepovinné. Za předpis jde napsat barvu a <code>dashed</code>. Bez jména se v legendě ukáže samotný předpis.</td></tr>
+                            <tr><td><code>(name: …, od: 0, do: 5)</code></td><td>Jméno pro legendu a nepovinné omezení definičního oboru — funkce se nakreslí jen pro x od–do (také <code>from:</code> / <code>to:</code>, desetinná čárka jde: <code>do: 6,28</code>)</td></tr>
+                            <tr><td><code>+ - * / ^</code>, <code>x²</code>, <code>x³</code></td><td>Počty a mocniny. <code>-x^2</code> = −(x²), <code>2^-1</code> = 0,5, <code>2^x^2</code> = 2^(x²)</td></tr>
+                            <tr><td><code>2x</code>, <code>3(x+1)</code>, <code>(x+1)(x-1)</code>, <code>2sin(x)</code>, <code>x sin x</code></td><td>Násobení se nemusí psát. Pozor: <code>1/2x</code> je (1/2)·x — pro 1/(2x) použij závorky.</td></tr>
+                            <tr><td><code>sqrt(x)</code>, <code>|x|</code> / <code>abs(x)</code></td><td>Odmocnina (také <code>odm</code>), absolutní hodnota</td></tr>
+                            <tr><td><code>sin</code>, <code>cos</code>, <code>tg</code> / <code>tan</code>, <code>cotg</code> / <code>cot</code></td><td>Goniometrické funkce (v radiánech). <code>sin(x)^2</code> = (sin x)²</td></tr>
+                            <tr><td><code>arcsin</code>, <code>arccos</code>, <code>arctg</code> (i <code>asin</code>, <code>acos</code>, <code>atan</code>)</td><td>Cyklometrické funkce</td></tr>
+                            <tr><td><code>ln(x)</code>, <code>log(x)</code>, <code>exp(x)</code>, <code>e^x</code></td><td>Přirozený logaritmus, desítkový logaritmus, exponenciála</td></tr>
+                            <tr><td><code>pi</code> / <code>π</code>, <code>e</code>, <code>0,5x</code></td><td>Konstanty, desetinná čárka i tečka</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Bez rozsahu osy x se funkce kreslí od −10 do 10 (nebo podle bodů/<code>od</code>/<code>do</code> v grafu), osa y se přizpůsobí hodnotám — u funkcí s asymptotou (<code>1/x</code>, <code>tg x</code>) se extrémní hodnoty ignorují, ale lepší je zadat rozsah <code>y</code> ručně. Kde funkce není definovaná (<code>sqrt</code> záporného čísla, dělení nulou), čára se přeruší. Když se předpis nepodaří přečíst, pod grafem se ukáže hláška, co je špatně.</p>
+
                     <h6>Body, čáry a legenda</h6>
                     <table class="fl-table">
                         <tbody>

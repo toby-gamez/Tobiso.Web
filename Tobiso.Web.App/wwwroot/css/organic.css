@@ -924,6 +924,12 @@ a.sage-tint {
     font-size: 15px;
 }
 
+.post-graph-warning {
+    margin-top: var(--space-2);
+    font-size: 13px;
+    color: var(--color-accent-900);
+}
+
 .post-graph-error {
     margin: var(--space-6) 0;
     padding: var(--space-3) var(--space-4);

@@ -113,6 +113,7 @@ public static class GraphRenderer
 
     private sealed record Series(string? Name, List<(double X, double Y)> Points, bool Smooth, bool Dashed, bool ShowDots, string Color);
     private sealed record Marker(string? Name, double X, double Y, string Color);
+    private sealed record FunctionPlot(string? Name, Func<double, double> F, double? From, double? To, bool Dashed, string Color);
 
     private sealed class Graph
     {
@@ -120,7 +121,9 @@ public static class GraphRenderer
         public readonly Axis Y = new();
         public readonly List<Series> Series = [];
         public readonly List<Marker> Markers = [];
+        public readonly List<FunctionPlot> Functions = [];
         public readonly List<string> Notes = [];
+        public readonly List<string> Errors = [];
         public string? Title;
         public bool HasAxis;
     }
@@ -155,7 +158,7 @@ public static class GraphRenderer
                     break;
                 case "curve" or "krivka" or "line" or "cara":
                 {
-                    var (name, argColor) = ParseArgs(args);
+                    var (name, argColor, _, _) = ParseArgs(args);
                     var points = PointRegex.Matches(value).Select(p => (ParseNum(p.Groups["x"].Value), ParseNum(p.Groups["y"].Value))).ToList();
                     if (points.Count == 0) break;
 
@@ -177,7 +180,7 @@ public static class GraphRenderer
                 }
                 case "point" or "bod":
                 {
-                    var (name, argColor) = ParseArgs(args);
+                    var (name, argColor, _, _) = ParseArgs(args);
                     var p = PointRegex.Match(value);
                     if (!p.Success) break;
 
@@ -185,6 +188,35 @@ public static class GraphRenderer
                     foreach (var token in PointRegex.Replace(value, " ").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
                         color ??= ResolveColor(token);
                     graph.Markers.Add(new Marker(name, ParseNum(p.Groups["x"].Value), ParseNum(p.Groups["y"].Value),
+                        color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
+                    break;
+                }
+                case "function" or "funkce" or "fce":
+                {
+                    var (name, argColor, from, to) = ParseArgs(args);
+
+                    // Trailing words that are options or colours ("… RED dashed"); the rest is the formula.
+                    var words = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).ToList();
+                    bool dashed = false;
+                    string? color = argColor;
+                    while (words.Count > 1)
+                    {
+                        var last = words[^1];
+                        var option = Normalize(last);
+                        if (option is "dashed" or "carkovana" or "prerusovana") dashed = true;
+                        else if (option is "linear" or "linearni" or "smooth" or "hladka" or "nodots" or "bezbodu") { }
+                        else if (ResolveColor(last) is { } c) color ??= c;
+                        else break;
+                        words.RemoveAt(words.Count - 1);
+                    }
+
+                    var formula = string.Join(" ", words);
+                    if (!GraphExpression.TryParse(formula, out var fn, out var error))
+                    {
+                        graph.Errors.Add($"Funkci „{formula}“ se nepodařilo přečíst: {error}.");
+                        break;
+                    }
+                    graph.Functions.Add(new FunctionPlot(name ?? formula, fn, from, to, dashed,
                         color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
                     break;
                 }
@@ -217,13 +249,16 @@ public static class GraphRenderer
         }
     }
 
-    // "(name: robot1, color: RED)" or just "(robot1)".
-    private static (string? Name, string? Color) ParseArgs(string args)
+    // "(name: robot1, color: RED)", just "(robot1)", or for functions "(od: 0, do: 6,28)".
+    // A comma splits arguments only before a "key:" or when followed by a space, so decimal
+    // commas ("od: 0,5") survive.
+    private static (string? Name, string? Color, double? From, double? To) ParseArgs(string args)
     {
         string? name = null, color = null;
-        if (args.Length == 0) return (name, color);
+        double? from = null, to = null;
+        if (args.Length == 0) return (name, color, from, to);
 
-        foreach (var part in args.Split(','))
+        foreach (var part in Regex.Split(args, @",(?=\s*[\p{L}_]+\s*:)|,\s+"))
         {
             var kv = part.Split(':', 2);
             if (kv.Length == 1)
@@ -238,9 +273,11 @@ public static class GraphRenderer
             if (v.Length == 0) continue;
             if (k is "name" or "nazev" or "jmeno" or "popisek" or "label") name = v;
             else if (k is "color" or "colour" or "barva") color = ResolveColor(v);
+            else if (k is "from" or "od" && Regex.IsMatch(v, $"^{Num}$")) from = ParseNum(v);
+            else if (k is "to" or "do" && Regex.IsMatch(v, $"^{Num}$")) to = ParseNum(v);
         }
 
-        return (name, color);
+        return (name, color, from, to);
     }
 
     private static string? ResolveColor(string token)
@@ -276,17 +313,29 @@ public static class GraphRenderer
     private static string Render(string body, string id)
     {
         var g = Parse(body);
-        if (!g.HasAxis && g.Series.Count == 0 && g.Markers.Count == 0)
-            return "<div class=\"post-graph-error\">Graf se nepodařilo vykreslit – chybí osy (<code>x: 0-10</code>) i data (<code>curve: [0;0] [1;1]</code>).</div>";
+        if (!g.HasAxis && g.Series.Count == 0 && g.Markers.Count == 0 && g.Functions.Count == 0)
+        {
+            var reason = g.Errors.Count > 0
+                ? Enc(string.Join(" ", g.Errors))
+                : "Chybí osy (<code>x: 0-10</code>) i data (<code>curve: [0;0] [1;1]</code>).";
+            return $"<div class=\"post-graph-error\">Graf se nepodařilo vykreslit – {reason}</div>";
+        }
 
-        var allX = g.Series.SelectMany(s => s.Points.Select(p => p.X)).Concat(g.Markers.Select(p => p.X)).ToList();
-        var allY = g.Series.SelectMany(s => s.Points.Select(p => p.Y)).Concat(g.Markers.Select(p => p.Y)).ToList();
+        var allX = g.Series.SelectMany(s => s.Points.Select(p => p.X)).Concat(g.Markers.Select(p => p.X))
+            .Concat(g.Functions.SelectMany(f => new[] { f.From, f.To }).OfType<double>()).ToList();
+        // A function on its own (no range, no domain, no points) gets a symmetric -10..10 window.
+        if (allX.Count == 0 && g.Functions.Count > 0) allX.AddRange([-10, 10]);
         var (xMin, xMax) = ResolveRange(g.X, allX);
-        var (yMin, yMax) = ResolveRange(g.Y, allY);
         var xStep = ResolveStep(g.X.Step, xMin, xMax);
-        var yStep = ResolveStep(g.Y.Step, yMin, yMax);
         // Every step gets a labelled tick and the axes end on one, so e.g. "0-45 (10)" runs to 50.
         (xMin, xMax) = SnapToStep(xMin, xMax, xStep);
+
+        // Functions are sampled once the x range is known; their values then feed the y range.
+        var samples = g.Functions.Select(f => SampleFunction(f, xMin, xMax)).ToList();
+        var allY = g.Series.SelectMany(s => s.Points.Select(p => p.Y)).Concat(g.Markers.Select(p => p.Y)).ToList();
+        allY.AddRange(FunctionYExtent(samples));
+        var (yMin, yMax) = ResolveRange(g.Y, allY);
+        var yStep = ResolveStep(g.Y.Step, yMin, yMax);
         (yMin, yMax) = SnapToStep(yMin, yMax, yStep);
 
         double Sx(double x) => MarginLeft + (x - xMin) / (xMax - xMin) * PlotW;
@@ -343,7 +392,7 @@ public static class GraphRenderer
             svg.Append($"<line class=\"pg-axis\" x1=\"{F(axisX - 5)}\" y1=\"{F(sy)}\" x2=\"{F(axisX)}\" y2=\"{F(sy)}\" stroke=\"#444\"/>");
             if (interiorOrigin && y == 0 || Math.Round(y / yStep) % yEvery != 0) continue;
             // Right under the crossing the "0" of the origin already sits there.
-            if (interiorOrigin && sy > axisY && sy - axisY < 34) continue;
+            if (interiorOrigin && sy > axisY && sy - axisY < 44) continue;
             svg.Append($"<text class=\"pg-tick\" x=\"{F(axisX - 10)}\" y=\"{F(sy)}\" dy=\"0.35em\" text-anchor=\"end\" font-size=\"14\">{FormatTick(y, yStep)}</text>");
         }
         if (interiorOrigin)
@@ -380,6 +429,13 @@ public static class GraphRenderer
             var dash = s.Dashed ? " stroke-dasharray=\"8 6\"" : "";
             svg.Append($"<path d=\"{BuildPath(s, Sx, Sy)}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}/>");
         }
+        for (var i = 0; i < g.Functions.Count; i++)
+        {
+            var path = BuildFunctionPath(samples[i], Sx, Sy, MarginTop, plotBottom);
+            if (path.Length == 0) continue;
+            var dash = g.Functions[i].Dashed ? " stroke-dasharray=\"8 6\"" : "";
+            svg.Append($"<path d=\"{path}\" fill=\"none\" stroke=\"{Enc(g.Functions[i].Color)}\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}/>");
+        }
         // Each authored point of a curve is a visible dot on top of the line ("nodots" turns it off).
         foreach (var s in g.Series.Where(ser => ser.ShowDots && ser.Points.Count > 1))
         {
@@ -401,6 +457,7 @@ public static class GraphRenderer
         html.Append(svg);
 
         var legend = g.Series.Where(s => !string.IsNullOrEmpty(s.Name)).Select(s => (s.Name!, s.Color, IsPoint: false))
+            .Concat(g.Functions.Select(f => (f.Name!, f.Color, IsPoint: false)))
             .Concat(g.Markers.Where(p => !string.IsNullOrEmpty(p.Name)).Select(p => (p.Name!, p.Color, IsPoint: true)))
             .ToList();
         if (legend.Count > 0)
@@ -414,6 +471,9 @@ public static class GraphRenderer
             html.Append("</div>");
         }
 
+        foreach (var error in g.Errors)
+            html.Append($"<div class=\"post-graph-warning\">{Enc(error)}</div>");
+
         if (g.Notes.Count > 0)
         {
             html.Append("<figcaption>");
@@ -423,6 +483,60 @@ public static class GraphRenderer
         }
         html.Append("</figure>");
         return html.ToString();
+    }
+
+    private const int FunctionSamples = 600;
+
+    // Evaluates f across its domain clipped to the visible x range; NaN marks gaps (outside
+    // the function's domain, e.g. sqrt of a negative, or 1/0).
+    private static List<(double X, double Y)> SampleFunction(FunctionPlot f, double xMin, double xMax)
+    {
+        var lo = Math.Max(xMin, f.From ?? xMin);
+        var hi = Math.Min(xMax, f.To ?? xMax);
+        var result = new List<(double X, double Y)>();
+        if (hi <= lo) return result;
+
+        for (var i = 0; i <= FunctionSamples; i++)
+        {
+            var x = lo + (hi - lo) * i / FunctionSamples;
+            double y;
+            try { y = f.F(x); } catch { y = double.NaN; }
+            result.Add((x, double.IsFinite(y) ? y : double.NaN));
+        }
+        return result;
+    }
+
+    // y extent of the sampled functions for the automatic y range, ignoring the outer 2 % on each
+    // side so an asymptote (1/x, tan x) doesn't squash the rest of the graph into a flat line.
+    private static IEnumerable<double> FunctionYExtent(List<List<(double X, double Y)>> samples)
+    {
+        var ys = samples.SelectMany(s => s.Select(p => p.Y)).Where(double.IsFinite).OrderBy(y => y).ToList();
+        if (ys.Count == 0) return [];
+        var lo = ys[(int)Math.Floor((ys.Count - 1) * 0.02)];
+        var hi = ys[(int)Math.Ceiling((ys.Count - 1) * 0.98)];
+        return [lo, hi];
+    }
+
+    private static string BuildFunctionPath(List<(double X, double Y)> samples, Func<double, double> sx, Func<double, double> sy,
+        double top, double bottom)
+    {
+        // Keep off-screen points finite and not astronomically far away; the clip path hides them.
+        var limitTop = top - 2 * (bottom - top);
+        var limitBottom = bottom + 2 * (bottom - top);
+
+        var sb = new StringBuilder();
+        double? prevY = null;
+        foreach (var (x, y) in samples)
+        {
+            if (double.IsNaN(y)) { prevY = null; continue; }
+            var py = Math.Clamp(sy(y), limitTop, limitBottom);
+            // Jumping from far above to far below the plot (or back) between neighbouring samples
+            // is an asymptote, not a steep line - lift the pen instead of drawing a vertical bar.
+            var jump = prevY is { } p && (p < top && py > bottom || p > bottom && py < top);
+            sb.Append(prevY == null || jump ? " M" : " L").Append(F(sx(x))).Append(',').Append(F(py));
+            prevY = py;
+        }
+        return sb.ToString().Trim();
     }
 
     private static (double Min, double Max) ResolveRange(Axis axis, List<double> data)
