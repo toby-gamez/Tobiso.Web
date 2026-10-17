@@ -136,6 +136,7 @@ Zdroj: Wikipedia</pre>
 
                 <section class="fl-section">
                     <h6>Graf</h6>
+                    <p class="fl-note">Graf se popíše textem mezi značky <code>[graf…]</code> a <code>[/graf…]</code> a na webu i v PDF se vykreslí jako obrázek (SVG), který se přizpůsobí světlému i tmavému režimu.</p>
                     <pre class="fl-pre">[graf1]
 title: Pohyb robotů
 x(t [s]): 0-10
@@ -145,17 +146,68 @@ curve2(name: robot2): [0;5] [4;30] [10;45] smooth BLUE dashed
 point1(name: A): [5;8] LIGHT_BLUE
 note: Červená křivka zobrazuje rychlost
 [/graf1]</pre>
+
                     <table class="fl-table">
                         <tbody>
-                            <tr><td><code>[graf1]</code> … <code>[/graf1]</code></td><td>Začátek a konec grafu — název musí začínat „graf" a uzavírací značka musí mít stejný název (<code>[grafRychlost]</code> … <code>[/grafRychlost]</code>)</td></tr>
-                            <tr><td><code>x(popisek): od-do (krok)</code></td><td>Osa x (stejně <code>y</code>). Popisek v závorce je nepovinný, krok popisků taky — bez něj se zvolí automaticky. Bez rozsahu se osa přizpůsobí datům — při samých kladných číslech se zobrazí jen 1. kvadrant, záporné hodnoty přidají jen ty kvadranty, které jsou potřeba (osy se pak kříží v počátku).</td></tr>
-                            <tr><td><code>curve1(name: jméno): [x;y] [x;y] …</code></td><td>Křivka bodů. Za body můžeš dát <code>linear</code> (lomená čára, výchozí) nebo <code>smooth</code> (hladká), <code>dashed</code> (čárkovaná) a barvu. Jméno se ukáže v legendě.</td></tr>
-                            <tr><td><code>point1(name: A): [x;y] BARVA</code></td><td>Samostatný bod, jméno se vypíše vedle něj</td></tr>
-                            <tr><td><code>note: text</code> / <code>title: text</code></td><td>Popisek pod grafem (může jich být víc) / nadpis nad grafem</td></tr>
-                            <tr><td><code>// komentář</code></td><td>Zbytek řádku se ignoruje</td></tr>
+                            <tr><td><code>[graf1]</code> … <code>[/graf1]</code></td><td>Začátek a konec grafu. Každá značka musí být na samostatném řádku. Název musí začínat „graf" (může pokračovat písmeny, čísly, <code>_</code> nebo <code>-</code>, např. <code>[grafRychlost]</code>) a uzavírací značka musí mít <b>stejný</b> název. V jednom článku může být grafů libovolně mnoho. Uvnitř bloku kódu <code>```</code> se graf nevykreslí.</td></tr>
+                            <tr><td><code>x(popisek): od-do (krok)</code><br /><code>y(popisek): od-do (krok)</code></td><td>Osy. Popisek v závorce se vypíše u osy a je nepovinný (<code>x: 0-10</code>). Krok popisků v závorce za rozsahem je taky nepovinný — bez něj se zvolí „hezký" krok automaticky (1, 2, 5, 10…); příliš malý krok (víc než 40 popisků) se ignoruje.</td></tr>
+                            <tr><td><code>curve1(name: jméno): [x;y] [x;y] … typ BARVA</code></td><td>Křivka procházející zadanými body (v pořadí, jak jsou napsané). Za body v libovolném pořadí: typ čáry, <code>dashed</code> a barva. Křivka s jediným bodem se vykreslí jako tečka.</td></tr>
+                            <tr><td><code>point1(name: A): [x;y] BARVA</code></td><td>Samostatný bod. Jméno se vypíše vedle bodu a přidá se do legendy.</td></tr>
+                            <tr><td><code>title: text</code></td><td>Nadpis nad grafem (nepovinný)</td></tr>
+                            <tr><td><code>note: text</code></td><td>Popisek pod grafem — může jich být víc, každý na novém řádku. Funguje v něm i vzorec <code>$v = s/t$</code>.</td></tr>
+                            <tr><td><code>// komentář</code></td><td>Zbytek řádku se ignoruje (na začátku řádku nebo za mezerou, takže <code>https://…</code> v poznámce zůstane celé)</td></tr>
                         </tbody>
                     </table>
-                    <p class="fl-note">Barvy: <code>RED</code>, <code>DARK_RED</code>, <code>BLUE</code>, <code>LIGHT_BLUE</code>, <code>DARK_BLUE</code>, <code>GREEN</code>, <code>LIGHT_GREEN</code>, <code>DARK_GREEN</code>, <code>ORANGE</code>, <code>YELLOW</code>, <code>PURPLE</code>, <code>PINK</code>, <code>BROWN</code>, <code>GRAY</code>, <code>BLACK</code> (i česky: <code>CERVENA</code>, <code>MODRA</code>, <code>SVETLE_MODRA</code>…) nebo hex <code>#1e90ff</code>. Bez barvy se použije další barva z palety. Desetinná čísla piš s čárkou nebo tečkou (<code>[2,5;3]</code>), záporné rozsahy jako <code>-5-5</code>. Číslo za <code>curve</code>/<code>point</code> je jen pro přehlednost.</p>
+                    <p class="fl-note">Klíčová slova jdou psát i česky a bez ohledu na velikost písmen a diakritiku: <code>krivka</code> / <code>cara</code> / <code>line</code> = <code>curve</code>, <code>bod</code> = <code>point</code>, <code>poznamka</code> / <code>popis</code> = <code>note</code>, <code>nazev</code> = <code>title</code>. Číslo za <code>curve</code>/<code>point</code> je jen pro tvou přehlednost a nemusí tam být.</p>
+
+                    <h6>Rozsahy os</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>0-10</code>, <code>0..10</code>, <code>0–10</code></td><td>Rozsah od–do (pomlčka, dvě tečky nebo dlouhá pomlčka)</td></tr>
+                            <tr><td><code>-20..-30</code> (doporučeno)<br /><code>-20 - -30</code>, <code>-20--30</code></td><td>Záporné rozsahy — fungují všechny tři zápisy, <code>..</code> je nejčitelnější. Závorky kolem záporných čísel (<code>(-20)-(-30)</code>) <b>nefungují</b>, kulatá závorka za rozsahem znamená krok.</td></tr>
+                            <tr><td><code>-5..5 (1)</code></td><td>Rozsah přes nulu s krokem 1</td></tr>
+                            <tr><td><code>0,5..2,5 (0,5)</code></td><td>Desetinná čísla s čárkou nebo tečkou</td></tr>
+                            <tr><td><code>30..10</code></td><td>Pořadí nevadí — vždy se vezme menší číslo jako začátek (osa 10–30)</td></tr>
+                            <tr><td><code>x(t [s]):</code> nebo bez řádku <code>x</code></td><td>Bez rozsahu se osa přizpůsobí datům a vždy obsahuje nulu</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note"><b>Kvadranty:</b> osy se kříží v počátku [0;0]. Když se rozsah dopočítává z dat, zobrazí se jen kvadranty, které jsou potřeba — při samých kladných číslech jen 1. kvadrant (osy vlevo a dole), se zápornými y i 4. kvadrant (osa x vede středem) atd. Ručně zadaný rozsah se použije přesně tak, jak je napsaný, i když v části grafu nejsou data. Rozsah, který neobsahuje nulu (např. <code>-30..-20</code>), má osu na nejbližším okraji. Popisky na osách se píšou s desetinnou čárkou; když se osy kříží uvnitř grafu, nula se v počátku vypíše jen jednou.</p>
+
+                    <h6>Body, čáry a legenda</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>[2;5]</code>, <code>[-1,5;0.25]</code></td><td>Bod [x;y] — středník mezi souřadnicemi, desetinná čárka i tečka, záporná čísla</td></tr>
+                            <tr><td><code>linear</code> (výchozí)<br /><code>linearni</code>, <code>primka</code>, <code>rovna</code></td><td>Lomená čára — rovné úsečky mezi body</td></tr>
+                            <tr><td><code>smooth</code><br /><code>curved</code>, <code>hladka</code>, <code>zakrivena</code>, <code>oblouk</code></td><td>Hladká křivka. Když body jdou zleva doprava, křivka nikdy „nepřestřelí" — vodorovný úsek (<code>[6;7] [8;7]</code>) zůstane rovný a kladné hodnoty nespadnou pod nulu. Když se x vrací zpět, vede se oblouk přes všechny body (jde nakreslit i smyčka).</td></tr>
+                            <tr><td><code>dashed</code><br /><code>carkovana</code>, <code>prerusovana</code></td><td>Čárkovaná čára (dá se kombinovat s <code>linear</code>/<code>smooth</code>)</td></tr>
+                            <tr><td><code>(name: robot1)</code> nebo <code>(robot1)</code></td><td>Jméno křivky/bodu pro legendu (také <code>nazev:</code>, <code>jmeno:</code>, <code>popisek:</code>, <code>label:</code>). Bez jména se v legendě neukáže.</td></tr>
+                            <tr><td><code>(name: robot1, color: RED)</code></td><td>Barvu jde zadat i v závorce (<code>color:</code> / <code>barva:</code>)</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Části křivek a body mimo rozsah os se oříznou na okraji grafu. Legenda se zobrazí pod grafem, jen pokud má aspoň jedna křivka nebo bod jméno.</p>
+
+                    <h6>Barvy</h6>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>RED</code> / <code>CERVENA</code>, <code>DARK_RED</code> / <code>TMAVE_CERVENA</code></td><td>Červená, tmavě červená</td></tr>
+                            <tr><td><code>BLUE</code> / <code>MODRA</code>, <code>LIGHT_BLUE</code> / <code>SVETLE_MODRA</code>, <code>DARK_BLUE</code> / <code>TMAVE_MODRA</code></td><td>Modrá, světle modrá, tmavě modrá</td></tr>
+                            <tr><td><code>GREEN</code> / <code>ZELENA</code>, <code>LIGHT_GREEN</code> / <code>SVETLE_ZELENA</code>, <code>DARK_GREEN</code> / <code>TMAVE_ZELENA</code></td><td>Zelená, světle zelená, tmavě zelená</td></tr>
+                            <tr><td><code>ORANGE</code> / <code>ORANZOVA</code>, <code>YELLOW</code> / <code>ZLUTA</code></td><td>Oranžová, žlutá</td></tr>
+                            <tr><td><code>PURPLE</code> / <code>FIALOVA</code>, <code>PINK</code> / <code>RUZOVA</code>, <code>BROWN</code> / <code>HNEDA</code></td><td>Fialová, růžová, hnědá</td></tr>
+                            <tr><td><code>GRAY</code> / <code>GREY</code> / <code>SEDA</code></td><td>Šedá</td></tr>
+                            <tr><td><code>BLACK</code> / <code>CERNA</code>, <code>WHITE</code> / <code>BILA</code></td><td>Barva textu — v tmavém režimu se sama přepne, aby byla vidět</td></tr>
+                            <tr><td><code>#1e90ff</code>, <code>#f00</code></td><td>Libovolná barva v hex zápisu</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Na velikosti písmen a diakritice nezáleží (<code>Červená</code>, <code>light-blue</code> fungují). Bez barvy dostane každá křivka/bod další barvu z palety (červená, modrá, zelená, oranžová, fialová…).</p>
+
+                    <h6>Na co si dát pozor</h6>
+                    <ul class="fl-note">
+                        <li>Neznámé nebo překlepnuté řádky se tiše ignorují — když se něco neukáže, zkontroluj název klíče a dvojtečku za ním.</li>
+                        <li>Když v bloku nejsou osy ani žádná data, místo grafu se ukáže rámeček s chybou.</li>
+                        <li>Do popisků os nepiš vzorce <code>$…$</code> — vzorce fungují jen v <code>title</code> a <code>note</code>. Lomítko jako <code>m/s</code> je v popiscích v pořádku (nezmění se na zlomek).</li>
+                        <li>Zlomky, šipky <code>-&gt;</code> ani jiná pravidla formátování se uvnitř grafu nepoužijí.</li>
+                    </ul>
                 </section>
 
                 <section class="fl-section">
