@@ -779,16 +779,30 @@ a.sage-tint {
 }
 
 /* Graph block ([graf1] ... [/graf1], rendered by Services/GraphRenderer.cs) */
+/* Placed like .post-figure images: floated right with prose wrapping on the left,
+   full-width on mobile, click opens it full-screen (js/image-lightbox.js). */
 .post-graph {
-    clear: both;
-    margin: var(--space-8) 0;
-    max-width: 68ch;
+    float: right;
+    clear: right;
+    width: 300px;
+    max-width: 100%;
+    margin: 0 0 var(--space-5) var(--space-6);
     color: var(--color-text);
+    cursor: zoom-in;
+}
+
+@media (max-width: 640px) {
+    .post-graph {
+        float: none;
+        clear: both;
+        width: 100%;
+        margin: var(--space-8) 0;
+    }
 }
 
 .post-graph-title {
     font-family: var(--font-heading);
-    font-size: 18px;
+    font-size: 16px;
     margin-bottom: var(--space-2);
 }
 
@@ -813,11 +827,27 @@ a.sage-tint {
 
 .post-graph-svg .pg-tick {
     fill: var(--color-neutral-700);
+    font-size: 21px;
 }
 
 .post-graph-svg .pg-label,
 .post-graph-svg .pg-point-label {
     fill: var(--color-text);
+    font-size: 23px;
+}
+
+/* SVG font sizes are in viewBox units, so the small inline figure (~300px wide) needs
+   bigger numbers to stay legible; the enlarged lightbox copy goes back to normal
+   (only on wide screens - on a phone the lightbox is no bigger than the inline figure). */
+@media (min-width: 641px) {
+    .post-graph--lightbox .post-graph-svg .pg-tick {
+        font-size: 15px;
+    }
+
+    .post-graph--lightbox .post-graph-svg .pg-label,
+    .post-graph--lightbox .post-graph-svg .pg-point-label {
+        font-size: 16px;
+    }
 }
 
 .post-graph-svg .pg-point {
@@ -829,7 +859,7 @@ a.sage-tint {
     flex-wrap: wrap;
     gap: var(--space-2) var(--space-4);
     margin-top: var(--space-2);
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .post-graph-legend-item {
@@ -856,8 +886,42 @@ a.sage-tint {
     flex-direction: column;
     gap: 2px;
     margin-top: var(--space-2);
-    font-size: 14px;
+    font-size: 13px;
     color: var(--color-neutral-700);
+}
+
+/* Enlarged copy inside the lightbox: on a page-coloured card so the theme-coloured
+   axes/text stay readable over the dark backdrop. */
+.img-lightbox-frame--graph {
+    box-sizing: border-box;
+    width: min(92vw, 1000px);
+    max-height: 88vh;
+    overflow: auto;
+    padding: var(--space-5);
+    line-height: normal;
+    background: var(--color-bg);
+    color: var(--color-text);
+    cursor: zoom-out;
+}
+
+.post-graph.post-graph--lightbox {
+    float: none;
+    width: 100%;
+    margin: 0;
+    cursor: inherit;
+}
+
+.post-graph--lightbox .post-graph-svg {
+    max-height: 70vh;
+}
+
+.post-graph--lightbox .post-graph-title {
+    font-size: 20px;
+}
+
+.post-graph--lightbox .post-graph-legend,
+.post-graph--lightbox figcaption {
+    font-size: 15px;
 }
 
 .post-graph-error {
