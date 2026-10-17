@@ -291,6 +291,16 @@ public static class GraphRenderer
         var plotBottom = MarginTop + PlotH;
         var plotRight = MarginLeft + PlotW;
 
+        // Axes cross at the origin. With only non-negative data (auto range) the origin is the
+        // bottom-left corner, so just the 1st quadrant is drawn; negative values extend the range
+        // and the axes move inside, showing only the quadrants that are actually needed.
+        var axisY = Sy(Math.Clamp(0, yMin, yMax)); // screen y of the x axis
+        var axisX = Sx(Math.Clamp(0, xMin, xMax)); // screen x of the y axis
+        var xAxisAtEdge = axisY >= plotBottom - 0.5;
+        var yAxisAtEdge = axisX <= MarginLeft + 0.5;
+        // Origin strictly inside: print a single "0" at the crossing instead of one per axis.
+        var interiorOrigin = xMin < 0 && xMax > 0 && yMin < 0 && yMax > 0;
+
         var aria = g.Title ?? (g.Notes.Count > 0 ? g.Notes[0] : "Graf");
         var svg = new StringBuilder();
         svg.Append($"<svg class=\"post-graph-svg\" viewBox=\"0 0 {F(Width)} {F(Height)}\" role=\"img\" aria-label=\"{Enc(aria)}\" xmlns=\"http://www.w3.org/2000/svg\">");
@@ -300,30 +310,42 @@ public static class GraphRenderer
         foreach (var x in Ticks(xMin, xMax, xStep))
         {
             var sx = Sx(x);
-            if (sx > MarginLeft + 0.5)
+            if (Math.Abs(sx - axisX) > 0.5)
                 svg.Append($"<line class=\"pg-grid\" x1=\"{F(sx)}\" y1=\"{F(MarginTop)}\" x2=\"{F(sx)}\" y2=\"{F(plotBottom)}\" stroke=\"#ddd\"/>");
-            svg.Append($"<line class=\"pg-axis\" x1=\"{F(sx)}\" y1=\"{F(plotBottom)}\" x2=\"{F(sx)}\" y2=\"{F(plotBottom + 5)}\" stroke=\"#444\"/>");
-            svg.Append($"<text class=\"pg-tick\" x=\"{F(sx)}\" y=\"{F(plotBottom + 20)}\" text-anchor=\"middle\" font-size=\"14\">{FormatTick(x, xStep)}</text>");
+            svg.Append($"<line class=\"pg-axis\" x1=\"{F(sx)}\" y1=\"{F(axisY)}\" x2=\"{F(sx)}\" y2=\"{F(axisY + 5)}\" stroke=\"#444\"/>");
+            if (interiorOrigin && x == 0) continue;
+            svg.Append($"<text class=\"pg-tick\" x=\"{F(sx)}\" y=\"{F(axisY + 20)}\" text-anchor=\"middle\" font-size=\"14\">{FormatTick(x, xStep)}</text>");
         }
         foreach (var y in Ticks(yMin, yMax, yStep))
         {
             var sy = Sy(y);
-            if (sy < plotBottom - 0.5)
+            if (Math.Abs(sy - axisY) > 0.5)
                 svg.Append($"<line class=\"pg-grid\" x1=\"{F(MarginLeft)}\" y1=\"{F(sy)}\" x2=\"{F(plotRight)}\" y2=\"{F(sy)}\" stroke=\"#ddd\"/>");
-            svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft - 5)}\" y1=\"{F(sy)}\" x2=\"{F(MarginLeft)}\" y2=\"{F(sy)}\" stroke=\"#444\"/>");
-            svg.Append($"<text class=\"pg-tick\" x=\"{F(MarginLeft - 9)}\" y=\"{F(sy)}\" dy=\"0.35em\" text-anchor=\"end\" font-size=\"14\">{FormatTick(y, yStep)}</text>");
+            svg.Append($"<line class=\"pg-axis\" x1=\"{F(axisX - 5)}\" y1=\"{F(sy)}\" x2=\"{F(axisX)}\" y2=\"{F(sy)}\" stroke=\"#444\"/>");
+            if (interiorOrigin && y == 0) continue;
+            svg.Append($"<text class=\"pg-tick\" x=\"{F(axisX - 9)}\" y=\"{F(sy)}\" dy=\"0.35em\" text-anchor=\"end\" font-size=\"14\">{FormatTick(y, yStep)}</text>");
         }
+        if (interiorOrigin)
+            svg.Append($"<text class=\"pg-tick\" x=\"{F(axisX - 9)}\" y=\"{F(axisY + 20)}\" text-anchor=\"end\" font-size=\"14\">0</text>");
 
         // Axes with arrow heads, drawn slightly past the plot area.
-        svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft)}\" y1=\"{F(plotBottom)}\" x2=\"{F(plotRight + 14)}\" y2=\"{F(plotBottom)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
-        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(plotRight + 20)},{F(plotBottom)} {F(plotRight + 11)},{F(plotBottom - 4)} {F(plotRight + 11)},{F(plotBottom + 4)}\" fill=\"#444\"/>");
-        svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft)}\" y1=\"{F(plotBottom)}\" x2=\"{F(MarginLeft)}\" y2=\"{F(MarginTop - 14)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
-        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(MarginLeft)},{F(MarginTop - 20)} {F(MarginLeft - 4)},{F(MarginTop - 11)} {F(MarginLeft + 4)},{F(MarginTop - 11)}\" fill=\"#444\"/>");
+        svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft)}\" y1=\"{F(axisY)}\" x2=\"{F(plotRight + 14)}\" y2=\"{F(axisY)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
+        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(plotRight + 20)},{F(axisY)} {F(plotRight + 11)},{F(axisY - 4)} {F(plotRight + 11)},{F(axisY + 4)}\" fill=\"#444\"/>");
+        svg.Append($"<line class=\"pg-axis\" x1=\"{F(axisX)}\" y1=\"{F(plotBottom)}\" x2=\"{F(axisX)}\" y2=\"{F(MarginTop - 14)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
+        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(axisX)},{F(MarginTop - 20)} {F(axisX - 4)},{F(MarginTop - 11)} {F(axisX + 4)},{F(MarginTop - 11)}\" fill=\"#444\"/>");
 
+        // Axis labels: along the edge when the axis is on the plot border, otherwise next to its arrow.
         if (g.X.Label.Length > 0)
-            svg.Append($"<text class=\"pg-label\" x=\"{F(MarginLeft + PlotW / 2)}\" y=\"{F(Height - 10)}\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.X.Label)}</text>");
+            svg.Append(xAxisAtEdge
+                ? $"<text class=\"pg-label\" x=\"{F(MarginLeft + PlotW / 2)}\" y=\"{F(Height - 10)}\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.X.Label)}</text>"
+                : $"<text class=\"pg-label\" x=\"{F(plotRight + 20)}\" y=\"{F(axisY - 12)}\" text-anchor=\"end\" font-size=\"15\">{Enc(g.X.Label)}</text>");
         if (g.Y.Label.Length > 0)
-            svg.Append($"<text class=\"pg-label\" transform=\"translate(18 {F(MarginTop + PlotH / 2)}) rotate(-90)\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.Y.Label)}</text>");
+            svg.Append(yAxisAtEdge
+                ? $"<text class=\"pg-label\" transform=\"translate(18 {F(MarginTop + PlotH / 2)}) rotate(-90)\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.Y.Label)}</text>"
+                : axisX >= plotRight - 0.5
+                    // y axis on the right edge (only negative x): keep the label inside the image
+                    ? $"<text class=\"pg-label\" x=\"{F(axisX - 12)}\" y=\"{F(MarginTop - 6)}\" text-anchor=\"end\" font-size=\"15\">{Enc(g.Y.Label)}</text>"
+                    : $"<text class=\"pg-label\" x=\"{F(axisX + 12)}\" y=\"{F(MarginTop - 6)}\" text-anchor=\"start\" font-size=\"15\">{Enc(g.Y.Label)}</text>");
 
         svg.Append($"<g clip-path=\"url(#{id}-clip)\">");
         foreach (var s in g.Series)
