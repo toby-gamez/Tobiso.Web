@@ -135,6 +135,30 @@ Zdroj: Wikipedia</pre>
                 </section>
 
                 <section class="fl-section">
+                    <h6>Graf</h6>
+                    <pre class="fl-pre">[graf1]
+title: Pohyb robotů
+x(t [s]): 0-10
+y(v [m/s]): 0-50 (10)   // (10) = popisky po desítkách
+curve1(name: robot1): [0;0] [6;7] [8;7] linear RED
+curve2(name: robot2): [0;5] [4;30] [10;45] smooth BLUE dashed
+point1(name: A): [5;8] LIGHT_BLUE
+note: Červená křivka zobrazuje rychlost
+[/graf1]</pre>
+                    <table class="fl-table">
+                        <tbody>
+                            <tr><td><code>[graf1]</code> … <code>[/graf1]</code></td><td>Začátek a konec grafu — název musí začínat „graf" a uzavírací značka musí mít stejný název (<code>[grafRychlost]</code> … <code>[/grafRychlost]</code>)</td></tr>
+                            <tr><td><code>x(popisek): od-do (krok)</code></td><td>Osa x (stejně <code>y</code>). Popisek v závorce je nepovinný, krok popisků taky — bez něj se zvolí automaticky. Bez rozsahu se osa přizpůsobí datům.</td></tr>
+                            <tr><td><code>curve1(name: jméno): [x;y] [x;y] …</code></td><td>Křivka bodů. Za body můžeš dát <code>linear</code> (lomená čára, výchozí) nebo <code>smooth</code> (hladká), <code>dashed</code> (čárkovaná) a barvu. Jméno se ukáže v legendě.</td></tr>
+                            <tr><td><code>point1(name: A): [x;y] BARVA</code></td><td>Samostatný bod, jméno se vypíše vedle něj</td></tr>
+                            <tr><td><code>note: text</code> / <code>title: text</code></td><td>Popisek pod grafem (může jich být víc) / nadpis nad grafem</td></tr>
+                            <tr><td><code>// komentář</code></td><td>Zbytek řádku se ignoruje</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="fl-note">Barvy: <code>RED</code>, <code>DARK_RED</code>, <code>BLUE</code>, <code>LIGHT_BLUE</code>, <code>DARK_BLUE</code>, <code>GREEN</code>, <code>LIGHT_GREEN</code>, <code>DARK_GREEN</code>, <code>ORANGE</code>, <code>YELLOW</code>, <code>PURPLE</code>, <code>PINK</code>, <code>BROWN</code>, <code>GRAY</code>, <code>BLACK</code> (i česky: <code>CERVENA</code>, <code>MODRA</code>, <code>SVETLE_MODRA</code>…) nebo hex <code>#1e90ff</code>. Bez barvy se použije další barva z palety. Desetinná čísla piš s čárkou nebo tečkou (<code>[2,5;3]</code>), záporné rozsahy jako <code>-5-5</code>. Číslo za <code>curve</code>/<code>point</code> je jen pro přehlednost.</p>
+                </section>
+
+                <section class="fl-section">
                     <h6>Zmínky osob</h6>
                     <p class="fl-note">Stačí do textu napsat jméno nebo přezdívku známé osoby přirozeně — žádná speciální syntaxe není potřeba, systém jméno sám rozpozná a připojí k němu odkaz.</p>
                 </section>

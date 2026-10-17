@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.App.Services;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Shared.Interfaces;
 
@@ -139,6 +140,10 @@ public class PdfController : ControllerBase
     private async Task<string> TransformMarkdownContent(string? content)    {
         if (string.IsNullOrEmpty(content)) return string.Empty;
 
+        // Render [grafN]...[/grafN] blocks to SVG first (mirrors MarkdownContent.razor)
+        var graphs = new List<string>();
+        content = GraphRenderer.ExtractBlocks(content, graphs);
+
         // Replace markdown mailto links before processing
         content = ReplaceMarkdownMailtoInText(content);
         
@@ -264,6 +269,7 @@ public class PdfController : ControllerBase
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
         html = ConvertMarkdownTablesToHtml(html);
+        html = GraphRenderer.RestoreBlocks(html, graphs);
         return html;
     }
 

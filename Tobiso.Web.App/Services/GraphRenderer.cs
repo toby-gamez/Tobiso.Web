@@ -1,0 +1,524 @@
+using System.Globalization;
+using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace Tobiso.Web.App.Services;
+
+/// <summary>
+/// Renders author-written graph blocks in post content to inline SVG:
+/// <code>
+/// [graf1]
+/// x(t [s]): 0-10
+/// y(v [m/s]): 0-50 (10)            // (10) = tick step
+/// curve1(name: robot1): [0;0] [6;7] [8;7] linear RED
+/// point1(name: A): [5;8] LIGHT_BLUE
+/// note: Červená křivka zobrazuje rychlost
+/// [/graf1]
+/// </code>
+/// The block tag must start with "graf" and be closed by the same name. Unknown
+/// lines are ignored so a typo never breaks the rest of the article. Everything
+/// is rendered server-side (no JS charting lib), and colours of axes/grid/text
+/// come from CSS classes so the graph follows the light/dark theme.
+/// </summary>
+public static class GraphRenderer
+{
+    private static readonly Regex BlockRegex = new(
+        @"^[ \t]*\[(graf[\w-]*)\][ \t]*\r?\n(.*?)^[ \t]*\[/\1\][ \t]*\r?$",
+        RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex LineRegex = new(
+        @"^(?<key>[\p{L}_][\p{L}\p{N}_]*)\s*(?:\((?<args>[^)]*)\))?\s*:\s*(?<value>.*)$",
+        RegexOptions.CultureInvariant);
+
+    private const string Num = @"-?\d+(?:[.,]\d+)?";
+
+    private static readonly Regex RangeRegex = new(
+        $@"^(?<min>{Num})\s*(?:-|–|\.\.)\s*(?<max>{Num})\s*(?:\(\s*(?<step>\d+(?:[.,]\d+)?)\s*\))?$",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex PointRegex = new(
+        $@"\[\s*(?<x>{Num})\s*;\s*(?<y>{Num})\s*\]",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex HexColorRegex = new(@"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$");
+
+    // Placeholder that survives every text pre-processing step (no slashes, arrows,
+    // dots, pipes...) and that Markdig renders as a plain <p>TOKEN</p> paragraph.
+    private const string PlaceholderPrefix = "TOBISOGRAFPLACEHOLDER";
+    private static readonly Regex PlaceholderRegex = new($@"(?:<p>\s*)?{PlaceholderPrefix}(\d+)X(?:\s*</p>)?");
+
+    private static readonly Dictionary<string, string> NamedColors = new()
+    {
+        ["RED"] = "#d1495b", ["CERVENA"] = "#d1495b",
+        ["DARK_RED"] = "#8f1d2c", ["TMAVE_CERVENA"] = "#8f1d2c",
+        ["BLUE"] = "#2f6fdf", ["MODRA"] = "#2f6fdf",
+        ["LIGHT_BLUE"] = "#3fa7e0", ["SVETLE_MODRA"] = "#3fa7e0",
+        ["DARK_BLUE"] = "#1d3f8f", ["TMAVE_MODRA"] = "#1d3f8f",
+        ["GREEN"] = "#3a9d5d", ["ZELENA"] = "#3a9d5d",
+        ["LIGHT_GREEN"] = "#7cc66e", ["SVETLE_ZELENA"] = "#7cc66e",
+        ["DARK_GREEN"] = "#22663a", ["TMAVE_ZELENA"] = "#22663a",
+        ["ORANGE"] = "#e8833a", ["ORANZOVA"] = "#e8833a",
+        ["YELLOW"] = "#d9a400", ["ZLUTA"] = "#d9a400",
+        ["PURPLE"] = "#8e5cc4", ["FIALOVA"] = "#8e5cc4",
+        ["PINK"] = "#e05a9b", ["RUZOVA"] = "#e05a9b",
+        ["BROWN"] = "#8a5a3b", ["HNEDA"] = "#8a5a3b",
+        ["GRAY"] = "#8a8580", ["GREY"] = "#8a8580", ["SEDA"] = "#8a8580",
+        // Black/white follow the theme's text colour so they stay visible in dark mode.
+        ["BLACK"] = "currentColor", ["CERNA"] = "currentColor",
+        ["WHITE"] = "currentColor", ["BILA"] = "currentColor",
+    };
+
+    private static readonly string[] DefaultPalette =
+        ["#d1495b", "#2f6fdf", "#3a9d5d", "#e8833a", "#8e5cc4", "#3fa7e0", "#d9a400", "#e05a9b"];
+
+    /// <summary>
+    /// Replaces every graph block in <paramref name="content"/> with a placeholder paragraph
+    /// and returns the rendered HTML for each one, in order. Run it before any other text
+    /// processing so fraction/arrow/strikethrough rules never touch the graph source, then
+    /// call <see cref="RestoreBlocks"/> as the very last step on the final HTML.
+    /// </summary>
+    public static string ExtractBlocks(string content, List<string> rendered)
+    {
+        if (string.IsNullOrEmpty(content) || content.IndexOf("[graf", StringComparison.OrdinalIgnoreCase) < 0)
+            return content;
+
+        return BlockRegex.Replace(content, m =>
+        {
+            var index = rendered.Count;
+            rendered.Add(Render(m.Groups[2].Value, $"pg{index}-{StableHash(m.Value)}"));
+            return $"\n\n{PlaceholderPrefix}{index}X\n\n";
+        });
+    }
+
+    public static string RestoreBlocks(string html, List<string> rendered)
+    {
+        if (rendered.Count == 0) return html;
+        return PlaceholderRegex.Replace(html, m =>
+        {
+            var index = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+            return index < rendered.Count ? rendered[index] : m.Value;
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Parsing
+    // ──────────────────────────────────────────────────────────────────────
+
+    private sealed class Axis
+    {
+        public string Label = "";
+        public double? Min, Max, Step;
+    }
+
+    private sealed record Series(string? Name, List<(double X, double Y)> Points, bool Smooth, bool Dashed, string Color);
+    private sealed record Marker(string? Name, double X, double Y, string Color);
+
+    private sealed class Graph
+    {
+        public readonly Axis X = new();
+        public readonly Axis Y = new();
+        public readonly List<Series> Series = [];
+        public readonly List<Marker> Markers = [];
+        public readonly List<string> Notes = [];
+        public string? Title;
+        public bool HasAxis;
+    }
+
+    private static Graph Parse(string body)
+    {
+        var graph = new Graph();
+        var colorIndex = 0;
+
+        foreach (var rawLine in Regex.Split(body, @"\r?\n"))
+        {
+            // "//" starts a comment, but only at line start or after whitespace so URLs survive.
+            var line = Regex.Replace(rawLine, @"(^|\s)//.*$", "").Trim();
+            if (line.Length == 0) continue;
+
+            var m = LineRegex.Match(line);
+            if (!m.Success) continue;
+
+            var key = Regex.Replace(Normalize(m.Groups["key"].Value), @"\d+$", "");
+            var args = m.Groups["args"].Success ? m.Groups["args"].Value.Trim() : "";
+            var value = m.Groups["value"].Value.Trim();
+
+            switch (key)
+            {
+                case "x":
+                    ParseAxis(graph.X, args, value);
+                    graph.HasAxis = true;
+                    break;
+                case "y":
+                    ParseAxis(graph.Y, args, value);
+                    graph.HasAxis = true;
+                    break;
+                case "curve" or "krivka" or "line" or "cara":
+                {
+                    var (name, argColor) = ParseArgs(args);
+                    var points = PointRegex.Matches(value).Select(p => (ParseNum(p.Groups["x"].Value), ParseNum(p.Groups["y"].Value))).ToList();
+                    if (points.Count == 0) break;
+
+                    bool smooth = false, dashed = false;
+                    string? color = argColor;
+                    foreach (var token in PointRegex.Replace(value, " ").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        switch (Normalize(token))
+                        {
+                            case "linear" or "linearni" or "primka" or "rovna": smooth = false; break;
+                            case "smooth" or "curved" or "hladka" or "zakrivena" or "oblouk": smooth = true; break;
+                            case "dashed" or "carkovana" or "prerusovana": dashed = true; break;
+                            default: color ??= ResolveColor(token); break;
+                        }
+                    }
+                    graph.Series.Add(new Series(name, points, smooth, dashed, color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
+                    break;
+                }
+                case "point" or "bod":
+                {
+                    var (name, argColor) = ParseArgs(args);
+                    var p = PointRegex.Match(value);
+                    if (!p.Success) break;
+
+                    var color = argColor;
+                    foreach (var token in PointRegex.Replace(value, " ").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                        color ??= ResolveColor(token);
+                    graph.Markers.Add(new Marker(name, ParseNum(p.Groups["x"].Value), ParseNum(p.Groups["y"].Value),
+                        color ?? DefaultPalette[colorIndex++ % DefaultPalette.Length]));
+                    break;
+                }
+                case "note" or "poznamka" or "popis":
+                    if (value.Length > 0) graph.Notes.Add(value);
+                    break;
+                case "title" or "nazev":
+                    if (value.Length > 0) graph.Title = value;
+                    break;
+            }
+        }
+
+        return graph;
+    }
+
+    private static void ParseAxis(Axis axis, string args, string value)
+    {
+        axis.Label = args;
+        var m = RangeRegex.Match(value);
+        if (!m.Success) return;
+
+        var min = ParseNum(m.Groups["min"].Value);
+        var max = ParseNum(m.Groups["max"].Value);
+        axis.Min = Math.Min(min, max);
+        axis.Max = Math.Max(min, max);
+        if (m.Groups["step"].Success)
+        {
+            var step = ParseNum(m.Groups["step"].Value);
+            if (step > 0) axis.Step = step;
+        }
+    }
+
+    // "(name: robot1, color: RED)" or just "(robot1)".
+    private static (string? Name, string? Color) ParseArgs(string args)
+    {
+        string? name = null, color = null;
+        if (args.Length == 0) return (name, color);
+
+        foreach (var part in args.Split(','))
+        {
+            var kv = part.Split(':', 2);
+            if (kv.Length == 1)
+            {
+                var bare = kv[0].Trim();
+                if (bare.Length > 0) name ??= bare;
+                continue;
+            }
+
+            var k = Normalize(kv[0]);
+            var v = kv[1].Trim();
+            if (v.Length == 0) continue;
+            if (k is "name" or "nazev" or "jmeno" or "popisek" or "label") name = v;
+            else if (k is "color" or "colour" or "barva") color = ResolveColor(v);
+        }
+
+        return (name, color);
+    }
+
+    private static string? ResolveColor(string token)
+    {
+        var t = token.Trim();
+        if (HexColorRegex.IsMatch(t)) return t;
+        var key = Normalize(t).ToUpperInvariant().Replace('-', '_');
+        return NamedColors.TryGetValue(key, out var c) ? c : null;
+    }
+
+    private static double ParseNum(string s) =>
+        double.Parse(s.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
+
+    // Lower-case + strip diacritics, so "Křivka"/"krivka" and "ČERVENÁ"/"cervena" match.
+    private static string Normalize(string s)
+    {
+        var decomposed = s.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(decomposed.Length);
+        foreach (var c in decomposed)
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Rendering
+    // ──────────────────────────────────────────────────────────────────────
+
+    private const double Width = 640, Height = 400;
+    private const double MarginLeft = 72, MarginRight = 28, MarginTop = 24, MarginBottom = 56;
+    private const double PlotW = Width - MarginLeft - MarginRight, PlotH = Height - MarginTop - MarginBottom;
+
+    private static string Render(string body, string id)
+    {
+        var g = Parse(body);
+        if (!g.HasAxis && g.Series.Count == 0 && g.Markers.Count == 0)
+            return "<div class=\"post-graph-error\">Graf se nepodařilo vykreslit – chybí osy (<code>x: 0-10</code>) i data (<code>curve: [0;0] [1;1]</code>).</div>";
+
+        var allX = g.Series.SelectMany(s => s.Points.Select(p => p.X)).Concat(g.Markers.Select(p => p.X)).ToList();
+        var allY = g.Series.SelectMany(s => s.Points.Select(p => p.Y)).Concat(g.Markers.Select(p => p.Y)).ToList();
+        var (xMin, xMax) = ResolveRange(g.X, allX);
+        var (yMin, yMax) = ResolveRange(g.Y, allY);
+        var xStep = ResolveStep(g.X.Step, xMin, xMax);
+        var yStep = ResolveStep(g.Y.Step, yMin, yMax);
+
+        double Sx(double x) => MarginLeft + (x - xMin) / (xMax - xMin) * PlotW;
+        double Sy(double y) => MarginTop + PlotH - (y - yMin) / (yMax - yMin) * PlotH;
+
+        var plotBottom = MarginTop + PlotH;
+        var plotRight = MarginLeft + PlotW;
+
+        var aria = g.Title ?? (g.Notes.Count > 0 ? g.Notes[0] : "Graf");
+        var svg = new StringBuilder();
+        svg.Append($"<svg class=\"post-graph-svg\" viewBox=\"0 0 {F(Width)} {F(Height)}\" role=\"img\" aria-label=\"{Enc(aria)}\" xmlns=\"http://www.w3.org/2000/svg\">");
+        svg.Append($"<defs><clipPath id=\"{id}-clip\"><rect x=\"{F(MarginLeft - 4)}\" y=\"{F(MarginTop - 4)}\" width=\"{F(PlotW + 8)}\" height=\"{F(PlotH + 8)}\"/></clipPath></defs>");
+
+        // Grid + tick labels. Presentation attributes are a fallback (e.g. PDF); CSS classes win on the site.
+        foreach (var x in Ticks(xMin, xMax, xStep))
+        {
+            var sx = Sx(x);
+            if (sx > MarginLeft + 0.5)
+                svg.Append($"<line class=\"pg-grid\" x1=\"{F(sx)}\" y1=\"{F(MarginTop)}\" x2=\"{F(sx)}\" y2=\"{F(plotBottom)}\" stroke=\"#ddd\"/>");
+            svg.Append($"<line class=\"pg-axis\" x1=\"{F(sx)}\" y1=\"{F(plotBottom)}\" x2=\"{F(sx)}\" y2=\"{F(plotBottom + 5)}\" stroke=\"#444\"/>");
+            svg.Append($"<text class=\"pg-tick\" x=\"{F(sx)}\" y=\"{F(plotBottom + 20)}\" text-anchor=\"middle\" font-size=\"14\">{FormatTick(x, xStep)}</text>");
+        }
+        foreach (var y in Ticks(yMin, yMax, yStep))
+        {
+            var sy = Sy(y);
+            if (sy < plotBottom - 0.5)
+                svg.Append($"<line class=\"pg-grid\" x1=\"{F(MarginLeft)}\" y1=\"{F(sy)}\" x2=\"{F(plotRight)}\" y2=\"{F(sy)}\" stroke=\"#ddd\"/>");
+            svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft - 5)}\" y1=\"{F(sy)}\" x2=\"{F(MarginLeft)}\" y2=\"{F(sy)}\" stroke=\"#444\"/>");
+            svg.Append($"<text class=\"pg-tick\" x=\"{F(MarginLeft - 9)}\" y=\"{F(sy)}\" dy=\"0.35em\" text-anchor=\"end\" font-size=\"14\">{FormatTick(y, yStep)}</text>");
+        }
+
+        // Axes with arrow heads, drawn slightly past the plot area.
+        svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft)}\" y1=\"{F(plotBottom)}\" x2=\"{F(plotRight + 14)}\" y2=\"{F(plotBottom)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
+        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(plotRight + 20)},{F(plotBottom)} {F(plotRight + 11)},{F(plotBottom - 4)} {F(plotRight + 11)},{F(plotBottom + 4)}\" fill=\"#444\"/>");
+        svg.Append($"<line class=\"pg-axis\" x1=\"{F(MarginLeft)}\" y1=\"{F(plotBottom)}\" x2=\"{F(MarginLeft)}\" y2=\"{F(MarginTop - 14)}\" stroke=\"#444\" stroke-width=\"1.5\"/>");
+        svg.Append($"<polygon class=\"pg-arrow\" points=\"{F(MarginLeft)},{F(MarginTop - 20)} {F(MarginLeft - 4)},{F(MarginTop - 11)} {F(MarginLeft + 4)},{F(MarginTop - 11)}\" fill=\"#444\"/>");
+
+        if (g.X.Label.Length > 0)
+            svg.Append($"<text class=\"pg-label\" x=\"{F(MarginLeft + PlotW / 2)}\" y=\"{F(Height - 10)}\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.X.Label)}</text>");
+        if (g.Y.Label.Length > 0)
+            svg.Append($"<text class=\"pg-label\" transform=\"translate(18 {F(MarginTop + PlotH / 2)}) rotate(-90)\" text-anchor=\"middle\" font-size=\"15\">{Enc(g.Y.Label)}</text>");
+
+        svg.Append($"<g clip-path=\"url(#{id}-clip)\">");
+        foreach (var s in g.Series)
+        {
+            var color = Enc(s.Color);
+            if (s.Points.Count == 1)
+            {
+                svg.Append($"<circle cx=\"{F(Sx(s.Points[0].X))}\" cy=\"{F(Sy(s.Points[0].Y))}\" r=\"4\" fill=\"{color}\"/>");
+                continue;
+            }
+            var dash = s.Dashed ? " stroke-dasharray=\"8 6\"" : "";
+            svg.Append($"<path d=\"{BuildPath(s, Sx, Sy)}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}/>");
+        }
+        foreach (var p in g.Markers)
+        {
+            svg.Append($"<circle class=\"pg-point\" cx=\"{F(Sx(p.X))}\" cy=\"{F(Sy(p.Y))}\" r=\"6\" fill=\"{Enc(p.Color)}\" stroke=\"#fff\" stroke-width=\"2\"/>");
+            if (!string.IsNullOrEmpty(p.Name))
+                svg.Append($"<text class=\"pg-point-label\" x=\"{F(Sx(p.X) + 9)}\" y=\"{F(Sy(p.Y) - 9)}\" font-size=\"13\" font-weight=\"600\">{Enc(p.Name)}</text>");
+        }
+        svg.Append("</g></svg>");
+
+        var html = new StringBuilder();
+        html.Append("<figure class=\"post-graph\">");
+        if (g.Title != null)
+            html.Append($"<div class=\"post-graph-title\">{Enc(g.Title)}</div>");
+        html.Append(svg);
+
+        var legend = g.Series.Where(s => !string.IsNullOrEmpty(s.Name)).Select(s => (s.Name!, s.Color, IsPoint: false))
+            .Concat(g.Markers.Where(p => !string.IsNullOrEmpty(p.Name)).Select(p => (p.Name!, p.Color, IsPoint: true)))
+            .ToList();
+        if (legend.Count > 0)
+        {
+            html.Append("<div class=\"post-graph-legend\">");
+            foreach (var (name, color, isPoint) in legend)
+            {
+                var swatchClass = isPoint ? "post-graph-swatch post-graph-swatch--point" : "post-graph-swatch";
+                html.Append($"<span class=\"post-graph-legend-item\"><span class=\"{swatchClass}\" style=\"background:{Enc(color)}\"></span>{Enc(name)}</span>");
+            }
+            html.Append("</div>");
+        }
+
+        if (g.Notes.Count > 0)
+        {
+            html.Append("<figcaption>");
+            foreach (var note in g.Notes)
+                html.Append($"<span class=\"post-graph-note\">{Enc(note)}</span>");
+            html.Append("</figcaption>");
+        }
+        html.Append("</figure>");
+        return html.ToString();
+    }
+
+    private static (double Min, double Max) ResolveRange(Axis axis, List<double> data)
+    {
+        double min, max;
+        if (axis.Min.HasValue && axis.Max.HasValue)
+        {
+            (min, max) = (axis.Min.Value, axis.Max.Value);
+        }
+        else if (data.Count > 0)
+        {
+            // No explicit range: fit the data, anchored at 0 when all values share a sign.
+            min = Math.Min(0, data.Min());
+            max = Math.Max(0, data.Max());
+            var step = NiceStep((max - min) / 8);
+            min = Math.Floor(min / step) * step;
+            max = Math.Ceiling(max / step) * step;
+        }
+        else
+        {
+            (min, max) = (0, 10);
+        }
+
+        if (max - min < 1e-9) { min -= 1; max += 1; }
+        return (min, max);
+    }
+
+    private static double ResolveStep(double? step, double min, double max)
+    {
+        var span = max - min;
+        // Ignore steps that would draw an unreadable forest of ticks.
+        if (step is > 0 && span / step.Value <= 40) return step.Value;
+        return NiceStep(span / 8);
+    }
+
+    private static double NiceStep(double raw)
+    {
+        if (raw <= 0 || double.IsNaN(raw) || double.IsInfinity(raw)) return 1;
+        var exp = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        var f = raw / exp;
+        var nice = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+        return nice * exp;
+    }
+
+    private static IEnumerable<double> Ticks(double min, double max, double step)
+    {
+        var start = Math.Ceiling(min / step - 1e-9) * step;
+        for (var i = 0; i <= 100; i++)
+        {
+            var v = start + i * step;
+            if (v > max + step * 1e-9) yield break;
+            yield return Math.Abs(v) < step * 1e-9 ? 0 : v;
+        }
+    }
+
+    // Czech number formatting (decimal comma), with as many decimals as the step needs.
+    private static string FormatTick(double v, double step)
+    {
+        var decimals = 0;
+        while (decimals < 6 && Math.Abs(step * Math.Pow(10, decimals) - Math.Round(step * Math.Pow(10, decimals))) > 1e-6)
+            decimals++;
+        return Math.Round(v, decimals).ToString("0." + new string('#', Math.Max(decimals, 1)), CultureInfo.InvariantCulture)
+            .Replace('.', ',').Replace("-", "−");
+    }
+
+    private static string BuildPath(Series s, Func<double, double> sx, Func<double, double> sy)
+    {
+        var pts = s.Points;
+        var sb = new StringBuilder();
+        sb.Append($"M{F(sx(pts[0].X))},{F(sy(pts[0].Y))}");
+
+        if (!s.Smooth || pts.Count == 2)
+        {
+            for (var i = 1; i < pts.Count; i++)
+                sb.Append($" L{F(sx(pts[i].X))},{F(sy(pts[i].Y))}");
+            return sb.ToString();
+        }
+
+        var increasingX = true;
+        for (var i = 1; i < pts.Count; i++)
+            if (pts[i].X <= pts[i - 1].X) { increasingX = false; break; }
+
+        if (increasingX)
+        {
+            // Monotone cubic (Fritsch–Carlson): smooth, but never overshoots, so flat
+            // segments stay flat and a non-negative speed never dips below zero.
+            var n = pts.Count;
+            var d = new double[n - 1];
+            for (var k = 0; k < n - 1; k++)
+                d[k] = (pts[k + 1].Y - pts[k].Y) / (pts[k + 1].X - pts[k].X);
+
+            var m = new double[n];
+            m[0] = d[0];
+            m[n - 1] = d[n - 2];
+            for (var k = 1; k < n - 1; k++)
+                m[k] = d[k - 1] * d[k] <= 0 ? 0 : (d[k - 1] + d[k]) / 2;
+
+            for (var k = 0; k < n - 1; k++)
+            {
+                if (d[k] == 0) { m[k] = 0; m[k + 1] = 0; continue; }
+                var a = m[k] / d[k];
+                var b = m[k + 1] / d[k];
+                var h = a * a + b * b;
+                if (h > 9)
+                {
+                    var t = 3 / Math.Sqrt(h);
+                    m[k] = t * a * d[k];
+                    m[k + 1] = t * b * d[k];
+                }
+            }
+
+            for (var k = 0; k < n - 1; k++)
+            {
+                var dx = (pts[k + 1].X - pts[k].X) / 3;
+                sb.Append($" C{F(sx(pts[k].X + dx))},{F(sy(pts[k].Y + m[k] * dx))}"
+                    + $" {F(sx(pts[k + 1].X - dx))},{F(sy(pts[k + 1].Y - m[k + 1] * dx))}"
+                    + $" {F(sx(pts[k + 1].X))},{F(sy(pts[k + 1].Y))}");
+            }
+            return sb.ToString();
+        }
+
+        // x not strictly increasing (loops, vertical parts): Catmull-Rom through all points.
+        var screen = pts.Select(p => (X: sx(p.X), Y: sy(p.Y))).ToList();
+        for (var i = 0; i < screen.Count - 1; i++)
+        {
+            var p0 = screen[Math.Max(i - 1, 0)];
+            var p1 = screen[i];
+            var p2 = screen[i + 1];
+            var p3 = screen[Math.Min(i + 2, screen.Count - 1)];
+            sb.Append($" C{F(p1.X + (p2.X - p0.X) / 6)},{F(p1.Y + (p2.Y - p0.Y) / 6)}"
+                + $" {F(p2.X - (p3.X - p1.X) / 6)},{F(p2.Y - (p3.Y - p1.Y) / 6)}"
+                + $" {F(p2.X)},{F(p2.Y)}");
+        }
+        return sb.ToString();
+    }
+
+    private static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Enc(string s) => WebUtility.HtmlEncode(s);
+
+    // Deterministic across processes (string.GetHashCode is randomised), keeps clipPath ids stable.
+    private static string StableHash(string s)
+    {
+        uint h = 2166136261;
+        foreach (var c in s) h = (h ^ c) * 16777619;
+        return h.ToString("x8", CultureInfo.InvariantCulture);
+    }
+}

@@ -778,6 +778,97 @@ a.sage-tint {
     color: var(--color-accent-700);
 }
 
+/* Graph block ([graf1] ... [/graf1], rendered by Services/GraphRenderer.cs) */
+.post-graph {
+    clear: both;
+    margin: var(--space-8) 0;
+    max-width: 68ch;
+    color: var(--color-text);
+}
+
+.post-graph-title {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    margin-bottom: var(--space-2);
+}
+
+.post-graph-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+}
+
+.post-graph-svg .pg-grid {
+    stroke: var(--color-divider);
+}
+
+.post-graph-svg .pg-axis {
+    stroke: var(--color-neutral-700);
+}
+
+.post-graph-svg .pg-arrow {
+    fill: var(--color-neutral-700);
+}
+
+.post-graph-svg .pg-tick {
+    fill: var(--color-neutral-700);
+}
+
+.post-graph-svg .pg-label,
+.post-graph-svg .pg-point-label {
+    fill: var(--color-text);
+}
+
+.post-graph-svg .pg-point {
+    stroke: var(--color-bg);
+}
+
+.post-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin-top: var(--space-2);
+    font-size: 14px;
+}
+
+.post-graph-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.post-graph-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.post-graph-swatch--point {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.post-graph figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-2);
+    font-size: 14px;
+    color: var(--color-neutral-700);
+}
+
+.post-graph-error {
+    margin: var(--space-6) 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px dashed var(--color-accent-600);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-accent-900);
+}
+
 /* Stats row */
 .stat-card {
     padding: var(--space-6);
