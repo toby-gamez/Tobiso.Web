@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using Tobiso.Web.Api.Services;
-using Tobiso.Web.App.Services;
+using Tobiso.Web.Shared.Graphs;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Shared.Interfaces;
 

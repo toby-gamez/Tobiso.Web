@@ -1,0 +1,282 @@
+@* Visual builder for [grafN] ... [/grafN] graph blocks: a form on the left, a live preview
+   (rendered by the same Tobiso.Web.Shared.Graphs.GraphRenderer the public site uses) and the
+   generated text on the right. "Vložit do článku" hands the text to the page, which inserts it
+   at the editor's cursor. *@
+
+@using System.Text.RegularExpressions
+@using Tobiso.Web.Shared.Graphs
+@inject IJSRuntime JS
+
+@if (Visible)
+{
+    var text = _model.ToText();
+    var preview = GraphRenderer.RenderPreview(text);
+
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-panel gb-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i data-lucide="chart-spline"></i> Generátor grafu</h3>
+                <button type="button" class="modal-close" aria-label="Zavřít" @onclick="Close"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="gb-body">
+                <div class="gb-form">
+                    <div class="gb-templates">
+                        <span>Začít ze šablony:</span>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("blank"))">Prázdný graf</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("measure"))">Naměřené hodnoty</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("function"))">Funkce</button>
+                    </div>
+
+                    <section class="gb-card">
+                        <h6>Nadpis</h6>
+                        <input class="input" placeholder="např. Pohyb robotů (nepovinné)" @bind="_model.Title" @bind:event="oninput" />
+                    </section>
+
+                    <section class="gb-card">
+                        <h6>Osy</h6>
+                        @AxisFields("x", _model.X)
+                        @AxisFields("y", _model.Y)
+                        <p class="gb-hint">Prázdný rozsah = osa se přizpůsobí datům. Krok je nepovinný (bez něj po 1, u delších os po 2, 5, 10…). Záporná čísla piš normálně: od <code>-30</code> do <code>-20</code>.</p>
+                    </section>
+
+                    <section class="gb-card">
+                        <h6>Křivky, body a funkce</h6>
+
+                        @for (var i = 0; i < _model.Items.Count; i++)
+                        {
+                            var index = i;
+                            var item = _model.Items[i];
+                            var swatch = GraphRenderer.ResolveColor(item.Color);
+
+                            <div class="gb-item">
+                                <div class="gb-item-head">
+                                    <select class="select gb-kind" @bind="item.Kind">
+                                        <option value="@GraphItemKind.Curve">Křivka</option>
+                                        <option value="@GraphItemKind.Point">Bod</option>
+                                        <option value="@GraphItemKind.Function">Funkce</option>
+                                    </select>
+                                    <input class="input gb-name" placeholder="Jméno v legendě (nepovinné)" @bind="item.Name" @bind:event="oninput" />
+                                    <span class="gb-swatch @(swatch == null ? "gb-swatch--auto" : "")" style="@(swatch != null && swatch != "currentColor" ? $"background:{swatch}" : "")"></span>
+                                    <select class="select gb-color" @bind="item.Color">
+                                        <option value="">Barva: automaticky</option>
+                                        @foreach (var (value, label) in Colors)
+                                        {
+                                            <option value="@value">@label</option>
+                                        }
+                                    </select>
+                                    <div class="gb-item-tools">
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Posunout nahoru" disabled="@(index == 0)" @onclick="() => Move(index, -1)"><i data-lucide="arrow-up"></i></button>
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Posunout dolů" disabled="@(index == _model.Items.Count - 1)" @onclick="() => Move(index, 1)"><i data-lucide="arrow-down"></i></button>
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Odebrat" @onclick="() => _model.Items.RemoveAt(index)"><i data-lucide="trash-2"></i></button>
+                                    </div>
+                                </div>
+
+                                @if (item.Kind == GraphItemKind.Function)
+                                {
+                                    var formulaError = FormulaError(item.Formula);
+                                    <div class="gb-formula">
+                                        <span class="gb-prefix">y =</span>
+                                        <input class="input @(formulaError != null ? "gb-invalid" : "")" placeholder="např. 2x^2 - 3x + 1, sin(x), sqrt(x), |x|" @bind="item.Formula" @bind:event="oninput" />
+                                    </div>
+                                    @if (formulaError != null)
+                                    {
+                                        <p class="gb-error">@formulaError</p>
+                                    }
+                                    <div class="gb-row">
+                                        <label>Kreslit jen pro x od</label>
+                                        <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(item.From) ? "" : "gb-invalid")" placeholder="—" @bind="item.From" @bind:event="oninput" />
+                                        <label>do</label>
+                                        <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(item.To) ? "" : "gb-invalid")" placeholder="—" @bind="item.To" @bind:event="oninput" />
+                                        <label class="gb-check"><input type="checkbox" @bind="item.Dashed" /> čárkovaně</label>
+                                    </div>
+                                }
+                                else
+                                {
+                                    var rows = item.Kind == GraphItemKind.Point ? item.Points.Take(1).ToList() : item.Points;
+                                    <div class="gb-points">
+                                        @for (var p = 0; p < rows.Count; p++)
+                                        {
+                                            var pointIndex = p;
+                                            var row = rows[p];
+                                            <div class="gb-point">
+                                                <span class="gb-bracket">[</span>
+                                                <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(row.X) ? "" : "gb-invalid")" placeholder="x" @bind="row.X" @bind:event="oninput" />
+                                                <span class="gb-bracket">;</span>
+                                                <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(row.Y) ? "" : "gb-invalid")" placeholder="y" @bind="row.Y" @bind:event="oninput" />
+                                                <span class="gb-bracket">]</span>
+                                                @if (item.Kind == GraphItemKind.Curve && item.Points.Count > 1)
+                                                {
+                                                    <button type="button" class="btn btn-ghost btn-sm" title="Odebrat bod" @onclick="() => item.Points.RemoveAt(pointIndex)"><i data-lucide="x"></i></button>
+                                                }
+                                            </div>
+                                        }
+                                        @if (item.Kind == GraphItemKind.Curve)
+                                        {
+                                            <button type="button" class="btn btn-secondary btn-sm gb-add-point" @onclick="() => AddPoint(item)"><i data-lucide="plus"></i> bod</button>
+                                        }
+                                    </div>
+                                    @if (item.Kind == GraphItemKind.Curve)
+                                    {
+                                        <div class="gb-row">
+                                            <label class="gb-check"><input type="checkbox" @bind="item.Smooth" /> hladká křivka</label>
+                                            <label class="gb-check"><input type="checkbox" @bind="item.Dashed" /> čárkovaně</label>
+                                            <label class="gb-check"><input type="checkbox" @bind="item.NoDots" /> bez teček v bodech</label>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+
+                        <div class="gb-add">
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => AddItem(GraphItemKind.Curve)"><i data-lucide="spline"></i> Křivka</button>
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => AddItem(GraphItemKind.Point)"><i data-lucide="circle-dot"></i> Bod</button>
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => AddItem(GraphItemKind.Function)"><i data-lucide="sigma"></i> Funkce</button>
+                        </div>
+                    </section>
+
+                    <section class="gb-card">
+                        <h6>Poznámky pod grafem</h6>
+                        @for (var n = 0; n < _model.Notes.Count; n++)
+                        {
+                            var noteIndex = n;
+                            var note = _model.Notes[n];
+                            <div class="gb-note">
+                                <input class="input" placeholder="např. Červená křivka zobrazuje rychlost" @bind="note.Text" @bind:event="oninput" />
+                                <button type="button" class="btn btn-ghost btn-sm" title="Odebrat" @onclick="() => _model.Notes.RemoveAt(noteIndex)"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _model.Notes.Add(new GraphNoteRow())"><i data-lucide="plus"></i> Poznámka</button>
+                    </section>
+                </div>
+
+                <div class="gb-side">
+                    <h6>Náhled</h6>
+                    <div class="gb-preview">
+                        @if (string.IsNullOrEmpty(preview))
+                        {
+                            <p class="gb-hint">Náhled se ukáže, jakmile graf bude mít osy nebo data.</p>
+                        }
+                        else
+                        {
+                            @((MarkupString)preview)
+                        }
+                    </div>
+
+                    <h6>Text grafu</h6>
+                    <pre class="gb-code">@text</pre>
+
+                    <div class="gb-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => Copy(text)"><i data-lucide="copy"></i> @(_copied ? "Zkopírováno" : "Kopírovat text")</button>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => Insert(text)"><i data-lucide="text-cursor-input"></i> Vložit do článku</button>
+                    </div>
+                    <p class="gb-hint">Graf se vloží na místo kurzoru v editoru. Text pak můžeš dál upravovat ručně (viz Nápověda → Grafy).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    /// <summary>Current article text - used to pick the next free [grafN] name.</summary>
+    [Parameter] public string? ExistingContent { get; set; }
+    [Parameter] public EventCallback<string> OnInsert { get; set; }
+
+    private static readonly (string Value, string Label)[] Colors =
+    [
+        ("RED", "Červená"), ("DARK_RED", "Tmavě červená"),
+        ("BLUE", "Modrá"), ("LIGHT_BLUE", "Světle modrá"), ("DARK_BLUE", "Tmavě modrá"),
+        ("GREEN", "Zelená"), ("LIGHT_GREEN", "Světle zelená"), ("DARK_GREEN", "Tmavě zelená"),
+        ("ORANGE", "Oranžová"), ("YELLOW", "Žlutá"), ("PURPLE", "Fialová"), ("PINK", "Růžová"),
+        ("BROWN", "Hnědá"), ("GRAY", "Šedá"), ("BLACK", "Černá (barva textu)"),
+    ];
+
+    private GraphBuilderModel _model = GraphBuilderModel.Template("blank");
+    private bool _wasVisible;
+    private bool _copied;
+
+    protected override void OnParametersSet()
+    {
+        // Each time the dialog opens, name the block after the graphs already in the article.
+        if (Visible && !_wasVisible)
+        {
+            _model.BlockName = NextBlockName(ExistingContent);
+            _copied = false;
+        }
+        _wasVisible = Visible;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private static string NextBlockName(string? content)
+    {
+        var used = Regex.Matches(content ?? "", @"\[graf(\d+)\]", RegexOptions.IgnoreCase)
+            .Select(m => int.TryParse(m.Groups[1].Value, out var n) ? n : 0);
+        return $"graf{used.DefaultIfEmpty(0).Max() + 1}";
+    }
+
+    private static string? FormulaError(string formula)
+    {
+        if (string.IsNullOrWhiteSpace(formula)) return null;
+        return GraphExpression.TryParse(formula, out _, out var error) ? null : $"Předpis nejde přečíst: {error}.";
+    }
+
+    private void LoadTemplate(string kind)
+    {
+        var name = _model.BlockName;
+        _model = GraphBuilderModel.Template(kind);
+        _model.BlockName = name;
+    }
+
+    private void AddItem(GraphItemKind kind)
+    {
+        var item = new GraphItemModel { Kind = kind };
+        if (kind == GraphItemKind.Point) item.Points = [new GraphPointRow()];
+        _model.Items.Add(item);
+    }
+
+    private static void AddPoint(GraphItemModel item) => item.Points.Add(new GraphPointRow());
+
+    private void Move(int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= _model.Items.Count) return;
+        (_model.Items[index], _model.Items[target]) = (_model.Items[target], _model.Items[index]);
+    }
+
+    private async Task Copy(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _copied = true;
+        }
+        catch { /* clipboard blocked - the text is still selectable in the box */ }
+    }
+
+    private async Task Insert(string text)
+    {
+        await OnInsert.InvokeAsync(text);
+        _model = GraphBuilderModel.Template("blank");
+        await Close();
+    }
+
+    private Task Close() => VisibleChanged.InvokeAsync(false);
+
+    private RenderFragment AxisFields(string axis, GraphAxisModel a) =>
+        @<div class="gb-axis">
+            <span class="gb-axis-name">@axis</span>
+            <input class="input gb-label" placeholder="popisek, např. t [s]" @bind="a.Label" @bind:event="oninput" />
+            <label>od</label>
+            <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(a.Min) ? "" : "gb-invalid")" @bind="a.Min" @bind:event="oninput" />
+            <label>do</label>
+            <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(a.Max) ? "" : "gb-invalid")" @bind="a.Max" @bind:event="oninput" />
+            <label>krok</label>
+            <input class="input gb-num @(GraphBuilderModel.IsNumberOrEmpty(a.Step) ? "" : "gb-invalid")" placeholder="auto" @bind="a.Step" @bind:event="oninput" />
+        </div>;
+}

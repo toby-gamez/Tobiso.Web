@@ -3,7 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Tobiso.Web.App.Services;
+namespace Tobiso.Web.Shared.Graphs;
 
 /// <summary>
 /// Renders author-written graph blocks in post content to inline SVG:
@@ -89,6 +89,15 @@ public static class GraphRenderer
             rendered.Add(Render(m.Groups[2].Value, $"pg{index}-{StableHash(m.Value)}"));
             return $"\n\n{PlaceholderPrefix}{index}X\n\n";
         });
+    }
+
+    /// <summary>Renders the first graph block in <paramref name="text"/> (e.g. for the admin
+    /// graph builder's live preview); empty when there is none.</summary>
+    public static string RenderPreview(string text)
+    {
+        var rendered = new List<string>();
+        ExtractBlocks(text, rendered);
+        return rendered.Count > 0 ? rendered[0] : "";
     }
 
     public static string RestoreBlocks(string html, List<string> rendered)
@@ -280,7 +289,8 @@ public static class GraphRenderer
         return (name, color, from, to);
     }
 
-    private static string? ResolveColor(string token)
+    /// <summary>Hex (or "currentColor") for a colour name or hex code, null when unknown.</summary>
+    public static string? ResolveColor(string token)
     {
         var t = token.Trim();
         if (HexColorRegex.IsMatch(t)) return t;

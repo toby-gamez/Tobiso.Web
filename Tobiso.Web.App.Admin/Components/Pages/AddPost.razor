@@ -48,6 +48,7 @@
         <div class="editor-toolbar-row">
             <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
             <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showGraphBuilder = true"><i data-lucide="chart-spline"></i> Generátor grafu</button>
             <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
         </div>
         <GrammarCheckPanel Issues="grammarIssues" />
@@ -113,9 +114,16 @@
 }
 
 <FormattingLegend @bind-Visible="_showLegend" />
+<GraphBuilder @bind-Visible="_showGraphBuilder" ExistingContent="@request.Content" OnInsert="InsertGraph" />
 
 @code {
     private bool _showLegend = false;
+    private bool _showGraphBuilder = false;
+
+    private async Task InsertGraph(string block)
+    {
+        if (markdownEditor != null) await markdownEditor.InsertBlockAtCursor(block);
+    }
     private CreatePostRequest request = new();
     private List<CategoryResponse> categories = new();
     private List<GradeResponse> grades = new();

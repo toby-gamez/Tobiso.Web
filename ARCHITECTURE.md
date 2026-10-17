@@ -277,7 +277,7 @@ The entire pipeline runs inside `MarkdownContent.razor` via `TransformMarkdownCo
 
 ### Step 1 — Pre-processing (before Markdig)
 
-0. **Graph blocks** — `GraphRenderer.ExtractBlocks` (`Services/GraphRenderer.cs`): `[grafN] … [/grafN]` blocks (axes `x(label): 0-10 (step)`, `curveN(name: …): [x;y] … linear|smooth COLOR`, `pointN: [x;y] COLOR`, `function: y = 2x^2 + 1` parsed by `GraphExpression`, `note:`, `title:`) are rendered to inline SVG first and parked behind placeholders; `GraphRenderer.RestoreBlocks` swaps them back in as the very last step, so no other text rule touches them. Same in `PdfController`.
+0. **Graph blocks** — `GraphRenderer.ExtractBlocks` (`Tobiso.Web.Shared/Graphs/GraphRenderer.cs`, shared with the admin graph builder): `[grafN] … [/grafN]` blocks (axes `x(label): 0-10 (step)`, `curveN(name: …): [x;y] … linear|smooth COLOR`, `pointN: [x;y] COLOR`, `function: y = 2x^2 + 1` parsed by `GraphExpression`, `note:`, `title:`) are rendered to inline SVG first and parked behind placeholders; `GraphRenderer.RestoreBlocks` swaps them back in as the very last step, so no other text rule touches them. Same in `PdfController`.
 1. **mailto normalization** — `ReplaceMarkdownMailtoInText`: normalizes `mailto:` link syntax.
 2. **Fraction substitution** — `ReplaceFractionsInText`: converts `1/2`, `{n+1}/{n-1}` etc. to `<span class='math-inline' data-math="\frac{1}{2}">` KaTeX spans. Skips content inside code fences.
 3. **Strikethrough** — `ReplaceStrikethroughSyntax`: `#s#text#s#` → `<del>text</del>`

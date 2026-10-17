@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Tobiso.Web.App.Services;
+namespace Tobiso.Web.Shared.Graphs;
 
 /// <summary>
 /// Parses the right-hand side of a graph function line ("y = 2x^2 - 3sin(x) + 1") into a

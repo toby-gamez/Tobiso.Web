@@ -778,7 +778,7 @@ a.sage-tint {
     color: var(--color-accent-700);
 }
 
-/* Graph block ([graf1] ... [/graf1], rendered by Services/GraphRenderer.cs) */
+/* Graph block ([graf1] ... [/graf1], rendered by Tobiso.Web.Shared/Graphs/GraphRenderer.cs) */
 /* Placed like .post-figure images: floated right with prose wrapping on the left,
    full-width on mobile, click opens it full-screen (js/image-lightbox.js). */
 .post-graph {
