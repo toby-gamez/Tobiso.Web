@@ -778,6 +778,101 @@ a.sage-tint {
     color: var(--color-accent-700);
 }
 
+/* Box-tree diagram (indented box-stack lines) - org-chart style connectors.
+   Each <ul> leaves --box-tree-gap above the bar joining its siblings (the stem
+   from the parent box), each <li> leaves the same gap below it (its own drop). */
+.box-tree {
+    --box-tree-gap: var(--space-4);
+    --box-tree-line: 2px solid var(--color-accent-600);
+    margin: var(--space-6) 0;
+    overflow-x: auto;
+}
+
+.box-tree ul {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    padding: var(--box-tree-gap) 0 0;
+    list-style: none;
+}
+
+.box-tree > ul {
+    width: max-content;
+    min-width: 100%;
+    padding-top: 0;
+}
+
+.box-tree li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: var(--box-tree-gap) var(--space-2) 0;
+}
+
+.box-tree > ul > li {
+    padding-top: 0;
+}
+
+.box-tree li .box-stack-item {
+    min-width: 10ch;
+    max-width: 24ch;
+}
+
+.box-tree ul ul::before,
+.box-tree li::before,
+.box-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: var(--box-tree-gap);
+}
+
+.box-tree ul ul::before {
+    left: 50%;
+    border-left: var(--box-tree-line);
+}
+
+.box-tree li::before {
+    right: 50%;
+    width: 50%;
+    border-top: var(--box-tree-line);
+}
+
+.box-tree li::after {
+    left: 50%;
+    width: 50%;
+    border-top: var(--box-tree-line);
+    border-left: var(--box-tree-line);
+}
+
+.box-tree li:first-child::before,
+.box-tree li:last-child::after,
+.box-tree > ul > li::before,
+.box-tree > ul > li::after {
+    display: none;
+}
+
+.box-tree li:last-child:not(:only-child)::before {
+    border-right: var(--box-tree-line);
+}
+
+.box-tree li:first-child::after {
+    border-top-left-radius: var(--radius-md);
+}
+
+.box-tree li:last-child::before {
+    border-top-right-radius: var(--radius-md);
+}
+
+.box-tree ul ul > li:only-child::after {
+    display: block;
+    border-top: none;
+    border-radius: 0;
+}
+
 /* Stats row */
 .stat-card {
     padding: var(--space-6);
