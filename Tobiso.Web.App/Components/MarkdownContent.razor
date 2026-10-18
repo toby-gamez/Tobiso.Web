@@ -3,6 +3,7 @@
 @using System.Globalization
 @using System.Text
 @using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Graphs
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
 
@@ -65,6 +66,13 @@
     private string TransformMarkdownContent(string? content)
     {
         if (string.IsNullOrEmpty(content)) return string.Empty;
+
+        // Render [grafN]...[/grafN] blocks to SVG FIRST and park them behind placeholders,
+        // so none of the text rules below (fractions in "m/s", arrows, "..." lead, links…)
+        // ever touch the graph source or its markup. Blocks inside ``` code stay literal.
+        var graphs = new List<string>();
+        var (graphProtected, graphCodeRegions) = ProtectCodeRegions(content);
+        content = RestoreCodeRegions(GraphRenderer.ExtractBlocks(graphProtected, graphs), graphCodeRegions);
 
         // Convert Markdown-style mailto links to <a href="mailto:..."> before processing
         content = ReplaceMarkdownMailtoInText(content);
@@ -257,6 +265,7 @@
         // with <div class="table-scroll-wrapper">...</div>.
         html = WrapTablesForScroll(html);
         html = InjectHeadingIds(html);
+        html = GraphRenderer.RestoreBlocks(html, graphs);
         return html;
     }
 

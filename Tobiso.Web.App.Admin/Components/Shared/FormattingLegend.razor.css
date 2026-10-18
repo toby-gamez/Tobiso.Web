@@ -46,3 +46,40 @@
     color: var(--color-neutral-600);
     margin: var(--space-1) 0 0;
 }
+
+.fl-tabs {
+    margin-bottom: var(--space-4);
+}
+
+.fl-lead {
+    font-size: 0.88rem;
+    margin-bottom: var(--space-3);
+}
+
+.fl-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-bottom: var(--space-5);
+    font-size: 0.84rem;
+}
+
+/* Graph tables have long syntax in the first column - let it wrap instead of
+   stretching the modal sideways. */
+.fl-table--wrap td:first-child {
+    white-space: normal;
+    width: 45%;
+}
+
+.fl-section ul.fl-note {
+    padding-left: 1.2rem;
+}
+
+.fl-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}

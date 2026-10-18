@@ -91,6 +91,27 @@ export function setEditorValue(textareaId, content) {
     }
 }
 
+// Inserts a block (e.g. a [graf1] ... [/graf1] graph from the graph builder) at the cursor,
+// on its own lines with a blank line before and after so it stays a separate paragraph.
+export function insertBlockAtCursor(textareaId, text) {
+    const editor = editorInstances.get(textareaId);
+    if (!editor) return false;
+
+    const doc = editor.codemirror.getDoc();
+    const cursor = doc.getCursor();
+    const line = doc.getLine(cursor.line) || '';
+    const before = line.slice(0, cursor.ch);
+    const after = line.slice(cursor.ch);
+
+    const prefix = before.trim().length > 0 ? '\n\n' : (cursor.line > 0 && before.length === 0 && (doc.getLine(cursor.line - 1) || '').trim().length > 0 ? '\n' : '');
+    const nextLine = cursor.line + 1 < doc.lineCount() ? doc.getLine(cursor.line + 1) : null;
+    const suffix = after.trim().length > 0 ? '\n\n' : (nextLine !== null && nextLine.trim().length > 0 ? '\n' : '');
+
+    doc.replaceRange(prefix + text + suffix, cursor);
+    editor.codemirror.focus();
+    return true;
+}
+
 export function getEditorValue(textareaId) {
     const editor = editorInstances.get(textareaId);
     return editor ? editor.value() : '';

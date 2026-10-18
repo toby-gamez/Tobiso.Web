@@ -1,4 +1,4 @@
-// Click-to-enlarge lightbox for article images. Reads caption/source from the
+// Click-to-enlarge lightbox for article images and graphs. Reads caption/source from the
 // data-caption/data-source attributes MarkdownContent.razor's PreprocessImageGroups
 // sets on <img>, so the enlarged view shows the same info as the inline figcaption.
 export function initImageLightbox(containerId) {
@@ -13,19 +13,38 @@ export function initImageLightbox(containerId) {
             openLightbox(img.src, img.alt, img.dataset.caption || '', img.dataset.source || '');
         });
     });
+
+    // Graphs ([graf1] blocks, rendered to inline SVG by GraphRenderer.cs) enlarge the same way.
+    container.querySelectorAll('.post-graph').forEach(graph => {
+        if (graph.getAttribute('data-lightbox-bound')) return;
+        graph.setAttribute('data-lightbox-bound', '1');
+        graph.addEventListener('click', e => {
+            if (e.target.closest('a')) return;
+            e.stopPropagation();
+            openGraphLightbox(graph);
+        });
+    });
+}
+
+function openGraphLightbox(graph) {
+    // A clone keeps title, legend and notes (incl. already-rendered KaTeX). Its clipPath ids
+    // duplicate the original's, which is harmless: url(#id) resolves to identical geometry.
+    const clone = graph.cloneNode(true);
+    clone.classList.add('post-graph--lightbox');
+    clone.removeAttribute('data-lightbox-bound');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'img-lightbox-wrapper';
+
+    const frame = document.createElement('div');
+    frame.className = 'img-lightbox-frame img-lightbox-frame--graph';
+    frame.appendChild(clone);
+    wrapper.appendChild(frame);
+
+    showOverlay(wrapper, target => frame.contains(target));
 }
 
 function openLightbox(src, alt, caption, source) {
-    closeLightbox();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'img-lightbox-overlay';
-
-    const closeBtn = document.createElement('span');
-    closeBtn.className = 'img-lightbox-close';
-    closeBtn.innerHTML = '&times;';
-    closeBtn.title = 'Zavřít';
-
     const wrapper = document.createElement('div');
     wrapper.className = 'img-lightbox-wrapper';
 
@@ -65,12 +84,28 @@ function openLightbox(src, alt, caption, source) {
         wrapper.appendChild(meta);
     }
 
+    showOverlay(wrapper, target => target === imgEl || target === frame);
+}
+
+// Shows wrapper in the full-screen overlay. Clicking the backdrop, the close button,
+// or anything closesOnClick accepts closes it, as does Escape.
+function showOverlay(wrapper, closesOnClick) {
+    closeLightbox();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'img-lightbox-overlay';
+
+    const closeBtn = document.createElement('span');
+    closeBtn.className = 'img-lightbox-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.title = 'Zavřít';
+
     overlay.appendChild(closeBtn);
     overlay.appendChild(wrapper);
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', e => {
-        if (e.target === overlay || e.target === closeBtn || e.target === imgEl || e.target === frame) closeLightbox();
+        if (e.target === overlay || e.target === closeBtn || closesOnClick(e.target)) closeLightbox();
     });
     closeBtn.addEventListener('click', () => closeLightbox());
 

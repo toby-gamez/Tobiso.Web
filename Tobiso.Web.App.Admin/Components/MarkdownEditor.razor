@@ -92,6 +92,17 @@
         }
     }
 
+    /// <summary>Inserts a block of text at the cursor on its own lines (used by the graph builder).
+    /// Falls back to appending when the editor isn't ready.</summary>
+    public async Task InsertBlockAtCursor(string text)
+    {
+        if (isInitialized && jsModule != null && await jsModule.InvokeAsync<bool>("insertBlockAtCursor", textareaId, text))
+            return; // the editor's change event pushes the new content back through OnContentChanged
+
+        var current = Value ?? "";
+        await SetValue(current.Length == 0 ? text : current.TrimEnd() + "\n\n" + text + "\n");
+    }
+
     public async Task HighlightErrors(List<Tobiso.Web.Shared.DTOs.GrammarIssue> issues)
     {
         if (!isInitialized || jsModule == null) return;
