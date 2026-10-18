@@ -98,7 +98,8 @@
         content = PreprocessMediaEmbeds(content);
 
         // Convert "| Title |" / "| Title :: description |" line stacks to a vertical
-        // box diagram BEFORE conversion, same reasoning as images/media above.
+        // box diagram (or a tree diagram when the lines are indented) BEFORE
+        // conversion, same reasoning as images/media above.
         content = PreprocessBoxStacks(content);
 
         // Escape list markers that immediately follow another list marker on the SAME
@@ -479,7 +480,24 @@
     // box-stack blocks never have one, so real tables are unaffected.
     // Leading/trailing commas next to the pipes (a leftover from hand-drawn
     // ASCII diagrams, e.g. "|, jádro |") are stripped as punctuation noise.
+    //
+    // Box-tree diagrams - the same lines, but indented to show hierarchy:
+    //   | Počítač |
+    //     | Hardware |
+    //       | CPU |
+    //       | RAM |
+    //     | Software |
+    // As soon as the lines don't all share the same indentation, the block
+    // renders as a tree (org-chart style): each line is a child of the closest
+    // less-indented line above it. Only relative indentation matters (a tab
+    // counts as 4 spaces), so any consistent step works.
     // ──────────────────────────────────────────────────────────────────────────
+
+    private sealed class BoxNode
+    {
+        public string Html = string.Empty;
+        public List<BoxNode> Children { get; } = [];
+    }
 
     private string PreprocessBoxStacks(string content)
     {
@@ -491,41 +509,100 @@
 
         var result = paras.Select(para =>
         {
-            var lines = Regex.Split(para.Trim('\r', '\n'), @"\r?\n")
-                              .Select(l => l.Trim())
-                              .Where(l => l.Length > 0)
-                              .ToList();
+            var rawLines = Regex.Split(para.Trim('\r', '\n'), @"\r?\n")
+                                .Where(l => l.Trim().Length > 0)
+                                .ToList();
+            var lines = rawLines.Select(l => l.Trim()).ToList();
 
             if (lines.Count == 0 || !lines.All(l => rowRx.IsMatch(l))) return para;
             if (lines.Any(l => separatorRx.IsMatch(l) && l.Contains('-'))) return para;
 
+            var items = new List<(int Indent, string Html)>();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var html = RenderBoxItem(rowRx.Match(lines[i]).Groups[1].Value);
+                if (html != null) items.Add((MeasureIndent(rawLines[i]), html));
+            }
+            if (items.Count == 0) return para;
+
+            if (items.Select(it => it.Indent).Distinct().Count() > 1)
+                return RenderBoxTree(items);
+
             var sb = new StringBuilder();
             sb.Append("<div class=\"box-stack\">");
-            foreach (var line in lines)
-            {
-                var inner = rowRx.Match(line).Groups[1].Value.Trim();
-                if (inner.StartsWith(",")) inner = inner.Substring(1).TrimStart();
-                if (inner.EndsWith(",")) inner = inner.Substring(0, inner.Length - 1).TrimEnd();
-                if (inner.Length == 0) continue;
-
-                var parts = inner.Split(["::"], 2, StringSplitOptions.None);
-                var title = System.Net.WebUtility.HtmlEncode(parts[0].Trim());
-
-                sb.Append("<div class=\"box-stack-item\">");
-                sb.Append($"<span class=\"box-stack-title\">{title}</span>");
-                if (parts.Length > 1)
-                {
-                    var desc = System.Net.WebUtility.HtmlEncode(parts[1].Trim());
-                    if (desc.Length > 0)
-                        sb.Append($"<span class=\"box-stack-desc\">{desc}</span>");
-                }
-                sb.Append("</div>");
-            }
+            foreach (var item in items) sb.Append(item.Html);
             sb.Append("</div>");
             return sb.ToString();
         });
 
         return string.Join("\n\n", result.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    private static int MeasureIndent(string line)
+    {
+        var width = 0;
+        foreach (var c in line)
+        {
+            if (c == ' ') width++;
+            else if (c == '\t') width += 4;
+            else break;
+        }
+        return width;
+    }
+
+    // Returns the box markup for one "| title :: desc |" row's inner text, or null when it's empty.
+    private static string? RenderBoxItem(string inner)
+    {
+        inner = inner.Trim();
+        if (inner.StartsWith(",")) inner = inner.Substring(1).TrimStart();
+        if (inner.EndsWith(",")) inner = inner.Substring(0, inner.Length - 1).TrimEnd();
+        if (inner.Length == 0) return null;
+
+        var parts = inner.Split(["::"], 2, StringSplitOptions.None);
+        var title = System.Net.WebUtility.HtmlEncode(parts[0].Trim());
+
+        var sb = new StringBuilder();
+        sb.Append("<div class=\"box-stack-item\">");
+        sb.Append($"<span class=\"box-stack-title\">{title}</span>");
+        if (parts.Length > 1)
+        {
+            var desc = System.Net.WebUtility.HtmlEncode(parts[1].Trim());
+            if (desc.Length > 0)
+                sb.Append($"<span class=\"box-stack-desc\">{desc}</span>");
+        }
+        sb.Append("</div>");
+        return sb.ToString();
+    }
+
+    private static string RenderBoxTree(List<(int Indent, string Html)> items)
+    {
+        var roots = new List<BoxNode>();
+        var stack = new Stack<(int Indent, BoxNode Node)>();
+        foreach (var (indent, html) in items)
+        {
+            while (stack.Count > 0 && stack.Peek().Indent >= indent) stack.Pop();
+            var node = new BoxNode { Html = html };
+            (stack.Count > 0 ? stack.Peek().Node.Children : roots).Add(node);
+            stack.Push((indent, node));
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("<div class=\"box-tree\">");
+        AppendBoxTreeLevel(sb, roots);
+        sb.Append("</div>");
+        return sb.ToString();
+    }
+
+    private static void AppendBoxTreeLevel(StringBuilder sb, List<BoxNode> nodes)
+    {
+        sb.Append("<ul>");
+        foreach (var node in nodes)
+        {
+            sb.Append("<li>").Append(node.Html);
+            if (node.Children.Count > 0) AppendBoxTreeLevel(sb, node.Children);
+            sb.Append("</li>");
+        }
+        sb.Append("</ul>");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
