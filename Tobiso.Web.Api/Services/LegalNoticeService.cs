@@ -20,12 +20,13 @@ public class LegalNoticeService : ILegalNoticeService
 {
     private static readonly string[] LegalSlugs = { "terms-of-use-cs", "privacy-policy-cs" };
 
-    private readonly TobisoDbContext _db;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
 
-    public LegalNoticeService(TobisoDbContext db) => _db = db;
+    public LegalNoticeService(IDbContextFactory<TobisoDbContext> dbFactory) => _dbFactory = dbFactory;
 
     public async Task<DateTime?> GetPendingChangeAsync(int userId)
     {
+        await using var _db = _dbFactory.CreateDbContext();
         var user = await _db.Users.AsNoTracking()
             .Where(u => u.Id == userId)
             .Select(u => new { u.CreatedAt, u.TermsAcceptedAt, u.LegalNoticeDismissedFor })
@@ -45,12 +46,14 @@ public class LegalNoticeService : ILegalNoticeService
 
     public async Task DismissAsync(int userId, DateTime changeDate)
     {
+        await using var _db = _dbFactory.CreateDbContext();
         await _db.Users.Where(u => u.Id == userId && (u.LegalNoticeDismissedFor == null || u.LegalNoticeDismissedFor < changeDate))
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.LegalNoticeDismissedFor, changeDate));
     }
 
     private async Task<DateTime?> GetLatestChangeAsync()
     {
+        await using var _db = _dbFactory.CreateDbContext();
         // No slug column - derive it from FilePath in memory, as PostService.GetBySlug does.
         var posts = await _db.Posts.AsNoTracking().Select(p => new { p.Id, p.FilePath }).ToListAsync();
         var ids = posts

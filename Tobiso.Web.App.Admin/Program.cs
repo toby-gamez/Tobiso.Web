@@ -51,6 +51,9 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+// Per-call DbContexts for services shared with the main app (see Tobiso.Web.App/Program.cs).
+services.AddSingleton<IDbContextFactory<TobisoDbContext>, TobisoDbContextFactory>();
+
 var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
 if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
     throw new InvalidOperationException(

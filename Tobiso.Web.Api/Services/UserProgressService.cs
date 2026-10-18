@@ -20,23 +20,24 @@ public interface IUserProgressService
 
 public class UserProgressService : IUserProgressService
 {
-    private readonly TobisoDbContext _db;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
     private readonly IUserService _userService;
 
-    public UserProgressService(TobisoDbContext db, IUserService userService)
+    public UserProgressService(IDbContextFactory<TobisoDbContext> dbFactory, IUserService userService)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _userService = userService;
     }
 
     public async Task UpsertReadProgressAsync(int userId, int postId, int scrollPercent)
     {
-        var record = await _db.UserReadPosts
+        await using var db = _dbFactory.CreateDbContext();
+        var record = await db.UserReadPosts
             .FirstOrDefaultAsync(r => r.UserId == userId && r.PostId == postId);
 
         if (record == null)
         {
-            _db.UserReadPosts.Add(new UserReadPost
+            db.UserReadPosts.Add(new UserReadPost
             {
                 UserId = userId,
                 PostId = postId,
@@ -51,7 +52,7 @@ public class UserProgressService : IUserProgressService
             record.LastReadAt = DateTime.UtcNow;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         // Best-effort: reading progress on any article extends the streak, so award the
         // 20-credit bonus once per day. ClaimReadBonusAsync is idempotent (atomic conditional
@@ -59,36 +60,42 @@ public class UserProgressService : IUserProgressService
         await _userService.ClaimReadBonusAsync(userId, 20);
     }
 
-    public async Task<List<int>> GetBookmarkIdsAsync(int userId) =>
-        await _db.UserBookmarks
+    public async Task<List<int>> GetBookmarkIdsAsync(int userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.UserBookmarks
             .Where(b => b.UserId == userId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => b.PostId)
             .ToListAsync();
+    }
 
     public async Task AddBookmarkAsync(int userId, int postId)
     {
-        if (!await _db.UserBookmarks.AnyAsync(b => b.UserId == userId && b.PostId == postId))
+        await using var db = _dbFactory.CreateDbContext();
+        if (!await db.UserBookmarks.AnyAsync(b => b.UserId == userId && b.PostId == postId))
         {
-            _db.UserBookmarks.Add(new UserBookmark { UserId = userId, PostId = postId });
-            await _db.SaveChangesAsync();
+            db.UserBookmarks.Add(new UserBookmark { UserId = userId, PostId = postId });
+            await db.SaveChangesAsync();
         }
     }
 
     public async Task RemoveBookmarkAsync(int userId, int postId)
     {
-        var bm = await _db.UserBookmarks
+        await using var db = _dbFactory.CreateDbContext();
+        var bm = await db.UserBookmarks
             .FirstOrDefaultAsync(b => b.UserId == userId && b.PostId == postId);
         if (bm != null)
         {
-            _db.UserBookmarks.Remove(bm);
-            await _db.SaveChangesAsync();
+            db.UserBookmarks.Remove(bm);
+            await db.SaveChangesAsync();
         }
     }
 
     public async Task<UserStatsDto> GetStatsAsync(int userId)
     {
-        var readPosts = await _db.UserReadPosts
+        await using var db = _dbFactory.CreateDbContext();
+        var readPosts = await db.UserReadPosts
             .Where(r => r.UserId == userId)
             .Include(r => r.Post)
                 .ThenInclude(p => p.Category)
@@ -145,9 +152,10 @@ public class UserProgressService : IUserProgressService
 
     public async Task<AiUsageDto> GetAiUsageAsync(int userId)
     {
+        await using var db = _dbFactory.CreateDbContext();
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var transactions = await _db.AiCreditTransactions
+        var transactions = await db.AiCreditTransactions
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
@@ -168,7 +176,8 @@ public class UserProgressService : IUserProgressService
 
     public async Task<ContinueReadingDto?> GetContinueReadingAsync(int userId)
     {
-        var record = await _db.UserReadPosts
+        await using var db = _dbFactory.CreateDbContext();
+        var record = await db.UserReadPosts
             .Where(r => r.UserId == userId && r.ScrollPercent < 95)
             .Include(r => r.Post)
                 .ThenInclude(p => p.Category)
@@ -184,20 +193,24 @@ public class UserProgressService : IUserProgressService
         return new ContinueReadingDto(record.PostId, record.Post.Title, record.ScrollPercent, categoryPath, record.Post.FilePath);
     }
 
-    public async Task<string?> GetNoteAsync(int userId, int postId) =>
-        (await _db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId))?.Content;
+    public async Task<string?> GetNoteAsync(int userId, int postId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return (await db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId))?.Content;
+    }
 
     public async Task SaveNoteAsync(int userId, int postId, string content)
     {
-        var note = await _db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId);
+        await using var db = _dbFactory.CreateDbContext();
+        var note = await db.UserNotes.FirstOrDefaultAsync(n => n.UserId == userId && n.PostId == postId);
         if (note == null)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
-            _db.UserNotes.Add(new UserNote { UserId = userId, PostId = postId, Content = content, UpdatedAt = DateTime.UtcNow });
+            db.UserNotes.Add(new UserNote { UserId = userId, PostId = postId, Content = content, UpdatedAt = DateTime.UtcNow });
         }
         else if (string.IsNullOrWhiteSpace(content))
         {
-            _db.UserNotes.Remove(note);
+            db.UserNotes.Remove(note);
         }
         else
         {
@@ -205,6 +218,6 @@ public class UserProgressService : IUserProgressService
             note.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 }

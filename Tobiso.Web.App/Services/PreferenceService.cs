@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.EntityFrameworkCore;
+using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
 
 namespace Tobiso.Web.App.Services
@@ -10,13 +12,16 @@ namespace Tobiso.Web.App.Services
         private readonly ProtectedLocalStorage _localStorage;
 
         private readonly AuthenticationStateProvider _authState;
-        private readonly IUserService _userService;
+        // Own short-lived DbContext per call: NavMenu (layout) and the routed page both read the
+        // preferred grade at the same time, and the circuit's scoped DbContext can't be shared
+        // by concurrent operations.
+        private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
 
-        public PreferenceService(ProtectedLocalStorage localStorage, AuthenticationStateProvider authState, IUserService userService)
+        public PreferenceService(ProtectedLocalStorage localStorage, AuthenticationStateProvider authState, IDbContextFactory<TobisoDbContext> dbFactory)
         {
             _localStorage = localStorage;
             _authState = authState;
-            _userService = userService;
+            _dbFactory = dbFactory;
         }
 
         private async Task<int?> GetUserIdAsync()
@@ -54,8 +59,12 @@ namespace Tobiso.Web.App.Services
             {
                 if (await GetUserIdAsync() is { } userId)
                 {
-                    var user = await _userService.GetByIdAsync(userId);
-                    if (user?.PreferredGradeId is { } accountGrade) return accountGrade;
+                    await using var db = _dbFactory.CreateDbContext();
+                    var accountGradeId = await db.Users.AsNoTracking()
+                        .Where(u => u.Id == userId)
+                        .Select(u => u.PreferredGradeId)
+                        .FirstOrDefaultAsync();
+                    if (accountGradeId is { } accountGrade) return accountGrade;
                 }
             }
             catch
@@ -74,7 +83,11 @@ namespace Tobiso.Web.App.Services
             try
             {
                 if (await GetUserIdAsync() is { } userId)
-                    await _userService.SetPreferredGradeAsync(userId, gradeId);
+                {
+                    await using var db = _dbFactory.CreateDbContext();
+                    await db.Users.Where(u => u.Id == userId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(u => u.PreferredGradeId, (int?)gradeId));
+                }
             }
             catch
             {

@@ -16,15 +16,16 @@ public interface IGradeService
 
 public class GradeService : IGradeService
 {
-    private readonly TobisoDbContext _context;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
 
-    public GradeService(TobisoDbContext context)
+    public GradeService(IDbContextFactory<TobisoDbContext> dbFactory)
     {
-        _context = context;
+        _dbFactory = dbFactory;
     }
 
     public async Task<List<GradeResponse>> GetAll()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         return await _context.Set<Tobiso.Web.Domain.Entities.Grade>()
             .OrderBy(g => g.Level)
             .Select(g => new GradeResponse { Id = g.Id, Name = g.Name, Level = g.Level })
@@ -33,6 +34,7 @@ public class GradeService : IGradeService
 
     public async Task<GradeResponse?> GetById(int id)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var g = await _context.Set<Tobiso.Web.Domain.Entities.Grade>().FindAsync(id);
         if (g == null) return null;
         return new GradeResponse { Id = g.Id, Name = g.Name, Level = g.Level };
@@ -40,6 +42,7 @@ public class GradeService : IGradeService
 
     public async Task<GradeResponse?> Create(CreateGradeRequest req)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         // enforce unique Level
         var exists = await _context.Set<Tobiso.Web.Domain.Entities.Grade>().AnyAsync(x => x.Level == req.Level);
         if (exists) return null;
@@ -52,6 +55,7 @@ public class GradeService : IGradeService
 
     public async Task<bool> Update(int id, UpdateGradeRequest req)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var g = await _context.Set<Tobiso.Web.Domain.Entities.Grade>().FindAsync(id);
         if (g == null) return false;
 
@@ -71,6 +75,7 @@ public class GradeService : IGradeService
 
     public async Task<bool> Delete(int id)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var g = await _context.Set<Tobiso.Web.Domain.Entities.Grade>().FindAsync(id);
         if (g == null) return false;
 
@@ -85,6 +90,7 @@ public class GradeService : IGradeService
 
     public async Task SeedDefaultsAsync()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var grades = await _context.Set<Tobiso.Web.Domain.Entities.Grade>().ToListAsync();
         if (grades.Any()) return; // already seeded
 
