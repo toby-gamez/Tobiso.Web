@@ -1,8 +1,12 @@
 @page "/events"
 @using Tobiso.Web.Shared.DTOs
-@using Tobiso.Web.Shared.Interfaces
+@using Tobiso.Web.Api.Services
+@using Tobiso.Web.Domain.Entities
 @using Microsoft.AspNetCore.Components.Authorization
-@inject ITobisoWebApi Api
+@* Talks to the services directly (like Users.razor): the public /api/events read only returns
+   global events, but the admin has to see and edit the ones students add too. *@
+@inject IEventService EventService
+@inject IClassService ClassService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -30,6 +34,18 @@ else
                placeholder="Hledat událost..." />
         <input type="date" class="input" @bind="filterStartDate" @bind:after="OnFilterChanged" />
         <input type="date" class="input" @bind="filterEndDate" @bind:after="OnFilterChanged" />
+        <select class="select" @bind="filterSource" @bind:after="OnFilterChanged">
+            <option value="">Všechny události</option>
+            <option value="admin">Přidané adminem</option>
+            <option value="student">Přidané žáky</option>
+        </select>
+        <select class="select" @bind="filterClassId" @bind:after="OnFilterChanged">
+            <option value="0">Všechny třídy</option>
+            @foreach (var c in classes)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
     </div>
 
     <div class="data-table-wrap">
@@ -40,14 +56,15 @@ else
                     <th>Datum začátku</th>
                     <th>Datum konce</th>
                     <th>Typ</th>
-                    <th>Místo</th>
+                    <th>Pro koho</th>
+                    <th>Přidal/a</th>
                     <th>Akce</th>
                 </tr>
             </thead>
             <tbody>
                 @if (!filteredEvents.Any())
                 {
-                    <tr><td colspan="6" class="empty-row">Žádné události k zobrazení.</td></tr>
+                    <tr><td colspan="7" class="empty-row">Žádné události k zobrazení.</td></tr>
                 }
                 else
                 {
@@ -63,20 +80,27 @@ else
                             <td>@eventItem.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
                             <td>@(eventItem.EndDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
                             <td>
+                                <span class="badge">@TypeLabel(eventItem.Type)</span>
                                 @if (eventItem.IsAllDay)
                                 {
                                     <span class="badge badge-info">Celodenní</span>
-                                }
-                                else
-                                {
-                                    <span class="badge">Časová</span>
                                 }
                                 @if (eventItem.IsRecurring)
                                 {
                                     <span class="badge badge-warning">Opakující se</span>
                                 }
                             </td>
-                            <td>@(eventItem.Location ?? "-")</td>
+                            <td>@ScopeLabel(eventItem)</td>
+                            <td>
+                                @if (eventItem.CreatedByUserId != null)
+                                {
+                                    <span class="badge badge-warning">Žák</span> @eventItem.CreatedByName
+                                }
+                                else
+                                {
+                                    <span>Admin</span>
+                                }
+                            </td>
                             <td>
                                 <div class="row-actions">
                                     <button class="btn btn-ghost btn-sm" @onclick="() => ShowEditModal(eventItem)">
@@ -120,6 +144,64 @@ else
                             <InputText type="color" class="input" @bind-Value="eventModel.Color" />
                         </div>
                     </div>
+
+                    <div class="form-grid-3">
+                        <div class="field">
+                            <label>Typ</label>
+                            <InputSelect class="select" @bind-Value="eventModel.Type">
+                                <option value="@EventType.DayOff">Volno (nejde se do školy)</option>
+                                <option value="@EventType.Test">Test</option>
+                                <option value="@EventType.Homework">Úkol</option>
+                                <option value="@EventType.Other">Jiné</option>
+                            </InputSelect>
+                        </div>
+                        <div class="field">
+                            <label>Pro koho</label>
+                            <InputSelect class="select" @bind-Value="eventModel.Scope">
+                                <option value="@EventScope.Global">Všichni</option>
+                                <option value="@EventScope.Class">Třída</option>
+                                <option value="@EventScope.Group">Skupina</option>
+                                @if (eventModel.CreatedByUserId != null)
+                                {
+                                    <option value="@EventScope.Personal">Jen autor (osobní)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        @if (eventModel.Scope == EventScope.Class)
+                        {
+                            <div class="field">
+                                <label>Třída</label>
+                                <InputSelect class="select" @bind-Value="eventModel.ClassId">
+                                    <option value="">Vyberte třídu</option>
+                                    @foreach (var c in classes)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                        else if (eventModel.Scope == EventScope.Group)
+                        {
+                            <div class="field">
+                                <label>Skupina</label>
+                                <InputSelect class="select" @bind-Value="eventModel.GroupId">
+                                    <option value="">Vyberte skupinu</option>
+                                    @foreach (var c in classes)
+                                    {
+                                        @foreach (var g in c.Groups)
+                                        {
+                                            <option value="@g.Id">@c.Name – @g.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                    </div>
+
+                    @if (eventModel.CreatedByUserId != null)
+                    {
+                        <p class="event-author-note">Přidal/a žák: <strong>@eventModel.CreatedByName</strong></p>
+                    }
 
                     <div class="field">
                         <label>Popis</label>
@@ -198,9 +280,12 @@ else
 @code {
     private List<EventResponse>? events;
     private List<EventResponse> filteredEvents = new();
+    private List<SchoolClassDto> classes = new();
     private string searchTerm = "";
     private DateTime? filterStartDate;
     private DateTime? filterEndDate;
+    private string filterSource = "";
+    private int filterClassId;
 
     private bool showModal = false;
     private bool isEditing = false;
@@ -235,12 +320,9 @@ else
     {
         try
         {
-            events = (await Api.GetAllEvents()).ToList();
+            classes = await ClassService.GetAllAsync();
+            events = await EventService.GetAllForAdmin();
             FilterEvents();
-        }
-        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
@@ -257,7 +339,9 @@ else
              e.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
              (e.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
             (!filterStartDate.HasValue || e.StartDate.Date >= filterStartDate.Value.Date) &&
-            (!filterEndDate.HasValue || e.StartDate.Date <= filterEndDate.Value.Date)
+            (!filterEndDate.HasValue || e.StartDate.Date <= filterEndDate.Value.Date) &&
+            (filterSource == "" || (filterSource == "student") == (e.CreatedByUserId != null)) &&
+            (filterClassId == 0 || e.ClassId == filterClassId)
         ).OrderBy(e => e.StartDate).ToList();
     }
 
@@ -297,7 +381,13 @@ else
             Location = eventResponse.Location,
             Color = eventResponse.Color,
             IsRecurring = eventResponse.IsRecurring,
-            RecurrencePattern = eventResponse.RecurrencePattern
+            RecurrencePattern = eventResponse.RecurrencePattern,
+            Type = eventResponse.Type,
+            Scope = eventResponse.Scope,
+            ClassId = eventResponse.ClassId,
+            GroupId = eventResponse.GroupId,
+            CreatedByUserId = eventResponse.CreatedByUserId,
+            CreatedByName = eventResponse.CreatedByName
         };
 
         startDate = eventResponse.StartDate.Date;
@@ -352,10 +442,18 @@ else
                     Color = eventModel.Color,
                     IsRecurring = eventModel.IsRecurring,
                     RecurrencePattern = eventModel.RecurrencePattern,
-                    RecurrenceEndDate = recurrenceEndDate
+                    RecurrenceEndDate = recurrenceEndDate,
+                    Type = eventModel.Type,
+                    Scope = eventModel.Scope,
+                    ClassId = eventModel.ClassId,
+                    GroupId = eventModel.GroupId
                 };
 
-                await Api.UpdateEvent(eventModel.Id, updateRequest);
+                if (!await EventService.Update(eventModel.Id, updateRequest))
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Událost se nepodařilo upravit - zkontrolujte třídu/skupinu.");
+                    return;
+                }
                 await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně upravena.");
             }
             else
@@ -371,19 +469,23 @@ else
                     Color = eventModel.Color,
                     IsRecurring = eventModel.IsRecurring,
                     RecurrencePattern = eventModel.RecurrencePattern,
-                    RecurrenceEndDate = recurrenceEndDate
+                    RecurrenceEndDate = recurrenceEndDate,
+                    Type = eventModel.Type,
+                    Scope = eventModel.Scope,
+                    ClassId = eventModel.ClassId,
+                    GroupId = eventModel.GroupId
                 };
 
-                await Api.CreateEvent(createRequest);
+                if (await EventService.Create(createRequest) == null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Událost se nepodařilo vytvořit - zkontrolujte třídu/skupinu.");
+                    return;
+                }
                 await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně vytvořena.");
             }
 
             CloseModal();
             await LoadEvents();
-        }
-        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
@@ -397,13 +499,9 @@ else
         {
             try
             {
-                await Api.DeleteEvent(eventId);
+                await EventService.Delete(eventId);
                 await JSRuntime.InvokeVoidAsync("alert", "Událost byla úspěšně smazána.");
                 await LoadEvents();
-            }
-            catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Navigation.NavigateTo("/login");
             }
             catch (Exception ex)
             {
@@ -422,5 +520,27 @@ else
         public string Color { get; set; } = "#007bff";
         public bool IsRecurring { get; set; }
         public string? RecurrencePattern { get; set; }
+        public EventType Type { get; set; } = EventType.DayOff;
+        public EventScope Scope { get; set; } = EventScope.Global;
+        public int? ClassId { get; set; }
+        public int? GroupId { get; set; }
+        public int? CreatedByUserId { get; set; }
+        public string? CreatedByName { get; set; }
     }
+
+    private static string TypeLabel(EventType type) => type switch
+    {
+        EventType.Test => "Test",
+        EventType.Homework => "Úkol",
+        EventType.Other => "Jiné",
+        _ => "Volno"
+    };
+
+    private static string ScopeLabel(EventResponse e) => e.Scope switch
+    {
+        EventScope.Class => $"Třída {e.ClassName}",
+        EventScope.Group => $"Skupina {e.ClassName} – {e.GroupName}",
+        EventScope.Personal => "Jen autor",
+        _ => "Všichni"
+    };
 }

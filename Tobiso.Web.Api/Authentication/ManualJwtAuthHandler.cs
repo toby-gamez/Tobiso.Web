@@ -35,7 +35,7 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
 
         try
         {
-            var principal = ValidateToken(token);
+            var principal = ValidateToken(token, Options);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
@@ -46,7 +46,9 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         }
     }
 
-    private ClaimsPrincipal ValidateToken(string token)
+    // Public so the admin Blazor app can verify the token it restores from localStorage with the
+    // exact same rules the API applies, instead of trusting an unsigned payload.
+    public static ClaimsPrincipal ValidateToken(string token, ManualJwtAuthOptions options)
     {
         var parts = token.Split('.');
         if (parts.Length != 3)
@@ -57,7 +59,7 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         var signature   = Base64UrlDecode(parts[2]);
 
         var signingInput = $"{parts[0]}.{parts[1]}";
-        var keyBytes     = Encoding.UTF8.GetBytes(Options.Secret);
+        var keyBytes     = Encoding.UTF8.GetBytes(options.Secret);
         var expectedSig  = HMACSHA256.HashData(keyBytes, Encoding.UTF8.GetBytes(signingInput));
 
         if (!CryptographicOperations.FixedTimeEquals(signature, expectedSig))
@@ -66,19 +68,19 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         using var doc = JsonDocument.Parse(payloadJson);
         var root = doc.RootElement;
 
-        if (Options.ValidateIssuer && root.TryGetProperty("iss", out var issElem))
+        if (options.ValidateIssuer && root.TryGetProperty("iss", out var issElem))
         {
-            if (issElem.GetString() != Options.ValidIssuer)
+            if (issElem.GetString() != options.ValidIssuer)
                 throw new InvalidOperationException($"Invalid issuer: {issElem.GetString()}");
         }
 
-        if (Options.ValidateAudience && root.TryGetProperty("aud", out var audElem))
+        if (options.ValidateAudience && root.TryGetProperty("aud", out var audElem))
         {
-            if (audElem.GetString() != Options.ValidAudience)
+            if (audElem.GetString() != options.ValidAudience)
                 throw new InvalidOperationException($"Invalid audience: {audElem.GetString()}");
         }
 
-        if (Options.ValidateLifetime && root.TryGetProperty("exp", out var expElem))
+        if (options.ValidateLifetime && root.TryGetProperty("exp", out var expElem))
         {
             var expUnix = expElem.GetInt64();
             if (DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime < DateTime.UtcNow)

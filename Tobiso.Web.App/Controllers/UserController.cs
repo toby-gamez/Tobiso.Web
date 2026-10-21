@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
 
 namespace Tobiso.Web.App.Controllers;
 
 [ApiController]
 [Route("api/user")]
-[Authorize]
+[Authorize(Policy = AuthPolicies.AnyUser)]
 public class UserController(IUserProgressService progressService, IUserDataExportService exportService) : ControllerBase
 {
     private int? GetUserId()

@@ -105,7 +105,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         });
 }
 
-services.AddAuthorization();
+services.AddTobisoAuthorization();
 
 // Production hosts on IIS with hostingModel=inprocess (see web.config), so IIS terminates
 // the connection itself and RemoteIpAddress already reflects the real client IP - there is
@@ -158,6 +158,7 @@ services.AddScoped<IGradeService, GradeService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
+services.AddScoped<IClassService, ClassService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();

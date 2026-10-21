@@ -1,0 +1,186 @@
+@using Tobiso.Web.Domain.Entities
+@inject IClassService ClassService
+@inject IJSRuntime JS
+
+@* Profile block: pick a class (and its groups) and wait for the admin to approve it.
+   Renders nothing while no classes exist, so the profile looks as before. *@
+@if (_loaded && (_classes.Count > 0 || _mine != null))
+{
+    <div class="soft class-card">
+        <h2>Moje třída</h2>
+
+        @if (_mine != null && !_changing)
+        {
+            <p class="class-status">
+                @switch (_mine.Status)
+                {
+                    case ClassMembershipStatus.Approved:
+                        <span class="class-status-badge class-status-ok"><i data-lucide="check"></i> Schváleno</span>
+                        <span>Jsi ve třídě <strong>@_mine.ClassName</strong>. V kalendáři uvidíš i testy a události své třídy.</span>
+                        break;
+                    case ClassMembershipStatus.Rejected:
+                        <span class="class-status-badge class-status-no"><i data-lucide="x"></i> Zamítnuto</span>
+                        <span>Žádost do třídy <strong>@_mine.ClassName</strong> byla zamítnuta. Můžeš požádat znovu.</span>
+                        break;
+                    default:
+                        <span class="class-status-badge"><i data-lucide="hourglass"></i> Čeká na schválení</span>
+                        <span>Požádal/a jsi o přidání do třídy <strong>@_mine.ClassName</strong>.</span>
+                        break;
+                }
+            </p>
+
+            @if (_mine.Status != ClassMembershipStatus.Rejected && _mine.AvailableGroups.Count > 0)
+            {
+                <div class="field">
+                    <label>Moje skupiny</label>
+                    <div class="class-groups">
+                        @foreach (var g in _mine.AvailableGroups)
+                        {
+                            var selected = _mine.Groups.Any(x => x.Id == g.Id);
+                            <button class="chip @(selected ? "chip-sel" : "")" disabled="@_busy" @onclick="() => ToggleMyGroup(g.Id)">@g.Name</button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="class-actions">
+                @if (_mine.Status == ClassMembershipStatus.Rejected)
+                {
+                    <button class="pill pill-on" disabled="@_busy" @onclick="StartChange">Požádat znovu</button>
+                }
+                else
+                {
+                    <button class="pill" disabled="@_busy" @onclick="StartChange">Změnit třídu</button>
+                }
+                <button class="pill" disabled="@_busy" @onclick="Leave">
+                    @(_mine.Status == ClassMembershipStatus.Pending ? "Zrušit žádost" : "Opustit třídu")
+                </button>
+            </div>
+        }
+        else
+        {
+            <p>Přidej se ke své třídě - po schválení uvidíš v kalendáři i testy a události třídy a můžeš je sám/sama přidávat.</p>
+
+            <div class="field">
+                <label for="class-pick">Třída</label>
+                <select id="class-pick" class="input" value="@_pickClassId" @onchange="OnPickClass">
+                    <option value="0">Vyber třídu</option>
+                    @foreach (var c in _classes)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+
+            @if (PickedClass is { Groups.Count: > 0 } picked)
+            {
+                <div class="field">
+                    <label>Skupiny (můžeš vybrat víc)</label>
+                    <div class="class-groups">
+                        @foreach (var g in picked.Groups)
+                        {
+                            var selected = _pickGroupIds.Contains(g.Id);
+                            <button class="chip @(selected ? "chip-sel" : "")" @onclick="() => TogglePickGroup(g.Id)">@g.Name</button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="class-actions">
+                <button class="pill pill-on" disabled="@(_busy || _pickClassId == 0)" @onclick="Join">Požádat o přidání</button>
+                @if (_changing)
+                {
+                    <button class="pill" disabled="@_busy" @onclick="() => _changing = false">Zrušit</button>
+                }
+            </div>
+            @if (_mine?.Status == ClassMembershipStatus.Approved)
+            {
+                <p class="class-note">Změna třídy musí být znovu schválena.</p>
+            }
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="class-error">@_error</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int UserId { get; set; }
+
+    private bool _loaded;
+    private bool _busy;
+    private bool _changing;
+    private string? _error;
+    private List<SchoolClassDto> _classes = [];
+    private MyClassDto? _mine;
+    private int _pickClassId;
+    private HashSet<int> _pickGroupIds = [];
+
+    private SchoolClassDto? PickedClass => _classes.FirstOrDefault(c => c.Id == _pickClassId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _classes = await ClassService.GetAllAsync();
+        _mine = await ClassService.GetMyClassAsync(UserId);
+        _loaded = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+
+    private void OnPickClass(ChangeEventArgs e)
+    {
+        _pickClassId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        _pickGroupIds = [];
+    }
+
+    private void TogglePickGroup(int groupId)
+    {
+        if (!_pickGroupIds.Remove(groupId)) _pickGroupIds.Add(groupId);
+    }
+
+    private void StartChange()
+    {
+        _changing = true;
+        _pickClassId = _mine?.ClassId ?? 0;
+        _pickGroupIds = _mine?.Groups.Select(g => g.Id).ToHashSet() ?? [];
+    }
+
+    private Task Join() => Run(async () =>
+    {
+        if (!await ClassService.RequestJoinAsync(UserId, _pickClassId, _pickGroupIds))
+            _error = "Tahle třída už neexistuje.";
+        _changing = false;
+    });
+
+    private Task ToggleMyGroup(int groupId) => Run(async () =>
+    {
+        var ids = _mine!.Groups.Select(g => g.Id).ToHashSet();
+        if (!ids.Remove(groupId)) ids.Add(groupId);
+        await ClassService.UpdateMyGroupsAsync(UserId, ids);
+    });
+
+    private Task Leave() => Run(() => ClassService.LeaveAsync(UserId));
+
+    private async Task Run(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            _classes = await ClassService.GetAllAsync();
+            _mine = await ClassService.GetMyClassAsync(UserId);
+        }
+        catch (Exception)
+        {
+            _error = "Něco se nepovedlo, zkus to prosím znovu.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

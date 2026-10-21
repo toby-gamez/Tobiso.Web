@@ -1,0 +1,394 @@
+@page "/classes"
+@using Tobiso.Web.Api.Services
+@using Tobiso.Web.Domain.Entities
+@using Tobiso.Web.Shared.DTOs
+@using Microsoft.AspNetCore.Authorization
+@inject IClassService ClassService
+@inject IGradeService GradeService
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+
+<PageTitle>Třídy – Admin</PageTitle>
+
+<div class="cls-page">
+    <div class="cls-header">
+        <h1>Třídy</h1>
+        @if (pending.Count > 0)
+        {
+            <span class="badge badge-warning">@pending.Count čeká na schválení</span>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="cls-message @(messageIsError ? "error" : "")">@message</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="cls-empty">Načítání…</div>
+    }
+    else
+    {
+        <section class="cls-section">
+            <h2>Žádosti o přidání do třídy</h2>
+            @if (pending.Count == 0)
+            {
+                <div class="cls-empty">Žádné čekající žádosti.</div>
+            }
+            else
+            {
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Žák</th>
+                                <th>Třída</th>
+                                <th>Skupiny</th>
+                                <th>Požádal/a</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in pending)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="cls-name">@m.DisplayName</div>
+                                        <div class="cls-email">@m.Email</div>
+                                    </td>
+                                    <td>@m.ClassName</td>
+                                    <td>@GroupNames(m.Groups)</td>
+                                    <td>@m.RequestedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => Approve(m)">
+                                                <i data-lucide="check"></i> Schválit
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => Reject(m)">
+                                                <i data-lucide="x"></i> Zamítnout
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="cls-section">
+            <h2>Nová třída</h2>
+            <div class="cls-inline-form">
+                <input class="input" placeholder="Název, např. 8.B" maxlength="@Tobiso.Web.Api.Services.ClassService.MaxNameLength" @bind="newClassName" />
+                <select class="select" @bind="newClassGradeId">
+                    <option value="0">Bez ročníku</option>
+                    @foreach (var g in grades)
+                    {
+                        <option value="@g.Id">@g.Name</option>
+                    }
+                </select>
+                <button class="btn btn-primary btn-sm" disabled="@(busy || string.IsNullOrWhiteSpace(newClassName))" @onclick="CreateClass">
+                    <i data-lucide="plus"></i> Přidat třídu
+                </button>
+            </div>
+        </section>
+
+        <section class="cls-section">
+            <h2>Seznam tříd</h2>
+            @if (classes.Count == 0)
+            {
+                <div class="cls-empty">Zatím žádné třídy.</div>
+            }
+            @foreach (var c in classes)
+            {
+                <div class="cls-card">
+                    <div class="cls-card-head">
+                        @if (editingClassId == c.Id)
+                        {
+                            <div class="cls-inline-form">
+                                <input class="input" maxlength="@Tobiso.Web.Api.Services.ClassService.MaxNameLength" @bind="editClassName" />
+                                <select class="select" @bind="editClassGradeId">
+                                    <option value="0">Bez ročníku</option>
+                                    @foreach (var g in grades)
+                                    {
+                                        <option value="@g.Id">@g.Name</option>
+                                    }
+                                </select>
+                                <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => SaveClass(c)">Uložit</button>
+                                <button class="btn btn-ghost btn-sm" @onclick="() => editingClassId = null">Zrušit</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div>
+                                <span class="cls-card-title">@c.Name</span>
+                                @if (c.GradeName != null)
+                                {
+                                    <span class="badge badge-info">@c.GradeName</span>
+                                }
+                                <span class="cls-card-meta">@c.ApprovedCount členů@(c.PendingCount > 0 ? $", {c.PendingCount} čeká" : "")</span>
+                            </div>
+                            <div class="row-actions">
+                                <button class="btn btn-secondary btn-sm" @onclick="() => ToggleMembers(c.Id)">
+                                    <i data-lucide="users"></i> @(expandedClassId == c.Id ? "Skrýt členy" : "Členové")
+                                </button>
+                                <button class="btn btn-ghost btn-sm" aria-label="Upravit třídu" @onclick="() => StartEditClass(c)">
+                                    <i data-lucide="pencil-line"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm" aria-label="Smazat třídu" disabled="@busy" @onclick="() => DeleteClass(c)">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="cls-groups">
+                        <span class="cls-groups-label">Skupiny:</span>
+                        @if (c.Groups.Count == 0)
+                        {
+                            <span class="cls-muted">žádné</span>
+                        }
+                        @foreach (var g in c.Groups)
+                        {
+                            <span class="cls-group-chip">
+                                @g.Name
+                                <button class="cls-group-remove" aria-label="Smazat skupinu @g.Name" disabled="@busy" @onclick="() => DeleteGroup(c, g)">
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </span>
+                        }
+                        <span class="cls-inline-form cls-add-group">
+                            <input class="input" placeholder="Nová skupina" maxlength="@Tobiso.Web.Api.Services.ClassService.MaxNameLength"
+                                   value="@(newGroupNames.GetValueOrDefault(c.Id) ?? "")"
+                                   @onchange="e => newGroupNames[c.Id] = e.Value?.ToString()" />
+                            <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => AddGroup(c)">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </span>
+                    </div>
+
+                    @if (expandedClassId == c.Id)
+                    {
+                        <div class="cls-members">
+                            @if (members.Count == 0)
+                            {
+                                <div class="cls-empty">Žádní členové.</div>
+                            }
+                            else
+                            {
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Žák</th>
+                                            <th>Stav</th>
+                                            <th>Skupiny</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var m in members)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <div class="cls-name">@m.DisplayName</div>
+                                                    <div class="cls-email">@m.Email</div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge @StatusBadge(m.Status)">@StatusLabel(m.Status)</span>
+                                                </td>
+                                                <td>
+                                                    @if (c.Groups.Count == 0)
+                                                    {
+                                                        <span class="cls-muted">–</span>
+                                                    }
+                                                    @foreach (var g in c.Groups)
+                                                    {
+                                                        var inGroup = m.Groups.Any(x => x.Id == g.Id);
+                                                        <label class="cls-check">
+                                                            <input type="checkbox" checked="@inGroup" disabled="@busy"
+                                                                   @onchange="e => ToggleMemberGroup(m, g.Id, e.Value is true)" />
+                                                            @g.Name
+                                                        </label>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <div class="row-actions">
+                                                        @if (m.Status != ClassMembershipStatus.Approved)
+                                                        {
+                                                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => Approve(m)">Schválit</button>
+                                                        }
+                                                        @if (m.Status != ClassMembershipStatus.Rejected)
+                                                        {
+                                                            <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => Reject(m)">Zamítnout</button>
+                                                        }
+                                                        <button class="btn btn-danger btn-sm" aria-label="Odebrat ze třídy" disabled="@busy" @onclick="() => RemoveMember(m)">
+                                                            <i data-lucide="user-minus"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool busy;
+    private string? message;
+    private bool messageIsError;
+
+    private List<SchoolClassDto> classes = [];
+    private List<ClassMemberDto> pending = [];
+    private List<ClassMemberDto> members = [];
+    private List<GradeResponse> grades = [];
+
+    private string newClassName = "";
+    private int newClassGradeId;
+    private int? editingClassId;
+    private string editClassName = "";
+    private int editClassGradeId;
+    private int? expandedClassId;
+    private readonly Dictionary<int, string?> newGroupNames = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        grades = await GradeService.GetAll();
+        await Reload();
+        isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JSRuntime.InvokeVoidAsync("initLucide");
+
+    private async Task Reload()
+    {
+        classes = await ClassService.GetAllAsync();
+        pending = await ClassService.GetMembersAsync(status: ClassMembershipStatus.Pending);
+        members = expandedClassId is int id ? await ClassService.GetMembersAsync(id) : [];
+    }
+
+    // Runs an action with the buttons disabled, then refreshes everything and shows the outcome.
+    private async Task Run(Func<Task<bool>> action, string ok, string fail)
+    {
+        busy = true;
+        try
+        {
+            var success = await action();
+            message = success ? ok : fail;
+            messageIsError = !success;
+            await Reload();
+        }
+        catch (Exception ex)
+        {
+            message = $"Chyba: {ex.Message}";
+            messageIsError = true;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private Task Approve(ClassMemberDto m) =>
+        Run(() => ClassService.ApproveAsync(m.MembershipId), $"{m.DisplayName} je teď ve třídě {m.ClassName}.", "Žádost nebyla nalezena.");
+
+    private Task Reject(ClassMemberDto m) =>
+        Run(() => ClassService.RejectAsync(m.MembershipId), $"Žádost od {m.DisplayName} byla zamítnuta.", "Žádost nebyla nalezena.");
+
+    private async Task RemoveMember(ClassMemberDto m)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Odebrat {m.DisplayName} ze třídy {m.ClassName}?")) return;
+        await Run(() => ClassService.RemoveMemberAsync(m.MembershipId), $"{m.DisplayName} byl/a odebrán/a ze třídy.", "Člen nebyl nalezen.");
+    }
+
+    private Task ToggleMemberGroup(ClassMemberDto m, int groupId, bool add)
+    {
+        var ids = m.Groups.Select(g => g.Id).Where(id => id != groupId).ToList();
+        if (add) ids.Add(groupId);
+        return Run(() => ClassService.SetMemberGroupsAsync(m.MembershipId, ids), "Skupiny uloženy.", "Člen nebyl nalezen.");
+    }
+
+    private async Task CreateClass()
+    {
+        var name = newClassName;
+        var gradeId = newClassGradeId == 0 ? (int?)null : newClassGradeId;
+        await Run(async () => await ClassService.CreateClassAsync(new SaveClassRequest(name, gradeId)) != null,
+            $"Třída {name.Trim()} vytvořena.", "Třídu se nepodařilo vytvořit (prázdný nebo už použitý název?).");
+        if (!messageIsError)
+        {
+            newClassName = "";
+            newClassGradeId = 0;
+        }
+    }
+
+    private void StartEditClass(SchoolClassDto c)
+    {
+        editingClassId = c.Id;
+        editClassName = c.Name;
+        editClassGradeId = c.GradeId ?? 0;
+    }
+
+    private async Task SaveClass(SchoolClassDto c)
+    {
+        var gradeId = editClassGradeId == 0 ? (int?)null : editClassGradeId;
+        await Run(() => ClassService.UpdateClassAsync(c.Id, new SaveClassRequest(editClassName, gradeId)),
+            "Třída uložena.", "Třídu se nepodařilo uložit (prázdný nebo už použitý název?).");
+        if (!messageIsError) editingClassId = null;
+    }
+
+    private async Task DeleteClass(SchoolClassDto c)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Smazat třídu {c.Name}? Smažou se i její skupiny, členství a všechny události třídy.")) return;
+        if (expandedClassId == c.Id) expandedClassId = null;
+        await Run(() => ClassService.DeleteClassAsync(c.Id), $"Třída {c.Name} smazána.", "Třída nebyla nalezena.");
+    }
+
+    private async Task AddGroup(SchoolClassDto c)
+    {
+        var name = newGroupNames.GetValueOrDefault(c.Id) ?? "";
+        await Run(async () => await ClassService.AddGroupAsync(c.Id, name) != null,
+            $"Skupina {name.Trim()} přidána.", "Skupinu se nepodařilo přidat (prázdný nebo už použitý název?).");
+        if (!messageIsError) newGroupNames.Remove(c.Id);
+    }
+
+    private async Task DeleteGroup(SchoolClassDto c, ClassGroupDto g)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Smazat skupinu {g.Name} ze třídy {c.Name}? Smažou se i události této skupiny.")) return;
+        await Run(() => ClassService.DeleteGroupAsync(g.Id), $"Skupina {g.Name} smazána.", "Skupina nebyla nalezena.");
+    }
+
+    private async Task ToggleMembers(int classId)
+    {
+        expandedClassId = expandedClassId == classId ? null : classId;
+        members = expandedClassId is int id ? await ClassService.GetMembersAsync(id) : [];
+    }
+
+    private static string GroupNames(List<ClassGroupDto> groups) =>
+        groups.Count == 0 ? "–" : string.Join(", ", groups.Select(g => g.Name));
+
+    private static string StatusLabel(ClassMembershipStatus status) => status switch
+    {
+        ClassMembershipStatus.Approved => "Schváleno",
+        ClassMembershipStatus.Rejected => "Zamítnuto",
+        _ => "Čeká"
+    };
+
+    private static string StatusBadge(ClassMembershipStatus status) => status switch
+    {
+        ClassMembershipStatus.Approved => "badge-success",
+        ClassMembershipStatus.Rejected => "badge-danger",
+        _ => "badge-warning"
+    };
+}

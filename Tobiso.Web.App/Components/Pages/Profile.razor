@@ -51,6 +51,11 @@
             </div>
         </div>
 
+        @if (_isStudent)
+        {
+            <ClassMembershipCard UserId="_userId" />
+        }
+
         <div>
             <h2>Pokrok podle předmětů</h2>
             @if (_stats == null || _stats.PerSubject.Count == 0)
@@ -177,6 +182,7 @@
 
 @code {
     private bool _isAuth;
+    private bool _isStudent;
     private int _userId;
     private int _credits;
     private string _displayName = "";
@@ -269,6 +275,7 @@
 
             _displayName = auth.User.FindFirst(ClaimTypes.Name)?.Value ?? "Student";
             if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _userId)) return;
+            _isStudent = auth.User.IsInRole("student");
 
             _stats = await UserProgressService.GetStatsAsync(_userId);
             _aiUsage = await UserProgressService.GetAiUsageAsync(_userId);
