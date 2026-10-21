@@ -153,7 +153,8 @@ services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
 services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
 services.AddScoped<IChronicleImportService, ChronicleImportService>();
 
-services.AddSingleton<CredentialStore>();
+services.AddScoped<CredentialStore>();
+services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, CredentialCircuitHandler>();
 services.AddTransient<AuthenticationHeaderHandler>();
 services.AddTransient<HttpLoggingHandler>();
 
