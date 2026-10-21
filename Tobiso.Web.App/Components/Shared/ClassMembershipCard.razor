@@ -36,10 +36,20 @@
                     <div class="class-groups">
                         @foreach (var g in _mine.AvailableGroups)
                         {
-                            var selected = _mine.Groups.Any(x => x.Id == g.Id);
+                            var selected = _mine.GroupChangePending
+                                ? _mine.PendingGroup?.Id == g.Id
+                                : _mine.Groups.Any(x => x.Id == g.Id);
                             <button class="chip @(selected ? "chip-sel" : "")" disabled="@_busy" @onclick="() => ToggleMyGroup(g.Id)">@g.Name</button>
                         }
                     </div>
+                    @if (_mine.GroupChangePending)
+                    {
+                        <p class="class-note">
+                            <i data-lucide="hourglass"></i>
+                            @(_mine.PendingGroup != null ? $"Změna skupiny na {_mine.PendingGroup.Name}" : "Opuštění skupiny")
+                            čeká na schválení. Do té doby platí @(_mine.Groups.Count > 0 ? $"skupina {_mine.Groups[0].Name}" : "žádná skupina").
+                        </p>
+                    }
                 </div>
             }
 
@@ -75,7 +85,7 @@
             @if (PickedClass is { Groups.Count: > 0 } picked)
             {
                 <div class="field">
-                    <label>Skupiny (můžeš vybrat víc)</label>
+                    <label>Skupina</label>
                     <div class="class-groups">
                         @foreach (var g in picked.Groups)
                         {
@@ -95,7 +105,7 @@
             </div>
             @if (_mine?.Status == ClassMembershipStatus.Approved)
             {
-                <p class="class-note">Změna třídy musí být znovu schválena.</p>
+                <p class="class-note">Změna třídy nebo skupiny musí být schválena.</p>
             }
         }
 
@@ -138,7 +148,8 @@
 
     private void TogglePickGroup(int groupId)
     {
-        if (!_pickGroupIds.Remove(groupId)) _pickGroupIds.Add(groupId);
+        var wasSelected = _pickGroupIds.Contains(groupId);
+        _pickGroupIds = wasSelected ? [] : [groupId];
     }
 
     private void StartChange()
@@ -157,8 +168,14 @@
 
     private Task ToggleMyGroup(int groupId) => Run(async () =>
     {
-        var ids = _mine!.Groups.Select(g => g.Id).ToHashSet();
-        if (!ids.Remove(groupId)) ids.Add(groupId);
+        var ids = (_mine!.GroupChangePending
+            ? _mine.PendingGroup is { } pg ? [pg.Id] : new HashSet<int>()
+            : _mine.Groups.Select(g => g.Id).ToHashSet());
+        if (!ids.Remove(groupId))
+        {
+            ids.Clear();
+            ids.Add(groupId);
+        }
         await ClassService.UpdateMyGroupsAsync(UserId, ids);
     });
 

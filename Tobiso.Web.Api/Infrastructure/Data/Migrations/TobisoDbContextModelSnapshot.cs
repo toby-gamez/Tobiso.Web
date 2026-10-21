@@ -812,6 +812,12 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("DecidedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("GroupChangePending")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("PendingGroupId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("RequestedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")

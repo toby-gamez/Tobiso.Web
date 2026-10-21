@@ -9,14 +9,15 @@ public record SchoolClassDto(int Id, string Name, int? GradeId, string? GradeNam
 
 /// <summary>The signed-in student's class membership (null when they haven't asked to join one).</summary>
 public record MyClassDto(int ClassId, string ClassName, ClassMembershipStatus Status, List<ClassGroupDto> Groups,
-    List<ClassGroupDto> AvailableGroups);
+    List<ClassGroupDto> AvailableGroups, bool GroupChangePending = false, ClassGroupDto? PendingGroup = null);
 
 public record JoinClassRequest(int ClassId, List<int>? GroupIds);
 
 public record UpdateMyGroupsRequest(List<int> GroupIds);
 
 public record ClassMemberDto(int MembershipId, int UserId, string DisplayName, string Email, int ClassId,
-    string ClassName, ClassMembershipStatus Status, DateTime RequestedAt, DateTime? DecidedAt, List<ClassGroupDto> Groups);
+    string ClassName, ClassMembershipStatus Status, DateTime RequestedAt, DateTime? DecidedAt, List<ClassGroupDto> Groups,
+    bool GroupChangePending = false, ClassGroupDto? PendingGroup = null);
 
 public record SaveClassRequest(string Name, int? GradeId);
 

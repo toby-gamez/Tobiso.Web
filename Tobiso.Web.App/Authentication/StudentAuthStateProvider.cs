@@ -6,11 +6,13 @@ using System.Text.Json;
 
 namespace Tobiso.Web.App.Authentication;
 
-public class StudentAuthStateProvider : AuthenticationStateProvider
+public class StudentAuthStateProvider : AuthenticationStateProvider, IDisposable
 {
     private readonly StudentCredentialStore _store;
     private readonly ILogger<StudentAuthStateProvider> _logger;
     private readonly byte[] _jwtSecretBytes;
+    private Timer? _expiryTimer;
+    private DateTimeOffset? _scheduledExpiry;
 
     public StudentAuthStateProvider(StudentCredentialStore store, ILogger<StudentAuthStateProvider> logger, IConfiguration configuration)
     {
@@ -40,6 +42,33 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
     public void NotifyStateChanged()
         => NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
 
+    // Components such as NavMenu cache the identity and only refresh on AuthenticationStateChanged,
+    // so without this an expired token leaves them showing a logged-in user until a reload.
+    private void ScheduleExpiryNotification(DateTimeOffset expiry)
+    {
+        lock (this)
+        {
+            if (_scheduledExpiry == expiry) return;
+            _scheduledExpiry = expiry;
+            // +1s so the re-evaluation lands after exp; clamp to the Timer's ~49-day limit.
+            var delay = expiry - DateTimeOffset.UtcNow + TimeSpan.FromSeconds(1);
+            if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+            var max = TimeSpan.FromDays(40);
+            if (delay > max) delay = max;
+            _expiryTimer?.Dispose();
+            _expiryTimer = new Timer(_ => NotifyStateChanged(), null, delay, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (this)
+        {
+            _expiryTimer?.Dispose();
+            _expiryTimer = null;
+        }
+    }
+
     private ClaimsPrincipal ParseToken(string token)
     {
         var parts = token.Split('.');
@@ -61,8 +90,10 @@ public class StudentAuthStateProvider : AuthenticationStateProvider
 
         if (root.TryGetProperty("exp", out var expElem))
         {
-            if (DateTimeOffset.FromUnixTimeSeconds(expElem.GetInt64()).UtcDateTime < DateTime.UtcNow)
+            var expiry = DateTimeOffset.FromUnixTimeSeconds(expElem.GetInt64());
+            if (expiry.UtcDateTime < DateTime.UtcNow)
                 return AnonymousPrincipal();
+            ScheduleExpiryNotification(expiry);
         }
 
         var claims = new List<Claim>();

@@ -6,16 +6,15 @@
 @inject IClassService ClassService
 @inject IGradeService GradeService
 @inject IJSRuntime JSRuntime
-@attribute [Authorize]
 
 <PageTitle>Třídy – Admin</PageTitle>
 
 <div class="cls-page">
     <div class="cls-header">
         <h1>Třídy</h1>
-        @if (pending.Count > 0)
+        @if (pending.Count + groupChanges.Count > 0)
         {
-            <span class="badge badge-warning">@pending.Count čeká na schválení</span>
+            <span class="badge badge-warning">@(pending.Count + groupChanges.Count) čeká na schválení</span>
         }
     </div>
 
@@ -66,6 +65,54 @@
                                                 <i data-lucide="check"></i> Schválit
                                             </button>
                                             <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => Reject(m)">
+                                                <i data-lucide="x"></i> Zamítnout
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="cls-section">
+            <h2>Žádosti o změnu skupiny</h2>
+            @if (groupChanges.Count == 0)
+            {
+                <div class="cls-empty">Žádné čekající žádosti.</div>
+            }
+            else
+            {
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Žák</th>
+                                <th>Třída</th>
+                                <th>Z</th>
+                                <th>Na</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in groupChanges)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="cls-name">@m.DisplayName</div>
+                                        <div class="cls-email">@m.Email</div>
+                                    </td>
+                                    <td>@m.ClassName</td>
+                                    <td>@GroupNames(m.Groups)</td>
+                                    <td>@(m.PendingGroup?.Name ?? "–")</td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <button class="btn btn-primary btn-sm" disabled="@busy" @onclick="() => ApproveGroupChange(m)">
+                                                <i data-lucide="check"></i> Schválit
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => RejectGroupChange(m)">
                                                 <i data-lucide="x"></i> Zamítnout
                                             </button>
                                         </div>
@@ -249,6 +296,7 @@
 
     private List<SchoolClassDto> classes = [];
     private List<ClassMemberDto> pending = [];
+    private List<ClassMemberDto> groupChanges = [];
     private List<ClassMemberDto> members = [];
     private List<GradeResponse> grades = [];
 
@@ -274,6 +322,7 @@
     {
         classes = await ClassService.GetAllAsync();
         pending = await ClassService.GetMembersAsync(status: ClassMembershipStatus.Pending);
+        groupChanges = await ClassService.GetGroupChangeRequestsAsync();
         members = expandedClassId is int id ? await ClassService.GetMembersAsync(id) : [];
     }
 
@@ -305,6 +354,12 @@
     private Task Reject(ClassMemberDto m) =>
         Run(() => ClassService.RejectAsync(m.MembershipId), $"Žádost od {m.DisplayName} byla zamítnuta.", "Žádost nebyla nalezena.");
 
+    private Task ApproveGroupChange(ClassMemberDto m) =>
+        Run(() => ClassService.ApproveGroupChangeAsync(m.MembershipId), $"Skupina pro {m.DisplayName} změněna.", "Žádost nebyla nalezena.");
+
+    private Task RejectGroupChange(ClassMemberDto m) =>
+        Run(() => ClassService.RejectGroupChangeAsync(m.MembershipId), $"Změna skupiny pro {m.DisplayName} zamítnuta.", "Žádost nebyla nalezena.");
+
     private async Task RemoveMember(ClassMemberDto m)
     {
         if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Odebrat {m.DisplayName} ze třídy {m.ClassName}?")) return;
@@ -313,8 +368,8 @@
 
     private Task ToggleMemberGroup(ClassMemberDto m, int groupId, bool add)
     {
-        var ids = m.Groups.Select(g => g.Id).Where(id => id != groupId).ToList();
-        if (add) ids.Add(groupId);
+        // One group per member: ticking a group replaces the previous one.
+        var ids = add ? new List<int> { groupId } : new List<int>();
         return Run(() => ClassService.SetMemberGroupsAsync(m.MembershipId, ids), "Skupiny uloženy.", "Člen nebyl nalezen.");
     }
 

@@ -17,6 +17,11 @@ public class ClassMembership
     public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DecidedAt { get; set; }
 
+    /// <summary>An approved member asked to switch group; the change applies once an admin approves it.</summary>
+    public bool GroupChangePending { get; set; }
+    /// <summary>The requested group (null = leave the current group). Deliberately not a FK; validated on approval.</summary>
+    public int? PendingGroupId { get; set; }
+
     public ICollection<ClassMembershipGroup> Groups { get; set; } = [];
 }
 

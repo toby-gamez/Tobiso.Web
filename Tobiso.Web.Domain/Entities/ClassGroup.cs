@@ -1,6 +1,6 @@
 namespace Tobiso.Web.Domain.Entities;
 
-/// <summary>A subgroup of a class (e.g. a language or PE group); a member can belong to several.</summary>
+/// <summary>A subgroup of a class (e.g. a language or PE group); a member can belong to only one group of their class.</summary>
 public class ClassGroup
 {
     public int Id { get; set; }

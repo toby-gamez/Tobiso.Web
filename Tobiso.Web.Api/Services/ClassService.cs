@@ -20,6 +20,9 @@ public interface IClassService
     Task<int> GetPendingCountAsync();
     Task<bool> ApproveAsync(int membershipId);
     Task<bool> RejectAsync(int membershipId);
+    Task<List<ClassMemberDto>> GetGroupChangeRequestsAsync();
+    Task<bool> ApproveGroupChangeAsync(int membershipId);
+    Task<bool> RejectGroupChangeAsync(int membershipId);
     Task<bool> RemoveMemberAsync(int membershipId);
     Task<bool> SetMemberGroupsAsync(int membershipId, IEnumerable<int> groupIds);
     Task<SchoolClassDto?> CreateClassAsync(SaveClassRequest request);
@@ -49,7 +52,7 @@ public class ClassService : IClassService
                 c.Id, c.Name, c.GradeId, c.Grade != null ? c.Grade.Name : null,
                 c.Groups.OrderBy(g => g.Name).Select(g => new ClassGroupDto(g.Id, g.Name)).ToList(),
                 c.Memberships.Count(m => m.Status == ClassMembershipStatus.Approved),
-                c.Memberships.Count(m => m.Status == ClassMembershipStatus.Pending)))
+                c.Memberships.Count(m => m.Status == ClassMembershipStatus.Pending || m.GroupChangePending)))
             .ToListAsync();
     }
 
@@ -61,7 +64,9 @@ public class ClassService : IClassService
             .Select(m => new MyClassDto(
                 m.ClassId, m.Class.Name, m.Status,
                 m.Groups.OrderBy(g => g.Group.Name).Select(g => new ClassGroupDto(g.GroupId, g.Group.Name)).ToList(),
-                m.Class.Groups.OrderBy(g => g.Name).Select(g => new ClassGroupDto(g.Id, g.Name)).ToList()))
+                m.Class.Groups.OrderBy(g => g.Name).Select(g => new ClassGroupDto(g.Id, g.Name)).ToList(),
+                m.GroupChangePending,
+                m.Class.Groups.Where(g => g.Id == m.PendingGroupId).Select(g => new ClassGroupDto(g.Id, g.Name)).FirstOrDefault()))
             .FirstOrDefaultAsync();
     }
 
@@ -100,6 +105,15 @@ public class ClassService : IClassService
             membership.Status = ClassMembershipStatus.Pending;
             membership.RequestedAt = DateTime.UtcNow;
             membership.DecidedAt = null;
+            membership.GroupChangePending = false;
+            membership.PendingGroupId = null;
+        }
+        else if (membership.Status == ClassMembershipStatus.Approved)
+        {
+            // Same class, already approved: only the group can differ, and that needs approval.
+            await RequestGroupChangeAsync(db, membership, groupIds);
+            await db.SaveChangesAsync();
+            return true;
         }
 
         await ReplaceGroupsAsync(db, membership, groupIds);
@@ -107,7 +121,8 @@ public class ClassService : IClassService
         return true;
     }
 
-    // Picking groups inside an already chosen class doesn't need approval again.
+    // Switching group inside an approved class is only a request until an admin approves it.
+    // While the class itself is still awaiting approval, the groups are just part of that request.
     public async Task<bool> UpdateMyGroupsAsync(int userId, IEnumerable<int> groupIds)
     {
         await using var db = _dbFactory.CreateDbContext();
@@ -115,9 +130,21 @@ public class ClassService : IClassService
             .FirstOrDefaultAsync(m => m.UserId == userId);
         if (membership == null) return false;
 
-        await ReplaceGroupsAsync(db, membership, groupIds);
+        if (membership.Status == ClassMembershipStatus.Approved)
+            await RequestGroupChangeAsync(db, membership, groupIds);
+        else
+            await ReplaceGroupsAsync(db, membership, groupIds);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    private static async Task RequestGroupChangeAsync(TobisoDbContext db, ClassMembership membership, IEnumerable<int>? groupIds)
+    {
+        var requested = (await ValidGroupIdsAsync(db, membership.ClassId, groupIds)).Cast<int?>().FirstOrDefault();
+        var current = membership.Groups.Select(g => (int?)g.GroupId).FirstOrDefault();
+        // Asking for what they already have just cancels any earlier request.
+        membership.GroupChangePending = requested != current;
+        membership.PendingGroupId = membership.GroupChangePending ? requested : null;
     }
 
     public async Task LeaveAsync(int userId)
@@ -138,8 +165,40 @@ public class ClassService : IClassService
             .Select(m => new ClassMemberDto(
                 m.Id, m.UserId, m.User.DisplayName, m.User.Email, m.ClassId, m.Class.Name,
                 m.Status, m.RequestedAt, m.DecidedAt,
-                m.Groups.OrderBy(g => g.Group.Name).Select(g => new ClassGroupDto(g.GroupId, g.Group.Name)).ToList()))
+                m.Groups.OrderBy(g => g.Group.Name).Select(g => new ClassGroupDto(g.GroupId, g.Group.Name)).ToList(),
+                m.GroupChangePending,
+                m.Class.Groups.Where(g => g.Id == m.PendingGroupId).Select(g => new ClassGroupDto(g.Id, g.Name)).FirstOrDefault()))
             .ToListAsync();
+    }
+
+    public async Task<List<ClassMemberDto>> GetGroupChangeRequestsAsync()
+    {
+        var all = await GetMembersAsync(status: ClassMembershipStatus.Approved);
+        return all.Where(m => m.GroupChangePending).OrderBy(m => m.ClassName).ThenBy(m => m.DisplayName).ToList();
+    }
+
+    public async Task<bool> ApproveGroupChangeAsync(int membershipId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var membership = await db.ClassMemberships.Include(m => m.Groups)
+            .FirstOrDefaultAsync(m => m.Id == membershipId && m.GroupChangePending);
+        if (membership == null) return false;
+
+        // ReplaceGroupsAsync drops a group that was deleted or moved out of the class meanwhile.
+        await ReplaceGroupsAsync(db, membership, membership.PendingGroupId is int id ? [id] : []);
+        membership.GroupChangePending = false;
+        membership.PendingGroupId = null;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RejectGroupChangeAsync(int membershipId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.ClassMemberships.Where(m => m.Id == membershipId && m.GroupChangePending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.GroupChangePending, false)
+                .SetProperty(m => m.PendingGroupId, (int?)null)) > 0;
     }
 
     public async Task<int> GetPendingCountAsync()
@@ -158,7 +217,9 @@ public class ClassService : IClassService
         var updated = await db.ClassMemberships.Where(m => m.Id == membershipId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(m => m.Status, status)
-                .SetProperty(m => m.DecidedAt, DateTime.UtcNow));
+                .SetProperty(m => m.DecidedAt, DateTime.UtcNow)
+                .SetProperty(m => m.GroupChangePending, false)
+                .SetProperty(m => m.PendingGroupId, (int?)null));
         return updated > 0;
     }
 
@@ -175,6 +236,9 @@ public class ClassService : IClassService
             .FirstOrDefaultAsync(m => m.Id == membershipId);
         if (membership == null) return false;
 
+        // An admin's own choice applies at once and supersedes any request the student had open.
+        membership.GroupChangePending = false;
+        membership.PendingGroupId = null;
         await ReplaceGroupsAsync(db, membership, groupIds);
         await db.SaveChangesAsync();
         return true;
@@ -262,6 +326,8 @@ public class ClassService : IClassService
 
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.ClassMembershipGroups.Where(mg => mg.GroupId == groupId).ExecuteDeleteAsync();
+        await db.ClassMemberships.Where(m => m.PendingGroupId == groupId)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.GroupChangePending, false).SetProperty(m => m.PendingGroupId, (int?)null));
         await db.Events.Where(e => e.GroupId == groupId).ExecuteDeleteAsync();
         await db.ClassGroups.Where(g => g.Id == groupId).ExecuteDeleteAsync();
         await tx.CommitAsync();
@@ -284,10 +350,12 @@ public class ClassService : IClassService
     {
         var requested = groupIds?.Distinct().ToList() ?? [];
         if (requested.Count == 0) return [];
-        return await db.ClassGroups
+        // A member can be in at most one group of their class, so only the first valid id counts.
+        var valid = await db.ClassGroups
             .Where(g => g.ClassId == classId && requested.Contains(g.Id))
             .Select(g => g.Id)
             .ToListAsync();
+        return requested.Where(valid.Contains).Take(1).ToList();
     }
 
     private static async Task<int?> ValidGradeIdAsync(TobisoDbContext db, int? gradeId) =>

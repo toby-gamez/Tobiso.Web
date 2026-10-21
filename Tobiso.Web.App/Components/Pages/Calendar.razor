@@ -30,7 +30,9 @@
 
     @if (_form != null)
     {
-        <div class="soft calendar-form">
+        <div class="calendar-backdrop" @onclick="CloseForm">
+        <div class="calendar-form" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+            <button class="calendar-modal-close" @onclick="CloseForm" aria-label="Zavřít"><i data-lucide="x"></i></button>
             <h2>@(_form.EditId == null ? "Nová událost" : "Upravit událost")</h2>
 
             <div class="field">
@@ -96,8 +98,9 @@
                 <button class="pill pill-on" disabled="@(_saving || string.IsNullOrWhiteSpace(_form.Title))" @onclick="SaveForm">
                     @(_saving ? "Ukládám…" : "Uložit")
                 </button>
-                <button class="pill" disabled="@_saving" @onclick="() => _form = null">Zrušit</button>
+                <button class="pill" disabled="@_saving" @onclick="CloseForm">Zrušit</button>
             </div>
+        </div>
         </div>
     }
 
@@ -122,20 +125,22 @@
                         aria-label="@cell.Date.ToString("d. MMMM", CzechCulture)"
                         @onclick="() => SelectDay(cell.Date)">
                     <span class="calendar-daynum" style="@(primary is not null ? $"color:color-mix(in srgb, {primary.Color} 65%, black)" : "")">@cell.Date.Day</span>
-                    @foreach (var e in dayEvents.Take(2))
-                    {
-                        <span class="calendar-event" style="color:color-mix(in srgb, @e.Color 65%, black)" title="@e.Title">
-                            @if (e.Type != EventType.DayOff)
-                            {
-                                <span class="calendar-dot" style="background:@e.Color"></span>
-                            }
-                            @e.Title
-                        </span>
-                    }
-                    @if (dayEvents.Count > 2)
-                    {
-                        <span class="calendar-more">+@(dayEvents.Count - 2)</span>
-                    }
+                    <span class="calendar-events">
+                        @foreach (var e in dayEvents.Take(2))
+                        {
+                            <span class="calendar-event @(e.Type == EventType.DayOff ? "calendar-event-dayoff" : "")" style="color:color-mix(in srgb, @e.Color 65%, black)" title="@e.Title">
+                                @if (e.Type != EventType.DayOff)
+                                {
+                                    <span class="calendar-dot" style="background:@e.Color"></span>
+                                }
+                                <span class="calendar-event-title">@e.Title</span>
+                            </span>
+                        }
+                        @if (dayEvents.Count > 2)
+                        {
+                            <span class="calendar-more">+@(dayEvents.Count - 2)</span>
+                        }
+                    </span>
                 </button>
             }
         </div>
@@ -312,6 +317,11 @@
 
     private void SelectDay(DateTime day) => _selectedDay = _selectedDay == day.Date ? null : day.Date;
 
+    private void CloseForm()
+    {
+        if (!_saving) _form = null;
+    }
+
     private void OpenCreate(DateTime day)
     {
         _formError = null;
@@ -469,8 +479,8 @@
 
     private static string ScopeLabel(EventResponse e) => e.Scope switch
     {
-        EventScope.Class => $"Třída {e.ClassName}",
-        EventScope.Group => $"Skupina {e.GroupName}",
+        EventScope.Class => e.ClassName ?? "Všechny třídy",
+        EventScope.Group => $"{e.ClassName} {e.GroupName}".Trim(),
         EventScope.Personal => "Jen pro tebe",
         _ => "Všichni"
     };

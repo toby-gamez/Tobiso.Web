@@ -172,7 +172,7 @@ else
                             <div class="field">
                                 <label>Třída</label>
                                 <InputSelect class="select" @bind-Value="eventModel.ClassId">
-                                    <option value="">Vyberte třídu</option>
+                                    <option value="">Všechny třídy</option>
                                     @foreach (var c in classes)
                                     {
                                         <option value="@c.Id">@c.Name</option>
@@ -538,7 +538,7 @@ else
 
     private static string ScopeLabel(EventResponse e) => e.Scope switch
     {
-        EventScope.Class => $"Třída {e.ClassName}",
+        EventScope.Class => e.ClassName == null ? "Všechny třídy" : $"Třída {e.ClassName}",
         EventScope.Group => $"Skupina {e.ClassName} – {e.GroupName}",
         EventScope.Personal => "Jen autor",
         _ => "Všichni"

@@ -317,7 +317,8 @@ public class EventService : IEventService
                 eventEntity.GroupId = null;
                 break;
             case EventScope.Class:
-                if (classId == null || !await _context.SchoolClasses.AnyAsync(c => c.Id == classId)) return false;
+                // A null classId means "all classes": visible to every class member, not to the public.
+                if (classId != null && !await _context.SchoolClasses.AnyAsync(c => c.Id == classId)) return false;
                 eventEntity.ClassId = classId;
                 eventEntity.GroupId = null;
                 break;
@@ -370,7 +371,7 @@ public class EventService : IEventService
         var groupIds = viewer.GroupIds.ToList();
         return query.Where(e =>
             e.Scope == EventScope.Global ||
-            (e.Scope == EventScope.Class && classId != null && e.ClassId == classId) ||
+            (e.Scope == EventScope.Class && classId != null && (e.ClassId == null || e.ClassId == classId)) ||
             (e.Scope == EventScope.Group && e.GroupId != null && groupIds.Contains(e.GroupId.Value)) ||
             (e.Scope == EventScope.Personal && e.CreatedByUserId == userId));
     }
