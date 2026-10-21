@@ -112,7 +112,7 @@ namespace Tobiso.Web.App.Controllers
         }
 
         [HttpGet("history")]
-        [Authorize]
+        [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetHistory()
         {
             if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
@@ -132,7 +132,7 @@ namespace Tobiso.Web.App.Controllers
         }
 
         [HttpGet("history/{sessionId:int}")]
-        [Authorize]
+        [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetSessionMessages(int sessionId)
         {
             if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))

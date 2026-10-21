@@ -6,12 +6,18 @@
 @inject IJSRuntime JSRuntime
 @inherits LayoutComponentBase
 
-<div class="app-shell">
-    <NavMenu />
-    <main class="main-content">
-        @Body
-    </main>
-</div>
+@* Pages are only rendered once a verified admin token is restored. Routes.razor uses a plain
+   RouteView, so a page's [Authorize] isn't enforced on client-side navigation - without this
+   gate, anyone could open /login and navigate to pages that query the database directly. *@
+@if (_isAdmin)
+{
+    <div class="app-shell">
+        <NavMenu />
+        <main class="main-content">
+            @Body
+        </main>
+    </div>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -21,6 +27,7 @@
 
 @code {
     private bool _tokenRestored;
+    private bool _isAdmin;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -29,6 +36,15 @@
         {
             await CredentialStore.InitializeAsync(JSRuntime);
             _tokenRestored = true;
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated != true)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            _isAdmin = true;
             StateHasChanged();
         }
         catch (InvalidOperationException)

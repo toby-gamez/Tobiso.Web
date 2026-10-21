@@ -53,10 +53,23 @@
     flex-direction: column;
     gap: 4px;
     padding: 8px;
+    font: inherit;
     font-size: 13px;
+    text-align: left;
+    color: var(--color-text);
+    border: 0;
+    cursor: pointer;
+    min-width: 0;
     background: var(--color-neutral-100);
     border-radius: var(--radius-md);
     overflow: hidden;
+}
+
+.calendar-cell:hover { filter: brightness(.97); }
+
+.calendar-cell-selected {
+    outline: 2px solid var(--color-text);
+    outline-offset: -2px;
 }
 
 .calendar-cell-muted { opacity: .5; }
@@ -75,6 +88,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.calendar-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
 }
 
 .calendar-more {
@@ -120,3 +142,80 @@
 
 .calendar-upcoming-title { font-family: var(--font-heading); font-size: 18px; }
 .calendar-upcoming-sub { font-size: 13px; color: var(--color-neutral-600); }
+
+.calendar-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.calendar-section-head h2 { margin: 0; }
+
+.calendar-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.calendar-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--color-neutral-200);
+    color: var(--color-text);
+}
+
+.calendar-tag ::deep svg { width: 12px; height: 12px; }
+
+.calendar-tag-author {
+    background: var(--color-accent-200);
+    color: var(--color-accent-800);
+}
+
+.calendar-row-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+.calendar-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+}
+
+.calendar-form h2 { margin: 0; }
+.calendar-form .field { max-width: 480px; }
+
+.calendar-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.calendar-form-row .field { flex: 1 1 180px; }
+
+.calendar-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.calendar-chips .chip { font-size: 14px; padding: 6px 14px; }
+
+.calendar-hint { font-size: 13px; color: var(--color-neutral-600); }
+.calendar-error { margin: 0; color: var(--color-accent-700); font-weight: 600; }
+
+.calendar-form-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+

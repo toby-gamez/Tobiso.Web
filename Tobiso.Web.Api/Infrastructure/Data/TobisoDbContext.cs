@@ -39,6 +39,10 @@ public class TobisoDbContext : DbContext
     public DbSet<Answer> Answers { get; set; }
     public DbSet<Explanation> Explanations { get; set; }
     public DbSet<Event> Events { get; set; }
+    public DbSet<SchoolClass> SchoolClasses { get; set; }
+    public DbSet<ClassGroup> ClassGroups { get; set; }
+    public DbSet<ClassMembership> ClassMemberships { get; set; }
+    public DbSet<ClassMembershipGroup> ClassMembershipGroups { get; set; }
     public DbSet<RelatedPost> RelatedPosts { get; set; }
     public DbSet<Addendum> Addendums { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
@@ -156,6 +160,92 @@ public class TobisoDbContext : DbContext
                 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
+
+            // Stored as ints; existing rows default to DayOff/Global, i.e. the calendar as it was.
+            entity.Property(e => e.Type).HasDefaultValue(EventType.DayOff);
+            entity.Property(e => e.Scope).HasDefaultValue(EventScope.Global);
+
+            entity.HasOne(e => e.Class)
+                .WithMany()
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // NoAction (not Cascade): Classes -> ClassGroups -> Events plus Classes -> Events would
+            // be two cascade paths, which SQL Server rejects. ClassService deletes a group's events itself.
+            entity.HasOne(e => e.Group)
+                .WithMany()
+                .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Deleting an account removes the events that user added.
+            entity.HasOne(e => e.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.Scope, e.StartDate });
+        });
+
+        // Configure SchoolClass
+        modelBuilder.Entity<SchoolClass>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.HasIndex(e => e.Name).IsUnique();
+
+            entity.HasOne(e => e.Grade)
+                .WithMany()
+                .HasForeignKey(e => e.GradeId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configure ClassGroup
+        modelBuilder.Entity<ClassGroup>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => new { e.ClassId, e.Name }).IsUnique();
+
+            entity.HasOne(e => e.Class)
+                .WithMany(c => c.Groups)
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure ClassMembership
+        modelBuilder.Entity<ClassMembership>(entity =>
+        {
+            entity.Property(e => e.RequestedAt).HasDefaultValueSql("GETUTCDATE()");
+            // One class per user.
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity.HasIndex(e => new { e.ClassId, e.Status });
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Class)
+                .WithMany(c => c.Memberships)
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Join table ClassMembershipGroup (which groups of the class a member is in)
+        modelBuilder.Entity<ClassMembershipGroup>(entity =>
+        {
+            entity.HasKey(e => new { e.MembershipId, e.GroupId });
+
+            entity.HasOne(e => e.Membership)
+                .WithMany(m => m.Groups)
+                .HasForeignKey(e => e.MembershipId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // NoAction: Classes reach this table through both memberships and groups. ClassService
+            // removes these rows itself before deleting a group or a class.
+            entity.HasOne(e => e.Group)
+                .WithMany(g => g.Members)
+                .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // Configure RelatedPost entity

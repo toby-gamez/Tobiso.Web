@@ -70,3 +70,13 @@
         grid-template-columns: 1fr;
     }
 }
+
+.filter-bar .select {
+    flex: 0 1 200px;
+}
+
+.event-author-note {
+    margin: 0 0 var(--space-3);
+    font-size: 14px;
+    color: var(--color-neutral-600);
+}

@@ -97,7 +97,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    [Authorize]
+    [Authorize(Policy = AuthPolicies.AnyUser)]
     public async Task<IActionResult> Me()
     {
         var role = User.FindFirst("role")?.Value;
@@ -157,7 +157,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("daily-bonus")]
-    [Authorize]
+    [Authorize(Policy = AuthPolicies.AnyUser)]
     public async Task<IActionResult> ClaimDailyBonus()
     {
         var role = User.FindFirst("role")?.Value;

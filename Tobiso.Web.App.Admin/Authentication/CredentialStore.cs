@@ -3,10 +3,12 @@
 namespace Tobiso.Web.App.Authentication;
 
 /// <summary>
-/// Stores the current user's JWT token.
-/// Uses AsyncLocal internally so each Blazor circuit sees its own token.
-/// Registered as Singleton so AuthenticationHeaderHandler (resolved from root scope)
-/// can inject it directly without scope-mismatch issues.
+/// Stores the current admin's JWT token, one instance per Blazor circuit (Scoped).
+/// It must never be shared between circuits: an earlier version kept a static fallback copy of
+/// the last token, so any visitor's circuit could fall back to the last admin's token.
+/// AuthenticationHeaderHandler is resolved outside the circuit's DI scope, so it reaches the
+/// circuit's store through <see cref="Current"/>, set by <see cref="CredentialCircuitHandler"/>
+/// for every inbound circuit activity.
 /// </summary>
 public class CredentialStore
 {
@@ -15,12 +17,16 @@ public class CredentialStore
     private const string LegacyUsernameKey = "blinked_username";
     private const string LegacyPasswordKey  = "blinked_password";
 
-    private static readonly AsyncLocal<string?> _asyncToken = new();
-    private static string? _directToken;
+    private static readonly AsyncLocal<CredentialStore?> _current = new();
+    private string? _token;
     private readonly ILogger<CredentialStore> _logger;
 
-    /// <summary>Direct static access for AuthenticationHeaderHandler (bypasses AsyncLocal/ExecutionContext).</summary>
-    internal static string? DirectToken => _directToken;
+    /// <summary>The store of the circuit whose activity is currently running (null outside a circuit).</summary>
+    internal static CredentialStore? Current
+    {
+        get => _current.Value;
+        set => _current.Value = value;
+    }
 
     public CredentialStore(ILogger<CredentialStore> logger)
     {
@@ -35,8 +41,7 @@ public class CredentialStore
             var token = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", TokenStorageKey);
             if (!string.IsNullOrEmpty(token))
             {
-                _asyncToken.Value = token;
-                _directToken = token;
+                _token = token;
             }
         }
         catch (Exception ex)
@@ -48,8 +53,7 @@ public class CredentialStore
     /// <summary>Stores the JWT token in memory and persists it to localStorage.</summary>
     public async Task SetAsync(string token, IJSRuntime jsRuntime)
     {
-        _asyncToken.Value = token;
-        _directToken = token;
+        _token = token;
         try
         {
             await jsRuntime.InvokeVoidAsync("localStorage.setItem", TokenStorageKey, token);
@@ -63,21 +67,16 @@ public class CredentialStore
     /// <summary>Sets the token in memory only (no async localStorage write).</summary>
     public void Set(string token)
     {
-        _asyncToken.Value = token;
-        _directToken = token;
+        _token = token;
     }
 
     /// <summary>Returns the current JWT token, or null if not authenticated.</summary>
-    public string? GetToken() => _asyncToken.Value ?? _directToken;
-
-    /// <summary>Static accessor for AuthenticationHeaderHandler - reads the per-circuit token without DI.</summary>
-    public static string? CurrentToken => _asyncToken.Value;
+    public string? GetToken() => _token;
 
     /// <summary>Clears the token from memory and localStorage, and removes legacy Basic-auth keys.</summary>
     public async Task ClearAsync(IJSRuntime jsRuntime)
     {
-        _asyncToken.Value = null;
-        _directToken = null;
+        _token = null;
         try
         {
             await jsRuntime.InvokeVoidAsync("localStorage.removeItem", TokenStorageKey);
@@ -95,7 +94,6 @@ public class CredentialStore
     /// <summary>Clears the token from memory only (no async localStorage write).</summary>
     public void Clear()
     {
-        _asyncToken.Value = null;
-        _directToken = null;
+        _token = null;
     }
 }

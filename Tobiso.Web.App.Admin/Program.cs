@@ -83,7 +83,7 @@ services
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
 
-services.AddAuthorization();
+services.AddTobisoAuthorization();
 
 // No-op today (IIS in-process hosting, no proxy in front - see Tobiso.Web.App/Program.cs for
 // the full explanation); kept so this app is already correct if a CDN/WAF is ever added.
@@ -135,6 +135,7 @@ services.AddEndpointsApiExplorer();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
+services.AddScoped<IClassService, ClassService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
@@ -152,7 +153,8 @@ services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
 services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
 services.AddScoped<IChronicleImportService, ChronicleImportService>();
 
-services.AddSingleton<CredentialStore>();
+services.AddScoped<CredentialStore>();
+services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, CredentialCircuitHandler>();
 services.AddTransient<AuthenticationHeaderHandler>();
 services.AddTransient<HttpLoggingHandler>();
 

@@ -58,6 +58,26 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             })
             .ToListAsync();
 
+        var classMembership = await db.ClassMemberships.AsNoTracking()
+            .Where(m => m.UserId == userId)
+            .Select(m => new
+            {
+                ClassName = m.Class.Name, Status = m.Status.ToString(), m.RequestedAt, m.DecidedAt,
+                Groups = m.Groups.Select(g => g.Group.Name)
+            })
+            .FirstOrDefaultAsync();
+
+        var events = await db.Events.AsNoTracking()
+            .Where(e => e.CreatedByUserId == userId)
+            .OrderBy(e => e.StartDate)
+            .Select(e => new
+            {
+                e.Title, e.Description, e.StartDate, e.EndDate, Type = e.Type.ToString(), Scope = e.Scope.ToString(),
+                ClassName = e.Class != null ? e.Class.Name : null, GroupName = e.Group != null ? e.Group.Name : null,
+                e.CreatedAt, e.UpdatedAt
+            })
+            .ToListAsync();
+
         var export = new
         {
             ExportedAt = DateTime.UtcNow,
@@ -73,7 +93,9 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             ReadPosts = readPosts,
             QuestionAttempts = attempts,
             CreditTransactions = credits,
-            AiChats = chats
+            AiChats = chats,
+            ClassMembership = classMembership,
+            CalendarEvents = events
         };
 
         return JsonSerializer.SerializeToUtf8Bytes(export, JsonOptions);
