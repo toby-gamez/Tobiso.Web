@@ -18,18 +18,22 @@ public class JwtTokenService
         _logger = logger;
     }
 
+    public static readonly TimeSpan StudentTokenLifetime = TimeSpan.FromDays(30);
+
     public string GenerateStudentToken(AppUser user)
     {
         var secret  = _config["Auth:Jwt:Secret"]!;
         var issuer  = _config["Auth:Jwt:Issuer"]   ?? "tobiso";
         var audience = _config["Auth:Jwt:Audience"] ?? "tobiso";
-        var expiry  = DateTime.UtcNow.AddDays(30);
+        var expiry  = DateTime.UtcNow.Add(StudentTokenLifetime);
 
         var extra = new Dictionary<string, string>
         {
             ["email"]   = user.Email,
             ["role"]    = "student",
-            ["credits"] = user.Credits.ToString()
+            ["credits"] = user.Credits.ToString(),
+            // Revocation: the token is only honoured while this still matches the user's stamp.
+            [SessionCookies.SecurityStampClaim] = user.SecurityStamp
         };
         if (!string.IsNullOrEmpty(user.AvatarUrl))
             extra["avatar"] = user.AvatarUrl;

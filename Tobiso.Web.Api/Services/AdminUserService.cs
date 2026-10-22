@@ -86,9 +86,13 @@ public class AdminUserService : IAdminUserService
     public async Task<bool> SetPasswordAsync(int userId, string newPassword)
     {
         var hash = PasswordHasher.Hash(newPassword);
+        var stamp = AppUser.NewSecurityStamp();
+        // A new stamp signs the user out everywhere, so the old password's sessions end too.
         var rows = await _db.Users
             .Where(u => u.Id == userId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.PasswordHash, hash));
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.PasswordHash, hash)
+                .SetProperty(u => u.SecurityStamp, stamp));
         return rows > 0;
     }
 

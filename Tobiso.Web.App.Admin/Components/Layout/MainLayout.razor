@@ -1,14 +1,16 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using Tobiso.Api.Authentication
 @using Tobiso.Web.App.Authentication
+@implements IDisposable
 @inject CredentialStore CredentialStore
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inherits LayoutComponentBase
 
-@* Pages are only rendered once a verified admin token is restored. Routes.razor uses a plain
-   RouteView, so a page's [Authorize] isn't enforced on client-side navigation - without this
-   gate, anyone could open /login and navigate to pages that query the database directly. *@
+@* Pages are only rendered for a verified admin session. Routes.razor uses a plain RouteView, so a
+   page's [Authorize] isn't enforced on client-side navigation - without this gate, anyone could
+   open /login and navigate to pages that query the database directly. *@
 @if (_isAdmin)
 {
     <div class="app-shell">
@@ -26,30 +28,41 @@
 </div>
 
 @code {
-    private bool _tokenRestored;
+    private bool _checked;
     private bool _isAdmin;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_tokenRestored) return;
-        try
-        {
-            await CredentialStore.InitializeAsync(JSRuntime);
-            _tokenRestored = true;
+        if (_checked) return;
+        _checked = true;
 
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            if (authState.User.Identity?.IsAuthenticated != true)
-            {
-                Navigation.NavigateTo("/login");
-                return;
-            }
+        // Drop the token older versions kept in localStorage; the session is an HttpOnly cookie now.
+        await JSRuntime.InvokeVoidAsync("tobisoClearLegacyToken");
 
-            _isAdmin = true;
-            StateHasChanged();
-        }
-        catch (InvalidOperationException)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!AuthPolicies.IsAdmin(authState.User))
         {
-            // Prerendering - will retry after circuit connects
+            Navigation.NavigateTo("/login");
+            return;
         }
+
+        // Server-side API calls (AuthenticationHeaderHandler) send this circuit's token as Bearer.
+        CredentialStore.Set(authState.User.FindFirst(ManualJwtAuthHandler.RawTokenClaim)?.Value);
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        _isAdmin = true;
+        StateHasChanged();
     }
+
+    // Revalidation ended the session (token expired): leave the admin pages at once.
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> task) =>
+        _ = InvokeAsync(async () =>
+        {
+            if (AuthPolicies.IsAdmin((await task).User)) return;
+            _isAdmin = false;
+            CredentialStore.Clear();
+            Navigation.NavigateTo("/login", forceLoad: true);
+        });
+
+    public void Dispose() =>
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
 }

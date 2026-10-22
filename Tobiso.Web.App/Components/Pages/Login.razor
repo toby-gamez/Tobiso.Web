@@ -2,8 +2,6 @@
 @layout AuthLayout
 @inject NavigationManager Nav
 @inject IJSRuntime JS
-@inject IUserService UserService
-@inject StudentCredentialStore CredentialStore
 
 <PageTitle>Přihlášení - Tobiso</PageTitle>
 
@@ -35,6 +33,10 @@
     {
         <div class="login-error">@_error</div>
     }
+
+    <p class="login-register">
+        <a href="/zapomenute-heslo">Zapomněl/a jsi heslo?</a>
+    </p>
 
     <button class="pill pill-on login-submit" @onclick="Submit" disabled="@_submitting">
         @if (_submitting) { <span>Přihlašuji…</span> } else { <span>Přihlásit se</span> }
@@ -78,7 +80,15 @@
     private bool _submitting;
     private bool _accepted;
 
-    [Inject] private JwtTokenService JwtService { get; set; } = null!;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (ErrorCode == "google")
+            _error = "Přihlášení přes Google se nezdařilo. Zkus to prosím znovu.";
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -98,17 +108,16 @@
 
         try
         {
-            var user = await UserService.LoginAsync(_email.Trim(), _password);
-            if (user == null)
+            // Through the browser, so the HttpOnly session cookie is set there.
+            var result = await AuthApi.PostAsync(JS, "/api/auth/session", new { username = _email.Trim(), password = _password });
+            if (result.Ok)
             {
-                _error = "Nesprávný e-mail nebo heslo.";
-            }
-            else
-            {
-                var token = JwtService.GenerateStudentToken(user);
-                await CredentialStore.SetAsync(token, JS);
                 Nav.NavigateTo("/", forceLoad: true);
+                return;
             }
+            _error = result.Status == 401
+                ? "Nesprávný e-mail nebo heslo."
+                : AuthApi.ErrorText(result, "Přihlášení se nezdařilo. Zkus to prosím znovu.");
         }
         catch
         {

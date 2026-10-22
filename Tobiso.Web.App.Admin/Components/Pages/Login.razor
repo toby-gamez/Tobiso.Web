@@ -2,14 +2,10 @@
 @layout EmptyLayout
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.ComponentModel.DataAnnotations
-@using System.Net.Http.Headers
-@using System.Text.Json
+@using Tobiso.Api.Authentication
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
-@inject Tobiso.Web.App.Authentication.CredentialStore CredentialStore
 @inject IJSRuntime JSRuntime
-@inject ILogger<Login> Logger
-@inject IConfiguration Configuration
 
 <PageTitle>Login</PageTitle>
 
@@ -65,29 +61,18 @@
         public string Password { get; set; } = string.Empty;
     }
 
-    private bool _tokenChecked;
+    private bool _checked;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JSRuntime.InvokeVoidAsync("initLucide");
 
-        if (_tokenChecked) return;
-        try
-        {
-            await CredentialStore.InitializeAsync(JSRuntime);
-        }
-        catch (InvalidOperationException)
-        {
-            return; // Prerendering - will retry after circuit connects
-        }
-
-        _tokenChecked = true;
+        if (_checked) return;
+        _checked = true;
 
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated == true)
-        {
+        if (AuthPolicies.IsAdmin(authState.User))
             Navigation.NavigateTo("/");
-        }
     }
 
     private async Task HandleLogin()
@@ -97,24 +82,22 @@
 
         try
         {
-            Logger.LogInformation("Attempting login for user: {Username}", loginModel.Username);
+            // Posted from the browser so the HttpOnly session cookie is set there.
+            var result = await JSRuntime.InvokeAsync<AuthPostResult>("tobisoAuthPost", "/api/auth/session",
+                new { username = loginModel.Username, password = loginModel.Password });
 
-            var token = await RequestJwtTokenAsync(loginModel.Username, loginModel.Password);
-            if (token == null)
+            if (result.Status is >= 200 and < 300)
             {
-                errorMessage = "Invalid username or password.";
-                Logger.LogWarning("Login failed - invalid credentials for user: {Username}", loginModel.Username);
+                Navigation.NavigateTo("/", forceLoad: true);
                 return;
             }
 
-            await CredentialStore.SetAsync(token, JSRuntime);
-            Logger.LogInformation("Login successful for user: {Username}", loginModel.Username);
-            Navigation.NavigateTo("/");
-        }
-        catch (Exception ex)
-        {
-            errorMessage = ex.Message;
-            Logger.LogError(ex, "Login failed for user: {Username}", loginModel.Username);
+            errorMessage = result.Status switch
+            {
+                401 or 400 => "Invalid username or password.",
+                429 => "Too many attempts. Try again in a few minutes.",
+                _ => result.Message ?? "Login failed."
+            };
         }
         finally
         {
@@ -122,79 +105,5 @@
         }
     }
 
-    /// <summary>
-    /// Calls POST /api/auth/login to obtain a JWT token.
-    /// Returns the token string on success, or null on invalid credentials.
-    /// Throws on unexpected errors.
-    /// </summary>
-    private async Task<string?> RequestJwtTokenAsync(string username, string password)
-    {
-        var handler = new HttpClientHandler
-        {
-            AllowAutoRedirect = false,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
-        };
-
-        using var httpClient = new HttpClient(handler);
-
-        var baseAddress = Configuration["Api:BaseAddress"];
-        if (string.IsNullOrEmpty(baseAddress))
-        {
-            Logger.LogError("Api:BaseAddress is not configured");
-            throw new InvalidOperationException("API base address is not configured.");
-        }
-
-        httpClient.BaseAddress = new Uri(baseAddress);
-
-        var payload = JsonSerializer.Serialize(new { username, password });
-        var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
-
-        Logger.LogInformation("Calling POST /api/auth/login for user {Username}", username);
-        var response = await httpClient.PostAsync("/api/auth/login", content);
-
-        // Follow redirects manually to preserve POST method
-        if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400)
-        {
-            var redirectUrl = response.Headers.Location;
-            if (redirectUrl != null)
-            {
-                if (!redirectUrl.IsAbsoluteUri)
-                {
-                    redirectUrl = new Uri(httpClient.BaseAddress!, redirectUrl);
-                }
-                Logger.LogInformation("Following redirect to {Url}", redirectUrl);
-                var redirectContent = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
-                response = await httpClient.PostAsync(redirectUrl, redirectContent);
-            }
-        }
-
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-            || response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-        {
-            return null;
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync();
-            try
-            {
-                using var errorDoc = JsonDocument.Parse(errorBody);
-                if (errorDoc.RootElement.TryGetProperty("message", out var msgProp))
-                {
-                    throw new InvalidOperationException(msgProp.GetString() ?? "Login failed.");
-                }
-            }
-            catch (JsonException) { }
-            response.EnsureSuccessStatusCode();
-        }
-
-        var body = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(body);
-        if (doc.RootElement.TryGetProperty("token", out var tokenProp))
-            return tokenProp.GetString();
-
-        Logger.LogError("POST /api/auth/login returned 200 but no 'token' field in body");
-        return null;
-    }
+    public record AuthPostResult(int Status, string? Message);
 }

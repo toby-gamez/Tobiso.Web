@@ -258,6 +258,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTime?>("EmailConfirmedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("GoogleId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -280,6 +283,11 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 
                     b.Property<int?>("PreferredGradeId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime?>("TermsAcceptedAt")
                         .HasColumnType("datetime2");

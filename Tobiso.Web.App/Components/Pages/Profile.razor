@@ -6,7 +6,6 @@
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 @inject NavigationManager Nav
-@inject StudentCredentialStore CredentialStore
 
 <PageTitle>Profil - Tobiso</PageTitle>
 
@@ -150,6 +149,18 @@
             </button>
         </div>
 
+        <div class="soft profile-export">
+            <h2>Přihlášení</h2>
+            <p>Máš podezření, že je tvůj účet přihlášený někde, kde by neměl? Odhlas ho ze všech zařízení najednou, včetně tohoto.</p>
+            @if (!string.IsNullOrEmpty(_logoutAllError))
+            {
+                <p class="profile-danger-error">@_logoutAllError</p>
+            }
+            <button class="pill" disabled="@_loggingOutAll" @onclick="LogoutEverywhere">
+                @(_loggingOutAll ? "Odhlašuji…" : "Odhlásit ze všech zařízení")
+            </button>
+        </div>
+
         <div class="soft profile-danger">
             <h2>Smazat účet</h2>
             <p>Smazáním účtu trvale odstraníš svůj profil, kredity, historii AI chatů, poznámky, záložky a pokrok. Tuto akci nelze vrátit.</p>
@@ -233,6 +244,24 @@
         finally { _exporting = false; }
     }
 
+    private bool _loggingOutAll;
+    private string _logoutAllError = "";
+
+    private async Task LogoutEverywhere()
+    {
+        _loggingOutAll = true;
+        _logoutAllError = "";
+        try
+        {
+            var result = await AuthApi.PostAsync(JS, "/api/auth/logout-everywhere");
+            if (result.Ok)
+                Nav.NavigateTo("/prihlaseni", forceLoad: true);
+            else
+                _logoutAllError = AuthApi.ErrorText(result, "Odhlášení se nezdařilo. Zkus to prosím znovu.");
+        }
+        finally { _loggingOutAll = false; }
+    }
+
     private void CancelDelete()
     {
         _confirmingDelete = false;
@@ -254,7 +283,7 @@
             {
                 case DeleteAccountResult.Deleted:
                 case DeleteAccountResult.NotFound:
-                    await CredentialStore.ClearAsync(JS);
+                    await AuthApi.PostAsync(JS, "/api/auth/logout");
                     Nav.NavigateTo("/", forceLoad: true);
                     break;
                 default:

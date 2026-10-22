@@ -362,6 +362,7 @@ public class TobisoDbContext : DbContext
         {
             entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
             entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SecurityStamp).IsRequired().HasMaxLength(64);
             entity.Property(e => e.PasswordHash).HasMaxLength(512);
             entity.Property(e => e.GoogleId).HasMaxLength(128);
             entity.Property(e => e.Credits).HasDefaultValue(20);
