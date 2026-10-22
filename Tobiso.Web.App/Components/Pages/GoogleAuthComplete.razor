@@ -21,28 +21,25 @@
 </div>
 
 @code {
-    [Parameter]
-    [SupplyParameterFromQuery(Name = "token")]
-    public string? Token { get; set; }
-
     private bool _error;
     private bool _done;
 
-    protected override void OnInitialized()
-    {
-        if (string.IsNullOrWhiteSpace(Token)) _error = true;
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Storing the token needs real JS interop (localStorage), which only exists once
-        // the interactive circuit connects - doing this in OnInitialized during static
-        // prerender would silently drop it, since the redirect would fire before any
-        // browser ever received it.
-        if (firstRender && !_error && !_done)
+        // The token arrives in a one-time HttpOnly cookie (never the URL), redeemed through
+        // JS interop - which only exists once the interactive circuit connects, so this can't
+        // happen during static prerender.
+        if (firstRender && !_done)
         {
             _done = true;
-            await CredentialStore.SetAsync(Token!, JS);
+            var token = await JS.InvokeAsync<string?>("tobisoClaimGoogleToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = true;
+                StateHasChanged();
+                return;
+            }
+            await CredentialStore.SetAsync(token, JS);
             Nav.NavigateTo("/", forceLoad: true);
         }
     }

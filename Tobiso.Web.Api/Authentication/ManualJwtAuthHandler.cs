@@ -68,22 +68,20 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         using var doc = JsonDocument.Parse(payloadJson);
         var root = doc.RootElement;
 
-        if (options.ValidateIssuer && root.TryGetProperty("iss", out var issElem))
-        {
-            if (issElem.GetString() != options.ValidIssuer)
-                throw new InvalidOperationException($"Invalid issuer: {issElem.GetString()}");
-        }
+        // A missing iss/aud/exp fails validation rather than skipping the check.
+        if (options.ValidateIssuer &&
+            (!root.TryGetProperty("iss", out var issElem) || issElem.GetString() != options.ValidIssuer))
+            throw new InvalidOperationException("Invalid or missing issuer");
 
-        if (options.ValidateAudience && root.TryGetProperty("aud", out var audElem))
-        {
-            if (audElem.GetString() != options.ValidAudience)
-                throw new InvalidOperationException($"Invalid audience: {audElem.GetString()}");
-        }
+        if (options.ValidateAudience &&
+            (!root.TryGetProperty("aud", out var audElem) || audElem.GetString() != options.ValidAudience))
+            throw new InvalidOperationException("Invalid or missing audience");
 
-        if (options.ValidateLifetime && root.TryGetProperty("exp", out var expElem))
+        if (options.ValidateLifetime)
         {
-            var expUnix = expElem.GetInt64();
-            if (DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime < DateTime.UtcNow)
+            if (!root.TryGetProperty("exp", out var expElem) || expElem.ValueKind != JsonValueKind.Number)
+                throw new InvalidOperationException("JWT has no expiry");
+            if (DateTimeOffset.FromUnixTimeSeconds(expElem.GetInt64()).UtcDateTime < DateTime.UtcNow)
                 throw new InvalidOperationException("JWT token has expired");
         }
 

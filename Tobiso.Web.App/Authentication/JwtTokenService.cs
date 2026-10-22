@@ -37,8 +37,14 @@ public class JwtTokenService
         return CreateToken(secret, user.Id.ToString(), user.DisplayName, issuer, audience, expiry, extraClaims: extra);
     }
 
-    public string? GenerateToken(string username, string password)
+    public string? GenerateToken(string username, string password, string? clientIp = null)
     {
+        if (AdminLoginThrottle.IsLockedOut(clientIp))
+        {
+            _logger.LogWarning("JWT login rejected - {Ip} is locked out after repeated failures", clientIp);
+            return null;
+        }
+
         var expectedUsername     = _config["Auth:Basic:Username"];
         var expectedPasswordHash = _config["Auth:Basic:PasswordHash"];
         var expectedPassword     = _config["Auth:Basic:Password"];
@@ -65,9 +71,11 @@ public class JwtTokenService
 
         if (!usernameMatch || !passwordMatch)
         {
-            _logger.LogWarning("JWT login failed - invalid credentials for user {Username}", username);
+            AdminLoginThrottle.RecordFailure(clientIp);
+            _logger.LogWarning("JWT login failed - invalid credentials from {Ip}", clientIp);
             return null;
         }
+        AdminLoginThrottle.RecordSuccess(clientIp);
 
         var secret = _config["Auth:Jwt:Secret"];
         if (string.IsNullOrWhiteSpace(secret))
@@ -81,7 +89,8 @@ public class JwtTokenService
         var expiry   = DateTime.UtcNow.AddHours(
             int.TryParse(_config["Auth:Jwt:ExpiryHours"], out var h) ? h : 24);
 
-        return CreateToken(secret, userId, username, issuer, audience, expiry);
+        return CreateToken(secret, userId, username, issuer, audience, expiry,
+            extraClaims: new Dictionary<string, string> { ["role"] = AuthPolicies.AdminRole });
     }
 
     private string CreateToken(string secret, string userId, string username,

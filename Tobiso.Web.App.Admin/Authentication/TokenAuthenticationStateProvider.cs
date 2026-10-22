@@ -44,11 +44,11 @@ public class TokenAuthenticationStateProvider : AuthenticationStateProvider
 
     // Verifies the signature (same rules as the API's ManualJwtAuthHandler) - the token comes
     // from localStorage, so decoding the payload alone would let anyone hand-craft one. Student
-    // tokens are valid signatures too, so they're rejected explicitly: the admin app is admin-only.
+    // tokens are valid signatures too, so only an explicit role=admin is let in.
     private ClaimsPrincipal ParseToken(string token)
     {
         var principal = ManualJwtAuthHandler.ValidateToken(token, _jwtOptions.Get("Bearer"));
-        return AuthPolicies.IsStudent(principal) ? AnonymousPrincipal() : principal;
+        return AuthPolicies.IsAdmin(principal) ? principal : AnonymousPrincipal();
     }
 
     private static ClaimsPrincipal AnonymousPrincipal()

@@ -8,6 +8,7 @@ using Refit;
 using Serilog;
 using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
@@ -105,12 +106,17 @@ services.Configure<ForwardedHeadersOptions>(options =>
 
 services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("auth", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Partitioned per client IP: a single shared window let anyone lock every user out of
+    // login with 5 requests a minute. 20/min leaves room for a school class behind one NAT IP.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0
+        }));
 });
 
 // Add Blazor authentication

@@ -115,7 +115,8 @@ namespace Tobiso.Web.App.Controllers
         [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetHistory()
         {
-            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            if (!Tobiso.Api.Authentication.AuthPolicies.IsStudent(User) ||
+                !int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
                 return Unauthorized();
 
             var sessions = await _chatHistory.GetUserSessionsAsync(userId);
@@ -135,7 +136,8 @@ namespace Tobiso.Web.App.Controllers
         [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetSessionMessages(int sessionId)
         {
-            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            if (!Tobiso.Api.Authentication.AuthPolicies.IsStudent(User) ||
+                !int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
                 return Unauthorized();
 
             var messages = await _chatHistory.GetSessionMessagesAsync(sessionId, userId);

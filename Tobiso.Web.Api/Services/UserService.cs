@@ -79,6 +79,10 @@ public class UserService : IUserService
         if (user != null)
         {
             user.GoogleId = googleId;
+            // Registration never verifies the email, so a password set on this account may belong to
+            // someone who pre-registered the victim's address. Google has just proven who owns the
+            // address - drop the unverified password so the squatter can't keep a way in.
+            user.PasswordHash = null;
             user.LastLoginAt = DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
             if (acceptedTerms && user.TermsAcceptedAt == null)

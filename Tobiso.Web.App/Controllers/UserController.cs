@@ -11,8 +11,10 @@ namespace Tobiso.Web.App.Controllers;
 [Authorize(Policy = AuthPolicies.AnyUser)]
 public class UserController(IUserProgressService progressService, IUserDataExportService exportService) : ControllerBase
 {
+    // Students only: an admin token's "sub" is a config value that could collide with a real user id.
     private int? GetUserId()
     {
+        if (!AuthPolicies.IsStudent(User)) return null;
         var raw = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(raw, out var id) ? id : null;
     }

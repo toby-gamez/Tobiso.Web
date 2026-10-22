@@ -42,7 +42,8 @@ public class AuthController : ControllerBase
 
         try
         {
-            var token = _jwtService.GenerateToken(request.Username, request.Password);
+            var token = _jwtService.GenerateToken(request.Username, request.Password,
+                HttpContext.Connection.RemoteIpAddress?.ToString());
             if (token == null)
                 return Unauthorized(new { message = "Invalid username or password." });
 
@@ -51,12 +52,12 @@ public class AuthController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "Login failed - configuration error");
-            return StatusCode(503, new { message = ex.Message });
+            return StatusCode(503, new { message = "Login is temporarily unavailable." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Login failed - unexpected error");
-            return StatusCode(500, new { message = ex.Message });
+            return StatusCode(500, new { message = "Login failed." });
         }
     }
 
@@ -153,7 +154,31 @@ public class AuthController : ControllerBase
 
         await HttpContext.SignOutAsync("TempCookie");
 
-        return Redirect($"/google-auth-complete?token={Uri.EscapeDataString(token)}");
+        // Handed over in a short-lived HttpOnly cookie rather than the URL: a token in the query
+        // string lands in history and server logs, and a crafted link could sign a victim into
+        // the attacker's account. Only this browser holds the cookie, and it's redeemed once.
+        Response.Cookies.Append(GoogleTokenCookie, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/api/auth",
+            MaxAge = TimeSpan.FromMinutes(2),
+            IsEssential = true
+        });
+        return Redirect("/google-auth-complete");
+    }
+
+    private const string GoogleTokenCookie = "tobiso_google_token";
+
+    // Called once by /google-auth-complete to move the token from the cookie into the app.
+    [HttpPost("google-token")]
+    [AllowAnonymous]
+    public IActionResult ClaimGoogleToken()
+    {
+        var token = Request.Cookies[GoogleTokenCookie];
+        Response.Cookies.Delete(GoogleTokenCookie, new CookieOptions { Path = "/api/auth", Secure = true });
+        return string.IsNullOrEmpty(token) ? NotFound() : Ok(new { token });
     }
 
     [HttpPost("daily-bonus")]
