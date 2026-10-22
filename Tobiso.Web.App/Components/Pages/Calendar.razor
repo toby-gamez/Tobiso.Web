@@ -5,6 +5,8 @@
 @implements IDisposable
 @inject IEventService EventService
 @inject IClassService ClassService
+@inject IPostService PostService
+@inject ICategoryService CategoryService
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 
@@ -49,6 +51,37 @@
                     }
                 </div>
             </div>
+
+            @if (_form.Type == EventType.Test)
+            {
+                <div class="field">
+                    <label for="ev-theme">Témata (články nebo kategorie)</label>
+                    <input id="ev-theme" class="input" placeholder="Hledat článek nebo kategorii…" value="@_themeSearch"
+                           @oninput="OnThemeSearch" autocomplete="off" />
+                    @if (_themeResults.Count > 0)
+                    {
+                        <div class="calendar-chips">
+                            @foreach (var r in _themeResults)
+                            {
+                                <button type="button" class="chip" @onclick="() => AddTheme(r)">
+                                    <i data-lucide="@(r.PostId != null ? "file-text" : "folder")"></i> @r.Name
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (_form.Themes.Count > 0)
+                    {
+                        <div class="calendar-chips">
+                            @foreach (var t in _form.Themes)
+                            {
+                                <button type="button" class="chip chip-sel" aria-label="Odebrat @t.Name" @onclick="() => _form.Themes.Remove(t)">
+                                    <i data-lucide="@(t.PostId != null ? "file-text" : "folder")"></i> @t.Name <i data-lucide="x"></i>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
 
             <div class="calendar-form-row">
                 <div class="field">
@@ -218,6 +251,55 @@
         public DateTime Start { get; set; } = DateTime.Today;
         public DateTime? End { get; set; }
         public int Target { get; set; } = PersonalTarget;
+        public List<EventThemeDto> Themes { get; set; } = [];
+    }
+
+    // Post / category candidates for the themes picker, loaded once when the form first needs them.
+    private List<EventThemeDto>? _themeOptions;
+    private List<EventThemeDto> _themeResults = [];
+    private string _themeSearch = "";
+
+    private async Task OnThemeSearch(ChangeEventArgs a)
+    {
+        _themeSearch = a.Value?.ToString() ?? "";
+        if (_themeSearch.Trim().Length < 2)
+        {
+            _themeResults = [];
+            return;
+        }
+
+        if (_themeOptions == null)
+        {
+            await _loadGate.WaitAsync();
+            try
+            {
+                var posts = await PostService.GetLinks();
+                var categories = await CategoryService.GetAll();
+                _themeOptions =
+                [
+                    .. categories.Select(c => new EventThemeDto { CategoryId = c.Id, Name = c.Name }),
+                    .. posts.Select(p => new EventThemeDto { PostId = p.Id, Name = p.Title, PostFilePath = p.FilePath })
+                ];
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
+        }
+
+        var term = _themeSearch.Trim();
+        _themeResults = [.. _themeOptions
+            .Where(o => o.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                        && !(_form?.Themes.Any(t => t.PostId == o.PostId && t.CategoryId == o.CategoryId) ?? false))
+            .Take(8)];
+    }
+
+    private void AddTheme(EventThemeDto option)
+    {
+        if (_form != null && _form.Themes.Count < 10)
+            _form.Themes.Add(option);
+        _themeSearch = "";
+        _themeResults = [];
     }
 
     private record Cell(DateTime Date, bool InMonth);
@@ -326,6 +408,8 @@
     {
         _formError = null;
         _form = new EventForm { Start = day.Date };
+        _themeSearch = "";
+        _themeResults = [];
     }
 
     private void OpenEdit(EventResponse e)
@@ -344,8 +428,11 @@
                 EventScope.Class => ClassTarget,
                 EventScope.Group => e.GroupId ?? PersonalTarget,
                 _ => PersonalTarget
-            }
+            },
+            Themes = [.. e.Themes]
         };
+        _themeSearch = "";
+        _themeResults = [];
     }
 
     private async Task SaveForm()
@@ -364,7 +451,8 @@
                 ClassTarget => EventScope.Class,
                 _ => EventScope.Group
             },
-            GroupId = _form.Target > 0 ? _form.Target : null
+            GroupId = _form.Target > 0 ? _form.Target : null,
+            Themes = _form.Themes
         };
 
         _saving = true;
@@ -444,6 +532,18 @@
                 @if (string.IsNullOrWhiteSpace(e.Description) || IsMultiDay(e))
                 {
                     <span class="calendar-upcoming-sub">@FormatRange(e)</span>
+                }
+                @if (e.Themes.Count > 0)
+                {
+                    <span class="calendar-tags">
+                        <span class="calendar-upcoming-sub">Témata:</span>
+                        @foreach (var t in e.Themes)
+                        {
+                            <a class="calendar-tag" href="@(t.PostId != null ? PostSlug.Url(t.PostId.Value, t.PostFilePath) : $"/categories/{t.CategoryId}")">
+                                <i data-lucide="@(t.PostId != null ? "file-text" : "folder")"></i> @t.Name
+                            </a>
+                        }
+                    </span>
                 }
                 @if (e.Type != EventType.DayOff || e.Scope != EventScope.Global || e.CreatedByUserId != null)
                 {

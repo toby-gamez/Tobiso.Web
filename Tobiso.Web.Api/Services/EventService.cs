@@ -14,6 +14,10 @@ public interface IEventService
     Task<EventResponse?> GetById(int id, EventViewer? viewer = null);
     Task<List<EventResponse>> Search(string searchTerm);
 
+    // Calendar feed: every event the viewer can see that hasn't ended before 'since', recurring
+    // ones left unexpanded (the feed emits an RRULE instead).
+    Task<List<EventResponse>> GetFeedEvents(EventViewer viewer, DateTime since);
+
     // Admin: sees and edits every event, including the ones students added.
     Task<List<EventResponse>> GetAllForAdmin();
     Task<EventResponse?> Create(CreateEventRequest request);
@@ -103,6 +107,18 @@ public class EventService : IEventService
         }
     }
 
+    public async Task<List<EventResponse>> GetFeedEvents(EventViewer viewer, DateTime since)
+    {
+        var events = await WithDetails(VisibleTo(_context.Events, viewer))
+            .Where(e => e.StartDate >= since ||
+                        (e.EndDate != null && e.EndDate >= since) ||
+                        (e.IsRecurring && (e.RecurrenceEndDate == null || e.RecurrenceEndDate >= since)))
+            .OrderBy(e => e.StartDate)
+            .ToListAsync();
+
+        return events.Select(MapToResponse).ToList();
+    }
+
     public async Task<EventResponse?> GetById(int id, EventViewer? viewer = null)
     {
         var eventEntity = await WithDetails(VisibleTo(_context.Events, viewer)).FirstOrDefaultAsync(e => e.Id == id);
@@ -131,6 +147,9 @@ public class EventService : IEventService
             if (!await TryApplyAdminScope(eventEntity, request.Scope, request.ClassId, request.GroupId))
                 return null;
 
+            if (!await TryApplyThemes(eventEntity, request.Type, request.Themes))
+                return null;
+
             _context.Events.Add(eventEntity);
             await _context.SaveChangesAsync();
 
@@ -147,10 +166,12 @@ public class EventService : IEventService
     {
         try
         {
-            var eventEntity = await _context.Events.FindAsync(id);
+            var eventEntity = await _context.Events.Include(e => e.Themes).FirstOrDefaultAsync(e => e.Id == id);
             if (eventEntity == null) return false;
             // Scope first: a rejected scope must not leave half-applied edits tracked on the context.
             if (!await TryApplyAdminScope(eventEntity, request.Scope, request.ClassId, request.GroupId))
+                return false;
+            if (!await TryApplyThemes(eventEntity, request.Type, request.Themes))
                 return false;
 
             eventEntity.Title = request.Title;
@@ -223,6 +244,7 @@ public class EventService : IEventService
         var eventEntity = new Event { CreatedByUserId = viewer.UserId, CreatedAt = DateTime.UtcNow };
         var result = ApplyStudentRequest(eventEntity, viewer, request);
         if (result != StudentEventResult.Ok) return (result, null);
+        if (!await TryApplyStudentThemes(eventEntity, request)) return (StudentEventResult.Invalid, null);
 
         _context.Events.Add(eventEntity);
         await _context.SaveChangesAsync();
@@ -231,12 +253,13 @@ public class EventService : IEventService
 
     public async Task<StudentEventResult> UpdateStudentEvent(EventViewer viewer, int id, StudentEventRequest request)
     {
-        var eventEntity = await _context.Events.FindAsync(id);
+        var eventEntity = await _context.Events.Include(e => e.Themes).FirstOrDefaultAsync(e => e.Id == id);
         if (eventEntity == null) return StudentEventResult.NotFound;
         if (eventEntity.CreatedByUserId != viewer.UserId) return StudentEventResult.Forbidden;
 
         var result = ApplyStudentRequest(eventEntity, viewer, request);
         if (result != StudentEventResult.Ok) return result;
+        if (!await TryApplyStudentThemes(eventEntity, request)) return StudentEventResult.Invalid;
 
         eventEntity.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -253,6 +276,13 @@ public class EventService : IEventService
         await _context.SaveChangesAsync();
         return StudentEventResult.Ok;
     }
+
+    private const int MaxStudentThemes = 10;
+
+    private Task<bool> TryApplyStudentThemes(Event eventEntity, StudentEventRequest request) =>
+        request.Themes?.Count > MaxStudentThemes
+            ? Task.FromResult(false)
+            : TryApplyThemes(eventEntity, request.Type, request.Themes);
 
     // Student events are whole-day, non-recurring and coloured by type. Class/group scope needs an
     // approved membership (and for a group, being in that group) - checked against the viewer the
@@ -341,6 +371,27 @@ public class EventService : IEventService
         return true;
     }
 
+    // Replaces the event's themes with the requested ones. Every post / category must exist and each
+    // entry names exactly one of them; duplicates are dropped. Only tests carry themes.
+    private async Task<bool> TryApplyThemes(Event eventEntity, EventType type, List<EventThemeDto>? themes)
+    {
+        themes = type == EventType.Test ? themes ?? [] : [];
+        if (themes.Any(t => (t.PostId == null) == (t.CategoryId == null)))
+            return false;
+
+        var postIds = themes.Where(t => t.PostId != null).Select(t => t.PostId!.Value).Distinct().ToList();
+        var categoryIds = themes.Where(t => t.CategoryId != null).Select(t => t.CategoryId!.Value).Distinct().ToList();
+        if (await _context.Posts.CountAsync(p => postIds.Contains(p.Id)) != postIds.Count) return false;
+        if (await _context.Categories.CountAsync(c => categoryIds.Contains(c.Id)) != categoryIds.Count) return false;
+
+        _context.EventThemes.RemoveRange(eventEntity.Themes);
+        eventEntity.Themes = [
+            .. postIds.Select(id => new EventTheme { PostId = id }),
+            .. categoryIds.Select(id => new EventTheme { CategoryId = id })
+        ];
+        return true;
+    }
+
     // Blank = follow the type's color.
     private static string? NormalizeColor(string? color) =>
         string.IsNullOrWhiteSpace(color) ? null : color.Trim();
@@ -355,7 +406,9 @@ public class EventService : IEventService
         query.AsNoTracking()
             .Include(e => e.Class)
             .Include(e => e.Group)
-            .Include(e => e.CreatedByUser);
+            .Include(e => e.CreatedByUser)
+            .Include(e => e.Themes).ThenInclude(t => t.Post)
+            .Include(e => e.Themes).ThenInclude(t => t.Category);
 
     private static IQueryable<Event> VisibleTo(IQueryable<Event> query, EventViewer? viewer)
     {
@@ -398,7 +451,14 @@ public class EventService : IEventService
             GroupId = eventEntity.GroupId,
             GroupName = eventEntity.Group?.Name,
             CreatedByUserId = eventEntity.CreatedByUserId,
-            CreatedByName = eventEntity.CreatedByUser?.DisplayName
+            CreatedByName = eventEntity.CreatedByUser?.DisplayName,
+            Themes = eventEntity.Themes.Select(t => new EventThemeDto
+            {
+                PostId = t.PostId,
+                CategoryId = t.CategoryId,
+                Name = t.Post?.Title ?? t.Category?.Name ?? string.Empty,
+                PostFilePath = t.Post?.FilePath
+            }).ToList()
         };
     }
 

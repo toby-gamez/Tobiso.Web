@@ -38,6 +38,8 @@ public class Event
     // Null = added by the admin; otherwise the student who added it (shown in the calendar).
     public int? CreatedByUserId { get; set; }
     public AppUser? CreatedByUser { get; set; }
+    // Témata: posts / categories the event is about (meant for tests).
+    public ICollection<EventTheme> Themes { get; set; } = new List<EventTheme>();
 
     public string EffectiveColor => Color ?? DefaultColor(Type);
 

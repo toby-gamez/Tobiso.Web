@@ -238,6 +238,15 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CalendarToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("CalendarTypeMask")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(14);
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -296,6 +305,10 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CalendarToken")
+                        .IsUnique()
+                        .HasFilter("[CalendarToken] IS NOT NULL");
 
                     b.HasIndex("Email")
                         .IsUnique();
@@ -971,6 +984,37 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasIndex("Scope", "StartDate");
 
                     b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.EventTheme", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PostId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("EventThemes", t =>
+                        {
+                            t.HasCheckConstraint("CK_EventThemes_PostOrCategory", "([PostId] IS NOT NULL AND [CategoryId] IS NULL) OR ([PostId] IS NULL AND [CategoryId] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Explanation", b =>
@@ -2032,6 +2076,31 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Group");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.EventTheme", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.Event", "Event")
+                        .WithMany("Themes")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Post");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Explanation", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Question", "Question")
@@ -2409,6 +2478,11 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembership", b =>
                 {
                     b.Navigation("Groups");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.Event", b =>
+                {
+                    b.Navigation("Themes");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.InteractiveExercise", b =>

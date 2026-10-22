@@ -24,6 +24,13 @@
     justify-content: center;
     font-family: var(--font-heading);
     font-size: 28px;
+    overflow: hidden;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .profile-identity h1 { font-size: 32px; margin: 0 0 4px; }

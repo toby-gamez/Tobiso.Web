@@ -27,6 +27,17 @@ public class EventResponse
     // Set when a student added the event (null = admin), so the calendar can say who it was.
     public int? CreatedByUserId { get; set; }
     public string? CreatedByName { get; set; }
+    public List<EventThemeDto> Themes { get; set; } = [];
+}
+
+/// <summary>A theme (Téma) of an event: a post or a category. Exactly one of PostId / CategoryId is set.</summary>
+public class EventThemeDto
+{
+    public int? PostId { get; set; }
+    public int? CategoryId { get; set; }
+    // Filled on responses only (ignored on requests).
+    public string Name { get; set; } = string.Empty;
+    public string? PostFilePath { get; set; }
 }
 
 public class CreateEventRequest
@@ -46,6 +57,7 @@ public class CreateEventRequest
     public EventScope Scope { get; set; } = EventScope.Global;
     public int? ClassId { get; set; }
     public int? GroupId { get; set; }
+    public List<EventThemeDto> Themes { get; set; } = [];
 }
 
 public class UpdateEventRequest
@@ -65,6 +77,7 @@ public class UpdateEventRequest
     public EventScope Scope { get; set; } = EventScope.Global;
     public int? ClassId { get; set; }
     public int? GroupId { get; set; }
+    public List<EventThemeDto> Themes { get; set; } = [];
 }
 
 public class EventsQueryRequest
@@ -84,6 +97,7 @@ public class StudentEventRequest
     public EventType Type { get; set; } = EventType.Test;
     public EventScope Scope { get; set; } = EventScope.Personal;
     public int? GroupId { get; set; }
+    public List<EventThemeDto> Themes { get; set; } = [];
 }
 
 public enum StudentEventResult { Ok, NotFound, Forbidden, Invalid, TooMany }

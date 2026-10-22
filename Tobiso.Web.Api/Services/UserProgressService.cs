@@ -98,9 +98,19 @@ public class UserProgressService : IUserProgressService
         var readPosts = await db.UserReadPosts
             .Where(r => r.UserId == userId)
             .Include(r => r.Post)
-                .ThenInclude(p => p.Category)
-                    .ThenInclude(c => c!.Parent)
             .ToListAsync();
+
+        var categories = await db.Categories.AsNoTracking().ToDictionaryAsync(c => c.Id);
+
+        // A subject is the root category; every descendant counts toward its root.
+        string RootName(int id)
+        {
+            var seen = new HashSet<int>();
+            var cur = categories[id];
+            while (cur.ParentId is int pid && seen.Add(cur.Id) && categories.TryGetValue(pid, out var parent))
+                cur = parent;
+            return cur.Name;
+        }
 
         var totalRead = readPosts.Select(r => r.PostId).Distinct().Count();
 
@@ -125,12 +135,8 @@ public class UserProgressService : IUserProgressService
 
         // Per-subject counts
         var perSubject = readPosts
-            .Where(r => r.Post?.Category != null)
-            .GroupBy(r =>
-            {
-                var cat = r.Post!.Category!;
-                return cat.ParentId == null ? cat.Name : (cat.Parent?.Name ?? cat.Name);
-            })
+            .Where(r => r.Post?.CategoryId is int cid && categories.ContainsKey(cid))
+            .GroupBy(r => RootName(r.Post!.CategoryId!.Value))
             .Select(g => new SubjectReadDto(g.Key, g.Select(r => r.PostId).Distinct().Count()))
             .OrderByDescending(s => s.Count)
             .ToList();

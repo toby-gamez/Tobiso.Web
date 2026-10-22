@@ -7,6 +7,7 @@
    global events, but the admin has to see and edit the ones students add too. *@
 @inject IEventService EventService
 @inject IClassService ClassService
+@inject ICategoryService CategoryService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -217,6 +218,29 @@ else
                         <p class="event-author-note">Přidal/a žák: <strong>@eventModel.CreatedByName</strong></p>
                     }
 
+                    @if (eventModel.Type == EventType.Test)
+                    {
+                        <div class="field">
+                            <label>Témata</label>
+                            <div class="form-grid-2-even">
+                                <PostSearchComponent @key="@PostPickerKey" Placeholder="Přidat článek..." SelectedPostChanged="AddPostTheme" />
+                                <SearchableCategorySelect @key="@CategoryPickerKey" Categories="categories" ValueChanged="AddCategoryTheme" />
+                            </div>
+                            @if (eventModel.Themes.Count > 0)
+                            {
+                                <div class="calendar-tags">
+                                    @foreach (var t in eventModel.Themes)
+                                    {
+                                        <span class="badge">
+                                            <i data-lucide="@(t.PostId != null ? "file-text" : "folder")"></i> @t.Name
+                                            <button type="button" class="btn btn-ghost btn-sm" aria-label="Odebrat" @onclick="() => eventModel.Themes.Remove(t)"><i data-lucide="x"></i></button>
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
                     <div class="field">
                         <label>Popis</label>
                         <InputTextArea class="textarea" rows="3" @bind-Value="eventModel.Description" />
@@ -295,6 +319,10 @@ else
     private List<EventResponse>? events;
     private List<EventResponse> filteredEvents = new();
     private List<SchoolClassDto> classes = new();
+    private List<CategoryResponse> categories = new();
+    private int themePickerKey;
+    private string PostPickerKey => $"post-{themePickerKey}";
+    private string CategoryPickerKey => $"cat-{themePickerKey}";
     private string searchTerm = "";
     private DateTime? filterStartDate;
     private DateTime? filterEndDate;
@@ -335,6 +363,7 @@ else
         try
         {
             classes = await ClassService.GetAllAsync();
+            categories = await CategoryService.GetAll();
             events = await EventService.GetAllForAdmin();
             FilterEvents();
         }
@@ -402,7 +431,8 @@ else
             ClassId = eventResponse.ClassId,
             GroupId = eventResponse.GroupId,
             CreatedByUserId = eventResponse.CreatedByUserId,
-            CreatedByName = eventResponse.CreatedByName
+            CreatedByName = eventResponse.CreatedByName,
+            Themes = eventResponse.Themes.Select(t => new EventThemeDto { PostId = t.PostId, CategoryId = t.CategoryId, Name = t.Name }).ToList()
         };
 
         startDate = eventResponse.StartDate.Date;
@@ -419,6 +449,22 @@ else
     {
         if (eventModel.UseCustomColor)
             eventModel.Color = Tobiso.Web.Domain.Entities.Event.DefaultColor(eventModel.Type);
+    }
+
+    private void AddPostTheme(PostLinkResponse? post)
+    {
+        if (post == null) return;
+        if (!eventModel.Themes.Any(t => t.PostId == post.Id))
+            eventModel.Themes.Add(new EventThemeDto { PostId = post.Id, Name = post.Title });
+        themePickerKey++;
+    }
+
+    private void AddCategoryTheme(int? categoryId)
+    {
+        if (categoryId == null) return;
+        if (!eventModel.Themes.Any(t => t.CategoryId == categoryId))
+            eventModel.Themes.Add(new EventThemeDto { CategoryId = categoryId, Name = categories.FirstOrDefault(c => c.Id == categoryId)?.Name ?? "" });
+        themePickerKey++;
     }
 
     private void CloseModal()
@@ -468,7 +514,8 @@ else
                     Type = eventModel.Type,
                     Scope = eventModel.Scope,
                     ClassId = eventModel.ClassId,
-                    GroupId = eventModel.GroupId
+                    GroupId = eventModel.GroupId,
+                    Themes = eventModel.Themes
                 };
 
                 if (!await EventService.Update(eventModel.Id, updateRequest))
@@ -495,7 +542,8 @@ else
                     Type = eventModel.Type,
                     Scope = eventModel.Scope,
                     ClassId = eventModel.ClassId,
-                    GroupId = eventModel.GroupId
+                    GroupId = eventModel.GroupId,
+                    Themes = eventModel.Themes
                 };
 
                 if (await EventService.Create(createRequest) == null)
@@ -550,6 +598,7 @@ else
         public int? GroupId { get; set; }
         public int? CreatedByUserId { get; set; }
         public string? CreatedByName { get; set; }
+        public List<EventThemeDto> Themes { get; set; } = [];
     }
 
     private static string TypeLabel(EventType type) => type switch

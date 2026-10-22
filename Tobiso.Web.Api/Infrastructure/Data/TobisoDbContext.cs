@@ -39,6 +39,7 @@ public class TobisoDbContext : DbContext
     public DbSet<Answer> Answers { get; set; }
     public DbSet<Explanation> Explanations { get; set; }
     public DbSet<Event> Events { get; set; }
+    public DbSet<EventTheme> EventThemes { get; set; }
     public DbSet<SchoolClass> SchoolClasses { get; set; }
     public DbSet<ClassGroup> ClassGroups { get; set; }
     public DbSet<ClassMembership> ClassMemberships { get; set; }
@@ -184,6 +185,27 @@ public class TobisoDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.Scope, e.StartDate });
+        });
+
+        modelBuilder.Entity<EventTheme>(entity =>
+        {
+            entity.HasOne(t => t.Event)
+                .WithMany(e => e.Themes)
+                .HasForeignKey(t => t.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(t => t.Post)
+                .WithMany()
+                .HasForeignKey(t => t.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(t => t.Category)
+                .WithMany()
+                .HasForeignKey(t => t.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_EventThemes_PostOrCategory",
+                "([PostId] IS NOT NULL AND [CategoryId] IS NULL) OR ([PostId] IS NULL AND [CategoryId] IS NOT NULL)"));
         });
 
         // Configure SchoolClass
@@ -371,6 +393,10 @@ public class TobisoDbContext : DbContext
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasIndex(e => e.GoogleId).IsUnique()
                 .HasFilter("[GoogleId] IS NOT NULL");
+            entity.Property(e => e.CalendarToken).HasMaxLength(64);
+            entity.Property(e => e.CalendarTypeMask).HasDefaultValue(AppUser.DefaultCalendarTypes);
+            entity.HasIndex(e => e.CalendarToken).IsUnique()
+                .HasFilter("[CalendarToken] IS NOT NULL");
         });
 
         // Configure AnonymousAiUsage - the persistent, per-device counter backing the anonymous

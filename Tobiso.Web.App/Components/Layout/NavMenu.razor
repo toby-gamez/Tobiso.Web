@@ -9,7 +9,7 @@
     <a href="/" class="mobile-brand" @onclick="CloseMobileMenu">
         <img src="/images/normal-logo.png" alt="Tobiso" class="brand-logo-img logo-light" />
         <img src="/images/white-logo.png" alt="Tobiso" class="brand-logo-img logo-dark" />
-        <span class="brand-version">5.4</span>
+        <span class="brand-version">5.5</span>
     </a>
     <div class="mobile-topbar-actions">
         <button class="icon-btn" @onclick="OpenSearch" aria-label="Hledat">
@@ -25,7 +25,7 @@
     <a href="/" class="brand-link">
         <img src="/images/normal-logo.png" alt="Tobiso" class="brand-logo-img logo-light" />
         <img src="/images/white-logo.png" alt="Tobiso" class="brand-logo-img logo-dark" />
-        <span class="brand-version brand-version-right">5.4</span>
+        <span class="brand-version brand-version-right">5.5</span>
     </a>
 
     <button class="rail-item search-btn" @onclick="OpenSearch">
@@ -88,7 +88,16 @@
         @if (_userName != null)
         {
             <a href="/profil" class="rail-item" style="margin-top:var(--space-2); font-size:14px">
-                <span class="avatar-chip">@_initials</span>
+                <span class="avatar-chip">
+                    @if (_avatarUrl != null)
+                    {
+                        <img src="@_avatarUrl" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />
+                    }
+                    else
+                    {
+                        @_initials
+                    }
+                </span>
                 @_userName
             </a>
         }
@@ -181,7 +190,16 @@
             @if (_userName != null)
             {
                 <a href="/profil" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px">
-                    <span class="avatar-chip">@_initials</span>
+                    <span class="avatar-chip">
+                    @if (_avatarUrl != null)
+                    {
+                        <img src="@_avatarUrl" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />
+                    }
+                    else
+                    {
+                        @_initials
+                    }
+                </span>
                     @_userName
                 </a>
             }
@@ -212,6 +230,7 @@
     private bool _darkMode;
     private string? _userName;
     private string _initials = "";
+    private string? _avatarUrl;
     private bool _disposed;
 
     protected override async Task OnInitializedAsync()
@@ -248,6 +267,8 @@
         if (user.Identity?.IsAuthenticated == true)
         {
             _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            var avatar = user.FindFirst("avatar")?.Value;
+            _avatarUrl = avatar != null && avatar.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? avatar : null;
             _initials = !string.IsNullOrEmpty(_userName)
                 ? string.Concat(_userName.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString().ToUpper() : ""))
                 : "";
@@ -256,6 +277,7 @@
         {
             _userName = null;
             _initials = "";
+            _avatarUrl = null;
         }
     }
 

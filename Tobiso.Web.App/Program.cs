@@ -177,6 +177,7 @@ services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IClassService, ClassService>();
+services.AddScoped<ICalendarFeedService, CalendarFeedService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
