@@ -6,6 +6,7 @@ using System.Security.Claims;
 using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.App.Authentication;
+using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.App.Controllers;
@@ -17,12 +18,15 @@ public class AuthController : ControllerBase
 {
     private readonly JwtTokenService _jwtService;
     private readonly IUserService _userService;
+    private readonly IAccountService _accountService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(JwtTokenService jwtService, IUserService userService, ILogger<AuthController> logger)
+    public AuthController(JwtTokenService jwtService, IUserService userService, IAccountService accountService,
+        ILogger<AuthController> logger)
     {
         _jwtService = jwtService;
         _userService = userService;
+        _accountService = accountService;
         _logger = logger;
     }
 
@@ -42,7 +46,8 @@ public class AuthController : ControllerBase
 
         try
         {
-            var token = _jwtService.GenerateToken(request.Username, request.Password);
+            var token = _jwtService.GenerateToken(request.Username, request.Password,
+                HttpContext.Connection.RemoteIpAddress?.ToString());
             if (token == null)
                 return Unauthorized(new { message = "Invalid username or password." });
 
@@ -51,12 +56,12 @@ public class AuthController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "Login failed - configuration error");
-            return StatusCode(503, new { message = ex.Message });
+            return StatusCode(503, new { message = "Login is temporarily unavailable." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Login failed - unexpected error");
-            return StatusCode(500, new { message = ex.Message });
+            return StatusCode(500, new { message = "Login failed." });
         }
     }
 
@@ -67,34 +72,127 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return BadRequest(new { message = "Email a heslo jsou povinné." });
 
-        if (req.Password.Length < 10)
+        if (!req.Email.Contains('@') || req.Email.Length > 256)
+            return BadRequest(new { message = "Zadej platný e-mail." });
+
+        if (req.Password.Length < IAccountService.MinPasswordLength || req.Password.Length > IAccountService.MaxPasswordLength)
             return BadRequest(new { message = "Heslo musí mít alespoň 10 znaků." });
 
         if (!req.AcceptedTerms)
             return BadRequest(new { message = "Pro registraci je nutný souhlas s Podmínkami použití a Zásadami ochrany osobních údajů." });
 
-        var user = await _userService.RegisterAsync(req.Email, req.DisplayName ?? req.Email, req.Password, acceptedTerms: true);
-        if (user == null)
-            return Conflict(new { message = "Tento email je již zaregistrován." });
+        var displayName = string.IsNullOrWhiteSpace(req.DisplayName) ? req.Email.Trim() : req.DisplayName.Trim();
+        if (displayName.Length > 100) displayName = displayName[..100];
 
-        var token = _jwtService.GenerateStudentToken(user);
-        return Ok(new StudentLoginResponse(token, user.DisplayName, user.Credits));
+        // No token here: the account can't sign in until the emailed link is opened. The answer is
+        // the same whether or not the email already had an account.
+        var result = await _accountService.RegisterAsync(req.Email, displayName, req.Password);
+        return result == AccountEmailResult.Sent
+            ? Ok(new { message = "Poslali jsme ti e-mail s odkazem pro potvrzení účtu." })
+            : StatusCode(503, new { message = "E-mail se nepodařilo odeslat. Zkus to prosím později." });
     }
 
+    // For API clients that send the token as a Bearer header; the website uses /session.
     [HttpPost("student-login")]
     [AllowAnonymous]
     public async Task<IActionResult> StudentLogin([FromBody] LoginRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
-            return BadRequest(new { message = "Email a heslo jsou povinné." });
-
-        var user = await _userService.LoginAsync(req.Username, req.Password);
-        if (user == null)
-            return Unauthorized(new { message = "Nesprávný email nebo heslo." });
+        var (user, error) = await CheckStudentCredentialsAsync(req);
+        if (user == null) return error!;
 
         var token = _jwtService.GenerateStudentToken(user);
         return Ok(new StudentLoginResponse(token, user.DisplayName, user.Credits));
     }
+
+    // Website sign-in: the token goes into an HttpOnly cookie that page script can't read.
+    [HttpPost("session")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateSession([FromBody] LoginRequest req)
+    {
+        var (user, error) = await CheckStudentCredentialsAsync(req);
+        if (user == null) return error!;
+
+        SetStudentCookie(user);
+        return Ok(new { displayName = user.DisplayName });
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    public IActionResult Logout()
+    {
+        SessionCookies.Delete(Response, SessionCookies.Student);
+        return NoContent();
+    }
+
+    // Ends every session of the account - other browsers and devices included.
+    [HttpPost("logout-everywhere")]
+    [Authorize(Policy = AuthPolicies.AnyUser)]
+    public async Task<IActionResult> LogoutEverywhere()
+    {
+        if (!AuthPolicies.IsStudent(User) ||
+            !int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            return Forbid();
+
+        await _userService.RotateSecurityStampAsync(userId);
+        SessionCookies.Delete(Response, SessionCookies.Student);
+        return NoContent();
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@') || req.Email.Length > 256)
+            return BadRequest(new { message = "Zadej platný e-mail." });
+
+        // Same answer whether or not the account exists (and even if mailing failed - it's logged),
+        // so this can't be used to find out who has an account.
+        await _accountService.RequestPasswordResetAsync(req.Email);
+        return Ok(new { message = "Pokud k tomuto e-mailu existuje účet, poslali jsme na něj odkaz pro nastavení nového hesla." });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Password) ||
+            req.Password.Length < IAccountService.MinPasswordLength || req.Password.Length > IAccountService.MaxPasswordLength)
+            return BadRequest(new { message = "Heslo musí mít alespoň 10 znaků." });
+
+        var user = await _accountService.ResetPasswordAsync(req.Token ?? "", req.Password);
+        if (user == null)
+            return BadRequest(new { message = "Odkaz je neplatný nebo vypršel. Požádej o nový." });
+
+        // The reset rotated the stamp (all old sessions are gone); sign this browser in fresh.
+        SetStudentCookie(user);
+        return Ok(new { displayName = user.DisplayName });
+    }
+
+    private async Task<(AppUser? User, IActionResult? Error)> CheckStudentCredentialsAsync(LoginRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+            return (null, BadRequest(new { message = "Email a heslo jsou povinné." }));
+
+        var user = await _userService.LoginAsync(req.Username.Trim(), req.Password);
+        if (user == null)
+            return (null, Unauthorized(new { message = "Nesprávný email nebo heslo." }));
+
+        if (user.EmailConfirmedAt == null)
+        {
+            await _accountService.SendVerificationAsync(user);
+            return (null, StatusCode(403, new
+            {
+                code = "email_unverified",
+                message = "Nejdřív potvrď svůj e-mail - poslali jsme ti na něj odkaz."
+            }));
+        }
+
+        return (user, null);
+    }
+
+    private void SetStudentCookie(AppUser user) =>
+        SessionCookies.Append(Response, SessionCookies.Student, _jwtService.GenerateStudentToken(user),
+            DateTimeOffset.UtcNow.Add(JwtTokenService.StudentTokenLifetime));
 
     [HttpGet("me")]
     [Authorize(Policy = AuthPolicies.AnyUser)]
@@ -149,11 +247,11 @@ public class AuthController : ControllerBase
             await HttpContext.SignOutAsync("TempCookie");
             return Redirect("/registrace?error=terms");
         }
-        var token = _jwtService.GenerateStudentToken(user);
-
         await HttpContext.SignOutAsync("TempCookie");
 
-        return Redirect($"/google-auth-complete?token={Uri.EscapeDataString(token)}");
+        // Straight into the HttpOnly session cookie - the token never appears in a URL or to script.
+        SetStudentCookie(user);
+        return Redirect("/");
     }
 
     [HttpPost("daily-bonus")]

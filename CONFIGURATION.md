@@ -49,6 +49,20 @@ Replace the following placeholders with your actual values:
 ### Api
 - `BaseAddress`: Base URL for API calls
 
+### App (Tobiso.Web.App)
+- `PublicBaseUrl`: The site's public URL, used to build the links in verification and password-reset emails. Always taken from config, never from the request, so a forged `Host` header can't redirect those links.
+
+### Email (Tobiso.Web.App)
+Required for registration and password reset - new accounts must confirm their email before they can sign in.
+- `SmtpHost`, `SmtpPort` (default 587), `SmtpUser`, `SmtpPass`: SMTP server (any provider: Seznam, Gmail app password, Brevo, …)
+- `From`: sender address, e.g. `Tobiso <noreply@yourdomain.com>`
+- `EnableSsl`: `true` (STARTTLS) unless your server needs otherwise
+- In Development, if `SmtpHost` is empty, emails (with their links) are written to the log instead. In any other environment a missing SMTP config makes registration and reset fail with an error rather than logging live links.
+
+### Auth.Jwt
+- `Secret`: at least 32 characters; also signs the email links
+- `ExpiryHours`: admin session lifetime (keep it short, e.g. 12). Student sessions last 30 days and can be revoked.
+
 ### Logging & Serilog
 - Standard ASP.NET Core logging configuration
 - File logging with daily rotation

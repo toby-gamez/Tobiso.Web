@@ -17,6 +17,9 @@ public interface IUserService
     Task<bool> ClaimDailyBonusAsync(int userId, int amount);
     Task<bool> ClaimReadBonusAsync(int userId, int amount);
     Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail);
+    Task<AppUser?> GetByEmailAsync(string email);
+    Task<bool> IsSessionValidAsync(int userId, string securityStamp);
+    Task RotateSecurityStampAsync(int userId);
 }
 
 public enum DeleteAccountResult { Deleted, NotFound, InvalidCredentials }
@@ -64,6 +67,7 @@ public class UserService : IUserService
         if (user != null)
         {
             user.LastLoginAt = DateTime.UtcNow;
+            user.EmailConfirmedAt ??= DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
             if (acceptedTerms && user.TermsAcceptedAt == null)
             {
@@ -79,6 +83,13 @@ public class UserService : IUserService
         if (user != null)
         {
             user.GoogleId = googleId;
+            // Registration never verifies the email, so a password set on this account may belong to
+            // someone who pre-registered the victim's address. Google has just proven who owns the
+            // address - drop the unverified password so the squatter can't keep a way in.
+            user.PasswordHash = null;
+            user.EmailConfirmedAt ??= DateTime.UtcNow;
+            // ...and end any session the squatter already has.
+            user.SecurityStamp = AppUser.NewSecurityStamp();
             user.LastLoginAt = DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
             if (acceptedTerms && user.TermsAcceptedAt == null)
@@ -99,6 +110,7 @@ public class UserService : IUserService
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             GoogleId = googleId,
             AvatarUrl = avatarUrl,
+            EmailConfirmedAt = DateTime.UtcNow,
             Credits = 20,
             TermsAcceptedAt = DateTime.UtcNow,
             TermsVersion = LegalConstants.TermsVersion
@@ -245,5 +257,27 @@ public class UserService : IUserService
 
         await db.Users.Where(u => u.Id == userId).ExecuteDeleteAsync();
         return DeleteAccountResult.Deleted;
+    }
+
+    public async Task<AppUser?> GetByEmailAsync(string email)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+    }
+
+    public async Task<bool> IsSessionValidAsync(int userId, string securityStamp)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.Users.AnyAsync(u => u.Id == userId && u.SecurityStamp == securityStamp);
+    }
+
+    // Ends every existing session of the user (all tokens carry the old stamp).
+    public async Task RotateSecurityStampAsync(int userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var stamp = AppUser.NewSecurityStamp();
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.SecurityStamp, stamp));
     }
 }

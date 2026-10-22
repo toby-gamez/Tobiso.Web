@@ -149,12 +149,12 @@ Categories (
 ### Application Settings
 
 #### Development Environment
-- **Database**: `server=db23040.public.databaseasp.net;user=db23040;password=6Tm_=a4JrD?3;database=db23040;Encrypt=False`
+- **Database**: `<stored in server config / secrets - never commit>`
 - **API Base URL**: `https://localhost:7270`
 - **Logging**: Debug level with console and file output
 
 #### Production Environment
-- **Database**: `server=db23040.databaseasp.net;user=db23040;password=6Tm_=a4JrD?3;database=db23040;Encrypt=False`
+- **Database**: `<stored in server config / secrets - never commit>`
 - **API Base URL**: `https://localhost:7270`
 - **Logging**: Information level with structured logging
 

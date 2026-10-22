@@ -70,12 +70,13 @@ services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
     {
+        // Basic only when asked for; everything else (Bearer header or the session cookie) is JWT.
         options.ForwardDefaultSelector = ctx =>
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
-            return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? "Bearer"
-                : BasicAuthConstants.Scheme;
+            return auth?.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase) == true
+                ? BasicAuthConstants.Scheme
+                : "Bearer";
         };
     })
     .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
@@ -86,6 +87,10 @@ services
         options.ValidateIssuer   = true;
         options.ValidateAudience = true;
         options.ValidateLifetime = true;
+        options.CookieName       = SessionCookies.Student;
+        // Revocation: a student token only counts while its security stamp is still current.
+        options.ValidatePrincipalAsync = (principal, ctx) =>
+            SessionCookies.IsStudentSessionValidAsync(principal, ctx.RequestServices.GetRequiredService<IUserService>());
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null)
     .AddCookie("TempCookie", opts => opts.ExpireTimeSpan = TimeSpan.FromMinutes(10));
@@ -136,19 +141,32 @@ services.Configure<ForwardedHeadersOptions>(options =>
 // Throttle authentication endpoints (login/register) against online brute-forcing.
 services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("auth", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Partitioned per client IP: a single shared window let anyone lock every user out of
+    // login with 5 requests a minute. 20/min leaves room for a school class behind one NAT IP.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0
+        }));
+    options.AddPolicy("pdf", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 10,
+            QueueLimit = 0
+        }));
 });
 
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddCascadingAuthenticationState();
-services.AddScoped<StudentCredentialStore>();
-services.AddScoped<StudentAuthStateProvider>();
-services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<StudentAuthStateProvider>());
+// The circuit's user comes from the HttpOnly session cookie; this re-checks it every minute so a
+// revoked or expired session also ends in already-open tabs.
+services.AddScoped<AuthenticationStateProvider, StudentRevalidatingAuthStateProvider>();
 
 // Register API services from Tobiso.Web.Api.Services
 services.AddScoped<ICategoryService, CategoryService>();
@@ -231,6 +249,8 @@ services.AddEndpointsApiExplorer();
 
 services.AddScoped<JwtTokenService>();
 services.AddScoped<IUserService, UserService>();
+services.AddScoped<IEmailSender, SmtpEmailSender>();
+services.AddScoped<IAccountService, AccountService>();
 services.AddScoped<ILegalNoticeService, LegalNoticeService>();
 services.AddScoped<IUserDataExportService, UserDataExportService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();

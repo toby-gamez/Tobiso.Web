@@ -8,6 +8,7 @@ using Refit;
 using Serilog;
 using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
@@ -64,12 +65,13 @@ services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
     {
+        // Basic only when asked for; everything else (Bearer header or the session cookie) is JWT.
         options.ForwardDefaultSelector = ctx =>
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
-            return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? "Bearer"
-                : BasicAuthConstants.Scheme;
+            return auth?.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase) == true
+                ? BasicAuthConstants.Scheme
+                : "Bearer";
         };
     })
     .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
@@ -80,6 +82,9 @@ services
         options.ValidateIssuer   = true;
         options.ValidateAudience = true;
         options.ValidateLifetime = true;
+        options.CookieName       = SessionCookies.Admin;
+        // CredentialStore forwards it as Bearer on server-side calls to the main app's API.
+        options.IncludeRawTokenClaim = true;
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
 
@@ -105,17 +110,22 @@ services.Configure<ForwardedHeadersOptions>(options =>
 
 services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("auth", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Partitioned per client IP: a single shared window let anyone lock every user out of
+    // login with 5 requests a minute. 20/min leaves room for a school class behind one NAT IP.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0
+        }));
 });
 
 // Add Blazor authentication
 services.AddCascadingAuthenticationState();
-services.AddScoped<AuthenticationStateProvider, TokenAuthenticationStateProvider>();
+services.AddScoped<AuthenticationStateProvider, AdminRevalidatingAuthStateProvider>();
 
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddScoped<ICategoryService, CategoryService>();
@@ -265,12 +275,13 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.UseAntiforgery();
 
-// Redirect 401 to login page
+// Redirect 401 to login page (pages only - API callers, including the login fetch, need the real status)
 app.Use(async (context, next) =>
 {
     await next();
     if (context.Response.StatusCode == StatusCodes.Status401Unauthorized
         && !context.Request.Path.StartsWithSegments("/login")
+        && !context.Request.Path.StartsWithSegments("/api")
         && !context.Request.Path.StartsWithSegments("/_"))
     {
         context.Response.Redirect("/login");

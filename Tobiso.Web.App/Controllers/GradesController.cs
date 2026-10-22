@@ -68,7 +68,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPost("seed")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<IActionResult> Seed()
     {
         await _gradeService.SeedDefaultsAsync();

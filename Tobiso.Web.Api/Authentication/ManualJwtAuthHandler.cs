@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
@@ -19,31 +20,88 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
     {
     }
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var authHeader = Request.Headers.Authorization.FirstOrDefault();
-        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(AuthenticateResult.NoResult());
-        }
-
-        var token = authHeader["Bearer ".Length..].Trim();
+        var token = ReadToken(out var fromCookie);
         if (string.IsNullOrEmpty(token))
-        {
-            return Task.FromResult(AuthenticateResult.NoResult());
-        }
+            return AuthenticateResult.NoResult();
 
+        ClaimsPrincipal principal;
         try
         {
-            var principal = ValidateToken(token, Options);
-            var ticket = new AuthenticationTicket(principal, Scheme.Name);
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            principal = ValidateToken(token, Options);
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "JWT validation failed");
-            return Task.FromResult(AuthenticateResult.Fail("JWT validation failed: " + ex.Message));
+            return AuthenticateResult.Fail("JWT validation failed");
         }
+
+        if (Options.ValidatePrincipalAsync != null)
+        {
+            bool valid;
+            try
+            {
+                valid = await Options.ValidatePrincipalAsync(principal, Context);
+            }
+            catch (Exception ex)
+            {
+                // E.g. the database is briefly unreachable: don't authenticate this request, but keep
+                // the cookie - the session itself may be perfectly fine.
+                Logger.LogError(ex, "Session validation failed");
+                return AuthenticateResult.Fail("Session could not be validated");
+            }
+
+            if (!valid)
+            {
+                // Stale session (revoked or deleted account): drop the cookie so the browser stops sending it.
+                if (fromCookie) SessionCookies.Delete(Response, Options.CookieName!);
+                return AuthenticateResult.Fail("Session is no longer valid");
+            }
+        }
+
+        if (Options.IncludeRawTokenClaim && principal.Identity is ClaimsIdentity identity)
+            identity.AddClaim(new Claim(RawTokenClaim, token));
+
+        return AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name));
+    }
+
+    /// <summary>Claim carrying the raw token, for server-side code that calls another API on the user's behalf.</summary>
+    public const string RawTokenClaim = "access_token";
+
+    // The Authorization header wins; the HttpOnly cookie is the browser session.
+    private string? ReadToken(out bool fromCookie)
+    {
+        fromCookie = false;
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (!string.IsNullOrEmpty(authHeader))
+        {
+            return authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : null;
+        }
+
+        if (string.IsNullOrEmpty(Options.CookieName) || !IsCookieUseAllowed(Request))
+            return null;
+
+        var cookie = Request.Cookies[Options.CookieName];
+        fromCookie = !string.IsNullOrEmpty(cookie);
+        return cookie;
+    }
+
+    // SameSite=Lax already keeps the cookie off cross-site POSTs; this also refuses it on any
+    // cross-site or same-site (e.g. a subdomain) request, except a plain top-level page load, so
+    // another site can't spend a student's credits or act as them through a link or form.
+    // Sec-Fetch-Site is set by every current browser; requests without it aren't from a browser.
+    private static bool IsCookieUseAllowed(HttpRequest request)
+    {
+        var site = request.Headers["Sec-Fetch-Site"].ToString();
+        if (string.IsNullOrEmpty(site) || site == "same-origin" || site == "none")
+            return true;
+
+        return HttpMethods.IsGet(request.Method)
+            && request.Headers["Sec-Fetch-Mode"].ToString() == "navigate"
+            && !request.Path.StartsWithSegments("/api");
     }
 
     // Public so the admin Blazor app can verify the token it restores from localStorage with the
@@ -68,22 +126,20 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
         using var doc = JsonDocument.Parse(payloadJson);
         var root = doc.RootElement;
 
-        if (options.ValidateIssuer && root.TryGetProperty("iss", out var issElem))
-        {
-            if (issElem.GetString() != options.ValidIssuer)
-                throw new InvalidOperationException($"Invalid issuer: {issElem.GetString()}");
-        }
+        // A missing iss/aud/exp fails validation rather than skipping the check.
+        if (options.ValidateIssuer &&
+            (!root.TryGetProperty("iss", out var issElem) || issElem.GetString() != options.ValidIssuer))
+            throw new InvalidOperationException("Invalid or missing issuer");
 
-        if (options.ValidateAudience && root.TryGetProperty("aud", out var audElem))
-        {
-            if (audElem.GetString() != options.ValidAudience)
-                throw new InvalidOperationException($"Invalid audience: {audElem.GetString()}");
-        }
+        if (options.ValidateAudience &&
+            (!root.TryGetProperty("aud", out var audElem) || audElem.GetString() != options.ValidAudience))
+            throw new InvalidOperationException("Invalid or missing audience");
 
-        if (options.ValidateLifetime && root.TryGetProperty("exp", out var expElem))
+        if (options.ValidateLifetime)
         {
-            var expUnix = expElem.GetInt64();
-            if (DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime < DateTime.UtcNow)
+            if (!root.TryGetProperty("exp", out var expElem) || expElem.ValueKind != JsonValueKind.Number)
+                throw new InvalidOperationException("JWT has no expiry");
+            if (DateTimeOffset.FromUnixTimeSeconds(expElem.GetInt64()).UtcDateTime < DateTime.UtcNow)
                 throw new InvalidOperationException("JWT token has expired");
         }
 
@@ -111,8 +167,8 @@ public class ManualJwtAuthHandler : AuthenticationHandler<ManualJwtAuthOptions>
             }
         }
 
-        var identity = new ClaimsIdentity(claims, "jwt");
-        return new ClaimsPrincipal(identity);
+        // "role" is the role claim type, so IsInRole("student") works on these principals.
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt", ClaimTypes.Name, "role"));
     }
 
     private static byte[] Base64UrlDecode(string input)
@@ -136,4 +192,13 @@ public class ManualJwtAuthOptions : AuthenticationSchemeOptions
     public bool ValidateAudience { get; set; } = true;
     public string? ValidAudience { get; set; }
     public bool ValidateLifetime { get; set; } = true;
+
+    /// <summary>When set, a browser session can carry the token in this HttpOnly cookie instead of a header.</summary>
+    public string? CookieName { get; set; }
+
+    /// <summary>Adds the raw token as a <see cref="ManualJwtAuthHandler.RawTokenClaim"/> claim.</summary>
+    public bool IncludeRawTokenClaim { get; set; }
+
+    /// <summary>Extra check after the signature and lifetime pass, e.g. that the session wasn't revoked.</summary>
+    public Func<ClaimsPrincipal, HttpContext, Task<bool>>? ValidatePrincipalAsync { get; set; }
 }

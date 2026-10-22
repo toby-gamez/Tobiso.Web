@@ -1,7 +1,5 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
-@inject StudentCredentialStore CredentialStore
-@inject StudentAuthStateProvider AuthStateProvider
 
 <div class="app-shell">
     <NavMenu OnSearchOpen="OpenSearch" />
@@ -27,12 +25,9 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The session now lives in an HttpOnly cookie the circuit already authenticated from;
+        // just drop any token an older version left in localStorage.
         if (firstRender)
-        {
-            // The JWT lives in localStorage, unreachable until the interactive circuit
-            // connects - nothing restores it into StudentCredentialStore before this.
-            await CredentialStore.InitializeAsync(JS);
-            AuthStateProvider.NotifyStateChanged();
-        }
+            await JS.InvokeVoidAsync("tobisoClearLegacyToken");
     }
 }

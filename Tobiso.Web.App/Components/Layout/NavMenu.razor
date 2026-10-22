@@ -3,7 +3,6 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthState
-@inject StudentCredentialStore CredentialStore
 @inject IPreferenceService PreferenceService
 
 <div class="mobile-topbar">
@@ -314,7 +313,8 @@
 
     private async Task Logout()
     {
-        await CredentialStore.ClearAsync(JS);
+        // The session cookie is HttpOnly, so only the server can clear it.
+        await AuthApi.PostAsync(JS, "/api/auth/logout");
         Nav.NavigateTo("/", forceLoad: true);
     }
 

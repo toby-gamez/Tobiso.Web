@@ -2,7 +2,6 @@
 @implements IDisposable
 @inject NavigationManager Nav
 @inject IJSRuntime JS
-@inject CredentialStore CredentialStore
 
 <div class="mobile-topbar">
     <a href="/" class="brand-link">
@@ -124,7 +123,8 @@
     {
         try
         {
-            await CredentialStore.ClearAsync(JS);
+            // The session cookie is HttpOnly - only the server can remove it.
+            await JS.InvokeAsync<object>("tobisoAuthPost", "/api/auth/logout", new { });
             Nav.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception)
