@@ -142,7 +142,7 @@ else
                         <div class="field">
                             <label>Barva</label>
                             <div class="checkbox-field">
-                                <InputCheckbox id="event-custom-color" @bind-Value="eventModel.UseCustomColor" />
+                                <InputCheckbox id="event-custom-color" @bind-Value="eventModel.UseCustomColor" @bind-Value:after="OnCustomColorToggled" />
                                 <label for="event-custom-color">Vlastní barva</label>
                             </div>
                             @if (eventModel.UseCustomColor)
@@ -412,6 +412,13 @@ else
         recurrenceEndDate = eventResponse.RecurrenceEndDate?.Date;
 
         showModal = true;
+    }
+
+    // Turning the own color on starts the picker from the type's color, not from a stale blue.
+    private void OnCustomColorToggled()
+    {
+        if (eventModel.UseCustomColor)
+            eventModel.Color = Tobiso.Web.Domain.Entities.Event.DefaultColor(eventModel.Type);
     }
 
     private void CloseModal()
