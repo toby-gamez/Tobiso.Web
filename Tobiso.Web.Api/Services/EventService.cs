@@ -121,7 +121,7 @@ public class EventService : IEventService
                 EndDate = request.EndDate,
                 IsAllDay = request.IsAllDay,
                 Location = request.Location,
-                Color = request.Color,
+                Color = NormalizeColor(request.Color),
                 IsRecurring = request.IsRecurring,
                 RecurrencePattern = request.RecurrencePattern,
                 RecurrenceEndDate = request.RecurrenceEndDate,
@@ -159,7 +159,7 @@ public class EventService : IEventService
             eventEntity.EndDate = request.EndDate;
             eventEntity.IsAllDay = request.IsAllDay;
             eventEntity.Location = request.Location;
-            eventEntity.Color = request.Color;
+            eventEntity.Color = NormalizeColor(request.Color);
             eventEntity.IsRecurring = request.IsRecurring;
             eventEntity.RecurrencePattern = request.RecurrencePattern;
             eventEntity.RecurrenceEndDate = request.RecurrenceEndDate;
@@ -299,7 +299,7 @@ public class EventService : IEventService
         eventEntity.RecurrencePattern = null;
         eventEntity.RecurrenceEndDate = null;
         eventEntity.Type = request.Type;
-        eventEntity.Color = DefaultColor(request.Type);
+        eventEntity.Color = null;
         eventEntity.Scope = request.Scope;
         eventEntity.ClassId = classId;
         eventEntity.GroupId = groupId;
@@ -341,13 +341,9 @@ public class EventService : IEventService
         return true;
     }
 
-    public static string DefaultColor(EventType type) => type switch
-    {
-        EventType.Test => "#d9534f",
-        EventType.Homework => "#f0ad4e",
-        EventType.Other => "#5b8def",
-        _ => "#007bff"
-    };
+    // Blank = follow the type's color.
+    private static string? NormalizeColor(string? color) =>
+        string.IsNullOrWhiteSpace(color) ? null : color.Trim();
 
     private async Task<EventResponse?> GetByIdForAdmin(int id)
     {
@@ -390,7 +386,8 @@ public class EventService : IEventService
             EndDate = endDate,
             IsAllDay = eventEntity.IsAllDay,
             Location = eventEntity.Location,
-            Color = eventEntity.Color,
+            Color = eventEntity.EffectiveColor,
+            CustomColor = eventEntity.Color,
             IsRecurring = eventEntity.IsRecurring,
             RecurrencePattern = eventEntity.RecurrencePattern,
             RecurrenceEndDate = eventEntity.RecurrenceEndDate,

@@ -141,7 +141,21 @@ else
                         </div>
                         <div class="field">
                             <label>Barva</label>
-                            <InputText type="color" class="input" @bind-Value="eventModel.Color" />
+                            <div class="checkbox-field">
+                                <InputCheckbox id="event-custom-color" @bind-Value="eventModel.UseCustomColor" @bind-Value:after="OnCustomColorToggled" />
+                                <label for="event-custom-color">Vlastní barva</label>
+                            </div>
+                            @if (eventModel.UseCustomColor)
+                            {
+                                <InputText type="color" class="input" @bind-Value="eventModel.Color" />
+                            }
+                            else
+                            {
+                                <div class="event-title-cell">
+                                    <div class="event-color-indicator" style="background-color: @(Tobiso.Web.Domain.Entities.Event.DefaultColor(eventModel.Type))"></div>
+                                    Podle typu
+                                </div>
+                            }
                         </div>
                     </div>
 
@@ -379,7 +393,8 @@ else
             Description = eventResponse.Description,
             IsAllDay = eventResponse.IsAllDay,
             Location = eventResponse.Location,
-            Color = eventResponse.Color,
+            Color = eventResponse.CustomColor ?? eventResponse.Color,
+            UseCustomColor = eventResponse.CustomColor != null,
             IsRecurring = eventResponse.IsRecurring,
             RecurrencePattern = eventResponse.RecurrencePattern,
             Type = eventResponse.Type,
@@ -397,6 +412,13 @@ else
         recurrenceEndDate = eventResponse.RecurrenceEndDate?.Date;
 
         showModal = true;
+    }
+
+    // Turning the own color on starts the picker from the type's color, not from a stale blue.
+    private void OnCustomColorToggled()
+    {
+        if (eventModel.UseCustomColor)
+            eventModel.Color = Tobiso.Web.Domain.Entities.Event.DefaultColor(eventModel.Type);
     }
 
     private void CloseModal()
@@ -439,7 +461,7 @@ else
                     EndDate = endDateTime,
                     IsAllDay = eventModel.IsAllDay,
                     Location = eventModel.Location,
-                    Color = eventModel.Color,
+                    Color = eventModel.UseCustomColor ? eventModel.Color : null,
                     IsRecurring = eventModel.IsRecurring,
                     RecurrencePattern = eventModel.RecurrencePattern,
                     RecurrenceEndDate = recurrenceEndDate,
@@ -466,7 +488,7 @@ else
                     EndDate = endDateTime,
                     IsAllDay = eventModel.IsAllDay,
                     Location = eventModel.Location,
-                    Color = eventModel.Color,
+                    Color = eventModel.UseCustomColor ? eventModel.Color : null,
                     IsRecurring = eventModel.IsRecurring,
                     RecurrencePattern = eventModel.RecurrencePattern,
                     RecurrenceEndDate = recurrenceEndDate,
@@ -517,6 +539,8 @@ else
         public string? Description { get; set; }
         public bool IsAllDay { get; set; }
         public string? Location { get; set; }
+        // Unchecked = the event follows its type's color; Color is then ignored.
+        public bool UseCustomColor { get; set; }
         public string Color { get; set; } = "#007bff";
         public bool IsRecurring { get; set; }
         public string? RecurrencePattern { get; set; }

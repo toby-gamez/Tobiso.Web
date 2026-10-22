@@ -11,7 +11,10 @@ public class EventResponse
     public DateTime? EndDate { get; set; }
     public bool IsAllDay { get; set; }
     public string? Location { get; set; }
+    // The color to draw: the admin's own pick, or the type's color when none was picked.
     public string Color { get; set; } = "#007bff";
+    // The admin's own pick (null = follows the type), so the edit form knows which one it is.
+    public string? CustomColor { get; set; }
     public bool IsRecurring { get; set; }
     public string? RecurrencePattern { get; set; }
     public DateTime? RecurrenceEndDate { get; set; }
@@ -34,7 +37,8 @@ public class CreateEventRequest
     public DateTime? EndDate { get; set; }
     public bool IsAllDay { get; set; }
     public string? Location { get; set; }
-    public string Color { get; set; } = "#007bff";
+    // Null = use the type's color.
+    public string? Color { get; set; }
     public bool IsRecurring { get; set; }
     public string? RecurrencePattern { get; set; }
     public DateTime? RecurrenceEndDate { get; set; }
@@ -52,7 +56,8 @@ public class UpdateEventRequest
     public DateTime? EndDate { get; set; }
     public bool IsAllDay { get; set; }
     public string? Location { get; set; }
-    public string Color { get; set; } = "#007bff";
+    // Null = use the type's color.
+    public string? Color { get; set; }
     public bool IsRecurring { get; set; }
     public string? RecurrencePattern { get; set; }
     public DateTime? RecurrenceEndDate { get; set; }
