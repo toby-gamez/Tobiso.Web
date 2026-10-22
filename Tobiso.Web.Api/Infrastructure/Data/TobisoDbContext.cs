@@ -151,9 +151,9 @@ public class TobisoDbContext : DbContext
             entity.Property(e => e.Location)
                 .HasMaxLength(200);
                 
+            // Null = the type's color (Event.DefaultColor).
             entity.Property(e => e.Color)
-                .HasMaxLength(7)
-                .HasDefaultValue("#007bff");
+                .HasMaxLength(7);
                 
             entity.Property(e => e.RecurrencePattern)
                 .HasMaxLength(50);

@@ -19,7 +19,8 @@ public class Event
     public DateTime? EndDate { get; set; }
     public bool IsAllDay { get; set; }
     public string? Location { get; set; }
-    public string Color { get; set; } = "#007bff"; // Default blue color
+    // Null = follow the type's color (see DefaultColor); set only when the admin picks one on purpose.
+    public string? Color { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     
@@ -37,4 +38,14 @@ public class Event
     // Null = added by the admin; otherwise the student who added it (shown in the calendar).
     public int? CreatedByUserId { get; set; }
     public AppUser? CreatedByUser { get; set; }
+
+    public string EffectiveColor => Color ?? DefaultColor(Type);
+
+    public static string DefaultColor(EventType type) => type switch
+    {
+        EventType.Test => "#d9534f",
+        EventType.Homework => "#f0ad4e",
+        EventType.Other => "#5b8def",
+        _ => "#007bff"
+    };
 }

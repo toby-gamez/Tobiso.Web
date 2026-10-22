@@ -893,11 +893,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Color")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(7)
-                        .HasColumnType("nvarchar(7)")
-                        .HasDefaultValue("#007bff");
+                        .HasColumnType("nvarchar(7)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
