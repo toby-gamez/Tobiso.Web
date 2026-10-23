@@ -29,6 +29,16 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
         return Ok();
     }
 
+    // GET /api/user/continue-reading - most recently read unfinished post, 204 if none
+    [HttpGet("continue-reading")]
+    public async Task<IActionResult> GetContinueReading()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        var result = await progressService.GetContinueReadingAsync(userId.Value);
+        return result == null ? NoContent() : Ok(result);
+    }
+
     // GET /api/user/bookmarks
     [HttpGet("bookmarks")]
     public async Task<IActionResult> GetBookmarks()
