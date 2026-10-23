@@ -7,4 +7,4 @@ Allow: /images/
 Allow: /videos/
 Allow: /files/
 Allow: /libs/
-Sitemap: https://tobiso.caloris.cz/sitemap.xml
+Sitemap: https://www.tobiso.com/sitemap.xml

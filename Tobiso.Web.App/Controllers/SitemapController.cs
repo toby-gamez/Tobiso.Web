@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
+using System.Security;
 using System.Text;
+using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.Helpers;
 using Tobiso.Web.Shared.Interfaces;
 
 namespace Tobiso.Web.App.Controllers
@@ -7,143 +11,80 @@ namespace Tobiso.Web.App.Controllers
     [ApiController]
     public class SitemapController : ControllerBase
     {
-        private readonly ITobisoAnonymApi _api;
+        private const string BaseUrl = "https://www.tobiso.com";
 
-        public SitemapController(ITobisoAnonymApi api)
+        private readonly ITobisoAnonymApi _api;
+        private readonly IChronicleAxisService _axisService;
+        private readonly ILogger<SitemapController> _logger;
+
+        public SitemapController(ITobisoAnonymApi api, IChronicleAxisService axisService, ILogger<SitemapController> logger)
         {
             _api = api;
+            _axisService = axisService;
+            _logger = logger;
         }
 
         [HttpGet("sitemap.xml")]
-        [ResponseCache(Duration = 3600)]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
         public async Task<IActionResult> GetSitemap()
         {
             try
             {
+                var posts = await _api.GetPostSummaries();
+                var categories = await _api.GetAllCategories();
+
                 var xml = new StringBuilder();
                 xml.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
                 xml.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
-                
-                // Domovská stránka
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/</loc>");
-                xml.AppendLine("    <priority>1.0</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Získání všech postů (pouze souhrny, bez obsahu)
-                var posts = await _api.GetPostSummaries();
-                
-                // Přidání hlavní stránky pro posty
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/post</loc>");
-                xml.AppendLine("    <priority>0.80</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Přidání hlavní stránky pro všechny otázky
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/all-questions</loc>");
-                xml.AppendLine("    <priority>0.90</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Přidání hlavní stránky pro kalendář
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/calendar</loc>");
-                xml.AppendLine("    <priority>0.90</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Přidání hlavní stránky pro chybu
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/Error</loc>");
-                xml.AppendLine("    <priority>0.80</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Přidání hlavní stránky pro opakování
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/practice</loc>");
-                xml.AppendLine("    <priority>0.80</priority>");
-                xml.AppendLine("  </url>");
 
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/latest</loc>");
-                xml.AppendLine("    <priority>0.90</priority>");
-                xml.AppendLine("  </url>");
+                AddUrl(xml, "/", "1.0");
+                AddUrl(xml, "/categories", "0.9");
+                AddUrl(xml, "/latest", "0.9");
+                AddUrl(xml, "/calendar", "0.9");
+                AddUrl(xml, "/feedback", "0.7");
+                AddUrl(xml, "/practice", "0.8");
+                AddUrl(xml, "/practice/flashcards", "0.7");
+                AddUrl(xml, "/legal", "0.3");
 
-                xml.AppendLine("  <url>");
-                xml.AppendLine("    <loc>https://www.tobiso.com/feedback</loc>");
-                xml.AppendLine("    <priority>0.90</priority>");
-                xml.AppendLine("  </url>");
-                
-                // Přidání jednotlivých postů
+                foreach (var category in categories)
+                    AddUrl(xml, $"/categories/{category.Id}", "0.9");
+
                 foreach (var post in posts)
                 {
-                    var postUrl = $"https://www.tobiso.com{Tobiso.Web.Shared.Helpers.PostSlug.Url(post.Id, post.FilePath)}";
-                    xml.AppendLine("  <url>");
-                    xml.AppendLine($"    <loc>{postUrl}</loc>");
-                    xml.AppendLine("    <priority>0.80</priority>");
-                    xml.AppendLine("  </url>");
+                    var lastMod = new[] { post.LastEdit, post.LastFix, post.CreatedAt }.Max();
+                    AddUrl(xml, PostSlug.Url(post.Id, post.FilePath), "0.8", lastMod);
                 }
-                
-                // Přidání jednotlivých prověrek
-                foreach (var post in posts)
-                {
-                    xml.AppendLine("  <url>");
-                    xml.AppendLine($"    <loc>https://www.tobiso.com/questions/{post.Id}</loc>");
-                    xml.AppendLine("    <priority>0.80</priority>");
-                    xml.AppendLine("  </url>");
-                }
-                
-                // Získání všech kategorií
+
                 try
                 {
-                    var categories = await _api.GetAllCategories();
-                    
-                    // Přidání hlavní stránky pro kategorie
-                    xml.AppendLine("  <url>");
-                    xml.AppendLine("    <loc>https://www.tobiso.com/categories</loc>");
-                    xml.AppendLine("    <priority>0.90</priority>");
-                    xml.AppendLine("  </url>");
-                    
-                    // Přidání jednotlivých kategorií
-                    foreach (var category in categories)
-                    {
-                        xml.AppendLine("  <url>");
-                        xml.AppendLine($"    <loc>https://www.tobiso.com/categories/{category.Id}</loc>");
-                        xml.AppendLine("    <priority>0.90</priority>");
-                        xml.AppendLine("  </url>");
-                    }
+                    foreach (var axis in await _axisService.GetAll())
+                        AddUrl(xml, $"/kronika/{axis.Slug}", "0.7");
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ALTERNATIVA: Pokud GetAllCategories() neexistuje nebo selže
-                    var categoryIds = posts.Where(p => p.CategoryId.HasValue)
-                                          .Select(p => p.CategoryId.Value)
-                                          .Distinct()
-                                          .ToList();
-                    
-                    // Přidání hlavní stránky pro kategorie
-                    xml.AppendLine("  <url>");
-                    xml.AppendLine("    <loc>https://www.tobiso.com/categories</loc>");
-                    xml.AppendLine("    <priority>0.90</priority>");
-                    xml.AppendLine("  </url>");
-                    
-                    // Přidání jednotlivých kategorií
-                    foreach (var categoryId in categoryIds)
-                    {
-                        xml.AppendLine("  <url>");
-                        xml.AppendLine($"    <loc>https://www.tobiso.com/categories/{categoryId}</loc>");
-                        xml.AppendLine("    <priority>0.90</priority>");
-                        xml.AppendLine("  </url>");
-                    }
+                    // Chronicle is optional; don't fail the whole sitemap.
+                    _logger.LogWarning(ex, "Sitemap: failed to load chronicle axes");
                 }
-                
+
                 xml.AppendLine("</urlset>");
-                
+
                 return Content(xml.ToString(), "application/xml", Encoding.UTF8);
             }
             catch (Exception ex)
             {
-                return Content($"Chyba při generování sitemap: {ex.Message}", "text/plain");
+                _logger.LogError(ex, "Sitemap generation failed");
+                return StatusCode(StatusCodes.Status500InternalServerError);
             }
+        }
+
+        private static void AddUrl(StringBuilder xml, string path, string priority, DateTime? lastMod = null)
+        {
+            xml.AppendLine("  <url>");
+            xml.AppendLine($"    <loc>{SecurityElement.Escape(BaseUrl + path)}</loc>");
+            if (lastMod.HasValue)
+                xml.AppendLine($"    <lastmod>{lastMod.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}</lastmod>");
+            xml.AppendLine($"    <priority>{priority}</priority>");
+            xml.AppendLine("  </url>");
         }
     }
 }
