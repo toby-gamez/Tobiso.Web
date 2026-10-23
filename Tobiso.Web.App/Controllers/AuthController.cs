@@ -1,3 +1,4 @@
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -254,6 +255,40 @@ public class AuthController : ControllerBase
         return Redirect("/");
     }
 
+    // For API clients (mobile app, One Tap) that already hold a Google ID token; the website uses the redirect flow.
+    [HttpPost("google-token")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GoogleToken([FromBody] GoogleTokenRequest req, [FromServices] IConfiguration config)
+    {
+        var clientId = config["Google:ClientId"];
+        if (string.IsNullOrEmpty(clientId) || string.IsNullOrWhiteSpace(req.IdToken))
+            return BadRequest(new { message = "Neplatný požadavek." });
+
+        GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(req.IdToken,
+                new GoogleJsonWebSignature.ValidationSettings { Audience = [clientId] });
+        }
+        catch (InvalidJwtException ex)
+        {
+            _logger.LogWarning("Google ID token rejected: {Error}", ex.Message);
+            return Unauthorized(new { message = "Přihlášení přes Google se nezdařilo." });
+        }
+
+        // An unverified address must never be linked to an existing account.
+        if (!payload.EmailVerified || string.IsNullOrEmpty(payload.Email))
+            return Unauthorized(new { message = "E-mail Google účtu není ověřený." });
+
+        var user = await _userService.FindOrCreateGoogleUserAsync(payload.Subject, payload.Email,
+            payload.Name ?? payload.Email, payload.Picture, req.AcceptedTerms);
+        if (user == null)
+            return BadRequest(new { message = "Pro vytvoření účtu je nutné přijmout podmínky." });
+
+        var token = _jwtService.GenerateStudentToken(user);
+        return Ok(new StudentLoginResponse(token, user.DisplayName, user.Credits));
+    }
+
     [HttpPost("daily-bonus")]
     [Authorize(Policy = AuthPolicies.AnyUser)]
     public async Task<IActionResult> ClaimDailyBonus()
@@ -281,3 +316,5 @@ public class AuthController : ControllerBase
         return Ok(new { credits = updated?.Credits ?? 0 });
     }
 }
+
+public record GoogleTokenRequest(string IdToken, bool AcceptedTerms = false);

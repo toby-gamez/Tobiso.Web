@@ -78,6 +78,11 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             })
             .ToListAsync();
 
+        var gameState = await db.UserGameStates.AsNoTracking()
+            .Where(g => g.UserId == userId)
+            .Select(g => new { g.Revision, g.UpdatedAt, State = g.Json })
+            .FirstOrDefaultAsync();
+
         var export = new
         {
             ExportedAt = DateTime.UtcNow,
@@ -95,7 +100,8 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             CreditTransactions = credits,
             AiChats = chats,
             ClassMembership = classMembership,
-            CalendarEvents = events
+            CalendarEvents = events,
+            GameState = gameState
         };
 
         return JsonSerializer.SerializeToUtf8Bytes(export, JsonOptions);

@@ -60,6 +60,7 @@ public class TobisoDbContext : DbContext
     public DbSet<UserBookmark> UserBookmarks { get; set; }
     public DbSet<UserReadPost> UserReadPosts { get; set; }
     public DbSet<UserNote> UserNotes { get; set; }
+    public DbSet<UserGameState> UserGameStates { get; set; }
     public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
     public DbSet<AnonymousAiUsage> AnonymousAiUsages { get; set; }
 
@@ -754,6 +755,19 @@ public class TobisoDbContext : DbContext
             entity.HasOne(e => e.Item)
                 .WithMany(i => i.Sources)
                 .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure UserGameState
+        modelBuilder.Entity<UserGameState>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.Json).IsRequired();
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithOne(u => u.GameState)
+                .HasForeignKey<UserGameState>(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -1652,6 +1652,31 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("UserBookmarks");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserGameState", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Points")
+                        .HasColumnType("float");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserGameStates");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserNote", b =>
                 {
                     b.Property<int>("Id")
@@ -2365,6 +2390,17 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserGameState", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithOne("GameState")
+                        .HasForeignKey("Tobiso.Web.Domain.Entities.UserGameState", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserNote", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
@@ -2417,6 +2453,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("ChatSessions");
 
                     b.Navigation("CreditTransactions");
+
+                    b.Navigation("GameState");
 
                     b.Navigation("Notes");
 

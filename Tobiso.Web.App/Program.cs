@@ -256,6 +256,7 @@ services.AddScoped<ILegalNoticeService, LegalNoticeService>();
 services.AddScoped<IUserDataExportService, UserDataExportService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddScoped<IUserProgressService, UserProgressService>();
+services.AddScoped<IGameStateService, GameStateService>();
 services.AddScoped<IQuestionAttemptService, QuestionAttemptService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls

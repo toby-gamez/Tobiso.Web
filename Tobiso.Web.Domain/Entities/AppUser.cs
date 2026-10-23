@@ -35,6 +35,7 @@ public class AppUser
     public ICollection<AiCreditTransaction> CreditTransactions { get; set; } = [];
     public ICollection<UserBookmark> Bookmarks { get; set; } = [];
     public ICollection<UserNote> Notes { get; set; } = [];
+    public UserGameState? GameState { get; set; }
     public ICollection<UserReadPost> ReadPosts { get; set; } = [];
     public ICollection<QuestionAttempt> QuestionAttempts { get; set; } = [];
 }
