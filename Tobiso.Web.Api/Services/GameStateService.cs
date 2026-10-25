@@ -1,5 +1,8 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
@@ -16,8 +19,11 @@ public interface IGameStateService
     Task<(PointsClaimStatus Status, PointsClaimResultDto? Result)> ClaimAsync(int userId, string reason, string reference);
 }
 
-public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IGameStateService
+public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory, ILogger<GameStateService> logger) : IGameStateService
 {
+    // The blob is never embedded in HTML, so keep non-ASCII (Czech) text unescaped to stay within MaxStateBytes.
+    private static readonly JsonSerializerOptions StoreOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     public const int MaxStateBytes = 256 * 1024;
     private const string ExchangeReason = "points_exchange";
 
@@ -40,7 +46,9 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
     public async Task<(GameStateSavedDto?, GameStateDto?)> PutAsync(int userId, int baseRevision, JsonNode state)
     {
         await using var db = dbFactory.CreateDbContext();
-        var json = state.ToJsonString();
+        var json = state.ToJsonString(StoreOptions);
+        // MVC binds with case-insensitive names; re-parse so lookups here and in ClaimAsync are case-sensitive alike.
+        state = JsonNode.Parse(json)!;
         var points = ReadPoints(state);
         var now = DateTime.UtcNow;
 
@@ -53,10 +61,14 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
                 await db.SaveChangesAsync();
                 return (new GameStateSavedDto(1, now), null);
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                // Primary key hit: another write created the row first.
-                return (null, await GetAsync(userId));
+                db.ChangeTracker.Clear();
+                var current = await db.UserGameStates.AsNoTracking().FirstOrDefaultAsync(g => g.UserId == userId);
+                // Only a lost race (the row now exists) is a conflict; anything else is a real failure.
+                if (current == null) throw;
+                logger.LogInformation(ex, "Game state insert for user {UserId} lost a race", userId);
+                return (null, ToDto(current));
             }
         }
 
@@ -67,9 +79,9 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
                 .SetProperty(g => g.Json, json)
                 .SetProperty(g => g.Points, points)
                 .SetProperty(g => g.UpdatedAt, now));
-        return rows == 1
-            ? (new GameStateSavedDto(baseRevision + 1, now), null)
-            : (null, await GetAsync(userId));
+        if (rows == 1) return (new GameStateSavedDto(baseRevision + 1, now), null);
+        var latest = await db.UserGameStates.AsNoTracking().FirstOrDefaultAsync(g => g.UserId == userId);
+        return (null, latest == null ? null : ToDto(latest));
     }
 
     // Points are written by the client, so this is damage control rather than proof: the price and
@@ -99,10 +111,10 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
         pointsNode["value"] = newPoints;
 
         var now = DateTime.UtcNow;
-        var json = node.ToJsonString();
+        var json = node.ToJsonString(StoreOptions);
         var revision = row.Revision;
         var rows = await db.UserGameStates
-            .Where(g => g.UserId == userId && g.Revision == revision && g.Points >= pack.Cost)
+            .Where(g => g.UserId == userId && g.Revision == revision)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(g => g.Revision, revision + 1)
                 .SetProperty(g => g.Json, json)
@@ -115,9 +127,9 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
         db.AiCreditTransactions.Add(new AiCreditTransaction
             { UserId = userId, Delta = pack.Credits, Reason = ExchangeReason });
         await db.SaveChangesAsync();
+        var credits = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Credits).FirstAsync();
         await tx.CommitAsync();
 
-        var credits = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Credits).FirstAsync();
         return (PointsClaimStatus.Ok, new PointsClaimResultDto(credits, newPoints, revision + 1));
     }
 
@@ -126,7 +138,7 @@ public class GameStateService(IDbContextFactory<TobisoDbContext> dbFactory) : IG
 
     private static double ReadPoints(JsonNode state)
     {
-        if (state["points"]?["value"] is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d))
+        if (state["points"] is JsonObject p && p["value"] is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d))
             return Math.Max(0, d);
         return 0;
     }

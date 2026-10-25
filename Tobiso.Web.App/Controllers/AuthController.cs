@@ -260,20 +260,35 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GoogleToken([FromBody] GoogleTokenRequest req, [FromServices] IConfiguration config)
     {
-        var clientId = config["Google:ClientId"];
-        if (string.IsNullOrEmpty(clientId) || string.IsNullOrWhiteSpace(req.IdToken))
+        // Web client ID plus optional extra audiences (e.g. native iOS/Android client IDs).
+        var audiences = new[] { config["Google:ClientId"] }
+            .Concat(config.GetSection("Google:ExtraClientIds").Get<string[]>() ?? [])
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Select(a => a!)
+            .ToList();
+        if (audiences.Count == 0)
+        {
+            _logger.LogError("Google:ClientId is not configured; google-token sign-in is unavailable.");
+            return StatusCode(503, new { message = "Přihlášení přes Google není dostupné." });
+        }
+        if (string.IsNullOrWhiteSpace(req.IdToken))
             return BadRequest(new { message = "Neplatný požadavek." });
 
         GoogleJsonWebSignature.Payload payload;
         try
         {
             payload = await GoogleJsonWebSignature.ValidateAsync(req.IdToken,
-                new GoogleJsonWebSignature.ValidationSettings { Audience = [clientId] });
+                new GoogleJsonWebSignature.ValidationSettings { Audience = audiences });
         }
-        catch (InvalidJwtException ex)
+        catch (Exception ex) when (ex is InvalidJwtException or FormatException or Newtonsoft.Json.JsonException)
         {
             _logger.LogWarning("Google ID token rejected: {Error}", ex.Message);
             return Unauthorized(new { message = "Přihlášení přes Google se nezdařilo." });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Could not fetch Google signing certificates.");
+            return StatusCode(503, new { message = "Přihlášení přes Google je dočasně nedostupné." });
         }
 
         // An unverified address must never be linked to an existing account.

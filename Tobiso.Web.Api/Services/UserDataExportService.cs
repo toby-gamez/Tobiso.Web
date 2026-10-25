@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Tobiso.Api.Infrastructure.Data;
@@ -80,7 +81,7 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
 
         var gameState = await db.UserGameStates.AsNoTracking()
             .Where(g => g.UserId == userId)
-            .Select(g => new { g.Revision, g.UpdatedAt, State = g.Json })
+            .Select(g => new { g.Revision, g.UpdatedAt, g.Json })
             .FirstOrDefaultAsync();
 
         var export = new
@@ -101,7 +102,10 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             AiChats = chats,
             ClassMembership = classMembership,
             CalendarEvents = events,
-            GameState = gameState
+            GameState = gameState == null ? null : new
+            {
+                gameState.Revision, gameState.UpdatedAt, State = JsonNode.Parse(gameState.Json)
+            }
         };
 
         return JsonSerializer.SerializeToUtf8Bytes(export, JsonOptions);

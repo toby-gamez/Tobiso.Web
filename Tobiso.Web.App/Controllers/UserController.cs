@@ -58,7 +58,9 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
-        if (req.State is not System.Text.Json.Nodes.JsonObject state || req.BaseRevision < 0)
+        if (req.BaseRevision < 0)
+            return BadRequest(new { message = "baseRevision nesmí být záporná." });
+        if (req.State is not System.Text.Json.Nodes.JsonObject state)
             return BadRequest(new { message = "state musí být JSON objekt." });
 
         var (saved, current) = await gameStateService.PutAsync(userId.Value, req.BaseRevision, state);
