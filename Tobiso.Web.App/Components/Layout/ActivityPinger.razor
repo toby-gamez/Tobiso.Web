@@ -1,0 +1,46 @@
+@implements IDisposable
+@inject AuthenticationStateProvider AuthState
+@inject IStreakService Streak
+@using Tobiso.Api.Authentication
+
+@code {
+    // Opening the web while signed in counts as "active today" for the streak, same as opening the app.
+    // Once per circuit per calendar day; the service call is idempotent anyway.
+    private DateOnly? _recordedFor;
+    private bool _disposed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe first: on a fresh circuit the user can still be anonymous until auth is restored.
+        AuthState.AuthenticationStateChanged += OnAuthStateChanged;
+        await RecordAsync(AuthState.GetAuthenticationStateAsync());
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task) => await RecordAsync(task);
+
+    private async Task RecordAsync(Task<AuthenticationState> task)
+    {
+        try
+        {
+            var user = (await task).User;
+            if (_disposed || user.Identity?.IsAuthenticated != true || !AuthPolicies.IsStudent(user)) return;
+            if (!int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)) return;
+
+            var today = StreakService.Today();
+            if (_recordedFor == today) return;
+            _recordedFor = today;
+            await Streak.RecordActivityAsync(userId);
+        }
+        catch (Exception)
+        {
+            // Best effort: a failed streak ping must never break the page. Retry on the next auth change.
+            _recordedFor = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
+    }
+}

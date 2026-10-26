@@ -84,6 +84,15 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             .Select(g => new { g.Revision, g.UpdatedAt, g.Json })
             .FirstOrDefaultAsync();
 
+        var pointsLedger = await db.PointsLedger.AsNoTracking()
+            .Where(e => e.UserId == userId).OrderBy(e => e.Id)
+            .Select(e => new { e.Delta, e.Kind, e.CreatedAt }).ToListAsync();
+
+        var activityDays = (await db.UserActivityDays.AsNoTracking()
+                .Where(a => a.UserId == userId).OrderBy(a => a.Date)
+                .Select(a => a.Date).ToListAsync())
+            .Select(d => d.ToString("yyyy-MM-dd")).ToList();
+
         var export = new
         {
             ExportedAt = DateTime.UtcNow,
@@ -91,7 +100,7 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             {
                 user.Email, user.DisplayName, user.AvatarUrl,
                 SignInMethods = new { Password = !string.IsNullOrEmpty(user.PasswordHash), Google = user.GoogleId != null },
-                user.Credits, user.CreatedAt, user.LastLoginAt, user.LastDailyBonusAt, user.LastReadBonusAt,
+                user.Credits, user.PointsBalance, user.CreatedAt, user.LastLoginAt, user.LastDailyBonusAt, user.LastReadBonusAt,
                 user.TermsAcceptedAt, user.TermsVersion
             },
             Bookmarks = bookmarks,
@@ -102,6 +111,8 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             AiChats = chats,
             ClassMembership = classMembership,
             CalendarEvents = events,
+            PointsLedger = pointsLedger,
+            ActivityDays = activityDays,
             GameState = gameState == null ? null : new
             {
                 gameState.Revision, gameState.UpdatedAt, State = JsonNode.Parse(gameState.Json)

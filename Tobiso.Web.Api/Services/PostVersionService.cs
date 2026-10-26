@@ -37,6 +37,7 @@ public class PostVersionService : IPostVersionService
                 GradeName = v.Grade != null ? v.Grade.Name : null,
                 GradeLevel = v.Grade != null ? v.Grade.Level : (int?)null,
                 Content = v.Content,
+                CreatedAt = v.Post != null ? v.Post.CreatedAt : default,
                 LastFix = v.LastFix,
                 LastEdit = v.LastEdit,
                 IsChecked = v.IsChecked
@@ -49,6 +50,9 @@ public class PostVersionService : IPostVersionService
         // Ensure the grade exists
         var grade = await _context.Grades.FindAsync(req.GradeId);
         if (grade == null) return null;
+
+        var post = await _context.Posts.FindAsync(req.PostId);
+        if (post == null) return null;
 
         // Enforce unique (PostId, GradeId)
         var exists = await _context.PostVersions
@@ -75,6 +79,7 @@ public class PostVersionService : IPostVersionService
             GradeName = grade.Name,
             GradeLevel = grade.Level,
             Content = entity.Content,
+            CreatedAt = post.CreatedAt,
             LastFix = entity.LastFix,
             LastEdit = entity.LastEdit,
             IsChecked = entity.IsChecked

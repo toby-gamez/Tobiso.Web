@@ -261,8 +261,11 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> GoogleToken([FromBody] GoogleTokenRequest req, [FromServices] IConfiguration config)
     {
         // Web client ID plus optional extra audiences (e.g. native iOS/Android client IDs).
+        // ExtraClientIds may be an array or a single comma-separated string (env var / app setting).
+        var extraSection = config.GetSection("Google:ExtraClientIds");
         var audiences = new[] { config["Google:ClientId"] }
-            .Concat(config.GetSection("Google:ExtraClientIds").Get<string[]>() ?? [])
+            .Concat(extraSection.Get<string[]>() ?? [])
+            .Concat((extraSection.Value ?? "").Split(',', StringSplitOptions.TrimEntries))
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .Select(a => a!)
             .ToList();
@@ -280,12 +283,13 @@ public class AuthController : ControllerBase
             payload = await GoogleJsonWebSignature.ValidateAsync(req.IdToken,
                 new GoogleJsonWebSignature.ValidationSettings { Audience = audiences });
         }
-        catch (Exception ex) when (ex is InvalidJwtException or FormatException or Newtonsoft.Json.JsonException)
+        catch (Exception ex) when (ex is InvalidJwtException or FormatException or ArgumentException or Newtonsoft.Json.JsonException)
         {
-            _logger.LogWarning("Google ID token rejected: {Error}", ex.Message);
+            // Messages can embed attacker-controlled token content, so log only the exception type.
+            _logger.LogWarning("Google ID token rejected ({ErrorType})", ex.GetType().Name);
             return Unauthorized(new { message = "Přihlášení přes Google se nezdařilo." });
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or TimeoutException)
         {
             _logger.LogError(ex, "Could not fetch Google signing certificates.");
             return StatusCode(503, new { message = "Přihlášení přes Google je dočasně nedostupné." });
@@ -298,7 +302,7 @@ public class AuthController : ControllerBase
         var user = await _userService.FindOrCreateGoogleUserAsync(payload.Subject, payload.Email,
             payload.Name ?? payload.Email, payload.Picture, req.AcceptedTerms);
         if (user == null)
-            return BadRequest(new { message = "Pro vytvoření účtu je nutné přijmout podmínky." });
+            return BadRequest(new { code = "terms_required", message = "Pro vytvoření účtu je nutné přijmout podmínky." });
 
         var token = _jwtService.GenerateStudentToken(user);
         return Ok(new StudentLoginResponse(token, user.DisplayName, user.Credits));

@@ -121,3 +121,12 @@
 .profile-danger .field { width: 100%; max-width: 360px; }
 .profile-danger-error { color: var(--color-accent-700) !important; font-weight: 600; }
 .profile-danger-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.stat-card-link {
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    color: inherit;
+}
+
+.stat-card-link:hover { background: var(--color-surface); }

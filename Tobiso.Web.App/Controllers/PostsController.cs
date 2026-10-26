@@ -88,8 +88,8 @@ public class PostsController : ControllerBase
         if (!await _db.Posts.AnyAsync(p => p.Id == id)) return NotFound();
         var versions = await _db.PostVersions
             .Where(v => v.PostId == id)
-            .OrderBy(v => v.Grade.Level)
-            .Select(v => new { v.Id, v.GradeId, GradeName = v.Grade.Name, GradeLevel = v.Grade.Level })
+            .OrderBy(v => v.Grade!.Level)
+            .Select(v => new { v.Id, v.GradeId, GradeName = v.Grade!.Name, GradeLevel = v.Grade!.Level })
             .ToListAsync();
         return Ok(versions);
     }

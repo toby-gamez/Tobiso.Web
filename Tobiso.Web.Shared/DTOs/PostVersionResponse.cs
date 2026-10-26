@@ -12,6 +12,8 @@ public class PostVersionResponse
     /// <summary>Convenience: Grade.Level (e.g. 6, 7, 8, 9) for client-side display.</summary>
     public int? GradeLevel { get; set; }
     public string Content { get; set; } = string.Empty;
+    /// <summary>Creation time of the parent post (versions share its creation date).</summary>
+    public DateTime CreatedAt { get; set; }
     public DateTime? LastFix { get; set; }
     public DateTime? LastEdit { get; set; }
     public bool? IsChecked { get; set; }

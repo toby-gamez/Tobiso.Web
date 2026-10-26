@@ -99,6 +99,14 @@
                                 {
                                     <span>@item.SubmittedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(item.Name))
+                                {
+                                    <span> · @item.Name</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.Email))
+                                {
+                                    <span> · <a href="mailto:@item.Email?subject=@Uri.EscapeDataString("Re: " + item.Title)" @onclick:stopPropagation="true">@item.Email</a></span>
+                                }
                                 @if (item.SubmittedByUserId != null)
                                 {
                                     <span> · uživatel @item.SubmittedByUserId</span>

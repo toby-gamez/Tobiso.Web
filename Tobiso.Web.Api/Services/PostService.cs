@@ -43,7 +43,7 @@ public class PostService : IPostService
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
-    private static PostVersionResponse ToVersionResponse(PostVersion v) => new()
+    private static PostVersionResponse ToVersionResponse(PostVersion v, DateTime postCreatedAt) => new()
     {
         Id = v.Id,
         PostId = v.PostId,
@@ -51,6 +51,7 @@ public class PostService : IPostService
         GradeName = v.Grade?.Name,
         GradeLevel = v.Grade?.Level,
         Content = v.Content,
+        CreatedAt = postCreatedAt,
         LastFix = v.LastFix,
         LastEdit = v.LastEdit,
         IsChecked = v.IsChecked
@@ -83,7 +84,8 @@ public class PostService : IPostService
             Title = p.Title,
             FilePath = p.FilePath,
             CategoryId = p.CategoryId,
-            Versions = versionsToInclude.Select(ToVersionResponse).ToList()
+            CreatedAt = p.CreatedAt,
+            Versions = versionsToInclude.Select(v => ToVersionResponse(v, p.CreatedAt)).ToList()
         };
     }
 

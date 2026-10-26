@@ -11,7 +11,7 @@ namespace Tobiso.Web.App.Controllers;
 [Route("api/user")]
 [Authorize(Policy = AuthPolicies.AnyUser)]
 public class UserController(IUserProgressService progressService, IUserDataExportService exportService,
-    IGameStateService gameStateService) : ControllerBase
+    IGameStateService gameStateService, IPointsWalletService walletService, IStreakService streakService) : ControllerBase
 {
     // Students only: an admin token's "sub" is a config value that could collide with a real user id.
     private int? GetUserId()
@@ -29,6 +29,17 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
         if (userId == null) return Unauthorized();
         await progressService.UpsertReadProgressAsync(userId.Value, req.PostId, req.ScrollPercent);
         return Ok();
+    }
+
+    // POST /api/user/activity - "active today" for the streak. The server picks the date (Europe/Prague);
+    // the client sends nothing. Idempotent per day. Call once when the app (or web) is opened.
+    [HttpPost("activity")]
+    public async Task<IActionResult> RecordActivity()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        await streakService.RecordActivityAsync(userId.Value);
+        return NoContent();
     }
 
     // GET /api/user/continue-reading - most recently read unfinished post, 204 if none
@@ -63,26 +74,49 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
         if (req.State is not System.Text.Json.Nodes.JsonObject state)
             return BadRequest(new { message = "state musí být JSON objekt." });
 
-        var (saved, current) = await gameStateService.PutAsync(userId.Value, req.BaseRevision, state);
+        (Tobiso.Web.Shared.DTOs.GameStateSavedDto? saved, Tobiso.Web.Shared.DTOs.GameStateDto? current) result;
+        try { result = await gameStateService.PutAsync(userId.Value, req.BaseRevision, state); }
+        catch (InvalidGameStateException ex) { return BadRequest(new { message = ex.Message }); }
+        var (saved, current) = result;
         if (saved != null) return Ok(saved);
         return Conflict(new GameStateConflictDto(current?.Revision ?? 0,
             current?.State ?? new System.Text.Json.Nodes.JsonObject()));
     }
 
-    // POST /api/user/points/claim  body: { reason: "ai_credits", ref: "<shop item id>" }
+    // GET /api/user/points - server-owned exchange points (not the app's local points)
+    [HttpGet("points")]
+    public async Task<IActionResult> GetPoints()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        return Ok(await walletService.GetAsync(userId.Value));
+    }
+
+    // POST /api/user/points/earn  body: { answers: [{ questionId, answerIds?, text? }] }
+    // The server grades the answers itself and decides the amount; the client never sends points.
+    [HttpPost("points/earn")]
+    public async Task<IActionResult> EarnPoints([FromBody] PointsEarnRequest req)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (req.Answers is not { Count: > 0 } answers || answers.Count > PointsWalletService.MaxAnswersPerRequest)
+            return BadRequest(new { message = $"Pošli 1 až {PointsWalletService.MaxAnswersPerRequest} odpovědí." });
+        return Ok(await walletService.GradeAndAwardAsync(userId.Value, answers));
+    }
+
+    // POST /api/user/points/claim  body: { reason: "ai_credits", ref: "<shop item id>" } - spends exchange points
     [HttpPost("points/claim")]
     public async Task<IActionResult> ClaimPoints([FromBody] PointsClaimRequest req)
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
-        var (status, result) = await gameStateService.ClaimAsync(userId.Value, req.Reason, req.Ref);
+        var (status, result) = await walletService.ClaimAsync(userId.Value, req.Reason, req.Ref);
         return status switch
         {
             PointsClaimStatus.Ok => Ok(result),
             PointsClaimStatus.UnknownItem => BadRequest(new { message = "Neznámá položka." }),
             PointsClaimStatus.InsufficientPoints => Conflict(new { code = "insufficient_points", message = "Nedostatek bodů." }),
-            PointsClaimStatus.DailyLimit => StatusCode(429, new { code = "daily_limit", message = "Denní limit výměny bodů za kredity byl vyčerpán." }),
-            _ => Conflict(new { code = "conflict", message = "Stav se mezitím změnil, zkus to znovu." }),
+            _ => StatusCode(429, new { code = "daily_limit", message = "Denní limit výměny bodů za kredity byl vyčerpán." }),
         };
     }
 

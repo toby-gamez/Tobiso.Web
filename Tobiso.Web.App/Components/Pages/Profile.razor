@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject IUserProgressService UserProgressService
 @inject IUserService UserService
+@inject IPointsWalletService Wallet
 @inject IUserDataExportService ExportService
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
@@ -37,11 +38,11 @@
         </div>
 
         <div class="profile-stats">
-            <div class="stat-card">
+            <a class="stat-card stat-card-link" href="/rada" title="Zobrazit řadu">
                 <i data-lucide="flame" style="color:var(--color-accent-600)"></i>
                 <span class="stat-value">@(_stats?.StreakDays ?? 0)</span>
-                <span class="stat-label">Dní v řadě</span>
-            </div>
+                <span class="stat-label">Řada</span>
+            </a>
             <div class="stat-card">
                 <i data-lucide="book-open" style="color:var(--color-accent-600)"></i>
                 <span class="stat-value">@(_stats?.TotalRead ?? 0)</span>
@@ -51,6 +52,11 @@
                 <i data-lucide="coins" style="color:var(--color-accent-600)"></i>
                 <span class="stat-value">@_credits</span>
                 <span class="stat-label">Kreditů</span>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="sparkles" style="color:var(--color-accent-600)"></i>
+                <span class="stat-value">@_exchangePoints</span>
+                <span class="stat-label">Směnných bodů</span>
             </div>
             <div class="stat-card">
                 <i data-lucide="award" style="color:var(--color-accent-600)"></i>
@@ -206,6 +212,7 @@
     private bool _isStudent;
     private int _userId;
     private int _credits;
+    private int _exchangePoints;
     private string _displayName = "";
     private string _email = "";
     private string? _avatarUrl;
@@ -321,6 +328,7 @@
             _aiUsage = await UserProgressService.GetAiUsageAsync(_userId);
             var user = await UserService.GetByIdAsync(_userId);
             _credits = user?.Credits ?? 0;
+            _exchangePoints = user?.PointsBalance ?? 0;
             _email = user?.Email ?? "";
             _avatarUrl = user?.AvatarUrl is { } url && url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? url : null;
             _hasPassword = !string.IsNullOrEmpty(user?.PasswordHash);
@@ -351,6 +359,8 @@
         "daily_bonus" => "Denní bonus",
         "read_streak_bonus" => "Čtenářská odměna",
         "registration_bonus" => "Registrace",
+        "points_exchange" => "Výměna bodů za kredity",
+        "admin_adjustment" => "Úprava administrátorem",
         _ => reason
     };
 

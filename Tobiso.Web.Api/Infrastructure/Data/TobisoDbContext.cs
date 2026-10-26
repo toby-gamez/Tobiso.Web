@@ -61,6 +61,8 @@ public class TobisoDbContext : DbContext
     public DbSet<UserReadPost> UserReadPosts { get; set; }
     public DbSet<UserNote> UserNotes { get; set; }
     public DbSet<UserGameState> UserGameStates { get; set; }
+    public DbSet<PointsLedgerEntry> PointsLedger { get; set; }
+    public DbSet<UserActivityDay> UserActivityDays { get; set; }
     public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
     public DbSet<AnonymousAiUsage> AnonymousAiUsages { get; set; }
 
@@ -768,6 +770,35 @@ public class TobisoDbContext : DbContext
             entity.HasOne(e => e.User)
                 .WithOne(u => u.GameState)
                 .HasForeignKey<UserGameState>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure PointsLedgerEntry
+        modelBuilder.Entity<PointsLedgerEntry>(entity =>
+        {
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.Ref).HasMaxLength(60);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt });
+            // One award per (user, kind, ref); rows without a ref (spends) are never deduped.
+            entity.HasIndex(e => new { e.UserId, e.Kind, e.Ref }).IsUnique().HasFilter("[Ref] IS NOT NULL");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.PointsLedger)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure UserActivityDay
+        modelBuilder.Entity<UserActivityDay>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.Date });
+            entity.Property(e => e.Date).HasColumnType("date");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ActivityDays)
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

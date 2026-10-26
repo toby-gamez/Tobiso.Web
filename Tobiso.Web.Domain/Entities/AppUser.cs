@@ -9,6 +9,8 @@ public class AppUser
     public string? GoogleId { get; set; }
     public string? AvatarUrl { get; set; }
     public int Credits { get; set; } = 20;
+    // Spendable exchange points (see PointsLedgerEntry); only ever changed by atomic server-side updates.
+    public int PointsBalance { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
     // Null until the address is proven (verification link, password reset link or Google sign-in).
@@ -36,6 +38,8 @@ public class AppUser
     public ICollection<UserBookmark> Bookmarks { get; set; } = [];
     public ICollection<UserNote> Notes { get; set; } = [];
     public UserGameState? GameState { get; set; }
+    public ICollection<PointsLedgerEntry> PointsLedger { get; set; } = [];
+    public ICollection<UserActivityDay> ActivityDays { get; set; } = [];
     public ICollection<UserReadPost> ReadPosts { get; set; } = [];
     public ICollection<QuestionAttempt> QuestionAttempts { get; set; } = [];
 }

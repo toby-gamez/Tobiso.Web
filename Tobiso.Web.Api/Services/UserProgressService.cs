@@ -22,11 +22,13 @@ public class UserProgressService : IUserProgressService
 {
     private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
     private readonly IUserService _userService;
+    private readonly IStreakService _streakService;
 
-    public UserProgressService(IDbContextFactory<TobisoDbContext> dbFactory, IUserService userService)
+    public UserProgressService(IDbContextFactory<TobisoDbContext> dbFactory, IUserService userService, IStreakService streakService)
     {
         _dbFactory = dbFactory;
         _userService = userService;
+        _streakService = streakService;
     }
 
     public async Task UpsertReadProgressAsync(int userId, int postId, int scrollPercent)
@@ -114,24 +116,7 @@ public class UserProgressService : IUserProgressService
 
         var totalRead = readPosts.Select(r => r.PostId).Distinct().Count();
 
-        // Streak: count consecutive days ending today
-        var distinctDates = readPosts
-            .Select(r => r.LastReadAt.Date)
-            .Distinct()
-            .OrderByDescending(d => d)
-            .ToList();
-
-        var streak = 0;
-        var expected = DateTime.UtcNow.Date;
-        foreach (var date in distinctDates)
-        {
-            if (date == expected || date == expected.AddDays(-1) && streak == 0)
-            {
-                streak++;
-                expected = date.AddDays(-1);
-            }
-            else if (date < expected) break;
-        }
+        var streak = await _streakService.GetAsync(userId);
 
         // Per-subject counts
         var perSubject = readPosts
@@ -153,7 +138,8 @@ public class UserProgressService : IUserProgressService
             }))
             .ToList();
 
-        return new UserStatsDto(streak, totalRead, perSubject, badges);
+        return new UserStatsDto(streak.Current, totalRead, perSubject, badges,
+            streak.Longest, streak.Freezes, streak.TodayActive, streak.Days, streak.FreezeDays);
     }
 
     public async Task<AiUsageDto> GetAiUsageAsync(int userId)

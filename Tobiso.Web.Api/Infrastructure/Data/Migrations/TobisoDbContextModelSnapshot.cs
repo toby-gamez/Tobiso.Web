@@ -290,6 +290,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
+                    b.Property<int>("PointsBalance")
+                        .HasColumnType("int");
+
                     b.Property<int?>("PreferredGradeId")
                         .HasColumnType("int");
 
@@ -1193,6 +1196,45 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("InteractiveExercisePosts");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PointsLedgerEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Ref")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "Kind", "Ref")
+                        .IsUnique()
+                        .HasFilter("[Ref] IS NOT NULL");
+
+                    b.ToTable("PointsLedger");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Post", b =>
                 {
                     b.Property<int>("Id")
@@ -1623,6 +1665,19 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("SchoolClasses");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserActivityDay", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.HasKey("UserId", "Date");
+
+                    b.ToTable("UserActivityDays");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserBookmark", b =>
                 {
                     b.Property<int>("Id")
@@ -1660,9 +1715,6 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("Json")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<double>("Points")
-                        .HasColumnType("float");
 
                     b.Property<int>("Revision")
                         .HasColumnType("int");
@@ -2185,6 +2237,17 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Post");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PointsLedgerEntry", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithMany("PointsLedger")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Post", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Category", "Category")
@@ -2371,6 +2434,17 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Grade");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserActivityDay", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithMany("ActivityDays")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserBookmark", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
@@ -2448,6 +2522,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.AppUser", b =>
                 {
+                    b.Navigation("ActivityDays");
+
                     b.Navigation("Bookmarks");
 
                     b.Navigation("ChatSessions");
@@ -2457,6 +2533,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("GameState");
 
                     b.Navigation("Notes");
+
+                    b.Navigation("PointsLedger");
 
                     b.Navigation("QuestionAttempts");
 
