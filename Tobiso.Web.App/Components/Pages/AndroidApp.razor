@@ -1,0 +1,61 @@
+@page "/android"
+@page "/aplikace"
+
+<PageTitle>Android aplikace - Tobiso</PageTitle>
+
+<div class="android-page">
+    <div class="android-hero">
+        <div class="android-hero-text">
+            <h1>Tobiso pro Android</h1>
+            <p>Nativní aplikace, která ti přinese články, procvičování a kalendář přímo do mobilu – a funguje i bez internetu.</p>
+            <div class="android-actions">
+                <a href="@DownloadUrl" target="_blank" rel="noopener" class="pill pill-on android-download">
+                    <i data-lucide="download"></i> Stáhnout aplikaci
+                </a>
+                <a href="@SourceUrl" target="_blank" rel="noopener" class="pill">
+                    <i data-lucide="github"></i> Zdrojový kód
+                </a>
+            </div>
+            <p class="android-note">Android 7.0 (API 24) a novější · zdarma · bez reklam</p>
+        </div>
+        <img src="https://files.tobiso.com/images/tob-6a0b116650eb4158b5e7f03e027ac0ec.png" alt="Ikona aplikace Tobiso" class="android-app-icon" />
+    </div>
+
+    <div class="android-grid">
+        @foreach (var f in _features)
+        {
+            <div class="android-card soft">
+                <span class="android-card-icon @f.Tint"><i data-lucide="@f.Icon"></i></span>
+                <h3>@f.Title</h3>
+                <p>@f.Text</p>
+            </div>
+        }
+    </div>
+
+    <div class="android-install soft">
+        <h2>Jak aplikaci nainstalovat</h2>
+        <ol>
+            <li>Klepni na <strong>Stáhnout aplikaci</strong> a stáhni nejnovější soubor <code>.apk</code>.</li>
+            <li>Otevři stažený soubor. Pokud Android požádá o povolení, povol instalaci z tohoto zdroje.</li>
+            <li>Dokonči instalaci a aplikaci spusť. Při prvním spuštění se stáhne obsah pro offline použití.</li>
+        </ol>
+        <p>Obsah se aktualizuje automaticky, aktualizace aplikace je potřeba jen při přidání nového předmětu.</p>
+    </div>
+</div>
+
+@code {
+    private const string SourceUrl = "https://github.com/toby-gamez/TobisoAppNative";
+    private const string DownloadUrl = SourceUrl + "/releases/latest";
+
+    private sealed record Feature(string Icon, string Title, string Text, string Tint);
+
+    private static readonly Feature[] _features =
+    [
+        new("wifi-off", "Offline čtení", "Články a kategorie se ukládají do telefonu, takže se učíš i bez signálu.", "sage-tint"),
+        new("circle-check-big", "Ověř si porozumění", "Kvízy ke každému článku s okamžitou zpětnou vazbou a vysvětlením.", "accent-tint"),
+        new("calendar-days", "Kalendář a třída", "Testy, úkoly a události tvé třídy či skupiny, včetně připomínek.", "sage-tint"),
+        new("bookmark", "Záložky a pokračování", "Záložky a rozečtené články se synchronizují s tvým účtem na webu.", "accent-tint"),
+        new("sparkles", "Body a série", "Sbírej body, plň série a odemykej odměny – stav se sdílí s webem.", "sage-tint"),
+        new("moon", "Světlý i tmavý režim", "Stejný přívětivý vzhled jako na webu, přizpůsobený tvému systému.", "accent-tint"),
+    ];
+}
