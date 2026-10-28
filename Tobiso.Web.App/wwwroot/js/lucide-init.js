@@ -337,3 +337,48 @@ window.downloadFileFromStream = async (fileName, streamRef) => {
     a.remove();
     URL.revokeObjectURL(url);
 };
+
+// Read-aloud ("Poslech") via the browser's speech synthesis. Long text is split into
+// sentence-sized chunks because Chrome silently cuts off long utterances.
+let speechToken = 0;
+
+window.stopSpeech = () => {
+    speechToken++;
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+};
+
+window.startSpeech = (selector, dotnetRef) => {
+    if (!('speechSynthesis' in window)) return false;
+    const root = document.querySelector(selector);
+    if (!root) return false;
+
+    const clone = root.cloneNode(true);
+    clone.querySelectorAll('script, style, svg, math, .katex-mathml, .table-scroll-wrapper, pre, button').forEach(e => e.remove());
+    const text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text) return false;
+
+    const chunks = [];
+    for (const sentence of text.match(/[^.!?]+[.!?]*\s*/g) || [text]) {
+        const last = chunks.length - 1;
+        if (last >= 0 && chunks[last].length + sentence.length < 200) chunks[last] += sentence;
+        else chunks.push(sentence);
+    }
+
+    window.speechSynthesis.cancel();
+    const token = ++speechToken;
+    const voice = window.speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('cs'));
+    const finish = () => {
+        if (token !== speechToken) return;
+        dotnetRef?.invokeMethodAsync('OnSpeechEnded').catch(() => { });
+    };
+
+    chunks.forEach((chunk, i) => {
+        const u = new SpeechSynthesisUtterance(chunk.trim());
+        u.lang = voice?.lang || 'cs-CZ';
+        if (voice) u.voice = voice;
+        if (i === chunks.length - 1) u.onend = finish;
+        u.onerror = e => { if (e.error !== 'canceled' && e.error !== 'interrupted') finish(); };
+        window.speechSynthesis.speak(u);
+    });
+    return true;
+};

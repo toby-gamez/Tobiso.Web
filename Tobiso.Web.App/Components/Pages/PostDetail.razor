@@ -130,8 +130,9 @@ else
                         <i data-lucide="puzzle"></i> Cvičení
                     </button>
                 }
-                <button class="toolbar-btn" style="opacity:.5; cursor:not-allowed">
-                    <i data-lucide="volume-2"></i> Poslech
+                <button class="toolbar-btn @(_listening ? "active" : "")" @onclick="ToggleListen"
+                        aria-pressed="@(_listening ? "true" : "false")">
+                    <i data-lucide="@(_listening ? "volume-x" : "volume-2")"></i> @(_listening ? "Zastavit" : "Poslech")
                 </button>
                 <span style="flex:1"></span>
                 <button id="share-post-btn" class="icon-btn" data-share-url="@ShareUrl" data-share-title="@_post.Title"
@@ -1179,6 +1180,7 @@ else
     {
         _disposed = true;
         try { await JS.InvokeVoidAsync("disposeReadingProgress"); } catch { }
+        try { await JS.InvokeVoidAsync("stopSpeech"); } catch { }
         if (_lightboxModule != null) { try { await _lightboxModule.DisposeAsync(); } catch { } }
         if (_mindMapModule != null) { try { await _mindMapModule.DisposeAsync(); } catch { } }
         _selfRef?.Dispose();
@@ -1221,6 +1223,30 @@ else
 
     private void ToggleVersions() => _versionsOpen = !_versionsOpen;
     private void ToggleReading() => _readingOpen = !_readingOpen;
+
+    private bool _listening;
+
+    private async Task ToggleListen()
+    {
+        if (_listening)
+        {
+            _listening = false;
+            try { await JS.InvokeVoidAsync("stopSpeech"); } catch { }
+            return;
+        }
+
+        _selfRef ??= DotNetObjectReference.Create(this);
+        try { _listening = await JS.InvokeAsync<bool>("startSpeech", "#article-prose", _selfRef); }
+        catch { _listening = false; }
+    }
+
+    [JSInvokable]
+    public async Task OnSpeechEnded()
+    {
+        if (_disposed) return;
+        _listening = false;
+        try { await InvokeAsync(StateHasChanged); } catch (Exception) when (_disposed) { }
+    }
     private void ToggleMore() => _moreOpen = !_moreOpen;
 
     // On mobile the "Více" panel is a modal sheet, so close it once a tool is picked.
