@@ -444,11 +444,18 @@ else
     {
         try
         {
-            var resp = await Http.PutAsJsonAsync($"/api/posts/{Id}/video", new Tobiso.Web.Shared.DTOs.PostVideoRequest
+            using var req = new HttpRequestMessage(HttpMethod.Put, $"/api/posts/{Id}/video")
             {
-                YoutubeUrl = _videoUrl, Timestamp = _videoTimestamp, Label = _videoLabel
-            });
-            _videoSaveMsg = resp.IsSuccessStatusCode ? "Video uloženo." : "Chyba při ukládání.";
+                Content = JsonContent.Create(new Tobiso.Web.Shared.DTOs.PostVideoRequest
+                {
+                    YoutubeUrl = _videoUrl, Timestamp = _videoTimestamp, Label = _videoLabel
+                })
+            };
+            var token = Tobiso.Web.App.Authentication.CredentialStore.Current?.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var resp = await Http.SendAsync(req);
+            _videoSaveMsg = resp.IsSuccessStatusCode ? "Video uloženo." : $"Chyba při ukládání ({(int)resp.StatusCode}).";
             StateHasChanged();
             await Task.Delay(3000);
             _videoSaveMsg = null;

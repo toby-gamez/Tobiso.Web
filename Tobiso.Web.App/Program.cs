@@ -392,6 +392,7 @@ app.Use(async (context, next) =>
         "font-src 'self' https://fonts.gstatic.com; " +
         "img-src 'self' https: data:; " +
         "media-src 'self' https:; " +
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com; " +
         "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; " +
         "frame-ancestors 'none'";
     await next();
