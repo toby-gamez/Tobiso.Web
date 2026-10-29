@@ -430,6 +430,27 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
+        // Same admin-only restrictions as above; used by the post add/edit forms where the article may not be saved yet.
+        [HttpPost("suggest-related")]
+        [Authorize]
+        public async Task<IActionResult> SuggestRelatedForDraft([FromBody] SuggestRelatedDraftRequest request)
+        {
+            if (User.FindFirst("role")?.Value == "student") return Forbid();
+            if (request == null || (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.Content)))
+                return BadRequest("Title or content is required");
+
+            try
+            {
+                var result = await _aiService.SuggestRelatedForDraftAsync(request.Title, request.Content, request.PostId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Suggest related (draft) failed");
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
         // The consumption bucket is anchored to the server-observed client IP. A client cannot rotate
         // this the way it can the X-Device-Id header, so it can't reset its free daily quota at will.
         private string GetRateKey()

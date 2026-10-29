@@ -76,6 +76,10 @@ else
             </div>
             <GrammarCheckPanel Issues="grammarIssues" />
         </div>
+        <div class="field">
+            <label>Související články</label>
+            <RelatedPostsPicker PostId="Id" Title="@post.Title" Content="@_editContent" @bind-Selected="_related" />
+        </div>
         <fieldset class="choice-group @(_selectedGradeId.HasValue && !CanSaveVersion ? "choice-group-incomplete" : "")">
             <legend>Typ úpravy <span class="required-mark">*</span></legend>
             <div class="radio-field">
@@ -355,6 +359,9 @@ else
     private bool isChecking = false;
     private string? _successMessage;
     private List<PostVersionResponse> _versions = new();
+    private List<RelatedLinkSelection> _related = new();
+    private List<RelatedPostResponse> _savedRelated = new();
+    private List<RelatedPostResponse> _savedReverse = new();
     private int? _editingGradeVersionId;
     private int _editingNewGradeId;
 
@@ -400,6 +407,7 @@ else
                 _editType = null;
                 _isCheckedChoice = null;
                 _versions = post.Versions?.ToList() ?? new List<PostVersionResponse>();
+                await LoadRelatedAsync();
             }
         }
         catch (Refit.ApiException rex) when (rex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -552,6 +560,8 @@ else
                 _editLastEdit = lastEdit;
             }
 
+            await SyncRelatedAsync();
+
             errorMessage = null;
             _successMessage = "Změny uloženy.";
             // Force a fresh, explicit choice for the next save too.
@@ -563,6 +573,61 @@ else
         {
             errorMessage = ex.Message;
         }
+    }
+
+    private async Task LoadRelatedAsync()
+    {
+        var all = (await Api.GetAllRelatedPosts())?.ToList() ?? new List<RelatedPostResponse>();
+        _savedRelated = all.Where(r => r.PostId == Id).ToList();
+        _savedReverse = all.Where(r => r.RelatedPostId == Id).ToList();
+        _related = _savedRelated.Select(r => new RelatedLinkSelection
+        {
+            PostId = r.RelatedPostId,
+            Text = r.Text,
+            Bidirectional = _savedReverse.Any(x => x.PostId == r.RelatedPostId)
+        }).ToList();
+    }
+
+    // Applies the picker's selection: new links (optionally with reverse), removed links, and changed text / direction.
+    private async Task SyncRelatedAsync()
+    {
+        foreach (var rel in _savedRelated.Where(r => _related.All(x => x.PostId != r.RelatedPostId)))
+            await Api.DeleteRelatedPost(rel.Id);
+
+        foreach (var sel in _related)
+        {
+            var fwd = _savedRelated.FirstOrDefault(r => r.RelatedPostId == sel.PostId);
+            var rev = _savedReverse.FirstOrDefault(r => r.PostId == sel.PostId);
+
+            if (fwd == null)
+            {
+                if (rev != null && sel.Bidirectional)
+                {
+                    // reverse already exists - only add the forward half
+                    await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text, CreateReverse = false });
+                    await Api.UpdateRelatedPost(rev.Id, new UpdateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text });
+                }
+                else
+                {
+                    await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text, CreateReverse = sel.Bidirectional && rev == null });
+                    if (rev != null && !sel.Bidirectional)
+                        await Api.DeleteRelatedPost(rev.Id);
+                }
+                continue;
+            }
+
+            if (fwd.Text != sel.Text)
+                await Api.UpdateRelatedPost(fwd.Id, new UpdateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text });
+
+            if (sel.Bidirectional && rev == null)
+                await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text, CreateReverse = false });
+            else if (!sel.Bidirectional && rev != null)
+                await Api.DeleteRelatedPost(rev.Id);
+            else if (rev != null && rev.Text != sel.Text)
+                await Api.UpdateRelatedPost(rev.Id, new UpdateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text });
+        }
+
+        await LoadRelatedAsync();
     }
 
     /// <summary>

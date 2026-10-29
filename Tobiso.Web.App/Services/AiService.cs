@@ -1223,25 +1223,92 @@ namespace Tobiso.Web.App.Services
             return new RealWorldResponse();
         }
 
+        // Second pass: now that the candidates are chosen, show the model a summary of the source and of each
+        // candidate so it can write a meaningful relation description and decide whether the link is two-way.
+        private async Task<List<SuggestedRelation>> DescribeRelationsAsync(string title, string sourceContext, List<int> ids)
+        {
+            var fallback = ids.Select(id => new SuggestedRelation { PostId = id }).ToList();
+            if (ids.Count == 0) return fallback;
+
+            try
+            {
+                var sb = new StringBuilder();
+                foreach (var id in ids)
+                {
+                    var p = await _postService.GetById(id);
+                    var c = PrepareArticleContext(p?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty);
+                    sb.AppendLine($"ID:{id} – {p?.Title}\n{c.Substring(0, Math.Min(c.Length, 700))}\n---");
+                }
+
+                var systemPrompt = "You are a strict content curator for a Czech educational platform. For each candidate article, first judge whether it is DIRECTLY related to the source article (same topic, prerequisite, extension or closely connected concept). Set 'related' to false if the connection is weak, generic or only loosely thematic - be strict. " +
+                                   "For related ones write 'text': a very short Czech label, max 60 characters, lowercase start, no period, no quotes, no full sentences, describing the connection from the reader's point of view. Examples: \"také fyzikální jev související se silami\", \"nutný základ pro pochopení tohoto tématu\", \"rozšiřuje téma o pokročilé příklady\". " +
+                                   "Also set 'bidirectional': true if the link is equally useful when reading the candidate (the source should link back), false if it is only a prerequisite/extension of the source one-way. " +
+                                   "Return ONLY valid JSON: {\"items\":[{\"id\":1,\"related\":true,\"text\":\"...\",\"bidirectional\":true}]} with exactly the given IDs.";
+                var userPrompt = $"Source article: \"{title}\"\nSummary/excerpt:\n{sourceContext.Substring(0, Math.Min(sourceContext.Length, 2000))}\n\nCandidates:\n{sb}";
+
+                var raw = await AskRawJsonAsync(systemPrompt, userPrompt, 800);
+                using var doc = JsonDocument.Parse(raw);
+                if (!doc.RootElement.TryGetProperty("items", out var arr) || arr.ValueKind != JsonValueKind.Array) return fallback;
+
+                var rejected = new HashSet<int>();
+                foreach (var el in arr.EnumerateArray())
+                {
+                    if (!el.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number) continue;
+                    var target = fallback.FirstOrDefault(f => f.PostId == idEl.GetInt32());
+                    if (target == null) continue;
+                    if (el.TryGetProperty("related", out var rel) && rel.ValueKind == JsonValueKind.False)
+                    {
+                        rejected.Add(target.PostId);
+                        continue;
+                    }
+                    if (el.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+                    {
+                        var text = t.GetString()?.Trim() ?? string.Empty;
+                        target.Text = text.Length > 80 ? text.Substring(0, 80).TrimEnd() : text;
+                    }
+                    if (el.TryGetProperty("bidirectional", out var b) && (b.ValueKind == JsonValueKind.True || b.ValueKind == JsonValueKind.False))
+                        target.Bidirectional = b.GetBoolean();
+                }
+
+                fallback.RemoveAll(f => rejected.Contains(f.PostId));
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to describe related posts for '{Title}'", title);
+            }
+
+            return fallback;
+        }
+
         public async Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId)
+        {
+            var post = await _postService.GetById(postId);
+            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            return await SuggestRelatedCoreAsync(post?.Title ?? string.Empty, versionContent, postId, postId);
+        }
+
+        // Works on unsaved drafts (AddPost) and on unsaved edits (EditPost): the caller supplies the current
+        // title/content instead of us loading a stored post. excludePostId is null for a not-yet-created post.
+        public Task<SuggestRelatedResponse> SuggestRelatedForDraftAsync(string title, string content, int? excludePostId)
+            => SuggestRelatedCoreAsync(title ?? string.Empty, content ?? string.Empty, excludePostId, excludePostId);
+
+        private async Task<SuggestRelatedResponse> SuggestRelatedCoreAsync(string title, string versionContent, int? excludePostId, int? logPostId)
         {
             var apiKey = _configuration["OpenAI:ApiKey"];
             var model = _configuration["OpenAI:Model"] ?? "gpt-4o-mini";
             if (string.IsNullOrEmpty(apiKey)) throw new InvalidOperationException("OpenAI:ApiKey is not configured.");
 
-            var post = await _postService.GetById(postId);
-            var versionContent = post?.Versions?.OrderByDescending(v => v.GradeLevel ?? int.MinValue).FirstOrDefault()?.Content ?? string.Empty;
+            var postId = logPostId ?? 0;
             var articleContext = PrepareArticleContext(versionContent);
-            var title = post?.Title ?? string.Empty;
 
             var allPosts = await _postService.GetAll();
-            var otherPosts = allPosts.Where(p => p.Id != postId).ToList();
+            var otherPosts = allPosts.Where(p => p.Id != excludePostId).ToList();
 
             if (!otherPosts.Any()) return new SuggestRelatedResponse();
 
             var postList = string.Join("\n", otherPosts.Select(p => $"ID:{p.Id} – {p.Title}"));
 
-            var systemPrompt = "You are a content curator for a Czech educational platform. Given a source article and a list of articles, select the 5 IDs that are most conceptually related - by topic overlap, prerequisites, or complementary knowledge. Return ONLY valid JSON: {\"ids\":[1,2,3,4,5]}. Use integer IDs from the list.";
+            var systemPrompt = "You are a strict content curator for a Czech educational platform. Given a source article and a list of articles, select ONLY the articles that are genuinely related to the source - same topic, a direct prerequisite, a direct extension, or a closely connected concept in the same subject area. Do NOT pad the list: return between 0 and 5 IDs, and return an empty list if nothing is clearly related. Never pick an article just because it is in a different, unrelated subject (e.g. a biography is not related to a physics topic). Return ONLY valid JSON: {\"ids\":[1,2,3]}. Use integer IDs from the list.";
             var userPrompt = $"Source article: \"{title}\"\n\nExcerpt:\n{articleContext.Substring(0, Math.Min(articleContext.Length, 2000))}\n\nAll articles:\n{postList}";
 
             var messages = new List<object>
@@ -1286,7 +1353,8 @@ namespace Tobiso.Web.App.Services
                             .Where(id => otherPosts.Any(p => p.Id == id))
                             .Take(5)
                             .ToList();
-                        return new SuggestRelatedResponse { PostIds = ids };
+                        var items = await DescribeRelationsAsync(title, articleContext, ids);
+                        return new SuggestRelatedResponse { PostIds = items.Select(i => i.PostId).ToList(), Items = items };
                     }
                 }
             }
