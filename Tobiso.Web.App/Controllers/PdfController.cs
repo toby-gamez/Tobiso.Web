@@ -150,6 +150,10 @@ public class PdfController : ControllerBase
         // Render [grafN]...[/grafN] blocks to SVG first (mirrors MarkdownContent.razor)
         var graphs = new List<string>();
         content = GraphRenderer.ExtractBlocks(content, graphs);
+        var flowcharts = new List<string>();
+        content = FlowchartRenderer.ExtractBlocks(content, flowcharts);
+        var vennDiagrams = new List<string>();
+        content = VennRenderer.ExtractBlocks(content, vennDiagrams);
 
         // Replace markdown mailto links before processing
         content = ReplaceMarkdownMailtoInText(content);
@@ -277,6 +281,8 @@ public class PdfController : ControllerBase
         html = singleDotsRegex.Replace(html, "");
         html = ConvertMarkdownTablesToHtml(html);
         html = GraphRenderer.RestoreBlocks(html, graphs);
+        html = FlowchartRenderer.RestoreBlocks(html, flowcharts);
+        html = VennRenderer.RestoreBlocks(html, vennDiagrams);
         return html;
     }
 

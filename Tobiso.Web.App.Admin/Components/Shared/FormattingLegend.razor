@@ -17,6 +17,8 @@
                 <div class="seg-control fl-tabs">
                     <button type="button" class="seg-btn @(_tab == Tab.Formatting ? "active" : "")" @onclick="() => _tab = Tab.Formatting">Formátování</button>
                     <button type="button" class="seg-btn @(_tab == Tab.Graphs ? "active" : "")" @onclick="() => _tab = Tab.Graphs">Grafy</button>
+                    <button type="button" class="seg-btn @(_tab == Tab.Flowcharts ? "active" : "")" @onclick="() => _tab = Tab.Flowcharts">Vývojové diagramy</button>
+                    <button type="button" class="seg-btn @(_tab == Tab.Venn ? "active" : "")" @onclick="() => _tab = Tab.Venn">Vennovy diagramy</button>
                 </div>
 
                 @if (_tab == Tab.Graphs)
@@ -217,6 +219,109 @@ curve(name: úsečka AB): [1;1] [4;3] BLUE            // úsečka s tečkami na 
                         </ul>
                     </section>
                 }
+                else if (_tab == Tab.Flowcharts)
+                {
+                    <p class="fl-note fl-lead">Vývojový diagram se popíše textem mezi značky <code>[vyvoj1]</code> a <code>[/vyvoj1]</code>: nejdřív uzly, potom šipky mezi nimi. Rozmístění uzlů se spočítá samo. Diagram se vykreslí přes celou šířku, přizpůsobí se světlému i tmavému režimu a po kliknutí se otevře přes celou obrazovku.</p>
+                    <p class="fl-note fl-lead">Nemusíš ho psát ručně: tlačítko <b>Vývojový diagram</b> pod editorem ho poskládá z formuláře s živým náhledem a vloží na místo kurzoru.</p>
+
+                    <section class="fl-section">
+                        <h6>Rychlý start — zkopíruj a uprav</h6>
+                        <pre class="fl-pre">[vyvoj1]
+title: Je číslo sudé?
+start(id: s): Začátek
+io(id: i): Načti číslo n
+decision(id: d): Zbytek po dělení 2 je 0?
+process(id: a): Číslo je sudé
+process(id: b): Číslo je liché
+end(id: e): Konec
+s -&gt; i
+i -&gt; d
+d -&gt; a (ano) GREEN
+d -&gt; b (ne) RED
+a -&gt; e
+b -&gt; e
+[/vyvoj1]</pre>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Uzly</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>start(id: s): Text</code></td><td>Začátek (zaoblený) — česky také <code>zacatek</code></td></tr>
+                                <tr><td><code>end(id: e): Text</code></td><td>Konec (zaoblený) — také <code>konec</code></td></tr>
+                                <tr><td><code>process(id: a): Text</code></td><td>Krok / příkaz (obdélník) — také <code>krok</code>, <code>akce</code></td></tr>
+                                <tr><td><code>decision(id: d): Text?</code></td><td>Podmínka (kosočtverec) — také <code>podminka</code>, <code>rozhodnuti</code></td></tr>
+                                <tr><td><code>io(id: i): Text</code></td><td>Vstup / výstup (rovnoběžník) — také <code>vstup</code>, <code>vystup</code></td></tr>
+                                <tr><td><code>process(id: a, color: BLUE): Text</code></td><td>Uzel s vlastní barvou (jména jako u grafů)</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note"><code>id</code> je krátké jméno uzlu (písmena, čísla, <code>_</code>), podle kterého na něj míří šipky. Musí být v celém diagramu jedinečné.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Šipky</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>a -&gt; b</code></td><td>Šipka z uzlu <code>a</code> do uzlu <code>b</code></td></tr>
+                                <tr><td><code>d -&gt; a (ano)</code></td><td>Šipka s popiskem (hodí se u podmínek)</td></tr>
+                                <tr><td><code>d -&gt; b (ne) RED</code></td><td>Popisek a barva šipky (barva je vždy poslední)</td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Šipka zpět na dřívější uzel vytvoří cyklus — vede se bokem kolem diagramu.</li>
+                            <li>Z podmínky veď dvě šipky s popiskem; vystupují doleva a doprava z kosočtverce.</li>
+                        </ul>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Další řádky a pozor na</h6>
+                        <ul class="fl-note">
+                            <li><code>title: …</code> nadpis, <code>note: …</code> poznámka pod diagramem (lze víc), <code>direction: right</code> kreslí zleva doprava (výchozí je shora dolů). Řádek začínající <code>//</code> se ignoruje.</li>
+                            <li>Šipky na neznámé id, opakovaná id a uzly bez šipky se vypíšou jako upozornění pod diagramem; ostatní se vykreslí normálně.</li>
+                            <li>Když v bloku nejsou žádné uzly, ukáže se rámeček s chybou. Dlouhý text se v uzlu zalamuje.</li>
+                            <li>Šipka <code>-&gt;</code> uvnitř bloku se nepřevádí na ikonu a uvnitř bloku kódu <code>```</code> se diagram nevykreslí (zůstane jako text).</li>
+                        </ul>
+                    </section>
+                }
+                else if (_tab == Tab.Venn)
+                {
+                    <p class="fl-note fl-lead">Vennův diagram (2 nebo 3 množiny) se popíše textem mezi značky <code>[venn1]</code> a <code>[/venn1]</code>. Stačí napsat prvky ke každé množině — co je ve víc množinách, se samo umístí do průniku. Diagram se přizpůsobí světlému i tmavému režimu a po kliknutí se otevře přes celou obrazovku.</p>
+                    <p class="fl-note fl-lead">Nemusíš ho psát ručně: tlačítko <b>Vennův diagram</b> pod editorem ho poskládá z formuláře s živým náhledem a vloží na místo kurzoru.</p>
+
+                    <section class="fl-section">
+                        <h6>Rychlý start — zkopíruj a uprav</h6>
+                        <pre class="fl-pre">[venn1]
+title: Dělitelé čísel 12 a 18
+set(name: D12, color: BLUE): 1; 2; 3; 4; 6; 12
+set(name: D18, color: ORANGE): 1; 2; 3; 6; 9; 18
+note: Průnik tvoří společní dělitelé.
+[/venn1]</pre>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Řádky bloku</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>set(name: A, color: BLUE): 1; 2; 3</code></td><td>Množina s názvem, barvou a prvky (také <code>mnozina</code>). Nejvýš 3, název i barva jsou nepovinné.</td></tr>
+                                <tr><td><code>outside: 5; 7</code></td><td>Prvky mimo všechny množiny — nakreslí se rámeček „univerzum“ (také <code>mimo</code>)</td></tr>
+                                <tr><td><code>show: prunik A B</code></td><td>Zobrazí pojem: pod diagramem je tlačítko, příslušná část je hned zvýrazněná a vysvětlená (s prvky); čtenář ji může vypnout a zapnout. Druhy: <code>prunik A B</code> (A ∩ B; u tří množin i <code>prunik A B C</code>), <code>sjednoceni A B</code> (A ∪ B), <code>rozdil A B</code> (A \ B), <code>doplnek A</code> (A′). Můžeš jich napsat víc, zvýrazněný je první. Mají-li názvy mezery, odděl je středníkem: <code>show: prunik; D 12; D 18</code>. Také <code>zobraz</code>, <code>pojem</code>.</td></tr>
+                                <tr><td><code>playground: ano</code></td><td>Hravý režim: čtenář dostane tlačítka pro všechny pojmy a zkouší si, co který zvýrazní. Jen některé druhy: <code>playground: prunik, sjednoceni</code> (také <code>rozdil</code>, <code>doplnek</code>). Lze spojit s <code>show</code> (ten pojem je pak zvýrazněný na začátku). Doplněk sám nakreslí rámeček univerza. Také <code>hriste</code>, <code>operations</code>.</td></tr>
+                                <tr><td><code>universe: ano</code></td><td>Rámeček univerza i bez prvků mimo množiny</td></tr>
+                                <tr><td><code>only(A): 4; 12</code></td><td>Prvky jen v množině A (také <code>jen</code>, <code>pouze</code>)</td></tr>
+                                <tr><td><code>both(A, B): 1; 2</code></td><td>Prvky přesně v průniku A a B (také <code>prunik</code>)</td></tr>
+                                <tr><td><code>all: 1</code></td><td>Prvky ve všech množinách (také <code>vse</code>)</td></tr>
+                                <tr><td><code>title: …</code>, <code>note: …</code></td><td>Nadpis a poznámky pod diagramem</td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Prvky se oddělují středníkem (<code>;</code>); bez středníku čárkou, bez čárky mezerou. Prvky s mezerou proto odděluj středníkem.</li>
+                            <li>Na množiny v <code>only</code> / <code>both</code> se odkazuj názvem nebo pořadím (<code>1</code>, <code>2</code>, <code>3</code>).</li>
+                            <li>U seznamu odděleného mezerami lze za poslední prvek připsat jméno barvy velkými písmeny (<code>1 2 3 BLUE</code>); jistější je <code>color:</code> v závorce.</li>
+                            <li>Za názvem množiny se v diagramu ukáže počet prvků, např. <code>D12 (6)</code>. Když se prvky do oblasti nevejdou, ukáže se upozornění.</li>
+                            <li>Uvnitř bloku kódu <code>```</code> se diagram nevykreslí (zůstane jako text).</li>
+                        </ul>
+                    </section>
+                }
                 else
                 {
                     <section class="fl-section">
@@ -342,6 +447,7 @@ curve(name: úsečka AB): [1;1] [4;3] BLUE            // úsečka s tečkami na 
                     <section class="fl-section">
                         <h6>Grafy</h6>
                         <p class="fl-note">Grafy (osy, křivky, body, funkce) se píšou do bloku <code>[graf1]</code> … <code>[/graf1]</code> — celý návod je v záložce <a href="" @onclick="() => _tab = Tab.Graphs" @onclick:preventDefault>Grafy</a>.</p>
+                        <p class="fl-note">Vývojové diagramy se píšou do bloku <code>[vyvoj1]</code> … <code>[/vyvoj1]</code> (záložka <a href="" @onclick="() => _tab = Tab.Flowcharts" @onclick:preventDefault>Vývojové diagramy</a>) a Vennovy diagramy do bloku <code>[venn1]</code> … <code>[/venn1]</code> (záložka <a href="" @onclick="() => _tab = Tab.Venn" @onclick:preventDefault>Vennovy diagramy</a>).</p>
                     </section>
 
                     <section class="fl-section">
@@ -360,7 +466,7 @@ curve(name: úsečka AB): [1;1] [4;3] BLUE            // úsečka s tečkami na 
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
-    private enum Tab { Formatting, Graphs }
+    private enum Tab { Formatting, Graphs, Flowcharts, Venn }
 
     private Tab _tab = Tab.Formatting;
 

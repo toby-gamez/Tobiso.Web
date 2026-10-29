@@ -133,7 +133,7 @@ public sealed class GraphBuilderModel
         sb.Append('\n');
     }
 
-    private static string Args(params (string Key, string Value)[] args)
+    internal static string Args(params (string Key, string Value)[] args)
     {
         var parts = args.Select(a => (a.Key, Value: ArgText(a.Value))).Where(a => a.Value.Length > 0)
             .Select(a => $"{a.Key}: {a.Value}").ToList();
@@ -142,10 +142,10 @@ public sealed class GraphBuilderModel
 
     // Text inside "( … )": a ")" would end the argument list early and ", " would start a new
     // argument, so both are neutralised; "(" becomes "[" to keep e.g. "v [m/s]" readable.
-    private static string ArgText(string? s) =>
+    internal static string ArgText(string? s) =>
         OneLine(s).Replace('(', '[').Replace(')', ']').Replace(", ", " ");
 
-    private static string OneLine(string? s) => Regex.Replace(s ?? "", @"\s+", " ").Trim();
+    internal static string OneLine(string? s) => Regex.Replace(s ?? "", @"\s+", " ").Trim();
 
     private static string Num(string s) => s.Trim().Replace('.', ',');
 

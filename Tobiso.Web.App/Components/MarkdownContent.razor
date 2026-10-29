@@ -70,9 +70,15 @@
         // Render [grafN]...[/grafN] blocks to SVG FIRST and park them behind placeholders,
         // so none of the text rules below (fractions in "m/s", arrows, "..." lead, links…)
         // ever touch the graph source or its markup. Blocks inside ``` code stay literal.
+        // Flowchart ([vyvojN]) and Venn ([vennN]) blocks follow the same scheme.
         var graphs = new List<string>();
+        var flowcharts = new List<string>();
+        var vennDiagrams = new List<string>();
         var (graphProtected, graphCodeRegions) = ProtectCodeRegions(content);
-        content = RestoreCodeRegions(GraphRenderer.ExtractBlocks(graphProtected, graphs), graphCodeRegions);
+        graphProtected = GraphRenderer.ExtractBlocks(graphProtected, graphs);
+        graphProtected = FlowchartRenderer.ExtractBlocks(graphProtected, flowcharts);
+        graphProtected = VennRenderer.ExtractBlocks(graphProtected, vennDiagrams);
+        content = RestoreCodeRegions(graphProtected, graphCodeRegions);
 
         // Convert Markdown-style mailto links to <a href="mailto:..."> before processing
         content = ReplaceMarkdownMailtoInText(content);
@@ -266,6 +272,8 @@
         html = WrapTablesForScroll(html);
         html = InjectHeadingIds(html);
         html = GraphRenderer.RestoreBlocks(html, graphs);
+        html = FlowchartRenderer.RestoreBlocks(html, flowcharts);
+        html = VennRenderer.RestoreBlocks(html, vennDiagrams);
         return html;
     }
 

@@ -70,6 +70,8 @@ else
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showGraphBuilder = true"><i data-lucide="chart-spline"></i> Generátor grafu</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showFlowchartBuilder = true"><i data-lucide="workflow"></i> Vývojový diagram</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showVennBuilder = true"><i data-lucide="circles-three"></i> Vennův diagram</button>
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
             </div>
             <GrammarCheckPanel Issues="grammarIssues" />
@@ -304,6 +306,8 @@ else
 
 <FormattingLegend @bind-Visible="_showLegend" />
 <GraphBuilder @bind-Visible="_showGraphBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
+<FlowchartBuilder @bind-Visible="_showFlowchartBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
+<VennBuilder @bind-Visible="_showVennBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
 
 @code {
     [Parameter]
@@ -311,6 +315,8 @@ else
 
     private bool _showLegend = false;
     private bool _showGraphBuilder = false;
+    private bool _showFlowchartBuilder = false;
+    private bool _showVennBuilder = false;
 
     private async Task InsertGraph(string block)
     {

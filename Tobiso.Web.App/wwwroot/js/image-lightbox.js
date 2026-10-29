@@ -2,6 +2,7 @@
 // data-caption/data-source attributes MarkdownContent.razor's PreprocessImageGroups
 // sets on <img>, so the enlarged view shows the same info as the inline figcaption.
 export function initImageLightbox(containerId) {
+    bindVennOps();
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -15,14 +16,49 @@ export function initImageLightbox(containerId) {
     });
 
     // Graphs ([graf1] blocks, rendered to inline SVG by GraphRenderer.cs) enlarge the same way.
-    container.querySelectorAll('.post-graph').forEach(graph => {
+    // Flowcharts ([vyvoj1], FlowchartRenderer.cs) and Venn diagrams ([venn1], VennRenderer.cs) too.
+    container.querySelectorAll('.post-graph, .post-flowchart, .post-venn').forEach(graph => {
         if (graph.getAttribute('data-lightbox-bound')) return;
         graph.setAttribute('data-lightbox-bound', '1');
         graph.addEventListener('click', e => {
-            if (e.target.closest('a')) return;
+            if (e.target.closest('a, .venn-ops')) return;
             e.stopPropagation();
             openGraphLightbox(graph);
         });
+    });
+}
+
+// Venn diagram terms (průnik, sjednocení, rozdíl, doplněk; VennRenderer.cs): choosing one lights up
+// its regions and shows the definition. One delegated listener, so it also works in the lightbox
+// copy and for diagrams that appear after a re-render.
+function bindVennOps() {
+    if (window.__vennOpsBound) return;
+    window.__vennOpsBound = true;
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.venn-op');
+        if (!btn) return;
+        const figure = btn.closest('.post-venn');
+        if (!figure) return;
+        e.stopPropagation();
+
+        const wasOn = btn.getAttribute('aria-pressed') === 'true';
+        figure.querySelectorAll('.venn-op').forEach(b => b.setAttribute('aria-pressed', 'false'));
+        figure.querySelectorAll('.venn-region, .venn-text').forEach(r => r.classList.remove('venn-hl'));
+        const svg = figure.querySelector('.venn-svg');
+        if (svg) svg.classList.remove('venn-active');
+        const desc = figure.querySelector('.venn-op-desc');
+
+        if (wasOn) {
+            if (desc) desc.textContent = 'Klepni na pojem a ukáže se v diagramu.';
+            return;
+        }
+        btn.setAttribute('aria-pressed', 'true');
+        const masks = new Set((btn.dataset.masks || '').split(',').filter(Boolean));
+        figure.querySelectorAll('.venn-region, .venn-text').forEach(r => {
+            if (masks.has(r.getAttribute('data-mask'))) r.classList.add('venn-hl');
+        });
+        if (svg) svg.classList.add('venn-active');
+        if (desc) desc.textContent = btn.dataset.desc || '';
     });
 }
 
@@ -41,7 +77,8 @@ function openGraphLightbox(graph) {
     frame.appendChild(clone);
     wrapper.appendChild(frame);
 
-    showOverlay(wrapper, target => frame.contains(target));
+    // A click anywhere on the card closes it, except on the Venn term buttons (and links).
+    showOverlay(wrapper, target => frame.contains(target) && !target.closest('.venn-ops, a'));
 }
 
 function openLightbox(src, alt, caption, source) {

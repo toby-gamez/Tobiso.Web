@@ -1127,7 +1127,7 @@ else
         {
             try
             {
-                _lightboxModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/image-lightbox.js");
+                _lightboxModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/image-lightbox.js?v=5");
                 await _lightboxModule.InvokeVoidAsync("initImageLightbox", "article-prose");
             }
             catch { /* progressive enhancement only */ }

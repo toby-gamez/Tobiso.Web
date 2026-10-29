@@ -1,0 +1,240 @@
+@* Visual builder for [vyvojN] ... [/vyvojN] flowchart blocks: nodes and arrows on the left, a live
+   preview (rendered by the same Tobiso.Web.Shared.Graphs.FlowchartRenderer the public site uses)
+   and the generated text on the right. "Vložit do článku" hands the text to the page, which inserts
+   it at the editor's cursor. Styles: .db-* and the preview mirror in wwwroot/css/admin.css. *@
+
+@using System.Text.RegularExpressions
+@using Tobiso.Web.Shared.Graphs
+@inject IJSRuntime JS
+
+@if (Visible)
+{
+    var text = _model.ToText();
+    var preview = FlowchartRenderer.RenderPreview(text);
+
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-panel db-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i data-lucide="workflow"></i> Generátor vývojového diagramu</h3>
+                <button type="button" class="modal-close" aria-label="Zavřít" @onclick="Close"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="db-body">
+                <div class="db-form">
+                    <div class="db-templates">
+                        <span>Začít ze šablony:</span>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("blank"))">Prázdný</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("branch"))">Podmínka (ano / ne)</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("loop"))">Cyklus</button>
+                    </div>
+
+                    <section class="db-card">
+                        <h6>Nadpis a směr</h6>
+                        <div class="db-row">
+                            <input class="input db-grow" placeholder="např. Je číslo sudé? (nepovinné)" @bind="_model.Title" @bind:event="oninput" />
+                            <select class="select db-auto" @bind="_model.Right">
+                                <option value="@false">Shora dolů</option>
+                                <option value="@true">Zleva doprava</option>
+                            </select>
+                        </div>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Uzly</h6>
+                        @for (var i = 0; i < _model.Nodes.Count; i++)
+                        {
+                            var index = i;
+                            var node = _model.Nodes[i];
+                            <div class="db-item">
+                                <div class="db-row">
+                                    <span class="db-badge" title="Id uzlu (v textu diagramu)">@node.Id</span>
+                                    <select class="select db-auto" @bind="node.Kind">
+                                        @foreach (var (value, label) in FlowchartBuilderModel.Kinds)
+                                        {
+                                            <option value="@value">@label</option>
+                                        }
+                                    </select>
+                                    <input class="input db-grow" placeholder="Text v uzlu" @bind="node.Label" @bind:event="oninput" />
+                                    <select class="select db-auto" @bind="node.Color">
+                                        <option value="">Barva: výchozí</option>
+                                        @foreach (var (value, label) in BuilderColors.All)
+                                        {
+                                            <option value="@value">@label</option>
+                                        }
+                                    </select>
+                                    <div class="db-tools">
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Posunout nahoru" disabled="@(index == 0)" @onclick="() => MoveNode(index, -1)"><i data-lucide="arrow-up"></i></button>
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Posunout dolů" disabled="@(index == _model.Nodes.Count - 1)" @onclick="() => MoveNode(index, 1)"><i data-lucide="arrow-down"></i></button>
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Odebrat uzel (i jeho šipky)" @onclick="() => _model.RemoveNode(node)"><i data-lucide="trash-2"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <div class="db-add">
+                            @foreach (var (value, label) in FlowchartBuilderModel.Kinds)
+                            {
+                                var kind = value;
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _model.AddNode(kind)"><i data-lucide="plus"></i> @label</button>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Šipky</h6>
+                        @for (var i = 0; i < _model.Edges.Count; i++)
+                        {
+                            var edge = _model.Edges[i];
+                            <div class="db-item">
+                                <div class="db-row">
+                                    <select class="select db-auto" @bind="edge.From">
+                                        <option value="">Odkud…</option>
+                                        @foreach (var n in _model.Nodes)
+                                        {
+                                            <option value="@n.Id">@NodeName(n)</option>
+                                        }
+                                    </select>
+                                    <span class="db-sep"><i data-lucide="arrow-right"></i></span>
+                                    <select class="select db-auto" @bind="edge.To">
+                                        <option value="">Kam…</option>
+                                        @foreach (var n in _model.Nodes)
+                                        {
+                                            <option value="@n.Id">@NodeName(n)</option>
+                                        }
+                                    </select>
+                                    <input class="input db-grow db-short" placeholder="popisek (ano / ne)" @bind="edge.Label" @bind:event="oninput" />
+                                    <select class="select db-auto" @bind="edge.Color">
+                                        <option value="">Barva: výchozí</option>
+                                        @foreach (var (value, label) in BuilderColors.All)
+                                        {
+                                            <option value="@value">@label</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-ghost btn-sm" title="Odebrat šipku" @onclick="() => _model.Edges.Remove(edge)"><i data-lucide="trash-2"></i></button>
+                                </div>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" disabled="@(_model.Nodes.Count < 2)" @onclick="AddEdge"><i data-lucide="plus"></i> Šipka</button>
+                        <p class="db-hint">U podmínky veď dvě šipky s popiskem (ano / ne). Šipka zpět na dřívější uzel vytvoří cyklus.</p>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Poznámky pod diagramem</h6>
+                        @for (var n = 0; n < _model.Notes.Count; n++)
+                        {
+                            var noteIndex = n;
+                            var note = _model.Notes[n];
+                            <div class="db-row db-item-plain">
+                                <input class="input db-grow" placeholder="např. Diagram ukazuje test sudosti" @bind="note.Text" @bind:event="oninput" />
+                                <button type="button" class="btn btn-ghost btn-sm" title="Odebrat" @onclick="() => _model.Notes.RemoveAt(noteIndex)"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _model.Notes.Add(new GraphNoteRow())"><i data-lucide="plus"></i> Poznámka</button>
+                    </section>
+                </div>
+
+                <div class="db-side">
+                    <h6>Náhled</h6>
+                    <div class="db-preview">
+                        @if (string.IsNullOrEmpty(preview))
+                        {
+                            <p class="db-hint">Náhled se ukáže, jakmile diagram bude mít uzly.</p>
+                        }
+                        else
+                        {
+                            @((MarkupString)preview)
+                        }
+                    </div>
+
+                    <h6>Text diagramu</h6>
+                    <pre class="db-code">@text</pre>
+
+                    <div class="db-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => Copy(text)"><i data-lucide="copy"></i> @(_copied ? "Zkopírováno" : "Kopírovat text")</button>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => Insert(text)"><i data-lucide="text-cursor-input"></i> Vložit do článku</button>
+                    </div>
+                    <p class="db-hint">Diagram se vloží na místo kurzoru v editoru. Text pak můžeš dál upravovat ručně (viz Nápověda → Vývojové diagramy).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    /// <summary>Current article text - used to pick the next free [vyvojN] name.</summary>
+    [Parameter] public string? ExistingContent { get; set; }
+    [Parameter] public EventCallback<string> OnInsert { get; set; }
+
+    private FlowchartBuilderModel _model = FlowchartBuilderModel.Template("blank");
+    private bool _wasVisible;
+    private bool _copied;
+
+    protected override void OnParametersSet()
+    {
+        // Each time the dialog opens, name the block after the diagrams already in the article.
+        if (Visible && !_wasVisible)
+        {
+            _model.BlockName = NextBlockName(ExistingContent);
+            _copied = false;
+        }
+        _wasVisible = Visible;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private static string NextBlockName(string? content)
+    {
+        var used = Regex.Matches(content ?? "", @"\[vyvoj(\d+)\]", RegexOptions.IgnoreCase)
+            .Select(m => int.TryParse(m.Groups[1].Value, out var n) ? n : 0);
+        return $"vyvoj{used.DefaultIfEmpty(0).Max() + 1}";
+    }
+
+    private static string NodeName(FlowNodeModel n) =>
+        string.IsNullOrWhiteSpace(n.Label) ? $"{n.Id} – (bez textu)" : $"{n.Id} – {n.Label}";
+
+    private void LoadTemplate(string kind)
+    {
+        var name = _model.BlockName;
+        _model = FlowchartBuilderModel.Template(kind);
+        _model.BlockName = name;
+    }
+
+    private void AddEdge()
+    {
+        // Continue from the last node that has no outgoing arrow yet, to the node after it.
+        var from = _model.Nodes.LastOrDefault(n => _model.Edges.All(e => e.From != n.Id)) ?? _model.Nodes[^1];
+        var fromIndex = _model.Nodes.IndexOf(from);
+        var to = fromIndex + 1 < _model.Nodes.Count ? _model.Nodes[fromIndex + 1] : _model.Nodes[0];
+        _model.Edges.Add(new FlowEdgeModel { From = from.Id, To = to.Id });
+    }
+
+    private void MoveNode(int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= _model.Nodes.Count) return;
+        (_model.Nodes[index], _model.Nodes[target]) = (_model.Nodes[target], _model.Nodes[index]);
+    }
+
+    private async Task Copy(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _copied = true;
+        }
+        catch { /* clipboard blocked - the text is still selectable in the box */ }
+    }
+
+    private async Task Insert(string text)
+    {
+        await OnInsert.InvokeAsync(text);
+        _model = FlowchartBuilderModel.Template("blank");
+        await Close();
+    }
+
+    private Task Close() => VisibleChanged.InvokeAsync(false);
+}
