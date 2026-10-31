@@ -112,10 +112,11 @@ namespace Tobiso.Web.App.Controllers
         }
 
         [HttpGet("history")]
-        [Authorize]
+        [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetHistory()
         {
-            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            if (!Tobiso.Api.Authentication.AuthPolicies.IsStudent(User) ||
+                !int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
                 return Unauthorized();
 
             var sessions = await _chatHistory.GetUserSessionsAsync(userId);
@@ -132,10 +133,11 @@ namespace Tobiso.Web.App.Controllers
         }
 
         [HttpGet("history/{sessionId:int}")]
-        [Authorize]
+        [Authorize(Policy = Tobiso.Api.Authentication.AuthPolicies.AnyUser)]
         public async Task<IActionResult> GetSessionMessages(int sessionId)
         {
-            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            if (!Tobiso.Api.Authentication.AuthPolicies.IsStudent(User) ||
+                !int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
                 return Unauthorized();
 
             var messages = await _chatHistory.GetSessionMessagesAsync(sessionId, userId);
@@ -424,6 +426,27 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Suggest related failed for PostId={PostId}", postId);
+                return StatusCode(502, new { message = ex.Message });
+            }
+        }
+
+        // Same admin-only restrictions as above; used by the post add/edit forms where the article may not be saved yet.
+        [HttpPost("suggest-related")]
+        [Authorize]
+        public async Task<IActionResult> SuggestRelatedForDraft([FromBody] SuggestRelatedDraftRequest request)
+        {
+            if (User.FindFirst("role")?.Value == "student") return Forbid();
+            if (request == null || (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.Content)))
+                return BadRequest("Title or content is required");
+
+            try
+            {
+                var result = await _aiService.SuggestRelatedForDraftAsync(request.Title, request.Content, request.PostId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Suggest related (draft) failed");
                 return StatusCode(502, new { message = ex.Message });
             }
         }

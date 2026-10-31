@@ -1,0 +1,212 @@
+@page "/kronika"
+@page "/kronika/{Slug}"
+@using System.Threading
+@using Tobiso.Web.Api.Services
+@implements IDisposable
+@inject IChronicleAxisService AxisService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Kronika - Tobiso</PageTitle>
+
+<div class="chronicle-page">
+    <div class="chronicle-header">
+        <div>
+            <h1>@(_axis?.Name ?? "Kronika")</h1>
+            <p>Interaktivní osa dějin — poloha na ose je pořadí, ne reálný čas.</p>
+        </div>
+        <div class="chronicle-header-actions">
+            @if (_axes.Count > 1)
+            {
+                <div class="chronicle-axis-picker">
+                    @foreach (var a in _axes)
+                    {
+                        <a class="pill @(a.Slug == _axis?.Slug ? "pill-on" : "")" href="/kronika/@a.Slug">@a.Name</a>
+                    }
+                </div>
+            }
+            <!-- doc §3: people are hidden by default, toggled on explicitly; state lives in the URL
+                 (?people=1) so it survives navigation/sharing. -->
+            <button class="pill @(_filter.IncludePeople ? "pill-on" : "")" @onclick="TogglePeople">
+                <i data-lucide="users"></i> Osobnosti
+            </button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="chronicle-loading">Načítám osu…</div>
+    }
+    else if (_error != null)
+    {
+        <div class="chronicle-error">@_error</div>
+    }
+    else
+    {
+        <!-- A normal vertical timeline: one column, top to bottom in order, a continuous line
+             with a dot per row. No absolute positioning, no left/right lanes — the browser's
+             own document flow stacks rows, so overlap simply cannot happen. -->
+        <div class="timeline">
+            @foreach (var row in _rows)
+            {
+                @if (row.IsEraBlock)
+                {
+                    <button type="button" class="timeline-era-row" style="--era-color:@(row.Color ?? "var(--color-neutral-400)")"
+                            @onclick="() => ToggleEra(row.EraName!)">
+                        <i data-lucide="chevron-right"></i>
+                        <span>@row.EraName · @row.Count položek</span>
+                    </button>
+                }
+                else
+                {
+                    <div class="timeline-row">
+                        <div class="timeline-rail">
+                            <span class="timeline-dot" style="--dot-color:@(row.Color ?? "var(--color-accent-500)")"></span>
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-year">@row.YearLabel</div>
+                            <div class="timeline-card" style="--card-accent:@(row.Color ?? "var(--color-accent-500)")">
+                                <div class="timeline-card-title">@row.Title</div>
+                                @if (!string.IsNullOrEmpty(row.Summary))
+                                {
+                                    <div class="timeline-card-summary">@row.Summary</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Slug { get; set; }
+    [SupplyParameterFromQuery(Name = "people")] public int? PeopleQuery { get; set; }
+
+    private List<ChronicleAxisResponse> _axes = [];
+    private ChronicleAxisResponse? _axis;
+    private readonly ChronicleFilter _filter = new();
+    private List<TimelineRow> _rows = [];
+    private bool _loading = true;
+    private string? _error;
+    private bool _disposed;
+
+    // Mirrors Calendar.razor: serialize/cancel superseded loads against the circuit-scoped DbContext.
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _loadGeneration;
+
+    private record TimelineRow(
+        bool IsEraBlock, string? EraName, int Count, string? Color,
+        string Title, string? Summary, string? YearLabel, int SortKey);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _filter.IncludePeople = PeopleQuery == 1;
+        await Load();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_loading && _axis?.Slug != Slug) await Load();
+    }
+
+    private async Task Load()
+    {
+        var myGeneration = ++_loadGeneration;
+        try
+        {
+            await _loadGate.WaitAsync();
+            try
+            {
+                if (myGeneration != _loadGeneration) return;
+                _loading = true;
+                _error = null;
+                StateHasChanged();
+
+                _axes = await AxisService.GetAll();
+                if (myGeneration != _loadGeneration) return;
+
+                _axis = !string.IsNullOrWhiteSpace(Slug)
+                    ? _axes.FirstOrDefault(a => a.Slug == Slug)
+                    : _axes.FirstOrDefault(a => a.Slug == "svetova") ?? _axes.FirstOrDefault();
+
+                if (_axis == null)
+                {
+                    _error = "Zatím není vytvořená žádná osa kroniky.";
+                    return;
+                }
+
+                var layout = await AxisService.GetLayout(_axis.Slug, _filter);
+                if (myGeneration != _loadGeneration) return;
+                _rows = BuildRows(layout);
+            }
+            catch (Exception) when (_disposed)
+            {
+            }
+            catch (Exception ex)
+            {
+                _error = $"Osu se nepodařilo načíst: {ex.Message}";
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Era blocks and item cards both already carry a row-index Y/Top from the layout engine
+    // (position = order, not real time); merging and sorting by that gives the single
+    // chronological column this page renders — no pixel math needed on this side at all.
+    private static List<TimelineRow> BuildRows(ChronicleLayoutResponse layout)
+    {
+        var rows = new List<TimelineRow>();
+
+        foreach (var b in layout.EraBlocks)
+            rows.Add(new TimelineRow(true, b.Name, b.Count, b.Color, b.Name, null, null, b.Y));
+
+        foreach (var c in layout.Cards)
+        {
+            var title = c.IsCollapsedCategory ? $"{c.Node.Title} (+{c.CollapsedCount})" : c.Node.Title;
+            rows.Add(new TimelineRow(false, null, 0, c.Node.PrimaryColor, title, c.Node.Summary, FormatYearLabel(c.Node), c.Top));
+        }
+
+        return rows.OrderBy(r => r.SortKey).ToList();
+    }
+
+    private static string FormatYearLabel(ChronicleItemResponse node)
+    {
+        var start = ChronicleLayout.FormatYear(node.StartYear, node.Precision);
+        return node.EndYear.HasValue ? $"{start}–{ChronicleLayout.FormatYear(node.EndYear.Value, node.Precision)}" : start;
+    }
+
+    private async Task TogglePeople()
+    {
+        _filter.IncludePeople = !_filter.IncludePeople;
+        var uri = Nav.GetUriWithQueryParameter("people", _filter.IncludePeople ? "1" : (string?)null);
+        Nav.NavigateTo(uri, replace: true);
+        await Load();
+    }
+
+    private async Task ToggleEra(string eraName)
+    {
+        _filter.ToggledEraNames ??= [];
+        if (!_filter.ToggledEraNames.Remove(eraName))
+            _filter.ToggledEraNames.Add(eraName);
+        await Load();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _loadGate.Dispose();
+    }
+}

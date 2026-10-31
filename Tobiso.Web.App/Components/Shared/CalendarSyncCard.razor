@@ -1,0 +1,138 @@
+@using Tobiso.Web.Domain.Entities
+@inject ICalendarFeedService FeedService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@* Profile block: subscribe to the student's personal feed (global + class + group + own events)
+   from Apple Calendar, Google Calendar or any app that takes an .ics URL. *@
+<div class="soft calendar-sync">
+    <h2>Kalendář</h2>
+    <p class="calendar-sync-lead">Měj testy, úkoly a volna ze své třídy přímo v kalendáři v telefonu. Události se doplňují samy.</p>
+
+    @if (_https is null)
+    {
+        <button class="pill pill-on" disabled="@_busy" @onclick="Show">Zobrazit odkazy</button>
+    }
+    else
+    {
+        <div class="field">
+            <label>Co v kalendáři chci</label>
+            <div class="calendar-sync-types">
+                @foreach (var (type, label) in TypeLabels)
+                {
+                    var on = _types.Contains(type);
+                    <button class="chip @(on ? "chip-sel" : "")" aria-pressed="@on" disabled="@_busy" @onclick="() => ToggleType(type)">
+                        @if (on)
+                        {
+                            <svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        }
+                        @label
+                    </button>
+                }
+            </div>
+            @if (_types.Count == 0)
+            {
+                <p class="calendar-sync-note">Nic nevybráno – kalendář zůstane prázdný.</p>
+            }
+        </div>
+
+        <div class="calendar-sync-actions">
+            <a class="pill cs-provider" href="@_webcal"><svg class="cs-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Apple Kalendář</a>
+            <a class="pill cs-provider" href="@GoogleUrl" target="_blank" rel="noopener noreferrer"><svg class="cs-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Google Kalendář</a>
+            <button class="pill cs-provider" @onclick="Copy"><svg class="cs-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>@(_copied ? "Zkopírováno" : "Kopírovat odkaz")</button>
+        </div>
+        <ul class="calendar-sync-notes">
+            <li>Apple se obnovuje zhruba po hodině, Google jednou až dvakrát denně, nová událost se tedy nemusí zobrazit hned.</li>
+            <li>V aplikaci Google Kalendář na telefonu odběr přidat nejde – přidej ho na počítači a objeví se i v telefonu.</li>
+            <li>Odkaz je tvé osobní tajemství, nesdílej ho. Když unikne, vytvoř nový – starý přestane fungovat.</li>
+        </ul>
+        <button class="pill" disabled="@_busy" @onclick="Regenerate">Vytvořit nový odkaz</button>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p class="calendar-sync-error">@_error</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int UserId { get; set; }
+
+    private static readonly (EventType Type, string Label)[] TypeLabels =
+    [
+        (EventType.Test, "Testy"),
+        (EventType.Homework, "Úkoly"),
+        (EventType.DayOff, "Volno"),
+        (EventType.Other, "Jiné")
+    ];
+
+    private HashSet<EventType> _types = [];
+    private string? _https;
+    private string _webcal = "";
+    private bool _busy, _copied;
+    private string _error = "";
+
+    // Google takes the webcal:// address as a "cid" and subscribes to it.
+    private string GoogleUrl => $"https://calendar.google.com/calendar/r?cid={Uri.EscapeDataString(_webcal)}";
+
+    private async Task Show()
+    {
+        await Load(() => FeedService.GetOrCreateTokenAsync(UserId));
+    }
+
+    private async Task Regenerate()
+    {
+        await Load(() => FeedService.RegenerateTokenAsync(UserId));
+        _copied = false;
+    }
+
+    private async Task Load(Func<Task<string>> getToken)
+    {
+        _busy = true;
+        _error = "";
+        try
+        {
+            var token = await getToken();
+            _types = await FeedService.GetTypesAsync(UserId);
+            _https = $"{Nav.BaseUri.TrimEnd('/')}/api/calendar/{token}.ics";
+            _webcal = "webcal://" + _https[(_https.IndexOf("://", StringComparison.Ordinal) + 3)..];
+        }
+        catch (Exception)
+        {
+            _error = "Odkaz se nepodařilo vytvořit. Zkus to prosím znovu.";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleType(EventType type)
+    {
+        var next = new HashSet<EventType>(_types);
+        if (!next.Remove(type)) next.Add(type);
+
+        _busy = true;
+        _error = "";
+        try
+        {
+            await FeedService.SetTypesAsync(UserId, next);
+            _types = next;
+        }
+        catch (Exception)
+        {
+            _error = "Výběr se nepodařilo uložit. Zkus to prosím znovu.";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _https);
+            _copied = true;
+        }
+        catch (JSException)
+        {
+            _error = "Odkaz se nepodařilo zkopírovat.";
+        }
+    }
+}

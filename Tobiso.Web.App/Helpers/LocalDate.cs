@@ -1,12 +1,10 @@
 namespace Tobiso.Web.App.Helpers;
 
-// Post/category timestamps are stored (and come back from EF) as UTC values with
-// DateTimeKind.Unspecified, so DateTime.ToString("o") would omit the "Z" suffix and
-// window.localizeDates() in lucide-init.js would then have the browser's Date parser
-// treat the string as LOCAL time instead of UTC. Force Kind=Utc before formatting so
-// the timestamp round-trips into JS unambiguously.
+// Dates are stored as UTC in the DB; the server renders a UTC ISO-8601 timestamp into
+// data-utc-date so client-side JS (localizeDates() in lucide-init.js) can re-format it
+// in the viewer's own time zone.
 public static class LocalDate
 {
-    public static string ToUtcAttribute(DateTime dt) =>
-        DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToString("o");
+    public static string ToUtcAttribute(DateTime value) =>
+        DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("o");
 }

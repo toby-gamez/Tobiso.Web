@@ -231,13 +231,12 @@ a.sage-tint {
     color: var(--color-text);
 }
 
-#article-prose ul,
-#article-prose ol {
+#article-prose :is(ul, ol):not(.box-tree *) {
     margin: 0 0 1.2em;
     padding-left: 1.4em;
 }
 
-#article-prose li {
+#article-prose li:not(.box-tree *) {
     margin-bottom: 0.35em;
 }
 
@@ -375,6 +374,10 @@ a.sage-tint {
 /* Article video embed: *[alt](videos/x.mp4) */
 .post-video {
     margin: var(--space-8) 0;
+    /* Shrink-wrap the video so the rounded corners sit on the picture itself,
+       not on a wider letterboxed element (happens when max-height kicks in). */
+    width: fit-content;
+    max-width: 100%;
     border-radius: var(--radius-lg);
     overflow: hidden;
     background: var(--color-surface);
@@ -382,11 +385,23 @@ a.sage-tint {
 
 .post-video video {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     max-height: 480px;
     /* Some browsers composite <video> in a hardware layer that a parent's
        overflow:hidden alone doesn't reliably clip - round it directly too. */
-    border-radius: inherit;
+    border-radius: var(--radius-lg);
+    /* clip-path also clips the native controls layer, which border-radius alone
+       does not in some browsers. */
+    clip-path: inset(0 round var(--radius-lg));
+}
+
+/* Raw <video> tags written directly in post markdown (no .post-video wrapper) */
+.post-body video,
+article video {
+    max-width: 100%;
+    border-radius: var(--radius-lg);
+    clip-path: inset(0 round var(--radius-lg));
 }
 
 /* Featured post video (PostVideo: YouTube URL set per-post in admin) */
@@ -409,6 +424,7 @@ a.sage-tint {
     width: 100%;
     height: 100%;
     border: 0;
+    border-radius: var(--radius-lg);
 }
 
 .post-video-embed-caption {
@@ -776,6 +792,571 @@ a.sage-tint {
 .box-stack-desc {
     font-size: 13px;
     color: var(--color-accent-700);
+}
+
+/* Graph block ([graf1] ... [/graf1], rendered by Tobiso.Web.Shared/Graphs/GraphRenderer.cs) */
+/* Placed like .post-figure images: floated right with prose wrapping on the left,
+   full-width on mobile, click opens it full-screen (js/image-lightbox.js). */
+.post-graph {
+    float: right;
+    clear: right;
+    width: 300px;
+    max-width: 100%;
+    margin: 0 0 var(--space-5) var(--space-6);
+    color: var(--color-text);
+    cursor: zoom-in;
+}
+
+@media (max-width: 640px) {
+    .post-graph {
+        float: none;
+        clear: both;
+        width: 100%;
+        margin: var(--space-8) 0;
+    }
+}
+
+.post-graph-title {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    margin-bottom: var(--space-2);
+}
+
+.post-graph-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+}
+
+.post-graph-svg .pg-grid {
+    stroke: var(--color-divider);
+}
+
+.post-graph-svg .pg-axis {
+    stroke: var(--color-neutral-700);
+}
+
+.post-graph-svg .pg-arrow {
+    fill: var(--color-neutral-700);
+}
+
+.post-graph-svg .pg-tick {
+    fill: var(--color-neutral-700);
+    font-size: 21px;
+}
+
+.post-graph-svg .pg-label,
+.post-graph-svg .pg-point-label {
+    fill: var(--color-text);
+    font-size: 23px;
+}
+
+/* SVG font sizes are in viewBox units, so the small inline figure (~300px wide) needs
+   bigger numbers to stay legible; the enlarged lightbox copy goes back to normal
+   (only on wide screens - on a phone the lightbox is no bigger than the inline figure). */
+@media (min-width: 641px) {
+    .post-graph--lightbox .post-graph-svg .pg-tick {
+        font-size: 15px;
+    }
+
+    .post-graph--lightbox .post-graph-svg .pg-label,
+    .post-graph--lightbox .post-graph-svg .pg-point-label {
+        font-size: 16px;
+    }
+}
+
+.post-graph-svg .pg-point {
+    stroke: var(--color-bg);
+}
+
+.post-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin-top: var(--space-2);
+    font-size: 13px;
+}
+
+.post-graph-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.post-graph-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.post-graph-swatch--point {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.post-graph figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-2);
+    font-size: 13px;
+    color: var(--color-neutral-700);
+}
+
+/* Enlarged copy inside the lightbox: on a page-coloured card so the theme-coloured
+   axes/text stay readable over the dark backdrop. */
+.img-lightbox-frame--graph {
+    box-sizing: border-box;
+    width: min(92vw, 1000px);
+    max-height: 88vh;
+    overflow: auto;
+    padding: var(--space-5);
+    line-height: normal;
+    background: var(--color-bg);
+    color: var(--color-text);
+    cursor: zoom-out;
+}
+
+.post-graph.post-graph--lightbox {
+    float: none;
+    width: 100%;
+    margin: 0;
+    cursor: inherit;
+}
+
+.post-graph--lightbox .post-graph-svg {
+    max-height: 70vh;
+}
+
+.post-graph--lightbox .post-graph-title {
+    font-size: 20px;
+}
+
+.post-graph--lightbox .post-graph-legend,
+.post-graph--lightbox figcaption {
+    font-size: 15px;
+}
+
+.post-graph-warning {
+    margin-top: var(--space-2);
+    font-size: 13px;
+    color: var(--color-accent-900);
+}
+
+.post-graph-error {
+    margin: var(--space-6) 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px dashed var(--color-accent-600);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-accent-900);
+}
+
+/* Flowchart ([vyvoj1] ... [/vyvoj1], Tobiso.Web.Shared/Graphs/FlowchartRenderer.cs) and
+   Venn diagram ([venn1] ... [/venn1], VennRenderer.cs). Placed like .post-graph: floated right
+   with prose wrapping on the left, full-width on mobile. SVG never upscales past its natural
+   size. Click opens the lightbox. */
+.post-flowchart,
+.post-venn {
+    float: right;
+    clear: right;
+    width: 260px;
+    max-width: 100%;
+    margin: 0 0 var(--space-5) var(--space-6);
+    color: var(--color-text);
+    cursor: zoom-in;
+}
+
+@media (max-width: 640px) {
+    .post-flowchart,
+    .post-venn {
+        float: none;
+        clear: both;
+        width: 100%;
+        margin: var(--space-8) 0;
+    }
+}
+
+.fc-svg,
+.venn-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 auto;
+    font-family: var(--font-body);
+}
+
+.fc-node {
+    fill: var(--color-accent-100);
+    stroke: var(--color-accent-600);
+    stroke-width: 2;
+}
+
+.fc-node--terminal {
+    fill: var(--color-accent-2-100);
+    stroke: var(--color-accent-2-600);
+}
+
+.fc-node--decision {
+    fill: var(--color-surface);
+    stroke: var(--color-neutral-700);
+}
+
+.fc-node--io {
+    fill: var(--color-bg);
+    stroke: var(--color-neutral-700);
+}
+
+.fc-text {
+    fill: var(--color-text);
+}
+
+.fc-edge {
+    fill: none;
+    stroke: var(--color-neutral-700);
+    stroke-width: 2;
+}
+
+.fc-arrowhead {
+    fill: var(--color-neutral-700);
+}
+
+.fc-label-bg {
+    fill: var(--color-bg);
+}
+
+.fc-edge-label {
+    fill: var(--color-text);
+}
+
+.venn-circle {
+    fill-opacity: 0.28;
+    stroke-opacity: 0.9;
+    stroke-width: 2.5;
+}
+
+.venn-universe {
+    fill: none;
+    stroke: var(--color-neutral-600);
+    stroke-width: 1.5;
+}
+
+.venn-universe-label,
+.venn-text {
+    fill: var(--color-text);
+}
+
+.post-flowchart figcaption,
+.post-venn figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-2);
+    font-size: 13px;
+    color: var(--color-neutral-700);
+}
+
+/* Venn terms: chips below the diagram select a result (js/image-lightbox.js bindVennOps).
+   While one is active the filled part IS the result and everything else is emptied: circles
+   go outline-only and elements outside the result fade, so "filled = in, empty = not in"
+   (complement of B shows B as an empty outline, the rest of the universe filled). */
+.post-venn {
+    --venn-hl: #b2622d;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .post-venn {
+        --venn-hl: #e0915a;
+    }
+}
+
+[data-theme="dark"] .post-venn {
+    --venn-hl: #e0915a;
+}
+
+.venn-region {
+    fill: var(--venn-hl);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.venn-region.venn-hl {
+    opacity: 0.62;
+}
+
+.venn-circle,
+.venn-text {
+    transition: fill-opacity 0.15s, opacity 0.15s;
+}
+
+.venn-svg.venn-active .venn-circle {
+    fill-opacity: 0.05;
+    stroke-opacity: 0.6;
+}
+
+.venn-svg.venn-active .venn-text:not(.venn-hl) {
+    opacity: 0.4;
+}
+
+.venn-svg.venn-active .venn-text.venn-hl {
+    font-weight: 700;
+}
+
+.venn-ops {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: var(--space-3);
+    cursor: default;
+}
+
+.venn-op-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.venn-op-group {
+    flex: 0 0 100%;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-neutral-700);
+}
+
+.venn-op {
+    padding: 4px 10px;
+    border: 1px solid var(--color-neutral-600);
+    border-radius: 999px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.venn-op:hover {
+    border-color: var(--color-accent-600);
+}
+
+.venn-op[aria-pressed="true"] {
+    background: var(--color-accent-600);
+    border-color: var(--color-accent-600);
+    color: #fff;
+}
+
+.venn-op-key {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--color-neutral-700);
+}
+
+.venn-op-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: var(--venn-hl);
+    opacity: 0.62;
+}
+
+.venn-op-desc {
+    min-height: 2.6em;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--color-neutral-700);
+}
+
+/* Enlarged copy in the lightbox: the card may grow past the SVG's natural size. */
+.post-flowchart.post-graph--lightbox,
+.post-venn.post-graph--lightbox {
+    float: none;
+    width: 100%;
+    margin: 0;
+    cursor: inherit;
+}
+
+.post-graph--lightbox .fc-svg,
+.post-graph--lightbox .venn-svg {
+    max-width: none !important;
+    max-height: 75vh;
+}
+
+.post-flowchart.post-graph--lightbox .post-graph-title,
+.post-venn.post-graph--lightbox .post-graph-title {
+    font-size: 20px;
+}
+
+/* Box-tree diagram (indented box-stack lines) - org-chart style connectors.
+   Each <ul> leaves --box-tree-gap above the bar joining its siblings (the stem
+   from the parent box), each <li> leaves the same gap below it (its own drop). */
+.box-tree {
+    --box-tree-gap: var(--space-4);
+    --box-tree-line: 2px solid var(--color-accent-600);
+    margin: var(--space-6) 0;
+    container-type: inline-size;
+}
+
+.box-tree ul {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    padding: var(--box-tree-gap) 0 0;
+    list-style: none;
+}
+
+.box-tree > ul {
+    padding-top: 0;
+}
+
+.box-tree li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: var(--box-tree-gap) var(--space-2) 0;
+    min-width: 0;
+}
+
+.box-tree > ul > li {
+    padding-top: 0;
+}
+
+.box-tree li .box-stack-item {
+    min-width: 10ch;
+    max-width: 24ch;
+}
+
+.box-tree ul ul::before,
+.box-tree li::before,
+.box-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: var(--box-tree-gap);
+}
+
+.box-tree ul ul::before {
+    left: 50%;
+    border-left: var(--box-tree-line);
+}
+
+.box-tree li::before {
+    right: 50%;
+    width: 50%;
+    border-top: var(--box-tree-line);
+}
+
+.box-tree li::after {
+    left: 50%;
+    width: 50%;
+    border-top: var(--box-tree-line);
+    border-left: var(--box-tree-line);
+}
+
+.box-tree li:first-child::before,
+.box-tree li:last-child::after,
+.box-tree > ul > li::before,
+.box-tree > ul > li::after {
+    display: none;
+}
+
+.box-tree li:last-child:not(:only-child)::before {
+    border-right: var(--box-tree-line);
+}
+
+.box-tree li:first-child::after {
+    border-top-left-radius: var(--radius-md);
+}
+
+.box-tree li:last-child::before {
+    border-top-right-radius: var(--radius-md);
+}
+
+.box-tree ul ul > li:only-child::after {
+    display: block;
+    border-top: none;
+    border-radius: 0;
+}
+
+/* Narrow containers: fold the org chart into a vertical, indented tree
+   (no horizontal scrolling). Each child gets an elbow off its parent's rail. */
+@container (max-width: 640px) {
+    .box-tree ul {
+        display: block;
+        margin-left: var(--space-5);
+        padding: 0 0 0 var(--space-5);
+    }
+
+    .box-tree > ul {
+        margin-left: 0;
+        padding-left: 0;
+    }
+
+    .box-tree li,
+    .box-tree > ul > li {
+        display: block;
+        padding: var(--space-3) 0 0;
+    }
+
+    .box-tree ul ul::before {
+        display: none;
+    }
+
+    .box-tree li::after,
+    .box-tree li:first-child::after,
+    .box-tree li:last-child::after {
+        display: none;
+    }
+
+    .box-tree ul ul > li::after,
+    .box-tree ul ul > li:first-child::after,
+    .box-tree ul ul > li:last-child::after {
+        display: block;
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: calc(-1 * var(--space-5));
+        width: 0;
+        height: auto;
+        border: none;
+        border-left: var(--box-tree-line);
+        border-radius: 0;
+    }
+
+    .box-tree ul ul > li:last-child::after {
+        bottom: auto;
+        height: calc(var(--space-3) + 22px);
+    }
+
+    .box-tree ul ul > li::before,
+    .box-tree ul ul > li:first-child::before,
+    .box-tree ul ul > li:last-child::before {
+        display: block;
+        content: '';
+        position: absolute;
+        top: calc(var(--space-3) + 22px);
+        left: calc(-1 * var(--space-5));
+        right: auto;
+        width: var(--space-5);
+        height: 0;
+        border: none;
+        border-top: var(--box-tree-line);
+        border-radius: 0;
+    }
+
+    .box-tree li .box-stack-item {
+        max-width: none;
+    }
 }
 
 /* Stats row */

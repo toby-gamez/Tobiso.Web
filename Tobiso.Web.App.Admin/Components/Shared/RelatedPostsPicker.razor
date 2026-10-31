@@ -1,0 +1,235 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+@inject IJSRuntime JS
+
+<div class="related-picker">
+    <div class="related-picker-toolbar">
+        <div class="search-select-wrap">
+            <input type="text"
+                   class="input"
+                   placeholder="Vyhledat článek a přidat jako související..."
+                   value="@_search"
+                   @oninput="OnSearchInput"
+                   @onfocus="() => _showDropdown = true"
+                   @onblur="HideDropdownDelayed" />
+            @if (_showDropdown)
+            {
+                var filtered = GetFiltered().ToList();
+                <div class="post-search-dropdown related-picker-dropdown">
+                    @if (filtered.Count == 0)
+                    {
+                        <div class="dropdown-empty">Žádný článek nenalezen</div>
+                    }
+                    @foreach (var p in filtered)
+                    {
+                        var pid = p.Id;
+                        <button type="button" class="dropdown-item"
+                                @onmousedown:preventDefault="true"
+                                @onclick="() => Add(pid)">
+                            @p.Title
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+        <button type="button" class="btn btn-secondary" @onclick="Suggest" disabled="@(_aiLoading || !CanSuggest)"
+                title="@(CanSuggest ? "Navrhnout související články pomocí AI" : "Nejdřív vyplňte název nebo obsah")">
+            @if (_aiLoading)
+            {
+                <i data-lucide="loader-2" class="spinner"></i>
+                <span>Generuji…</span>
+            }
+            else
+            {
+                <i data-lucide="sparkles"></i>
+                <span>Navrhnout pomocí AI</span>
+            }
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert-error">@_error</div>
+    }
+
+    @if (Selected.Count == 0)
+    {
+        <p class="muted">Zatím žádné související články.</p>
+    }
+    else
+    {
+        <ul class="related-picker-list">
+            @foreach (var link in Selected)
+            {
+                var l = link;
+                <li class="related-picker-row">
+                    <div class="related-picker-row-head">
+                        <strong>@TitleOf(l.PostId)</strong>
+                        <label class="related-picker-bidir" title="Zobrazit odkaz i u souvisejícího článku">
+                            <input type="checkbox" checked="@l.Bidirectional" @onchange="e => SetBidirectional(l, (bool)e.Value!)" />
+                            Obousměrně
+                        </label>
+                        <button type="button" class="btn btn-ghost btn-sm" aria-label="Odebrat" @onclick="() => Remove(l.PostId)">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <input type="text" class="input" maxlength="500" placeholder="Popis souvislosti (nepovinné)"
+                           value="@l.Text" @onchange="e => SetText(l, e.Value?.ToString())" />
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_suggestions.Count > 0)
+    {
+        <div class="related-picker-suggestions">
+            <p class="muted">AI navrhuje:</p>
+            <ul class="related-picker-list">
+                @foreach (var sug in _suggestions)
+                {
+                    var sg = sug;
+                    <li class="related-picker-row related-picker-row-suggested">
+                        <div class="related-picker-row-head">
+                            <strong>@TitleOf(sg.PostId)</strong>
+                            <span class="badge">@(sg.Bidirectional ? "obousměrně" : "jednosměrně")</span>
+                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => Add(sg)">
+                                <i data-lucide="plus"></i> Přidat
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(sg.Text))
+                        {
+                            <p class="muted">@sg.Text</p>
+                        }
+                    </li>
+                }
+            </ul>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="AcceptAllSuggestions">Přidat všechny</button>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Id of the post being edited; null when creating a new one (excluded from the list).</summary>
+    [Parameter] public int? PostId { get; set; }
+    /// <summary>Current (possibly unsaved) title and content, sent to the AI to find related articles.</summary>
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Content { get; set; }
+
+    [Parameter] public List<RelatedLinkSelection> Selected { get; set; } = new();
+    [Parameter] public EventCallback<List<RelatedLinkSelection>> SelectedChanged { get; set; }
+
+    private List<PostSummaryResponse> _posts = new();
+    private List<SuggestedRelation> _suggestions = new();
+    private string _search = string.Empty;
+    private bool _showDropdown;
+    private bool _aiLoading;
+    private string? _error;
+
+    private bool CanSuggest => !string.IsNullOrWhiteSpace(Title) || !string.IsNullOrWhiteSpace(Content);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _posts = (await Api.GetPostSummaries()).OrderBy(p => p.Title).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Nepodařilo se načíst články: {ex.Message}";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private string TitleOf(int id) => _posts.FirstOrDefault(p => p.Id == id)?.Title ?? $"ID: {id}";
+
+    private IEnumerable<PostSummaryResponse> GetFiltered() =>
+        _posts.Where(p => p.Id != PostId && Selected.All(x => x.PostId != p.Id)
+                          && (string.IsNullOrWhiteSpace(_search) || p.Title.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+              .Take(30);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        _showDropdown = true;
+    }
+
+    private async Task HideDropdownDelayed()
+    {
+        await Task.Delay(150);
+        _showDropdown = false;
+        StateHasChanged();
+    }
+
+    private Task Add(int id) => Add(new SuggestedRelation { PostId = id });
+
+    private async Task Add(SuggestedRelation rel)
+    {
+        if (rel.PostId == PostId || Selected.Any(x => x.PostId == rel.PostId)) return;
+        _search = string.Empty;
+        _showDropdown = false;
+        _suggestions.RemoveAll(x => x.PostId == rel.PostId);
+        await SelectedChanged.InvokeAsync(new List<RelatedLinkSelection>(Selected)
+        {
+            new() { PostId = rel.PostId, Text = rel.Text, Bidirectional = rel.Bidirectional }
+        });
+    }
+
+    private async Task Remove(int id) =>
+        await SelectedChanged.InvokeAsync(Selected.Where(x => x.PostId != id).ToList());
+
+    private async Task AcceptAllSuggestions()
+    {
+        var merged = new List<RelatedLinkSelection>(Selected);
+        foreach (var r in _suggestions.Where(r => r.PostId != PostId && merged.All(x => x.PostId != r.PostId)))
+            merged.Add(new RelatedLinkSelection { PostId = r.PostId, Text = r.Text, Bidirectional = r.Bidirectional });
+        _suggestions.Clear();
+        await SelectedChanged.InvokeAsync(merged);
+    }
+
+    private async Task SetBidirectional(RelatedLinkSelection l, bool value)
+    {
+        l.Bidirectional = value;
+        await SelectedChanged.InvokeAsync(Selected.ToList());
+    }
+
+    private async Task SetText(RelatedLinkSelection l, string? value)
+    {
+        l.Text = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        await SelectedChanged.InvokeAsync(Selected.ToList());
+    }
+
+    private async Task Suggest()
+    {
+        if (_aiLoading || !CanSuggest) return;
+        _aiLoading = true;
+        _error = null;
+        _suggestions.Clear();
+        try
+        {
+            var result = await Api.SuggestRelatedForDraft(new SuggestRelatedDraftRequest
+            {
+                Title = Title ?? string.Empty,
+                Content = Content ?? string.Empty,
+                PostId = PostId
+            });
+            var items = result.Items.Count > 0
+                ? result.Items
+                : result.PostIds.Select(i => new SuggestedRelation { PostId = i }).ToList();
+            _suggestions = items.Where(i => i.PostId != PostId && Selected.All(x => x.PostId != i.PostId)).ToList();
+            if (_suggestions.Count == 0) _error = "AI nenavrhla žádné nové související články.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            _aiLoading = false;
+        }
+    }
+}

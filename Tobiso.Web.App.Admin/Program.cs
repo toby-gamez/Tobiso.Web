@@ -8,6 +8,7 @@ using Refit;
 using Serilog;
 using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Api.Services;
@@ -51,6 +52,9 @@ services.AddDbContext<TobisoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+// Per-call DbContexts for services shared with the main app (see Tobiso.Web.App/Program.cs).
+services.AddSingleton<IDbContextFactory<TobisoDbContext>, TobisoDbContextFactory>();
+
 var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "";
 if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
     throw new InvalidOperationException(
@@ -61,12 +65,13 @@ services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
     {
+        // Basic only when asked for; everything else (Bearer header or the session cookie) is JWT.
         options.ForwardDefaultSelector = ctx =>
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
-            return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? "Bearer"
-                : BasicAuthConstants.Scheme;
+            return auth?.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase) == true
+                ? BasicAuthConstants.Scheme
+                : "Bearer";
         };
     })
     .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
@@ -77,10 +82,13 @@ services
         options.ValidateIssuer   = true;
         options.ValidateAudience = true;
         options.ValidateLifetime = true;
+        options.CookieName       = SessionCookies.Admin;
+        // CredentialStore forwards it as Bearer on server-side calls to the main app's API.
+        options.IncludeRawTokenClaim = true;
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null);
 
-services.AddAuthorization();
+services.AddTobisoAuthorization();
 
 // No-op today (IIS in-process hosting, no proxy in front - see Tobiso.Web.App/Program.cs for
 // the full explanation); kept so this app is already correct if a CDN/WAF is ever added.
@@ -102,17 +110,22 @@ services.Configure<ForwardedHeadersOptions>(options =>
 
 services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("auth", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Partitioned per client IP: a single shared window let anyone lock every user out of
+    // login with 5 requests a minute. 20/min leaves room for a school class behind one NAT IP.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0
+        }));
 });
 
 // Add Blazor authentication
 services.AddCascadingAuthenticationState();
-services.AddScoped<AuthenticationStateProvider, TokenAuthenticationStateProvider>();
+services.AddScoped<AuthenticationStateProvider, AdminRevalidatingAuthStateProvider>();
 
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddScoped<ICategoryService, CategoryService>();
@@ -132,12 +145,26 @@ services.AddEndpointsApiExplorer();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
+services.AddScoped<IClassService, ClassService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
+services.AddScoped<IAdminUserService, AdminUserService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
 
-services.AddSingleton<CredentialStore>();
+// Kronika (interactive history timeline)
+services.AddMemoryCache();
+services.AddScoped<IChronicleItemService, ChronicleItemService>();
+services.AddScoped<IChronicleCategoryService, ChronicleCategoryService>();
+services.AddScoped<IChronicleLinkService, ChronicleLinkService>();
+services.AddScoped<IChroniclePeriodizationService, ChroniclePeriodizationService>();
+services.AddScoped<IChronicleRegionService, ChronicleRegionService>();
+services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
+services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
+services.AddScoped<IChronicleImportService, ChronicleImportService>();
+
+services.AddScoped<CredentialStore>();
+services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, CredentialCircuitHandler>();
 services.AddTransient<AuthenticationHeaderHandler>();
 services.AddTransient<HttpLoggingHandler>();
 
@@ -248,12 +275,13 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.UseAntiforgery();
 
-// Redirect 401 to login page
+// Redirect 401 to login page (pages only - API callers, including the login fetch, need the real status)
 app.Use(async (context, next) =>
 {
     await next();
     if (context.Response.StatusCode == StatusCodes.Status401Unauthorized
         && !context.Request.Path.StartsWithSegments("/login")
+        && !context.Request.Path.StartsWithSegments("/api")
         && !context.Request.Path.StartsWithSegments("/_"))
     {
         context.Response.Redirect("/login");

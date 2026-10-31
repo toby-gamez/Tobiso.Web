@@ -2,30 +2,44 @@ using Microsoft.EntityFrameworkCore;
 using Tobiso.Api.Authentication;
 using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
+using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.Api.Services;
 
 public interface IUserService
 {
-    Task<AppUser?> RegisterAsync(string email, string displayName, string password);
-    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null);
+    Task<AppUser?> RegisterAsync(string email, string displayName, string password, bool acceptedTerms);
+    Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null, bool acceptedTerms = false);
     Task<AppUser?> LoginAsync(string email, string password);
     Task<AppUser?> GetByIdAsync(int id);
+    Task SetPreferredGradeAsync(int userId, int? gradeId);
     Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
     Task<bool> ClaimDailyBonusAsync(int userId, int amount);
     Task<bool> ClaimReadBonusAsync(int userId, int amount);
+    Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail);
+    Task<AppUser?> GetByEmailAsync(string email);
+    Task<bool> IsSessionValidAsync(int userId, string securityStamp);
+    Task RotateSecurityStampAsync(int userId);
 }
+
+public enum DeleteAccountResult { Deleted, NotFound, InvalidCredentials }
 
 public class UserService : IUserService
 {
-    private readonly TobisoDbContext _db;
+    // Factory (own short-lived DbContext per call) instead of the circuit-scoped context: Blazor
+    // components in the same circuit call this service concurrently (NavMenu, AiChatBox, the page).
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
 
-    public UserService(TobisoDbContext db) => _db = db;
+    public UserService(IDbContextFactory<TobisoDbContext> dbFactory) => _dbFactory = dbFactory;
 
-    public async Task<AppUser?> RegisterAsync(string email, string displayName, string password)
+    public async Task<AppUser?> RegisterAsync(string email, string displayName, string password, bool acceptedTerms)
     {
+        await using var db = _dbFactory.CreateDbContext();
+        if (!acceptedTerms)
+            throw new ArgumentException("Terms must be accepted to register.", nameof(acceptedTerms));
+
         var normalizedEmail = email.ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail))
+        if (await db.Users.AnyAsync(u => u.Email == normalizedEmail))
             return null;
 
         var user = new AppUser
@@ -33,38 +47,62 @@ public class UserService : IUserService
             Email = normalizedEmail,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             PasswordHash = PasswordHasher.Hash(password),
-            Credits = 20
+            Credits = 20,
+            TermsAcceptedAt = DateTime.UtcNow,
+            TermsVersion = LegalConstants.TermsVersion
         };
-        _db.Users.Add(user);
-        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        db.Users.Add(user);
+        db.AiCreditTransactions.Add(new AiCreditTransaction
         {
             User = user, Delta = 20, Reason = "registration_bonus"
         });
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         return user;
     }
 
-    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null)
+    public async Task<AppUser?> FindOrCreateGoogleUserAsync(string googleId, string email, string displayName, string? avatarUrl = null, bool acceptedTerms = false)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId);
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId);
         if (user != null)
         {
             user.LastLoginAt = DateTime.UtcNow;
+            user.EmailConfirmedAt ??= DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
-            await _db.SaveChangesAsync();
+            if (acceptedTerms && user.TermsAcceptedAt == null)
+            {
+                user.TermsAcceptedAt = DateTime.UtcNow;
+                user.TermsVersion = LegalConstants.TermsVersion;
+            }
+            await db.SaveChangesAsync();
             return user;
         }
 
         var normalizedEmail = email.ToLowerInvariant();
-        user = await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+        user = await db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
         if (user != null)
         {
             user.GoogleId = googleId;
+            // Registration never verifies the email, so a password set on this account may belong to
+            // someone who pre-registered the victim's address. Google has just proven who owns the
+            // address - drop the unverified password so the squatter can't keep a way in.
+            user.PasswordHash = null;
+            user.EmailConfirmedAt ??= DateTime.UtcNow;
+            // ...and end any session the squatter already has.
+            user.SecurityStamp = AppUser.NewSecurityStamp();
             user.LastLoginAt = DateTime.UtcNow;
             if (avatarUrl != null) user.AvatarUrl = avatarUrl;
-            await _db.SaveChangesAsync();
+            if (acceptedTerms && user.TermsAcceptedAt == null)
+            {
+                user.TermsAcceptedAt = DateTime.UtcNow;
+                user.TermsVersion = LegalConstants.TermsVersion;
+            }
+            await db.SaveChangesAsync();
             return user;
         }
+
+        // A brand-new account may only be created once the user has accepted the terms.
+        if (!acceptedTerms) return null;
 
         user = new AppUser
         {
@@ -72,26 +110,30 @@ public class UserService : IUserService
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? email : displayName,
             GoogleId = googleId,
             AvatarUrl = avatarUrl,
-            Credits = 20
+            EmailConfirmedAt = DateTime.UtcNow,
+            Credits = 20,
+            TermsAcceptedAt = DateTime.UtcNow,
+            TermsVersion = LegalConstants.TermsVersion
         };
-        _db.Users.Add(user);
-        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        db.Users.Add(user);
+        db.AiCreditTransactions.Add(new AiCreditTransaction
         {
             User = user, Delta = 20, Reason = "registration_bonus"
         });
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         return user;
     }
 
     public async Task<AppUser?> LoginAsync(string email, string password)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant());
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant());
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
             return null;
         if (!PasswordHasher.Verify(password, user.PasswordHash))
             return null;
         user.LastLoginAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         return user;
     }
 
@@ -99,8 +141,18 @@ public class UserService : IUserService
     // elsewhere), so a tracked read here can get cached in the identity map and then never
     // reflect later ExecuteUpdateAsync writes (DeductCreditsAsync, ClaimDailyBonusAsync, ...)
     // made against the same context instance, since those bypass the change tracker entirely.
-    public Task<AppUser?> GetByIdAsync(int id) =>
-        _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
+    public async Task<AppUser?> GetByIdAsync(int id)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async Task SetPreferredGradeAsync(int userId, int? gradeId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.PreferredGradeId, gradeId));
+    }
 
     // Deduct is a single conditional UPDATE (guarded by the balance check in the WHERE
     // clause) rather than read-then-write, so two concurrent requests can't both read a
@@ -108,9 +160,10 @@ public class UserService : IUserService
     // beyond what the account actually has.
     public async Task<bool> DeductCreditsAsync(int userId, int amount, string reason)
     {
-        await using var tx = await _db.Database.BeginTransactionAsync();
+        await using var db = _dbFactory.CreateDbContext();
+        await using var tx = await db.Database.BeginTransactionAsync();
 
-        var rows = await _db.Users
+        var rows = await db.Users
             .Where(u => u.Id == userId && u.Credits >= amount)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.Credits, u => u.Credits - amount));
         if (rows == 0)
@@ -119,9 +172,9 @@ public class UserService : IUserService
             return false;
         }
 
-        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        db.AiCreditTransactions.Add(new AiCreditTransaction
             { UserId = userId, Delta = -amount, Reason = reason });
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         await tx.CommitAsync();
         return true;
     }
@@ -133,10 +186,11 @@ public class UserService : IUserService
     // all day on a single long-lived JWT without ever logging in again.
     public async Task<bool> ClaimDailyBonusAsync(int userId, int amount)
     {
-        await using var tx = await _db.Database.BeginTransactionAsync();
+        await using var db = _dbFactory.CreateDbContext();
+        await using var tx = await db.Database.BeginTransactionAsync();
 
         var today = DateTime.UtcNow.Date;
-        var rows = await _db.Users
+        var rows = await db.Users
             .Where(u => u.Id == userId && (u.LastDailyBonusAt == null || u.LastDailyBonusAt < today))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(u => u.Credits, u => u.Credits + amount)
@@ -147,9 +201,9 @@ public class UserService : IUserService
             return false;
         }
 
-        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        db.AiCreditTransactions.Add(new AiCreditTransaction
             { UserId = userId, Delta = amount, Reason = "daily_bonus" });
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         await tx.CommitAsync();
         return true;
     }
@@ -160,10 +214,11 @@ public class UserService : IUserService
     // bonuses don't interfere with each other.
     public async Task<bool> ClaimReadBonusAsync(int userId, int amount)
     {
-        await using var tx = await _db.Database.BeginTransactionAsync();
+        await using var db = _dbFactory.CreateDbContext();
+        await using var tx = await db.Database.BeginTransactionAsync();
 
         var today = DateTime.UtcNow.Date;
-        var rows = await _db.Users
+        var rows = await db.Users
             .Where(u => u.Id == userId && (u.LastReadBonusAt == null || u.LastReadBonusAt < today))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(u => u.Credits, u => u.Credits + amount)
@@ -174,10 +229,55 @@ public class UserService : IUserService
             return false;
         }
 
-        _db.AiCreditTransactions.Add(new AiCreditTransaction
+        db.AiCreditTransactions.Add(new AiCreditTransaction
             { UserId = userId, Delta = amount, Reason = "read_streak_bonus" });
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         await tx.CommitAsync();
         return true;
+    }
+
+    // Self-service deletion. Password accounts must re-enter their password; Google-only
+    // accounts have none, so they confirm by typing their email instead. Related rows
+    // (chats, notes, bookmarks, progress, credit log) are removed by cascade.
+    public async Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null) return DeleteAccountResult.NotFound;
+
+        if (!string.IsNullOrEmpty(user.PasswordHash))
+        {
+            if (string.IsNullOrEmpty(password) || !PasswordHasher.Verify(password, user.PasswordHash))
+                return DeleteAccountResult.InvalidCredentials;
+        }
+        else if (!string.Equals(confirmEmail?.Trim(), user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            return DeleteAccountResult.InvalidCredentials;
+        }
+
+        await db.Users.Where(u => u.Id == userId).ExecuteDeleteAsync();
+        return DeleteAccountResult.Deleted;
+    }
+
+    public async Task<AppUser?> GetByEmailAsync(string email)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+    }
+
+    public async Task<bool> IsSessionValidAsync(int userId, string securityStamp)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        return await db.Users.AnyAsync(u => u.Id == userId && u.SecurityStamp == securityStamp);
+    }
+
+    // Ends every existing session of the user (all tokens carry the old stamp).
+    public async Task RotateSecurityStampAsync(int userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var stamp = AppUser.NewSecurityStamp();
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.SecurityStamp, stamp));
     }
 }

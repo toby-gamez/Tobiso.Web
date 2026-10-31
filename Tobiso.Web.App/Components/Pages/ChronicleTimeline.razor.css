@@ -1,0 +1,155 @@
+.chronicle-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.chronicle-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.chronicle-header h1 { font-size: 38px; margin: 0 0 4px; }
+.chronicle-header p { font-size: 14px; color: var(--color-neutral-600); margin: 0; }
+
+.chronicle-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.chronicle-axis-picker {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.chronicle-loading,
+.chronicle-error {
+    padding: var(--space-6);
+    text-align: center;
+    color: var(--color-neutral-600);
+}
+
+.chronicle-error {
+    color: var(--color-accent-700);
+}
+
+/* --- normal timeline: one column, top to bottom, plain document flow --- */
+
+.timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-width: 640px;
+}
+
+/* The continuous line. One absolutely-positioned decoration behind everything, sized by the
+   container's own natural (flow-computed) height — not per-row pixel math. */
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--color-divider);
+}
+
+.timeline-row {
+    position: relative;
+    display: flex;
+    gap: var(--space-4);
+    padding-bottom: var(--space-5);
+}
+
+.timeline-rail {
+    flex: 0 0 auto;
+    width: 16px;
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+}
+
+.timeline-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--dot-color) 75%, var(--color-neutral-400));
+    border: 2px solid var(--color-bg);
+    box-shadow: 0 0 0 1px var(--color-divider);
+    flex: 0 0 auto;
+}
+
+.timeline-content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.timeline-year {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-neutral-600);
+    margin-bottom: 4px;
+}
+
+.timeline-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-left: 3px solid var(--card-accent);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+}
+
+.timeline-card-title {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--color-text);
+    margin-bottom: 4px;
+}
+
+.timeline-card-summary {
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--color-neutral-700);
+}
+
+/* Collapsed era: "jeden řádek s názvem a počtem položek" — a plain row in the same flow,
+   not a separate absolutely-positioned block, so it can never overlap a neighboring card. */
+.timeline-era-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-5) 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-divider);
+    border-left: 3px solid var(--era-color);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--era-color) 12%, var(--color-surface));
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--color-text);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.timeline-era-row:hover {
+    background: color-mix(in srgb, var(--era-color) 20%, var(--color-surface));
+}
+
+.timeline-era-row i {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}

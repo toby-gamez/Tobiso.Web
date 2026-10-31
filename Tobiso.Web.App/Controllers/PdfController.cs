@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Text.RegularExpressions;
 using Tobiso.Web.Api.Services;
+using Tobiso.Web.Shared.Graphs;
 using Tobiso.Web.Shared.DTOs;
 using Tobiso.Web.Shared.Interfaces;
 
@@ -8,6 +11,8 @@ namespace Tobiso.Web.App.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// PDF rendering is CPU-heavy and the cheat sheet calls OpenAI - throttle the anonymous endpoints.
+[EnableRateLimiting("pdf")]
 public class PdfController : ControllerBase
 {
     private readonly IPdfService _pdfService;
@@ -21,7 +26,10 @@ public class PdfController : ControllerBase
         _aiService = aiService;
     }
 
+    // Admin only: renders caller-supplied HTML and downloads every <img src> in it server-side,
+    // so anonymously it was an SSRF primitive (fetching internal/metadata URLs).
     [HttpPost("generate")]
+    [Authorize]
     public IActionResult Generate([FromBody] PdfRequestDto req)
     {
         if (req == null || string.IsNullOrEmpty(req.Html))
@@ -138,6 +146,14 @@ public class PdfController : ControllerBase
 
     private async Task<string> TransformMarkdownContent(string? content)    {
         if (string.IsNullOrEmpty(content)) return string.Empty;
+
+        // Render [grafN]...[/grafN] blocks to SVG first (mirrors MarkdownContent.razor)
+        var graphs = new List<string>();
+        content = GraphRenderer.ExtractBlocks(content, graphs);
+        var flowcharts = new List<string>();
+        content = FlowchartRenderer.ExtractBlocks(content, flowcharts);
+        var vennDiagrams = new List<string>();
+        content = VennRenderer.ExtractBlocks(content, vennDiagrams);
 
         // Replace markdown mailto links before processing
         content = ReplaceMarkdownMailtoInText(content);
@@ -258,12 +274,15 @@ public class PdfController : ControllerBase
         });
 
         // Wrap text in dots into div with class intro
-        var dotsRegex = new Regex(@"(\.\.\.\s*)(.*?)(\s*\.\.\.)", RegexOptions.Singleline);
-        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>");
+        // Only the first two "..." in the post act as markers; longer dot runs (e.g. leaders) are left alone
+        var dotsRegex = new Regex(@"((?<!\.)\.\.\.(?!\.)\s*)(.*?)(\s*(?<!\.)\.\.\.(?!\.))", RegexOptions.Singleline);
+        html = dotsRegex.Replace(html, m => $"<div class=\"intro\">{m.Groups[2].Value}</div>", 1);
         var singleDotsRegex = new Regex(@"<p>\s*\.\.\.\s*<\/p>", RegexOptions.Singleline);
         html = singleDotsRegex.Replace(html, "");
-        html = html.Replace("...", "");
         html = ConvertMarkdownTablesToHtml(html);
+        html = GraphRenderer.RestoreBlocks(html, graphs);
+        html = FlowchartRenderer.RestoreBlocks(html, flowcharts);
+        html = VennRenderer.RestoreBlocks(html, vennDiagrams);
         return html;
     }
 

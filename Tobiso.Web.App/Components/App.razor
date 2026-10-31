@@ -15,7 +15,7 @@
         gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied' });
         try {
             if (localStorage.getItem('tobiso-cookie-consent') === 'accepted') {
-                gtag('consent', 'default', { analytics_storage: 'granted' });
+                gtag('consent', 'update', { analytics_storage: 'granted' });
             }
         } catch (e) { /* localStorage unavailable */ }
         gtag('js', new Date());
@@ -37,6 +37,7 @@
     <script src="js/lucide-init.js"></script>
     <script src="js/katex-init.js"></script>
     <script src="js/pomodoro.js"></script>
+    <script src="js/auth.js"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
 

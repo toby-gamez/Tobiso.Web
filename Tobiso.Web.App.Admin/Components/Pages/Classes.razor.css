@@ -1,0 +1,157 @@
+.cls-page {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.cls-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.cls-header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.cls-section {
+    margin-bottom: var(--space-6);
+}
+
+.cls-section h2 {
+    font-size: 17px;
+    margin: 0 0 var(--space-3);
+}
+
+.cls-message {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-divider);
+    margin-bottom: var(--space-4);
+    font-size: 14px;
+}
+
+.cls-message.error {
+    border-color: #c0392b;
+    color: #c0392b;
+}
+
+.cls-empty {
+    padding: var(--space-4) 0;
+    opacity: .7;
+}
+
+.cls-muted {
+    opacity: .6;
+}
+
+.cls-name {
+    font-weight: 600;
+}
+
+.cls-email {
+    font-size: 12px;
+    opacity: .7;
+}
+
+.cls-inline-form {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cls-inline-form .input {
+    max-width: 240px;
+}
+
+.cls-inline-form .select {
+    max-width: 200px;
+}
+
+.cls-card {
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+}
+
+.cls-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.cls-card-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-right: var(--space-2);
+}
+
+.cls-card-meta {
+    font-size: 13px;
+    opacity: .7;
+    margin-left: var(--space-2);
+}
+
+.cls-groups {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-3);
+    font-size: 14px;
+}
+
+.cls-groups-label {
+    font-weight: 600;
+}
+
+.cls-group-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-divider);
+}
+
+.cls-group-remove {
+    display: inline-flex;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+    color: inherit;
+    opacity: .6;
+}
+
+.cls-group-remove:hover:not(:disabled) {
+    opacity: 1;
+}
+
+.cls-group-remove ::deep svg {
+    width: 14px;
+    height: 14px;
+}
+
+.cls-add-group .input {
+    max-width: 160px;
+}
+
+.cls-members {
+    margin-top: var(--space-3);
+    overflow-x: auto;
+}
+
+.cls-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: var(--space-3);
+    white-space: nowrap;
+}

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Tobiso.Web.Files.Security;
 using Tobiso.Web.Shared.DTOs;
 
 namespace Tobiso.Web.Files.Controllers;

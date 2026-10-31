@@ -23,6 +23,7 @@ namespace Tobiso.Web.Shared.Interfaces
         Task<RewriteGradeResponse> RewriteForRegisterAsync(int postId, string register);
         Task<RealWorldResponse> GetRealWorldApplicationsAsync(int postId);
         Task<SuggestRelatedResponse> SuggestRelatedPostsAsync(int postId);
+        Task<SuggestRelatedResponse> SuggestRelatedForDraftAsync(string title, string content, int? excludePostId);
         Task<WhatIfResponse> GetWhatIfScenarioAsync(WhatIfRequest request);
         Task<EvaluateComprehensionResponse> EvaluateComprehensionAsync(EvaluateComprehensionRequest request);
         Task<List<string>> GenerateFunFactsAsync(int postId);

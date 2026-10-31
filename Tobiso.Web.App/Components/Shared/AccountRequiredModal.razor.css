@@ -5,8 +5,8 @@
     background: color-mix(in srgb, var(--color-ink) 45%, transparent);
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: var(--space-4);
+    align-items: flex-start;
+    padding: 12vh var(--space-4) var(--space-4);
 }
 
 .account-dialog {
@@ -17,7 +17,6 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     padding: var(--space-6);
-    text-align: center;
 }
 
 .account-close {
@@ -40,34 +39,17 @@
     background: var(--color-neutral-200);
 }
 
-.account-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    margin: 0 auto var(--space-4);
-    border-radius: 999px;
-    background: var(--color-accent-100);
-    color: var(--color-accent-700);
-}
-
 .account-title {
-    margin: 0 0 var(--space-2);
+    margin: 0 var(--space-6) var(--space-3) 0;
 }
 
-.account-text {
+.account-message {
     margin: 0 0 var(--space-5);
-    color: var(--color-neutral-600);
+    color: var(--color-neutral-700);
 }
 
 .account-actions {
     display: flex;
-    flex-direction: column;
     gap: var(--space-2);
-}
-
-.account-actions .pill {
-    justify-content: center;
-    text-decoration: none;
+    flex-wrap: wrap;
 }

@@ -1,0 +1,60 @@
+@page "/overeni-emailu"
+@layout AuthLayout
+@inject IAccountService AccountService
+
+<PageTitle>Ověření e-mailu - Tobiso</PageTitle>
+
+<div class="login-card">
+    <div class="login-brand">
+        <img src="/images/normal-logo.png" alt="Tobiso" class="brand-logo-img logo-light" />
+        <img src="/images/white-logo.png" alt="Tobiso" class="brand-logo-img logo-dark" />
+    </div>
+
+    <div>
+        <h1 class="login-title">Ověření e-mailu</h1>
+    </div>
+
+    @if (_confirmed)
+    {
+        <p class="login-sub">Hotovo, e-mail je ověřený. Teď se můžeš přihlásit.</p>
+        <a class="pill pill-on" href="/prihlaseni">Přihlásit se</a>
+    }
+    else if (_failed || string.IsNullOrEmpty(Token))
+    {
+        <div class="login-error">Odkaz je neplatný nebo vypršel. Když se zkusíš přihlásit, pošleme ti nový.</div>
+        <a class="pill pill-on" href="/prihlaseni">Na přihlášení</a>
+    }
+    else
+    {
+        <p class="login-sub">Potvrď, že tenhle e-mail patří tobě.</p>
+        @* A button, not automatic on page load: mail scanners that pre-open links don't run the
+           interactive page, so they can't confirm an address on someone's behalf. *@
+        <button class="pill pill-on login-submit" @onclick="Confirm" disabled="@_submitting">
+            @if (_submitting) { <span>Ověřuji…</span> } else { <span>Ověřit e-mail</span> }
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private bool _submitting;
+    private bool _confirmed;
+    private bool _failed;
+
+    private async Task Confirm()
+    {
+        _submitting = true;
+        try
+        {
+            _confirmed = await AccountService.ConfirmEmailAsync(Token ?? "");
+            _failed = !_confirmed;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

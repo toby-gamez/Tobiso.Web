@@ -1,0 +1,244 @@
+@* Visual builder for [vennN] ... [/vennN] Venn diagram blocks (2 or 3 sets): sets and their elements
+   on the left, a live preview (rendered by the same Tobiso.Web.Shared.Graphs.VennRenderer the public
+   site uses) and the generated text on the right. Elements listed in several sets land in the
+   intersection automatically. Styles: .db-* and the preview mirror in wwwroot/css/admin.css. *@
+
+@using System.Text.RegularExpressions
+@using Tobiso.Web.Shared.Graphs
+@inject IJSRuntime JS
+
+@if (Visible)
+{
+    var text = _model.ToText();
+    var preview = VennRenderer.RenderPreview(text);
+
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-panel db-panel" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3><i data-lucide="circles-three"></i> Generátor Vennova diagramu</h3>
+                <button type="button" class="modal-close" aria-label="Zavřít" @onclick="Close"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="db-body">
+                <div class="db-form">
+                    <div class="db-templates">
+                        <span>Začít ze šablony:</span>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("blank"))">Dvě množiny</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("divisors"))">Dělitelé (průnik)</button>
+                        <button type="button" class="seg-btn" @onclick="@(() => LoadTemplate("three"))">Tři množiny</button>
+                    </div>
+
+                    <section class="db-card">
+                        <h6>Nadpis</h6>
+                        <input class="input" placeholder="např. Dělitelé čísel 12 a 18 (nepovinné)" @bind="_model.Title" @bind:event="oninput" />
+                    </section>
+
+                    @for (var i = 0; i < _model.Sets.Count; i++)
+                    {
+                        var index = i;
+                        var set = _model.Sets[i];
+                        <section class="db-card">
+                            <div class="db-row">
+                                <h6 class="db-card-title">Množina @((char)('A' + i))</h6>
+                                <input class="input db-grow" placeholder="Název (např. D12)" @bind="set.Name" @bind:event="oninput" />
+                                <select class="select db-auto" @bind="set.Color">
+                                    <option value="">Barva: výchozí</option>
+                                    @foreach (var (value, label) in BuilderColors.All)
+                                    {
+                                        <option value="@value">@label</option>
+                                    }
+                                </select>
+                                @if (_model.Sets.Count > 2 && index == _model.Sets.Count - 1)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" title="Odebrat množinu" @onclick="() => _model.Sets.RemoveAt(index)"><i data-lucide="trash-2"></i></button>
+                                }
+                            </div>
+                            <textarea class="input db-textarea" rows="3" placeholder="Prvky – každý na nový řádek (nebo oddělené středníkem)" @bind="set.Elements" @bind:event="oninput"></textarea>
+                        </section>
+                    }
+
+                    @if (_model.Sets.Count < 3)
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm db-self-start" @onclick="AddSet"><i data-lucide="plus"></i> Třetí množina</button>
+                    }
+                    <p class="db-hint">Prvek, který je v obou (všech) množinách, se sám umístí do průniku – stačí ho napsat ke každé množině.</p>
+
+                    <section class="db-card">
+                        <h6>Zobrazený pojem</h6>
+                        <p class="db-hint db-hint--top">Vyber, co se pod diagramem ukáže: příslušná část se zvýrazní a vysvětlí se (např. průnik A ∩ B). První pojem je zvýrazněný hned, čtenář ho může vypnout a zapnout.</p>
+                        @for (var i = 0; i < _model.Show.Count; i++)
+                        {
+                            var show = _model.Show[i];
+                            <div class="db-item">
+                                <div class="db-row">
+                                    <select class="select db-auto" @bind="show.Kind">
+                                        <option value="prunik">Průnik (∩)</option>
+                                        <option value="sjednoceni">Sjednocení (∪)</option>
+                                        <option value="rozdil">Rozdíl (A \ B)</option>
+                                        <option value="doplnek">Doplněk (A′)</option>
+                                    </select>
+                                    @if (show.Kind is "prunik" or "sjednoceni")
+                                    {
+                                        @for (var si = 0; si < _model.Sets.Count; si++)
+                                        {
+                                            var setIndex = si;
+                                            <label class="db-check db-check--inline">
+                                                <input type="checkbox" checked="@IsMember(show, setIndex)" @onchange="e => SetMember(show, setIndex, (bool)(e.Value ?? false))" /> @_model.SetToken(setIndex)
+                                            </label>
+                                        }
+                                    }
+                                    else if (show.Kind == "rozdil")
+                                    {
+                                        <select class="select db-auto" @bind="show.Left">
+                                            @for (var si = 0; si < _model.Sets.Count; si++) { <option value="@si">@_model.SetToken(si)</option> }
+                                        </select>
+                                        <span class="db-sep">\</span>
+                                        <select class="select db-auto" @bind="show.Right">
+                                            @for (var si = 0; si < _model.Sets.Count; si++) { <option value="@si">@_model.SetToken(si)</option> }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <select class="select db-auto" @bind="show.Left">
+                                            @for (var si = 0; si < _model.Sets.Count; si++) { <option value="@si">@_model.SetToken(si)</option> }
+                                        </select>
+                                        <span class="db-sep">′</span>
+                                    }
+                                    <div class="db-tools">
+                                        <button type="button" class="btn btn-ghost btn-sm" title="Odebrat" @onclick="() => _model.Show.Remove(show)"><i data-lucide="trash-2"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _model.Show.Add(new VennShowModel())"><i data-lucide="plus"></i> Pojem</button>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Hravý režim</h6>
+                        <label class="db-check"><input type="checkbox" @bind="_model.Playground" /> čtenář si může zkoušet další pojmy</label>
+                        @if (_model.Playground)
+                        {
+                            <div class="db-row db-row--top">
+                                <label class="db-check db-check--inline"><input type="checkbox" @bind="_model.PlayPrunik" /> průnik</label>
+                                <label class="db-check db-check--inline"><input type="checkbox" @bind="_model.PlaySjednoceni" /> sjednocení</label>
+                                <label class="db-check db-check--inline"><input type="checkbox" @bind="_model.PlayRozdil" /> rozdíl</label>
+                                <label class="db-check db-check--inline"><input type="checkbox" @bind="_model.PlayDoplnek" /> doplněk</label>
+                            </div>
+                        }
+                        <p class="db-hint">Bez hravého režimu čtenář vidí jen pojmy vybrané výše. V hravém režimu dostane tlačítka pro všechny pojmy vybraných druhů a zkouší, co který zvýrazní. Doplněk automaticky nakreslí rámeček univerza. (V náhledu níže se tlačítka neukazují.)</p>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Mimo množiny</h6>
+                        <textarea class="input db-textarea" rows="2" placeholder="Prvky mimo všechny množiny (nepovinné) – vykreslí se rámeček „univerzum“" @bind="_model.Outside" @bind:event="oninput"></textarea>
+                        <label class="db-check"><input type="checkbox" @bind="_model.Universe" /> vždy nakreslit rámeček univerza</label>
+                    </section>
+
+                    <section class="db-card">
+                        <h6>Poznámky pod diagramem</h6>
+                        @for (var n = 0; n < _model.Notes.Count; n++)
+                        {
+                            var noteIndex = n;
+                            var note = _model.Notes[n];
+                            <div class="db-row db-item-plain">
+                                <input class="input db-grow" placeholder="např. Průnik tvoří společní dělitelé." @bind="note.Text" @bind:event="oninput" />
+                                <button type="button" class="btn btn-ghost btn-sm" title="Odebrat" @onclick="() => _model.Notes.RemoveAt(noteIndex)"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _model.Notes.Add(new GraphNoteRow())"><i data-lucide="plus"></i> Poznámka</button>
+                    </section>
+                </div>
+
+                <div class="db-side">
+                    <h6>Náhled</h6>
+                    <div class="db-preview">
+                        @((MarkupString)preview)
+                    </div>
+
+                    <h6>Text diagramu</h6>
+                    <pre class="db-code">@text</pre>
+
+                    <div class="db-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => Copy(text)"><i data-lucide="copy"></i> @(_copied ? "Zkopírováno" : "Kopírovat text")</button>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => Insert(text)"><i data-lucide="text-cursor-input"></i> Vložit do článku</button>
+                    </div>
+                    <p class="db-hint">Diagram se vloží na místo kurzoru v editoru. Text pak můžeš dál upravovat ručně (viz Nápověda → Vennovy diagramy).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    /// <summary>Current article text - used to pick the next free [vennN] name.</summary>
+    [Parameter] public string? ExistingContent { get; set; }
+    [Parameter] public EventCallback<string> OnInsert { get; set; }
+
+    private VennBuilderModel _model = VennBuilderModel.Template("blank");
+    private bool _wasVisible;
+    private bool _copied;
+
+    protected override void OnParametersSet()
+    {
+        // Each time the dialog opens, name the block after the diagrams already in the article.
+        if (Visible && !_wasVisible)
+        {
+            _model.BlockName = NextBlockName(ExistingContent);
+            _copied = false;
+        }
+        _wasVisible = Visible;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private static string NextBlockName(string? content)
+    {
+        var used = Regex.Matches(content ?? "", @"\[venn(\d+)\]", RegexOptions.IgnoreCase)
+            .Select(m => int.TryParse(m.Groups[1].Value, out var n) ? n : 0);
+        return $"venn{used.DefaultIfEmpty(0).Max() + 1}";
+    }
+
+    private void LoadTemplate(string kind)
+    {
+        var name = _model.BlockName;
+        _model = VennBuilderModel.Template(kind);
+        _model.BlockName = name;
+    }
+
+    // Průnik / sjednocení: sets are ticked individually (at least two make a term).
+    private static bool IsMember(VennShowModel t, int i) => i switch { 0 => t.InA, 1 => t.InB, _ => t.InC };
+
+    private static void SetMember(VennShowModel t, int i, bool on)
+    {
+        if (i == 0) t.InA = on;
+        else if (i == 1) t.InB = on;
+        else t.InC = on;
+    }
+
+    private void AddSet() =>
+        _model.Sets.Add(new VennSetModel { Name = ((char)('A' + _model.Sets.Count)).ToString(), Color = "GREEN" });
+
+    private async Task Copy(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _copied = true;
+        }
+        catch { /* clipboard blocked - the text is still selectable in the box */ }
+    }
+
+    private async Task Insert(string text)
+    {
+        await OnInsert.InvokeAsync(text);
+        _model = VennBuilderModel.Template("blank");
+        await Close();
+    }
+
+    private Task Close() => VisibleChanged.InvokeAsync(false);
+}

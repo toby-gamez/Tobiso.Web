@@ -150,6 +150,8 @@ public class FeedbackService : IFeedbackService
         Platform    = f.Platform,
         Title       = f.Title,
         Description = f.Message,
+        Name        = f.Name,
+        Email       = f.Email,
         SubmittedAt = f.CreatedAt,
         Status      = f.Status,
         AdminNote   = f.AdminNote,

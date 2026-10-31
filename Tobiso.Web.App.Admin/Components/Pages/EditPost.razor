@@ -69,9 +69,16 @@ else
             <div class="editor-toolbar-row">
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showGraphBuilder = true"><i data-lucide="chart-spline"></i> Generátor grafu</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showFlowchartBuilder = true"><i data-lucide="workflow"></i> Vývojový diagram</button>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showVennBuilder = true"><i data-lucide="circles-three"></i> Vennův diagram</button>
                 <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
             </div>
             <GrammarCheckPanel Issues="grammarIssues" />
+        </div>
+        <div class="field">
+            <label>Související články</label>
+            <RelatedPostsPicker PostId="Id" Title="@post.Title" Content="@_editContent" @bind-Selected="_related" />
         </div>
         <fieldset class="choice-group @(_selectedGradeId.HasValue && !CanSaveVersion ? "choice-group-incomplete" : "")">
             <legend>Typ úpravy <span class="required-mark">*</span></legend>
@@ -302,12 +309,23 @@ else
 }
 
 <FormattingLegend @bind-Visible="_showLegend" />
+<GraphBuilder @bind-Visible="_showGraphBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
+<FlowchartBuilder @bind-Visible="_showFlowchartBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
+<VennBuilder @bind-Visible="_showVennBuilder" ExistingContent="@_editContent" OnInsert="InsertGraph" />
 
 @code {
     [Parameter]
     public int Id { get; set; }
 
     private bool _showLegend = false;
+    private bool _showGraphBuilder = false;
+    private bool _showFlowchartBuilder = false;
+    private bool _showVennBuilder = false;
+
+    private async Task InsertGraph(string block)
+    {
+        if (markdownEditor != null) await markdownEditor.InsertBlockAtCursor(block);
+    }
 
     private PostResponse? post;
     private List<CategoryResponse> categories = new();
@@ -341,6 +359,9 @@ else
     private bool isChecking = false;
     private string? _successMessage;
     private List<PostVersionResponse> _versions = new();
+    private List<RelatedLinkSelection> _related = new();
+    private List<RelatedPostResponse> _savedRelated = new();
+    private List<RelatedPostResponse> _savedReverse = new();
     private int? _editingGradeVersionId;
     private int _editingNewGradeId;
 
@@ -386,6 +407,7 @@ else
                 _editType = null;
                 _isCheckedChoice = null;
                 _versions = post.Versions?.ToList() ?? new List<PostVersionResponse>();
+                await LoadRelatedAsync();
             }
         }
         catch (Refit.ApiException rex) when (rex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -422,11 +444,18 @@ else
     {
         try
         {
-            var resp = await Http.PutAsJsonAsync($"/api/posts/{Id}/video", new Tobiso.Web.Shared.DTOs.PostVideoRequest
+            using var req = new HttpRequestMessage(HttpMethod.Put, $"/api/posts/{Id}/video")
             {
-                YoutubeUrl = _videoUrl, Timestamp = _videoTimestamp, Label = _videoLabel
-            });
-            _videoSaveMsg = resp.IsSuccessStatusCode ? "Video uloženo." : "Chyba při ukládání.";
+                Content = JsonContent.Create(new Tobiso.Web.Shared.DTOs.PostVideoRequest
+                {
+                    YoutubeUrl = _videoUrl, Timestamp = _videoTimestamp, Label = _videoLabel
+                })
+            };
+            var token = Tobiso.Web.App.Authentication.CredentialStore.Current?.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var resp = await Http.SendAsync(req);
+            _videoSaveMsg = resp.IsSuccessStatusCode ? "Video uloženo." : $"Chyba při ukládání ({(int)resp.StatusCode}).";
             StateHasChanged();
             await Task.Delay(3000);
             _videoSaveMsg = null;
@@ -538,6 +567,8 @@ else
                 _editLastEdit = lastEdit;
             }
 
+            await SyncRelatedAsync();
+
             errorMessage = null;
             _successMessage = "Změny uloženy.";
             // Force a fresh, explicit choice for the next save too.
@@ -549,6 +580,61 @@ else
         {
             errorMessage = ex.Message;
         }
+    }
+
+    private async Task LoadRelatedAsync()
+    {
+        var all = (await Api.GetAllRelatedPosts())?.ToList() ?? new List<RelatedPostResponse>();
+        _savedRelated = all.Where(r => r.PostId == Id).ToList();
+        _savedReverse = all.Where(r => r.RelatedPostId == Id).ToList();
+        _related = _savedRelated.Select(r => new RelatedLinkSelection
+        {
+            PostId = r.RelatedPostId,
+            Text = r.Text,
+            Bidirectional = _savedReverse.Any(x => x.PostId == r.RelatedPostId)
+        }).ToList();
+    }
+
+    // Applies the picker's selection: new links (optionally with reverse), removed links, and changed text / direction.
+    private async Task SyncRelatedAsync()
+    {
+        foreach (var rel in _savedRelated.Where(r => _related.All(x => x.PostId != r.RelatedPostId)))
+            await Api.DeleteRelatedPost(rel.Id);
+
+        foreach (var sel in _related)
+        {
+            var fwd = _savedRelated.FirstOrDefault(r => r.RelatedPostId == sel.PostId);
+            var rev = _savedReverse.FirstOrDefault(r => r.PostId == sel.PostId);
+
+            if (fwd == null)
+            {
+                if (rev != null && sel.Bidirectional)
+                {
+                    // reverse already exists - only add the forward half
+                    await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text, CreateReverse = false });
+                    await Api.UpdateRelatedPost(rev.Id, new UpdateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text });
+                }
+                else
+                {
+                    await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text, CreateReverse = sel.Bidirectional && rev == null });
+                    if (rev != null && !sel.Bidirectional)
+                        await Api.DeleteRelatedPost(rev.Id);
+                }
+                continue;
+            }
+
+            if (fwd.Text != sel.Text)
+                await Api.UpdateRelatedPost(fwd.Id, new UpdateRelatedPostRequest { PostId = Id, RelatedPostId = sel.PostId, Text = sel.Text });
+
+            if (sel.Bidirectional && rev == null)
+                await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text, CreateReverse = false });
+            else if (!sel.Bidirectional && rev != null)
+                await Api.DeleteRelatedPost(rev.Id);
+            else if (rev != null && rev.Text != sel.Text)
+                await Api.UpdateRelatedPost(rev.Id, new UpdateRelatedPostRequest { PostId = sel.PostId, RelatedPostId = Id, Text = sel.Text });
+        }
+
+        await LoadRelatedAsync();
     }
 
     /// <summary>

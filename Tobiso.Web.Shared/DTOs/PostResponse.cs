@@ -12,5 +12,6 @@ public class PostResponse
     public string Title { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
+    public DateTime CreatedAt { get; set; }
     public List<PostVersionResponse> Versions { get; set; } = new();
 }

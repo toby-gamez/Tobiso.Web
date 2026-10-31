@@ -13,27 +13,35 @@
 .login-brand {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
 }
 
-.brand-logo-sm {
-    width: 34px;
+.brand-logo-img {
     height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-accent-600);
-    color: var(--color-bg);
-    border-radius: 999px;
-    font-family: var(--font-heading);
-    font-size: 17px;
-    font-weight: 700;
+    width: auto;
 }
 
-.brand-name-sm {
-    font-family: var(--font-heading);
-    font-size: 22px;
-    font-weight: 700;
+.logo-dark {
+    display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .logo-light {
+        display: none;
+    }
+
+    :root:not([data-theme="light"]) .logo-dark {
+        display: block;
+    }
+}
+
+[data-theme="dark"] .logo-light {
+    display: none;
+}
+
+[data-theme="dark"] .logo-dark {
+    display: block;
 }
 
 .login-title {
@@ -90,4 +98,29 @@
 
 .login-register a {
     color: var(--color-accent-700);
+}
+
+.consent {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-neutral-700);
+    cursor: pointer;
+}
+
+.consent input {
+    margin-top: 3px;
+    flex-shrink: 0;
+    accent-color: var(--color-accent-600);
+}
+
+.consent a {
+    color: var(--color-accent-700);
+}
+
+.login-google.is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
 }

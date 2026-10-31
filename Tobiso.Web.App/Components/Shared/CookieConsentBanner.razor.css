@@ -1,11 +1,4 @@
 .cookie-banner {
-    position: fixed;
-    left: var(--space-4);
-    right: var(--space-4);
-    bottom: var(--space-4);
-    z-index: 90;
-    margin-left: auto;
-    max-width: 480px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -40,10 +33,6 @@
 
 @media (max-width: 600px) {
     .cookie-banner {
-        left: var(--space-3);
-        right: var(--space-3);
-        bottom: var(--space-3);
-        max-width: none;
         padding: var(--space-4);
     }
 

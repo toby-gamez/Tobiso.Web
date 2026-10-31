@@ -31,6 +31,8 @@ public class FeedbackItemResponse
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string? SubmittedByUserId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
     public DateTime SubmittedAt { get; set; }
     public FeedbackStatus Status { get; set; }
     public string? AdminNote { get; set; }

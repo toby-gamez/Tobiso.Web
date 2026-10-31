@@ -18,15 +18,16 @@ public interface ICategoryService
 
 public class CategoryService : ICategoryService
 {
-    private readonly TobisoDbContext _context;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
 
-    public CategoryService(TobisoDbContext context)
+    public CategoryService(IDbContextFactory<TobisoDbContext> dbFactory)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
     }
 
     public async Task<List<CategoryResponse>> GetAll()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         return await _context.Categories
             .Select(c => new CategoryResponse
             {
@@ -39,6 +40,7 @@ public class CategoryService : ICategoryService
 
     public async Task<List<CategoryTreeResponse>> GetTree()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         // Only select the minimal fields needed for tree construction to avoid over-fetching
         var categories = await _context.Categories
             .Select(c => new { c.Id, c.Name, c.ParentId })
@@ -59,6 +61,7 @@ public class CategoryService : ICategoryService
 
     public async Task<List<CategoryResponse>> GetAncestors(int categoryId)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var result = new List<CategoryResponse>();
         if (categoryId <= 0) return result;
 
@@ -82,6 +85,7 @@ public class CategoryService : ICategoryService
 
     public async Task<List<int>> GetDescendantIds(int categoryId)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var categories = await _context.Categories
             .AsNoTracking()
             .Select(c => new { c.Id, c.ParentId })
@@ -105,6 +109,7 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryResponse> Create(CategoryResponse category)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         if (category.ParentId.HasValue)
         {
             if (category.ParentId.Value == category.Id)
@@ -125,6 +130,7 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryResponse> Update(int id, CategoryResponse category)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var entity = await _context.Categories.FindAsync(id);
         if (entity == null) throw new KeyNotFoundException("Category not found");
         if (category.ParentId.HasValue)
@@ -143,6 +149,7 @@ public class CategoryService : ICategoryService
 
     public async Task Delete(int id)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var entity = await _context.Categories.FindAsync(id);
         if (entity == null) throw new KeyNotFoundException("Category not found");
         _context.Categories.Remove(entity);

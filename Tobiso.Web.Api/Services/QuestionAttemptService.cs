@@ -15,23 +15,24 @@ public interface IQuestionAttemptService
 
 public class QuestionAttemptService : IQuestionAttemptService
 {
-    private readonly TobisoDbContext _db;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
     private readonly IQuestionService _questionService;
 
-    public QuestionAttemptService(TobisoDbContext db, IQuestionService questionService)
+    public QuestionAttemptService(IDbContextFactory<TobisoDbContext> dbFactory, IQuestionService questionService)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _questionService = questionService;
     }
 
     public async Task RecordAttemptAsync(int userId, int questionId, bool isCorrect)
     {
-        var record = await _db.QuestionAttempts
+        await using var db = _dbFactory.CreateDbContext();
+        var record = await db.QuestionAttempts
             .FirstOrDefaultAsync(a => a.UserId == userId && a.QuestionId == questionId);
 
         if (record == null)
         {
-            _db.QuestionAttempts.Add(new QuestionAttempt
+            db.QuestionAttempts.Add(new QuestionAttempt
             {
                 UserId = userId,
                 QuestionId = questionId,
@@ -49,13 +50,14 @@ public class QuestionAttemptService : IQuestionAttemptService
             record.LastAttemptedAt = DateTime.UtcNow;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task<PracticeStatsDto> GetStatsAsync(int userId)
     {
-        var totalQuestions = await _db.Questions.CountAsync();
-        var attempts = await _db.QuestionAttempts
+        await using var db = _dbFactory.CreateDbContext();
+        var totalQuestions = await db.Questions.CountAsync();
+        var attempts = await db.QuestionAttempts
             .Where(a => a.UserId == userId)
             .ToListAsync();
 
@@ -73,7 +75,8 @@ public class QuestionAttemptService : IQuestionAttemptService
 
     public async Task<List<int>> GetWeakCategoryIds(int userId, int take = 3)
     {
-        var rows = await _db.QuestionAttempts
+        await using var db = _dbFactory.CreateDbContext();
+        var rows = await db.QuestionAttempts
             .Where(a => a.UserId == userId)
             .Select(a => new { a.TimesCorrect, a.TimesWrong, CategoryId = a.Question.Post!.CategoryId })
             .Where(x => x.CategoryId != null)
@@ -96,7 +99,8 @@ public class QuestionAttemptService : IQuestionAttemptService
 
     public async Task<List<QuestionResponse>> GetSessionAsync(int? userId, List<int>? categoryIds, int count, bool preferUnmastered, bool requireFlashcardEligible = false)
     {
-        var query = _db.Questions.AsNoTracking().AsQueryable();
+        await using var db = _dbFactory.CreateDbContext();
+        var query = db.Questions.AsNoTracking().AsQueryable();
         if (categoryIds is { Count: > 0 })
         {
             query = query.Where(q => q.Post != null && q.Post.CategoryId != null
@@ -117,7 +121,7 @@ public class QuestionAttemptService : IQuestionAttemptService
 
         if (userId.HasValue && preferUnmastered)
         {
-            var attempts = await _db.QuestionAttempts
+            var attempts = await db.QuestionAttempts
                 .Where(a => a.UserId == userId.Value && candidateIds.Contains(a.QuestionId))
                 .ToDictionaryAsync(a => a.QuestionId);
 

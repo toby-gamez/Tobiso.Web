@@ -1,0 +1,80 @@
+.android-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.android-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+}
+
+.android-hero-text {
+    flex: 1 1 360px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.android-hero-text h1 { font-size: 42px; margin: 0; }
+.android-hero-text p { margin: 0; font-size: 17px; color: var(--color-neutral-600); }
+
+.android-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.android-download { padding: var(--space-3) var(--space-6); font-size: 16px; }
+
+.android-hero-text .android-note { font-size: 14px; }
+
+.android-app-icon {
+    flex: 0 0 auto;
+    width: 140px;
+    height: 140px;
+    border-radius: 22%;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+}
+
+.android-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-4);
+}
+
+.android-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+}
+
+.android-card h3 { margin: var(--space-2) 0 0; font-size: 20px; }
+.android-card p { margin: 0; font-size: 15px; color: var(--color-neutral-600); }
+
+.android-card-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+}
+
+.android-install {
+    padding: var(--space-6);
+    max-width: 720px;
+}
+
+.android-install h2 { margin: 0 0 var(--space-3); font-size: 26px; }
+.android-install ol { margin: 0 0 var(--space-3); padding-left: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+.android-install p { margin: 0; font-size: 14px; color: var(--color-neutral-600); }
+
+@media (max-width: 600px) {
+    .android-hero-text h1 { font-size: 32px; }
+    .android-app-icon { order: -1; width: 96px; height: 96px; }
+    .android-hero { gap: var(--space-4); }
+}

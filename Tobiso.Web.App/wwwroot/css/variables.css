@@ -14,6 +14,11 @@
     --color-on-accent: #fff8f3;
     --color-on-accent-2: #f4f8ec;
 
+    /* Ice blue: streak-freeze days (the one colour outside the terracotta/sage ramps) */
+    --color-ice-bg: #d6e8f2;
+    --color-ice-fg: #2f6683;
+
+
     /* Terracotta accent ramp */
     --color-accent-100: #fdf3ec;
     --color-accent-200: #fde3ca;
@@ -78,6 +83,8 @@
 /* Dark mode - system preference */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+        --color-ice-bg: #243845;
+        --color-ice-fg: #9bcbe4;
         --color-bg: #1f1c18;
         --color-surface: #2a2520;
         --color-text: #f0e8dc;
@@ -117,6 +124,8 @@
 
 /* Dark mode - explicit toggle */
 [data-theme="dark"] {
+    --color-ice-bg: #243845;
+    --color-ice-fg: #9bcbe4;
     --color-bg: #1f1c18;
     --color-surface: #2a2520;
     --color-text: #f0e8dc;
@@ -155,6 +164,8 @@
 
 /* Light mode - explicit toggle */
 [data-theme="light"] {
+    --color-ice-bg: #d6e8f2;
+    --color-ice-fg: #2f6683;
     --color-bg: #f5ead8;
     --color-surface: #ebddc5;
     --color-text: #201e1d;

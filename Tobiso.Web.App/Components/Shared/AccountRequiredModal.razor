@@ -1,25 +1,21 @@
 @implements IDisposable
 @using Tobiso.Web.App.Services
-@inject AccountRequiredModalService ModalService
+@inject AccountRequiredModalService Service
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 @if (_open)
 {
     <div class="account-backdrop" @onclick="Close">
-        <div class="account-dialog" @onclick:stopPropagation="true">
+        <div class="account-dialog" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
             <button class="account-close" @onclick="Close" aria-label="Zavřít">
                 <i data-lucide="x"></i>
             </button>
-            <div class="account-icon">
-                <i data-lucide="lock"></i>
-            </div>
-            <h3 class="account-title">Vyžaduje přihlášení</h3>
-            <p class="account-text">@(_message ?? "Pro použití této funkce se musíš přihlásit.")</p>
+            <h3 class="account-title">Je potřeba účet</h3>
+            <p class="account-message">@_message</p>
             <div class="account-actions">
-                <a class="pill pill-on" href="/prihlaseni">
-                    <i data-lucide="log-in"></i> Přihlásit se
-                </a>
-                <a class="pill" href="/registrace">Zaregistrovat se</a>
+                <button class="pill pill-on" @onclick="GoToLogin">Přihlásit se</button>
+                <button class="pill" @onclick="Close">Zavřít</button>
             </div>
         </div>
     </div>
@@ -27,26 +23,32 @@
 
 @code {
     private bool _open;
-    private string? _message;
+    private string _message = "";
 
-    protected override void OnInitialized()
-    {
-        ModalService.OnShowRequested += HandleShow;
-    }
+    protected override void OnInitialized() => Service.OnShowRequested += HandleShow;
 
-    private void HandleShow(string? message)
+    private void HandleShow(string message)
     {
         _message = message;
         _open = true;
         InvokeAsync(StateHasChanged);
     }
 
-    private void Close() => _open = false;
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_open) await JS.InvokeVoidAsync("initLucide");
+        if (_open)
+        {
+            await JS.InvokeVoidAsync("initLucide");
+        }
     }
 
-    public void Dispose() => ModalService.OnShowRequested -= HandleShow;
+    private void Close() => _open = false;
+
+    private void GoToLogin()
+    {
+        _open = false;
+        Nav.NavigateTo("/prihlaseni");
+    }
+
+    public void Dispose() => Service.OnShowRequested -= HandleShow;
 }

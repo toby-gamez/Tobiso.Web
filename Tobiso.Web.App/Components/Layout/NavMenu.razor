@@ -3,14 +3,13 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthState
-@inject StudentCredentialStore CredentialStore
 @inject IPreferenceService PreferenceService
 
 <div class="mobile-topbar">
     <a href="/" class="mobile-brand" @onclick="CloseMobileMenu">
         <img src="/images/normal-logo.png" alt="Tobiso" class="brand-logo-img logo-light" />
         <img src="/images/white-logo.png" alt="Tobiso" class="brand-logo-img logo-dark" />
-        <span class="brand-version">5.1</span>
+        <span class="brand-version">5.6</span>
     </a>
     <div class="mobile-topbar-actions">
         <button class="icon-btn" @onclick="OpenSearch" aria-label="Hledat">
@@ -26,7 +25,7 @@
     <a href="/" class="brand-link">
         <img src="/images/normal-logo.png" alt="Tobiso" class="brand-logo-img logo-light" />
         <img src="/images/white-logo.png" alt="Tobiso" class="brand-logo-img logo-dark" />
-        <span class="brand-version brand-version-right">5.0</span>
+        <span class="brand-version brand-version-right">5.6</span>
     </a>
 
     <button class="rail-item search-btn" @onclick="OpenSearch">
@@ -40,6 +39,7 @@
         <a href="/latest" class="rail-item @(IsActive("/latest") ? "active" : "")"><i data-lucide="clock"></i> Nejnovější</a>
         <a href="/categories" class="rail-item @(IsActive("/categories") ? "active" : "")"><i data-lucide="folder-tree"></i> Předměty</a>
         <a href="/practice" class="rail-item @(IsActive("/practice") ? "active" : "")"><i data-lucide="dumbbell"></i> Procvičování</a>
+        <!-- <a href="/kronika" class="rail-item @(IsActive("/kronika") ? "active" : "")"><i data-lucide="landmark"></i> Kronika</a> -->
         <a href="/chat" class="rail-item @(IsActive("/chat") ? "active" : "")"><i data-lucide="sparkles"></i> AI chaty</a>
         <a href="/zalozky" class="rail-item @(IsActive("/zalozky") ? "active" : "")"><i data-lucide="bookmark"></i> Záložky</a>
         <a href="/calendar" class="rail-item @(IsActive("/calendar") ? "active" : "")"><i data-lucide="calendar-days"></i> Kalendář</a>
@@ -88,13 +88,24 @@
         @if (_userName != null)
         {
             <a href="/profil" class="rail-item" style="margin-top:var(--space-2); font-size:14px">
-                <span class="avatar-chip">@_initials</span>
+                <span class="avatar-chip">
+                    @if (_avatarUrl != null)
+                    {
+                        <img src="@_avatarUrl" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />
+                    }
+                    else
+                    {
+                        @_initials
+                    }
+                </span>
                 @_userName
             </a>
         }
 
+        <a href="/android" class="rail-item @(IsActive("/android") ? "active" : "")" style="font-size:14px"><i data-lucide="smartphone"></i> Android aplikace</a>
         <a href="/feedback" class="rail-item" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
         <a href="/post/134" class="rail-item" style="font-size:14px"><i data-lucide="history"></i> Deník změn</a>
+        <a href="/pravni-dokumenty" class="rail-item" style="font-size:14px"><i data-lucide="scale"></i> Právní dokumenty</a>
 
         @if (_userName != null)
         {
@@ -127,6 +138,7 @@
             <a href="/latest" class="sheet-tile @(IsActive("/latest") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="clock"></i><span>Nejnovější</span></a>
             <a href="/categories" class="sheet-tile @(IsActive("/categories") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="folder-tree"></i><span>Předměty</span></a>
             <a href="/practice" class="sheet-tile @(IsActive("/practice") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="dumbbell"></i><span>Procvičování</span></a>
+            <!-- <a href="/kronika" class="sheet-tile @(IsActive("/kronika") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="landmark"></i><span>Kronika</span></a> -->
             <a href="/chat" class="sheet-tile @(IsActive("/chat") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="sparkles"></i><span>AI chaty</span></a>
             <a href="/zalozky" class="sheet-tile @(IsActive("/zalozky") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="bookmark"></i><span>Záložky</span></a>
             <a href="/calendar" class="sheet-tile @(IsActive("/calendar") ? "active" : "")" @onclick="CloseMobileMenu"><i data-lucide="calendar-days"></i><span>Kalendář</span></a>
@@ -179,13 +191,24 @@
             @if (_userName != null)
             {
                 <a href="/profil" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px">
-                    <span class="avatar-chip">@_initials</span>
+                    <span class="avatar-chip">
+                    @if (_avatarUrl != null)
+                    {
+                        <img src="@_avatarUrl" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />
+                    }
+                    else
+                    {
+                        @_initials
+                    }
+                </span>
                     @_userName
                 </a>
             }
 
+            <a href="/android" class="rail-item @(IsActive("/android") ? "active" : "")" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="smartphone"></i> Android aplikace</a>
             <a href="/feedback" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
             <a href="/post/134" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="history"></i> Deník změn</a>
+            <a href="/pravni-dokumenty" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="scale"></i> Právní dokumenty</a>
 
             @if (_userName != null)
             {
@@ -209,6 +232,7 @@
     private bool _darkMode;
     private string? _userName;
     private string _initials = "";
+    private string? _avatarUrl;
     private bool _disposed;
 
     protected override async Task OnInitializedAsync()
@@ -245,6 +269,8 @@
         if (user.Identity?.IsAuthenticated == true)
         {
             _userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            var avatar = user.FindFirst("avatar")?.Value;
+            _avatarUrl = avatar != null && avatar.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? avatar : null;
             _initials = !string.IsNullOrEmpty(_userName)
                 ? string.Concat(_userName.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString().ToUpper() : ""))
                 : "";
@@ -253,6 +279,7 @@
         {
             _userName = null;
             _initials = "";
+            _avatarUrl = null;
         }
     }
 
@@ -285,7 +312,8 @@
             {
                 await JS.InvokeVoidAsync("initLucide");
                 var saved = await JS.InvokeAsync<string>("getTheme");
-                _darkMode = saved == "dark";
+                _darkMode = saved == "dark" ||
+                            (saved != "light" && await JS.InvokeAsync<bool>("isSystemDark"));
                 StateHasChanged();
             }
             else
@@ -309,7 +337,8 @@
 
     private async Task Logout()
     {
-        await CredentialStore.ClearAsync(JS);
+        // The session cookie is HttpOnly, so only the server can clear it.
+        await AuthApi.PostAsync(JS, "/api/auth/logout");
         Nav.NavigateTo("/", forceLoad: true);
     }
 

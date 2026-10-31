@@ -1,0 +1,158 @@
+@page "/rada"
+@implements IDisposable
+@inject IUserProgressService UserProgressService
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+@using System.Globalization
+
+<PageTitle>Řada - Tobiso</PageTitle>
+
+<div class="streak-page">
+    @if (!_isAuth)
+    {
+        <div class="soft streak-empty">
+            <h1>Řada</h1>
+            <p>Pro zobrazení řady se <a href="/prihlaseni">přihlas</a>.</p>
+        </div>
+    }
+    else if (_stats == null)
+    {
+        <p style="color:var(--color-neutral-600)">Načítám…</p>
+    }
+    else
+    {
+        <a class="streak-back" href="/profil"><i data-lucide="arrow-left"></i> Profil</a>
+
+        <div class="streak-hero sage-tint">
+            <i data-lucide="flame" class="streak-hero-flame @(_stats.StreakDays > 0 ? "on" : "")"></i>
+            <div>
+                <div class="streak-hero-title">Aktuální řada @CzechPlural.Dny(_stats.StreakDays)</div>
+                <div class="streak-hero-sub">Nejdelší řada: @CzechPlural.Dny(_stats.MaxStreak)</div>
+                @if (_stats.StreakDays > 0 && !_stats.TodayActive)
+                {
+                    <div class="streak-hero-sub">Dnes ještě nejsi aktivní – řada pokračuje, když se dnes ozveš.</div>
+                }
+            </div>
+        </div>
+
+        <div class="soft streak-card">
+            <h2>Tento týden</h2>
+            <div class="streak-week">
+                @foreach (var d in WeekDays())
+                {
+                    <div class="streak-week-day @DayClass(d)">
+                        <span class="streak-week-name">@DayName(d)</span>
+                        <span class="streak-dot">
+                            @if (IsFreeze(d)) { <i data-lucide="snowflake"></i> }
+                            else if (IsActive(d)) { <i data-lucide="check"></i> }
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="soft streak-card">
+            <div class="streak-month-head">
+                <button class="pill streak-nav" aria-label="Předchozí měsíc" @onclick="() => ShiftMonth(-1)"><i data-lucide="chevron-left"></i></button>
+                <h2>@MonthTitle</h2>
+                <button class="pill streak-nav" aria-label="Další měsíc" disabled="@(_month >= CurrentMonth)" @onclick="() => ShiftMonth(1)"><i data-lucide="chevron-right"></i></button>
+            </div>
+            <div class="streak-grid">
+                @foreach (var n in new[] { "Po", "Út", "St", "Čt", "Pá", "So", "Ne" })
+                {
+                    <span class="streak-grid-head">@n</span>
+                }
+                @for (var i = 0; i < LeadingBlanks; i++)
+                {
+                    <span></span>
+                }
+                @for (var day = 1; day <= DateTime.DaysInMonth(_month.Year, _month.Month); day++)
+                {
+                    var d = new DateOnly(_month.Year, _month.Month, day);
+                    <span class="streak-cell @DayClass(d)">
+                        @if (IsFreeze(d)) { <i data-lucide="snowflake"></i> }
+                        else { @day }
+                    </span>
+                }
+            </div>
+            <div class="streak-legend">
+                <span><span class="streak-key active"></span> Aktivní den</span>
+                <span><span class="streak-key freeze"></span> Zmrazený den</span>
+            </div>
+        </div>
+
+        <div class="soft streak-card streak-freeze">
+            <div class="streak-freeze-head">
+                <i data-lucide="snowflake"></i>
+                <div>
+                    <h2>Zmrazení řady</h2>
+                    <p>Máš @_stats.Freezes z 3 zmrazení. Zmrazení ochrání řadu, když jeden den vynecháš.</p>
+                </div>
+            </div>
+            <button class="pill" disabled aria-disabled="true">Použít zmrazení</button>
+            <p class="streak-freeze-note">Zmrazení řady jde použít jen v aplikaci – nainstaluj si aplikaci Tobiso.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isAuth;
+    private bool _disposed;
+    private UserStatsDto? _stats;
+    private HashSet<string> _active = [];
+    private HashSet<string> _freeze = [];
+    private DateOnly _month;
+    private DateOnly _today;
+
+    private static readonly CultureInfo Cs = new("cs-CZ");
+
+    private DateOnly CurrentMonth => new(_today.Year, _today.Month, 1);
+    private string MonthTitle => _month.ToString("MMMM yyyy", Cs);
+    // Monday-first grid.
+    private int LeadingBlanks => ((int)_month.DayOfWeek + 6) % 7;
+
+    private static string Key(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private bool IsFreeze(DateOnly d) => _freeze.Contains(Key(d));
+    private bool IsActive(DateOnly d) => _active.Contains(Key(d));
+    private static string DayName(DateOnly d) => Cs.DateTimeFormat.GetAbbreviatedDayName(d.DayOfWeek);
+
+    private string DayClass(DateOnly d) =>
+        (IsFreeze(d) ? "freeze" : IsActive(d) ? "active" : "") + (d == _today ? " today" : "");
+
+    private IEnumerable<DateOnly> WeekDays()
+    {
+        var monday = _today.AddDays(-(((int)_today.DayOfWeek + 6) % 7));
+        return Enumerable.Range(0, 7).Select(monday.AddDays);
+    }
+
+    private void ShiftMonth(int delta)
+    {
+        var next = _month.AddMonths(delta);
+        if (next > CurrentMonth) return;
+        _month = next;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            _isAuth = auth.User.Identity?.IsAuthenticated == true;
+            if (!_isAuth || !int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)) return;
+
+            _today = StreakService.Today();
+            _month = CurrentMonth;
+            _stats = await UserProgressService.GetStatsAsync(userId);
+            _active = [.. _stats.Days ?? []];
+            _freeze = [.. _stats.FreezeDays ?? []];
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    public void Dispose() => _disposed = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+}

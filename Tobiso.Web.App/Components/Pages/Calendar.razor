@@ -1,8 +1,13 @@
 @page "/calendar"
 @page "/kalendar"
 @using System.Threading
+@using Tobiso.Web.Domain.Entities
 @implements IDisposable
 @inject IEventService EventService
+@inject IClassService ClassService
+@inject IPostService PostService
+@inject ICategoryService CategoryService
+@inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 
 <PageTitle>Kalendář - Tobiso</PageTitle>
@@ -11,13 +16,126 @@
     <div class="calendar-header">
         <div>
             <h1>@MonthLabel</h1>
-            <p>Kalendář různých událostí, kdy se nechodí do školy.</p>
+            <p>@(_viewer?.ClassId != null
+                ? "Kalendář volna, testů a událostí tvé třídy."
+                : "Kalendář různých událostí, kdy se nechodí do školy.")</p>
         </div>
         <div class="calendar-nav">
+            @if (_viewer != null)
+            {
+                <button class="pill pill-on" @onclick="() => OpenCreate(_selectedDay ?? DateTime.Today)"><i data-lucide="plus"></i> Přidat</button>
+            }
             <button class="pill calendar-nav-btn" @onclick="PrevMonth" aria-label="Předchozí měsíc"><i data-lucide="chevron-left"></i></button>
             <button class="pill calendar-nav-btn" @onclick="NextMonth" aria-label="Další měsíc"><i data-lucide="chevron-right"></i></button>
         </div>
     </div>
+
+    @if (_form != null)
+    {
+        <div class="calendar-backdrop" @onclick="CloseForm">
+        <div class="calendar-form" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+            <button class="calendar-modal-close" @onclick="CloseForm" aria-label="Zavřít"><i data-lucide="x"></i></button>
+            <h2>@(_form.EditId == null ? "Nová událost" : "Upravit událost")</h2>
+
+            <div class="field">
+                <label for="ev-title">Název</label>
+                <input id="ev-title" class="input" maxlength="200" placeholder="Např. Test z matematiky" @bind="_form.Title" />
+            </div>
+
+            <div class="field">
+                <label>Typ</label>
+                <div class="calendar-chips">
+                    @foreach (var t in StudentTypes)
+                    {
+                        <button class="chip @(_form.Type == t ? "chip-sel" : "")" @onclick="() => _form.Type = t">@TypeLabel(t)</button>
+                    }
+                </div>
+            </div>
+
+            @if (_form.Type == EventType.Test)
+            {
+                <div class="field">
+                    <label for="ev-theme">Témata (články nebo kategorie)</label>
+                    <input id="ev-theme" class="input" placeholder="Hledat článek nebo kategorii…" value="@_themeSearch"
+                           @oninput="OnThemeSearch" autocomplete="off" />
+                    @if (_themeResults.Count > 0)
+                    {
+                        <div class="calendar-chips">
+                            @foreach (var r in _themeResults)
+                            {
+                                <button type="button" class="chip" @onclick="() => AddTheme(r)">
+                                    <i data-lucide="@(r.PostId != null ? "file-text" : "folder")"></i> @r.Name
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (_form.Themes.Count > 0)
+                    {
+                        <div class="calendar-chips">
+                            @foreach (var t in _form.Themes)
+                            {
+                                <button type="button" class="chip chip-sel" aria-label="Odebrat @t.Name" @onclick="() => _form.Themes.Remove(t)">
+                                    <i data-lucide="@(t.PostId != null ? "file-text" : "folder")"></i> @t.Name <i data-lucide="x"></i>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="calendar-form-row">
+                <div class="field">
+                    <label for="ev-start">Od</label>
+                    <input id="ev-start" type="date" class="input" @bind="_form.Start" />
+                </div>
+                <div class="field">
+                    <label for="ev-end">Do (nepovinné)</label>
+                    <input id="ev-end" type="date" class="input" @bind="_form.End" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="ev-scope">Kdo ji uvidí</label>
+                <select id="ev-scope" class="input" @bind="_form.Target">
+                    <option value="@PersonalTarget">Jen já</option>
+                    @if (_myClass?.Status == ClassMembershipStatus.Approved)
+                    {
+                        <option value="@ClassTarget">Celá třída @_myClass.ClassName</option>
+                        @foreach (var g in _myClass.Groups)
+                        {
+                            <option value="@g.Id">Skupina @g.Name</option>
+                        }
+                    }
+                </select>
+                @if (_form.Target != PersonalTarget)
+                {
+                    <span class="calendar-hint">Spolužáci uvidí, že událost přidáváš ty.</span>
+                }
+                else if (_myClass?.Status != ClassMembershipStatus.Approved)
+                {
+                    <span class="calendar-hint">Události pro třídu můžeš přidávat, až tě správce schválí ve <a href="/profil">třídě</a>.</span>
+                }
+            </div>
+
+            <div class="field">
+                <label for="ev-desc">Poznámka (nepovinné)</label>
+                <textarea id="ev-desc" class="input" rows="2" maxlength="1000" @bind="_form.Description"></textarea>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <p class="calendar-error">@_formError</p>
+            }
+
+            <div class="calendar-form-actions">
+                <button class="pill pill-on" disabled="@(_saving || string.IsNullOrWhiteSpace(_form.Title))" @onclick="SaveForm">
+                    @(_saving ? "Ukládám…" : "Uložit")
+                </button>
+                <button class="pill" disabled="@_saving" @onclick="CloseForm">Zrušit</button>
+            </div>
+        </div>
+        </div>
+    }
 
     <div class="calendar-grid-wrap">
         <div class="calendar-weekdays">
@@ -30,24 +148,60 @@
             @foreach (var cell in Cells)
             {
                 var dayEvents = EventsOn(cell.Date);
-                var primary = dayEvents.FirstOrDefault();
+                // Only days off paint the whole cell; tests and other events are listed in it.
+                var primary = dayEvents.FirstOrDefault(e => e.Type == EventType.DayOff);
                 var isWeekend = cell.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                 var cellClass = !cell.InMonth ? "calendar-cell-muted" : primary is null && isWeekend ? "calendar-cell-weekend" : "";
-                <div class="calendar-cell @cellClass @(cell.Date.Date == DateTime.Today ? "calendar-cell-today" : "")"
-                     style="@(primary is not null ? $"background:color-mix(in srgb, {primary.Color} 22%, var(--color-neutral-100))" : "")">
+                <button type="button"
+                        class="calendar-cell @cellClass @(cell.Date.Date == DateTime.Today ? "calendar-cell-today" : "") @(cell.Date.Date == _selectedDay ? "calendar-cell-selected" : "")"
+                        style="@(primary is not null ? $"background:color-mix(in srgb, {primary.Color} 22%, var(--color-neutral-100))" : "")"
+                        aria-label="@cell.Date.ToString("d. MMMM", CzechCulture)"
+                        @onclick="() => SelectDay(cell.Date)">
                     <span class="calendar-daynum" style="@(primary is not null ? $"color:color-mix(in srgb, {primary.Color} 65%, black)" : "")">@cell.Date.Day</span>
-                    @foreach (var e in dayEvents.Take(2))
+                    <span class="calendar-events">
+                        @foreach (var e in dayEvents.Take(2))
+                        {
+                            <span class="calendar-event @(e.Type == EventType.DayOff ? "calendar-event-dayoff" : "")" style="color:color-mix(in srgb, @e.Color 65%, black)" title="@e.Title">
+                                @if (e.Type != EventType.DayOff)
+                                {
+                                    <span class="calendar-dot" style="background:@e.Color"></span>
+                                }
+                                <span class="calendar-event-title">@e.Title</span>
+                            </span>
+                        }
+                        @if (dayEvents.Count > 2)
+                        {
+                            <span class="calendar-more">+@(dayEvents.Count - 2)</span>
+                        }
+                    </span>
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (_selectedDay is DateTime day)
+    {
+        var selectedEvents = EventsOn(day);
+        <div>
+            <div class="calendar-section-head">
+                <h2>@DayLabel(day)</h2>
+                <button class="pill calendar-nav-btn" aria-label="Zavřít den" @onclick="() => _selectedDay = null"><i data-lucide="x"></i></button>
+            </div>
+            @if (selectedEvents.Count == 0)
+            {
+                <p style="color:var(--color-neutral-600)">V tento den nic není.</p>
+            }
+            else
+            {
+                <div class="calendar-upcoming">
+                    @foreach (var e in selectedEvents)
                     {
-                        <span class="calendar-event" style="color:color-mix(in srgb, @e.Color 65%, black)" title="@e.Title">@e.Title</span>
-                    }
-                    @if (dayEvents.Count > 2)
-                    {
-                        <span class="calendar-more">+@(dayEvents.Count - 2)</span>
+                        @EventRow(e)
                     }
                 </div>
             }
         </div>
-    </div>
+    }
 
     <div>
         <h2>Nejbližší</h2>
@@ -60,23 +214,7 @@
             <div class="calendar-upcoming">
                 @foreach (var e in Upcoming)
                 {
-                    <div class="soft calendar-upcoming-row">
-                        <span class="calendar-datebadge" style="background:color-mix(in srgb, @e.Color 22%, var(--color-surface)); color:color-mix(in srgb, @e.Color 70%, black)">
-                            <span class="calendar-datebadge-day">@e.StartDate.Day</span>
-                            <span class="calendar-datebadge-month">@MonthAbbrev(e.StartDate.Month)</span>
-                        </span>
-                        <span class="calendar-upcoming-text">
-                            <span class="calendar-upcoming-title">@e.Title</span>
-                            @if (!string.IsNullOrWhiteSpace(e.Description))
-                            {
-                                <span class="calendar-upcoming-sub">@e.Description</span>
-                            }
-                            @if (string.IsNullOrWhiteSpace(e.Description) || IsMultiDay(e))
-                            {
-                                <span class="calendar-upcoming-sub">@FormatRange(e)</span>
-                            }
-                        </span>
-                    </div>
+                    @EventRow(e)
                 }
             </div>
         }
@@ -85,19 +223,141 @@
 
 @code {
     private static readonly string[] Weekdays = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+    private static readonly System.Globalization.CultureInfo CzechCulture = new("cs-CZ");
+    private static readonly EventType[] StudentTypes = [EventType.Test, EventType.Homework, EventType.Other, EventType.DayOff];
+
+    // <select> values for the "who sees it" picker; a positive value is a group id.
+    private const int PersonalTarget = 0;
+    private const int ClassTarget = -1;
 
     private DateTime _month = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private List<EventResponse> _events = [];
+    private DateTime? _selectedDay;
+
+    // Null for anonymous visitors (and admins): they see only global events, as before.
+    private EventViewer? _viewer;
+    private MyClassDto? _myClass;
+
+    private EventForm? _form;
+    private string? _formError;
+    private bool _saving;
+
+    private sealed class EventForm
+    {
+        public int? EditId { get; set; }
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public EventType Type { get; set; } = EventType.Test;
+        public DateTime Start { get; set; } = DateTime.Today;
+        public DateTime? End { get; set; }
+        public int Target { get; set; } = PersonalTarget;
+        public List<EventThemeDto> Themes { get; set; } = [];
+    }
+
+    // Post / category candidates for the themes picker, loaded once when the form first needs them.
+    private List<EventThemeDto>? _themeOptions;
+    private List<EventThemeDto> _themeResults = [];
+    private string _themeSearch = "";
+
+    private async Task OnThemeSearch(ChangeEventArgs a)
+    {
+        _themeSearch = a.Value?.ToString() ?? "";
+        if (_themeSearch.Trim().Length < 2)
+        {
+            _themeResults = [];
+            return;
+        }
+
+        if (_themeOptions == null)
+        {
+            await _loadGate.WaitAsync();
+            try
+            {
+                var posts = await PostService.GetLinks();
+                var categories = await CategoryService.GetAll();
+                _themeOptions =
+                [
+                    .. categories.Select(c => new EventThemeDto { CategoryId = c.Id, Name = c.Name }),
+                    .. posts.Select(p => new EventThemeDto { PostId = p.Id, Name = p.Title, PostFilePath = p.FilePath })
+                ];
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
+        }
+
+        var term = _themeSearch.Trim();
+        _themeResults = [.. _themeOptions
+            .Where(o => o.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                        && !(_form?.Themes.Any(t => t.PostId == o.PostId && t.CategoryId == o.CategoryId) ?? false))
+            .Take(8)];
+    }
+
+    private void AddTheme(EventThemeDto option)
+    {
+        if (_form != null && _form.Themes.Count < 10)
+            _form.Themes.Add(option);
+        _themeSearch = "";
+        _themeResults = [];
+    }
 
     private record Cell(DateTime Date, bool InMonth);
 
     // Clicking the month-nav buttons fires another async load before the previous one
     // finishes; both would otherwise run concurrently against the same circuit-scoped
-    // DbContext. Serialize loads and drop superseded ones.
+    // DbContext. Serialize loads (and saves, which use the same context) and drop superseded loads.
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private int _loadGeneration;
 
-    protected override async Task OnInitializedAsync() => await LoadMonth();
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Subscribe before the first await: on a fresh circuit the student JWT is restored
+            // from localStorage only after first render (MainLayout), so this first pass runs
+            // as anonymous and OnAuthStateChanged reloads once the token is there.
+            AuthState.AuthenticationStateChanged += OnAuthStateChanged;
+            await LoadViewer(await AuthState.GetAuthenticationStateAsync());
+        }
+        catch (Exception) when (_disposed)
+        {
+            return;
+        }
+
+        await LoadMonth();
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            await LoadViewer(await task);
+            await LoadMonth();
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
+    // ClassService uses its own short-lived DbContexts, so this needs no _loadGate.
+    private async Task LoadViewer(AuthenticationState auth)
+    {
+        if (auth.User.IsInRole("student") &&
+            int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        {
+            _viewer = await ClassService.GetViewerAsync(userId);
+            _myClass = await ClassService.GetMyClassAsync(userId);
+        }
+        else
+        {
+            _viewer = null;
+            _myClass = null;
+            _form = null;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) =>
         await JS.InvokeVoidAsync("initLucide");
@@ -113,7 +373,7 @@
             try
             {
                 if (myGeneration != _loadGeneration) return;
-                var events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2));
+                var events = await EventService.GetByDateRange(_month.AddMonths(-1), _month.AddMonths(2), _viewer);
                 if (myGeneration != _loadGeneration) return;
                 _events = events;
             }
@@ -130,13 +390,209 @@
     public void Dispose()
     {
         _disposed = true;
+        AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
         _loadGate.Dispose();
     }
 
     private async Task PrevMonth() { _month = _month.AddMonths(-1); await LoadMonth(); }
     private async Task NextMonth() { _month = _month.AddMonths(1); await LoadMonth(); }
 
-    private string MonthLabel => _month.ToString("MMMM yyyy", new System.Globalization.CultureInfo("cs-CZ"));
+    private void SelectDay(DateTime day) => _selectedDay = _selectedDay == day.Date ? null : day.Date;
+
+    private void CloseForm()
+    {
+        if (!_saving) _form = null;
+    }
+
+    private void OpenCreate(DateTime day)
+    {
+        _formError = null;
+        _form = new EventForm { Start = day.Date };
+        _themeSearch = "";
+        _themeResults = [];
+    }
+
+    private void OpenEdit(EventResponse e)
+    {
+        _formError = null;
+        _form = new EventForm
+        {
+            EditId = e.Id,
+            Title = e.Title,
+            Description = e.Description,
+            Type = e.Type,
+            Start = e.StartDate.Date,
+            End = e.EndDate?.Date,
+            Target = e.Scope switch
+            {
+                EventScope.Class => ClassTarget,
+                EventScope.Group => e.GroupId ?? PersonalTarget,
+                _ => PersonalTarget
+            },
+            Themes = [.. e.Themes]
+        };
+        _themeSearch = "";
+        _themeResults = [];
+    }
+
+    private async Task SaveForm()
+    {
+        if (_form == null || _viewer == null) return;
+        var request = new StudentEventRequest
+        {
+            Title = _form.Title,
+            Description = _form.Description,
+            Type = _form.Type,
+            StartDate = _form.Start,
+            EndDate = _form.End,
+            Scope = _form.Target switch
+            {
+                PersonalTarget => EventScope.Personal,
+                ClassTarget => EventScope.Class,
+                _ => EventScope.Group
+            },
+            GroupId = _form.Target > 0 ? _form.Target : null,
+            Themes = _form.Themes
+        };
+
+        _saving = true;
+        _formError = null;
+        StudentEventResult result;
+        try
+        {
+            await _loadGate.WaitAsync();
+            try
+            {
+                result = _form.EditId is int id
+                    ? await EventService.UpdateStudentEvent(_viewer, id, request)
+                    : (await EventService.CreateStudentEvent(_viewer, request)).Result;
+            }
+            finally
+            {
+                _loadGate.Release();
+            }
+        }
+        catch (Exception) when (_disposed)
+        {
+            return;
+        }
+        finally
+        {
+            _saving = false;
+        }
+
+        if (result != StudentEventResult.Ok)
+        {
+            _formError = result switch
+            {
+                StudentEventResult.TooMany => "Za poslední den jsi přidal/a moc událostí, zkus to zítra.",
+                StudentEventResult.Forbidden => "Sem nemůžeš přidávat - zkontroluj svou třídu a skupiny v profilu.",
+                StudentEventResult.NotFound => "Událost už neexistuje.",
+                _ => "Zkontroluj název a data (konec nesmí být před začátkem, max. 60 dní)."
+            };
+            return;
+        }
+
+        _selectedDay = _form.Start.Date;
+        _form = null;
+        await LoadMonth();
+    }
+
+    private async Task DeleteEvent(EventResponse e)
+    {
+        if (_viewer == null) return;
+        if (!await JS.InvokeAsync<bool>("confirm", $"Smazat událost „{e.Title}“?")) return;
+
+        await _loadGate.WaitAsync();
+        try
+        {
+            await EventService.DeleteStudentEvent(_viewer, e.Id);
+        }
+        finally
+        {
+            _loadGate.Release();
+        }
+        await LoadMonth();
+    }
+
+    private bool IsMine(EventResponse e) => _viewer != null && e.CreatedByUserId == _viewer.UserId;
+
+    private RenderFragment EventRow(EventResponse e) =>
+        @<div class="soft calendar-upcoming-row">
+            <span class="calendar-datebadge" style="background:color-mix(in srgb, @e.Color 22%, var(--color-surface)); color:color-mix(in srgb, @e.Color 70%, black)">
+                <span class="calendar-datebadge-day">@e.StartDate.Day</span>
+                <span class="calendar-datebadge-month">@MonthAbbrev(e.StartDate.Month)</span>
+            </span>
+            <span class="calendar-upcoming-text">
+                <span class="calendar-upcoming-title">@e.Title</span>
+                @if (!string.IsNullOrWhiteSpace(e.Description))
+                {
+                    <span class="calendar-upcoming-sub">@e.Description</span>
+                }
+                @if (string.IsNullOrWhiteSpace(e.Description) || IsMultiDay(e))
+                {
+                    <span class="calendar-upcoming-sub">@FormatRange(e)</span>
+                }
+                @if (e.Themes.Count > 0)
+                {
+                    <span class="calendar-tags">
+                        <span class="calendar-upcoming-sub">Témata:</span>
+                        @foreach (var t in e.Themes)
+                        {
+                            <a class="calendar-tag" href="@(t.PostId != null ? PostSlug.Url(t.PostId.Value, t.PostFilePath) : $"/categories/{t.CategoryId}")">
+                                <i data-lucide="@(t.PostId != null ? "file-text" : "folder")"></i> @t.Name
+                            </a>
+                        }
+                    </span>
+                }
+                @if (e.Type != EventType.DayOff || e.Scope != EventScope.Global || e.CreatedByUserId != null)
+                {
+                    <span class="calendar-tags">
+                        <span class="calendar-tag">@TypeLabel(e.Type)</span>
+                        @if (e.Scope != EventScope.Global)
+                        {
+                            <span class="calendar-tag">@ScopeLabel(e)</span>
+                        }
+                        @if (e.CreatedByUserId != null)
+                        {
+                            <span class="calendar-tag calendar-tag-author"><i data-lucide="user"></i> Přidal/a @(IsMine(e) ? "ty" : e.CreatedByName)</span>
+                        }
+                    </span>
+                }
+            </span>
+            @if (IsMine(e))
+            {
+                <span class="calendar-row-actions">
+                    <button class="pill calendar-nav-btn" aria-label="Upravit" @onclick="() => OpenEdit(e)"><i data-lucide="pencil-line"></i></button>
+                    <button class="pill calendar-nav-btn" aria-label="Smazat" @onclick="() => DeleteEvent(e)"><i data-lucide="trash-2"></i></button>
+                </span>
+            }
+        </div>;
+
+    private static string TypeLabel(EventType type) => type switch
+    {
+        EventType.Test => "Test",
+        EventType.Homework => "Úkol",
+        EventType.Other => "Jiné",
+        _ => "Volno"
+    };
+
+    private static string ScopeLabel(EventResponse e) => e.Scope switch
+    {
+        EventScope.Class => e.ClassName ?? "Všechny třídy",
+        EventScope.Group => $"{e.ClassName} {e.GroupName}".Trim(),
+        EventScope.Personal => "Jen pro tebe",
+        _ => "Všichni"
+    };
+
+    // "pátek 30. října" -> "Pátek 30. října" (CSS capitalize would also capitalize the month).
+    private static string DayLabel(DateTime day)
+    {
+        var label = day.ToString("dddd d. MMMM", CzechCulture);
+        return char.ToUpper(label[0], CzechCulture) + label[1..];
+    }
+
+    private string MonthLabel => _month.ToString("MMMM yyyy", CzechCulture);
 
     private static readonly string[] MonthAbbrevs =
         ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
@@ -161,7 +617,7 @@
     private List<EventResponse> Upcoming =>
         [.. _events.Where(e => (e.EndDate?.Date ?? e.StartDate.Date) >= DateTime.Today)
             .OrderBy(e => e.StartDate)
-            .Take(6)];
+            .Take(8)];
 
     private static bool IsMultiDay(EventResponse e) =>
         e.EndDate.HasValue && e.EndDate.Value.Date != e.StartDate.Date;

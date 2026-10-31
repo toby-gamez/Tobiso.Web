@@ -1,0 +1,54 @@
+.calendar-sync {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    padding: var(--space-5);
+}
+
+.calendar-sync h2 { font-size: 26px; margin: 0; }
+.calendar-sync-lead { margin: 0; color: var(--color-neutral-600); }
+
+.calendar-sync .field { width: 100%; }
+.calendar-sync .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-neutral-600);
+    margin-bottom: var(--space-2);
+}
+
+.calendar-sync-types { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.calendar-sync-types .chip { font-size: 14px; padding: 7px 16px; gap: 6px; }
+.cs-check { width: 14px; height: 14px; flex-shrink: 0; }
+
+.calendar-sync-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+/* Provider buttons: neutral surface so the brand logos carry the colour. */
+.calendar-sync .cs-provider {
+    background: var(--color-bg);
+    padding: 10px 18px;
+    font-weight: 600;
+}
+.calendar-sync .cs-provider:hover { background: var(--color-neutral-200); }
+.cs-logo { width: 18px; height: 18px; flex-shrink: 0; }
+
+.calendar-sync-notes {
+    margin: 0;
+    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 12px;
+    background: var(--color-bg);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-neutral-600);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.calendar-sync .calendar-sync-note { margin: var(--space-2) 0 0; font-size: 14px; color: var(--color-neutral-600); }
+.calendar-sync .calendar-sync-error { color: var(--color-accent-700); font-weight: 600; margin: 0; }

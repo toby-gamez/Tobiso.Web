@@ -1,0 +1,84 @@
+@implements IDisposable
+@inject AuthenticationStateProvider AuthState
+@inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
+
+@if (_changeDate.HasValue)
+{
+    <div class="legal-banner" role="dialog" aria-label="Změna právních dokumentů">
+        <i data-lucide="file-text" class="legal-banner-icon"></i>
+        <p class="legal-banner-text">
+            Změnili jsme <a href="/pravni-dokumenty">Podmínky použití nebo Zásady ochrany osobních údajů</a>
+            (@_changeDate.Value.ToLocalTime().ToString("d. MMMM yyyy", CsCulture)). Doporučujeme si je přečíst.
+        </p>
+        <div class="legal-banner-actions">
+            <a class="pill pill-on" href="/pravni-dokumenty" @onclick="Dismiss">Přečíst</a>
+            <button class="pill" @onclick="Dismiss">Zavřít</button>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo CsCulture = new("cs-CZ");
+
+    private DateTime? _changeDate;
+    private int _checkedUserId;
+    private bool _disposed;
+
+    protected override void OnInitialized() => AuthState.AuthenticationStateChanged += OnAuthChanged;
+
+    // The JWT is restored from localStorage only after the circuit connects, so the user is
+    // unknown at first render - react to the auth state change instead of OnInitialized.
+    private void OnAuthChanged(Task<AuthenticationState> task) => _ = InvokeAsync(() => CheckAsync(task));
+
+    private async Task CheckAsync(Task<AuthenticationState> task)
+    {
+        try
+        {
+            var auth = await task;
+            if (!int.TryParse(auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            {
+                _checkedUserId = 0;
+                _changeDate = null;
+                StateHasChanged();
+                return;
+            }
+            if (userId == _checkedUserId) return;
+            _checkedUserId = userId;
+            // Own scope = own DbContext: the circuit's shared one is busy with the page's queries
+            // at the moment auth state changes, and a DbContext can't run two operations at once.
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            _changeDate = await scope.ServiceProvider.GetRequiredService<ILegalNoticeService>().GetPendingChangeAsync(userId);
+            StateHasChanged();
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+        catch (Exception)
+        {
+            _changeDate = null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_changeDate.HasValue) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private async Task Dismiss()
+    {
+        var date = _changeDate;
+        _changeDate = null;
+        if (date.HasValue && _checkedUserId != 0)
+        {
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ILegalNoticeService>().DismissAsync(_checkedUserId, date.Value);
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        AuthState.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

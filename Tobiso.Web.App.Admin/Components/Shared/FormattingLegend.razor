@@ -14,130 +14,448 @@
             </div>
             <div class="modal-body">
 
-                <section class="fl-section">
-                    <h6>Základní Markdown</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code># Text</code> … <code>###### Text</code></td><td>Nadpisy úrovně 1–6</td></tr>
-                            <tr><td><code>**tučně**</code></td><td>Tučný text</td></tr>
-                            <tr><td><code>*kurzíva*</code></td><td>Kurzíva</td></tr>
-                            <tr><td><code>- položka</code> / <code>1. položka</code></td><td>Odrážkový / číslovaný seznam</td></tr>
-                            <tr><td><code>[text](https://…)</code></td><td>Odkaz</td></tr>
-                            <tr><td><code>&gt; citace</code></td><td>Citační blok</td></tr>
-                            <tr><td><code>`kód`</code> a <code>```blok kódu```</code></td><td>Vložený kód / blok kódu (uvnitř bloku kódu se vlastní syntaxe dále nevyhodnocuje)</td></tr>
-                            <tr><td><code>| a | b |</code> s řádkem <code>|---|---|</code></td><td>Tabulka</td></tr>
-                            <tr><td><code>&lt;sub&gt;text&lt;/sub&gt;</code></td><td>Dolní index (spodní index), např. H<sub>2</sub>O</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                <div class="seg-control fl-tabs">
+                    <button type="button" class="seg-btn @(_tab == Tab.Formatting ? "active" : "")" @onclick="() => _tab = Tab.Formatting">Formátování</button>
+                    <button type="button" class="seg-btn @(_tab == Tab.Graphs ? "active" : "")" @onclick="() => _tab = Tab.Graphs">Grafy</button>
+                    <button type="button" class="seg-btn @(_tab == Tab.Flowcharts ? "active" : "")" @onclick="() => _tab = Tab.Flowcharts">Vývojové diagramy</button>
+                    <button type="button" class="seg-btn @(_tab == Tab.Venn ? "active" : "")" @onclick="() => _tab = Tab.Venn">Vennovy diagramy</button>
+                </div>
 
-                <section class="fl-section">
-                    <h6>Zlomky</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>1/2</code></td><td>Jednoduchý zlomek z čísel/písmen: <code>1/2</code>, <code>a/b</code>, <code>-3/4</code></td></tr>
-                            <tr><td><code>{'{'}x+1{'}'}/{'{'}2{'}'}</code></td><td>Zlomek s víceznakovým výrazem — každou stranu, která není jediné číslo/písmeno, obal do <code>{'{'} {'}'}</code></td></tr>
-                            <tr><td><code>3,5/2</code></td><td>Desetinná čísla se čárkou fungují (automaticky se převedou na tečku)</td></tr>
-                            <tr><td><code>- 1/2</code></td><td>Mezera + pomlčka před zlomkem se stane záporným zlomkem</td></tr>
-                            <tr><td><code>ano/ne</code></td><td>Výjimka — zůstane jako obyčejný text, nepřevede se na zlomek</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                @if (_tab == Tab.Graphs)
+                {
+                    <p class="fl-note fl-lead">Graf se popíše textem mezi značky <code>[graf1]</code> a <code>[/graf1]</code>. Na webu i v PDF se vykreslí jako obrázek, který se přizpůsobí světlému i tmavému režimu. Zobrazí se stejně jako obrázky — vpravo, obtékaný textem (na mobilu přes celou šířku) — a po kliknutí se otevře přes celou obrazovku.</p>
+                    <p class="fl-note fl-lead">Graf nemusíš psát ručně: tlačítko <b>Generátor grafu</b> pod editorem ho poskládá z formuláře s živým náhledem a vloží text na místo kurzoru. Tady je popsaná syntaxe pro ruční úpravy.</p>
 
-                <section class="fl-section">
-                    <h6>Matematika (KaTeX)</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>$x^2 + y^2$</code></td><td>Vzorec v textu (inline)</td></tr>
-                            <tr><td><code>$$x^2 + y^2 = r^2$$</code></td><td>Vzorec na samostatném řádku (display)</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                    <nav class="fl-toc">
+                        <a href="#fl-g-start">Rychlý start</a>
+                        <a href="#fl-g-block">Blok, nadpis, poznámky</a>
+                        <a href="#fl-g-axes">Osy</a>
+                        <a href="#fl-g-curves">Křivky a body</a>
+                        <a href="#fl-g-lines">Přímky</a>
+                        <a href="#fl-g-functions">Funkce</a>
+                        <a href="#fl-g-colors">Barvy</a>
+                        <a href="#fl-g-view">Jak se graf zobrazí</a>
+                        <a href="#fl-g-pitfalls">Na co si dát pozor</a>
+                    </nav>
 
-                <section class="fl-section">
-                    <h6>Škrtnutí</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>#s#text#s#</code></td><td>Škrtne text: <del>text</del></td></tr>
-                            <tr><td><code>{'{'}#s#2#s#{'}'}/{'{'}4{'}'}</code></td><td>Škrtnutí uvnitř zlomku (čitatel nebo jmenovatel) se ve zlomku vykreslí jako přeškrtnuté číslo</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                    <section class="fl-section" id="fl-g-start">
+                        <h6>Rychlý start — zkopíruj a uprav</h6>
 
-                <section class="fl-section">
-                    <h6>Rámečky (Tip / Zajímavost)</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>!!!tip Text rady !!!</code></td><td>Zvýrazněný rámeček se žárovkou a popiskem „Tip"</td></tr>
-                            <tr><td><code>!!!sidefact Zajímavý fakt !!!</code></td><td>Zvýrazněný rámeček s ikonou „i" a popiskem „Zajímavost"</td></tr>
-                        </tbody>
-                    </table>
-                    <p class="fl-note">Obsah rámečku píšeš mezi klíčové slovo a uzavírací <code>!!!</code>.</p>
-                </section>
+                        <p class="fl-note">Graf z naměřených hodnot (např. rychlost v čase):</p>
+                        <pre class="fl-pre">[graf1]
+title: Pohyb robotů
+x(t [s]): 0-10
+y(v [m/s]): 0-50 (10)
+curve1(name: robot1): [0;0] [6;7] [8;7] RED
+curve2(name: robot2): [0;5] [4;30] [10;45] smooth BLUE dashed
+point(name: A): [5;8] LIGHT_BLUE
+note: Červená křivka zobrazuje rychlost robota 1
+note: Mezi 6. a 8. sekundou jede robot stálou rychlostí
+[/graf1]</pre>
 
-                <section class="fl-section">
-                    <h6>Šipka</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>krok 1 -&gt; krok 2</code></td><td>Šipka mezi mezerami se změní na ikonu šipky doprava</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                        <p class="fl-note">Graf funkcí:</p>
+                        <pre class="fl-pre">[graf2]
+title: Lineární a kvadratická funkce
+x: -5..5
+y: -5..10
+function: y = 2x + 1 BLUE
+function(name: parabola): y = x^2 - 3 RED
+function(name: odmocnina, od: 0): y = sqrt(x) GREEN dashed
+point(name: P): [2;5] ORANGE
+[/graf2]</pre>
 
-                <section class="fl-section">
-                    <h6>Úvodní odstavec</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>... Krátký úvodní text ...</code></td><td>První výskyt tří teček na začátku a na konci se zvýrazní jako úvodní (lead) odstavec článku</td></tr>
-                        </tbody>
-                    </table>
-                    <p class="fl-note">Tři tečky jsou vyhrazený znak — jinde v textu se jakékoli osamocené <code>...</code> z výstupu odstraní, takže je nepiš jako obyčejnou elipsu.</p>
-                </section>
+                        <p class="fl-note">Goniometrické funkce:</p>
+                        <pre class="fl-pre">[graf3]
+x: -6,28..6,28 (1)
+y: -1..1
+function: y = sin(x) RED
+function: y = cos(x) BLUE dashed
+[/graf3]</pre>
+                    </section>
 
-                <section class="fl-section">
-                    <h6>Obrázek s popiskem a zdrojem</h6>
-                    <pre class="fl-pre">![alt text](/images/obrazek.png)
+                    <section class="fl-section" id="fl-g-block">
+                        <h6>Blok, nadpis, poznámky</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>[graf1]</code> … <code>[/graf1]</code></td><td>Začátek a konec grafu, každá značka na samostatném řádku. Název musí začínat „graf" a uzavírací značka musí mít <b>stejný</b> název (<code>[grafRychlost]</code> … <code>[/grafRychlost]</code>). Grafů může být v článku libovolně mnoho.</td></tr>
+                                <tr><td><code>title: text</code></td><td>Nadpis nad grafem (nepovinný). Česky <code>nazev:</code>.</td></tr>
+                                <tr><td><code>note: text</code></td><td>Poznámka pod grafem. Může jich být <b>víc</b> — každá na vlastním řádku, zobrazí se pod sebou. Funguje v ní i vzorec <code>$v = s/t$</code>. Česky <code>poznamka:</code> nebo <code>popis:</code>.</td></tr>
+                                <tr><td><code>// komentář</code></td><td>Zbytek řádku se ignoruje — na začátku řádku nebo za mezerou (takže <code>https://…</code> zůstane celé).</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Klíčová slova nezávisí na velikosti písmen ani diakritice. Číslo za klíčovým slovem (<code>curve1</code>, <code>point2</code>) je jen pro tvou přehlednost a nemusí tam být.</p>
+                    </section>
 
-Popisek obrázku (nepovinné, může být víc řádků)
+                    <section class="fl-section" id="fl-g-axes">
+                        <h6>Osy</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>x: 0-10</code></td><td>Osa x od 0 do 10 (stejně <code>y:</code>)</td></tr>
+                                <tr><td><code>x(t [s]): 0-10</code></td><td>S popiskem osy v závorce (nepovinný)</td></tr>
+                                <tr><td><code>y(v [m/s]): 0-50 (10)</code></td><td>S krokem — čísla na ose 0, 10, 20 … 50</td></tr>
+                                <tr><td><code>0..10</code>, <code>0–10</code></td><td>Dvě tečky nebo dlouhá pomlčka fungují stejně jako <code>0-10</code></td></tr>
+                                <tr><td><code>-5..5</code></td><td>Rozsah přes nulu — osy se kříží v počátku</td></tr>
+                                <tr><td><code>-20..-30</code> (doporučeno)<br /><code>-20--30</code>, <code>-20 - -30</code></td><td>Jen záporné hodnoty. Záporné číslo poznáš podle pomlčky <b>navíc</b>: <code>5-10</code> = 5 až 10, <code>5--10</code> = 5 až −10. Závorky kolem záporných čísel (<code>(-20)-(-30)</code>) <b>nefungují</b> — kulatá závorka za rozsahem znamená krok.</td></tr>
+                                <tr><td><code>0,5..2,5 (0,5)</code></td><td>Desetinná čísla s čárkou nebo tečkou</td></tr>
+                                <tr><td><code>30..10</code></td><td>Pořadí nevadí — osa 10 až 30</td></tr>
+                                <tr><td><code>x(t [s]):</code> nebo žádný řádek <code>x</code></td><td>Bez rozsahu se osa přizpůsobí datům (vždy obsahuje nulu)</td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Na ose je vždy <b>každý krok až do maxima</b>, i když tam nejsou data. Bez zadaného kroku jdou osy s rozpětím do 20 po 1 (0, 1, 2, 3…), delší po kulatém kroku (2, 5, 10, 20…).</li>
+                            <li>Když maximum není násobkem kroku, osa se prodlouží: <code>0-45 (10)</code> → až 50.</li>
+                            <li>Když by se čísla překrývala, popíše se jen každé 2., 5.… (čárky na ose zůstanou u všech). Krok, který by dal víc než 40 dílků, se ignoruje.</li>
+                        </ul>
+                    </section>
 
-Zdroj: Wikipedia</pre>
-                    <p class="fl-note">Řádek začínající <code>Zdroj:</code> nebo <code>Autor:</code> hned pod obrázkem (a případným popiskem) se použije jako uvedení zdroje. Obsahuje-li „Tobiso", obrázek se považuje za vlastní a zobrazí se mírně jinak než u přebraných obrázků.</p>
-                </section>
+                    <section class="fl-section" id="fl-g-curves">
+                        <h6>Křivky a body</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>curve: [0;0] [6;7] [8;7]</code></td><td>Čára spojující zadané body v pořadí, jak jsou napsané. Každý bod je na čáře vidět jako tečka. Bod se píše <code>[x;y]</code> se <b>středníkem</b>, desetinná čárka i tečka (<code>[2,5;-1.5]</code>).</td></tr>
+                                <tr><td><code>curve(name: robot1): … RED</code></td><td>Se jménem v legendě a barvou. Jméno jde napsat i jen <code>(robot1)</code>.</td></tr>
+                                <tr><td><code>linear</code> (výchozí)</td><td>Lomená čára — rovné úsečky mezi body. Také <code>linearni</code>, <code>primka</code>, <code>rovna</code>.</td></tr>
+                                <tr><td><code>smooth</code></td><td>Hladká křivka. Když body jdou zleva doprava, nikdy „nepřestřelí" (vodorovný úsek zůstane rovný). Také <code>hladka</code>, <code>zakrivena</code>, <code>oblouk</code>.</td></tr>
+                                <tr><td><code>dashed</code></td><td>Čárkovaná čára. Také <code>carkovana</code>, <code>prerusovana</code>.</td></tr>
+                                <tr><td><code>nodots</code></td><td>Bez teček v bodech, jen čára. Také <code>bezbodu</code>.</td></tr>
+                                <tr><td><code>curve: [2;3]</code></td><td>Křivka s jediným bodem se vykreslí jako tečka</td></tr>
+                                <tr><td><code>point(name: A): [5;8] ORANGE</code></td><td>Samostatný bod, jméno se vypíše vedle něj a do legendy. Česky <code>bod:</code>.</td></tr>
+                                <tr><td><code>(name: A, color: RED)</code></td><td>Barvu jde zadat i v závorce (<code>color:</code> / <code>barva:</code>). Jméno: <code>name:</code>, <code>nazev:</code>, <code>jmeno:</code>, <code>popisek:</code>, <code>label:</code>.</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Volby za body (<code>smooth</code>, <code>dashed</code>, <code>nodots</code>, barva) můžou být v libovolném pořadí. Místo <code>curve</code> jde psát <code>krivka</code>, <code>line</code> nebo <code>cara</code>.</p>
+                    </section>
 
-                <section class="fl-section">
-                    <h6>Video a dokument</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>*[alt videa](videos/x.mp4)</code></td><td>Vloží přehrávatelné video (musí být samostatný odstavec, prázdný řádek před i po)</td></tr>
-                            <tr><td><code>_[jméno odkazu](documents/x.docx)</code></td><td>Vloží odkaz ke stažení dokumentu (PDF, DOCX, PPTX, XLSX) — otevře se v nové záložce</td></tr>
-                        </tbody>
-                    </table>
-                    <p class="fl-note">Cestu k souboru zkopíruj tlačítkem „Kopírovat URL" v sekci <a href="/videos">Videa</a> / <a href="/documents">Dokumenty</a> — video musí mít příponu <code>.mp4</code>. Videa z YouTube se nevkládají do textu, ale samostatným polem „YouTube URL" v editaci příspěvku.</p>
-                </section>
+                    <section class="fl-section" id="fl-g-lines">
+                        <h6>Přímky</h6>
+                        <p class="fl-note">Nejjednodušší je funkce (<code>function: y = 2x + 1</code>). Svislá přímka nebo úsečka se píše jako křivka ze dvou bodů:</p>
+                        <pre class="fl-pre">curve(name: x = 3): [3;-5] [3;5] RED nodots       // svislá přímka
+curve(name: y = 2): [-5;2] [5;2] GREEN dashed nodots   // vodorovná
+curve(name: úsečka AB): [1;1] [4;3] BLUE            // úsečka s tečkami na koncích</pre>
+                        <p class="fl-note">U přímky dej krajní body na okraje os nebo za ně — co přečnívá, se ořízne.</p>
+                    </section>
 
-                <section class="fl-section">
-                    <h6>Dodatek (vysvětlivka v bublině)</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>(--DOD-5--)</code></td><td>Vloží klikací ikonu, která otevře dodatek s ID 5</td></tr>
-                        </tbody>
-                    </table>
-                    <p class="fl-note">Dodatky (jejich text a ID) se spravují v sekci <a href="/addendums">Dodatky</a>.</p>
-                </section>
+                    <section class="fl-section" id="fl-g-functions">
+                        <h6>Funkce</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>function: y = 2x + 1</code></td><td>Nakreslí funkci přes celou šířku grafu. <code>y =</code> nebo <code>f(x) =</code> je nepovinné. Česky <code>funkce:</code> nebo <code>fce:</code>.</td></tr>
+                                <tr><td><code>… BLUE dashed</code></td><td>Za předpis jde dát barvu a <code>dashed</code></td></tr>
+                                <tr><td><code>function(name: parabola): …</code></td><td>Jméno v legendě. Bez jména se v legendě ukáže samotný předpis.</td></tr>
+                                <tr><td><code>function(od: 0, do: 5): …</code></td><td>Kreslí jen pro x od–do (také <code>from:</code> / <code>to:</code>, desetinná čárka jde: <code>do: 6,28</code>)</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note" style="margin-top: var(--space-3)">Co jde napsat do předpisu:</p>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>+ - * / ^</code></td><td>Počty a mocniny: <code>x^2</code>, <code>2^x</code>, <code>x^0,5</code></td></tr>
+                                <tr><td><code>x²</code>, <code>x³</code></td><td>Mocnina horním indexem</td></tr>
+                                <tr><td><code>2x</code>, <code>3(x+1)</code>, <code>(x+1)(x-1)</code>, <code>2sin(x)</code>, <code>x sin x</code></td><td>Násobení se nemusí psát (ale může: <code>2*x</code>, <code>2·x</code>)</td></tr>
+                                <tr><td><code>sqrt(x)</code></td><td>Odmocnina (také <code>odm</code>)</td></tr>
+                                <tr><td><code>|x|</code>, <code>abs(x)</code></td><td>Absolutní hodnota, např. <code>2|x - 1|</code></td></tr>
+                                <tr><td><code>sin</code>, <code>cos</code>, <code>tg</code>, <code>cotg</code></td><td>Goniometrické funkce v radiánech (také <code>tan</code>, <code>cot</code>)</td></tr>
+                                <tr><td><code>arcsin</code>, <code>arccos</code>, <code>arctg</code></td><td>Cyklometrické funkce (také <code>asin</code>, <code>acos</code>, <code>atan</code>)</td></tr>
+                                <tr><td><code>ln(x)</code>, <code>log(x)</code></td><td>Přirozený a desítkový logaritmus</td></tr>
+                                <tr><td><code>exp(x)</code>, <code>e^x</code></td><td>Exponenciála</td></tr>
+                                <tr><td><code>pi</code>, <code>π</code>, <code>e</code></td><td>Konstanty</td></tr>
+                                <tr><td><code>0,5x</code>, <code>0.5x</code></td><td>Desetinná čárka i tečka</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note" style="margin-top: var(--space-3)">Jak se předpis vyhodnocuje:</p>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>-x^2</code></td><td>= −(x²), mocnina má přednost před mínusem</td></tr>
+                                <tr><td><code>2^-1</code></td><td>= 0,5</td></tr>
+                                <tr><td><code>2^x^2</code></td><td>= 2^(x²), mocniny se počítají zprava</td></tr>
+                                <tr><td><code>sin(x)^2</code></td><td>= (sin x)²</td></tr>
+                                <tr><td><code>sin x^2</code></td><td>= sin(x²)</td></tr>
+                                <tr><td><code>1/2x</code></td><td>= (1/2)·x, jako na kalkulačce. Pro 1/(2x) napiš závorky: <code>1/(2x)</code></td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Bez rozsahu osy x se funkce kreslí od −10 do 10. Osa y se přizpůsobí hodnotám funkce.</li>
+                            <li>U funkcí s asymptotou (<code>1/x</code>, <code>tg x</code>) se extrémní hodnoty při automatickém rozsahu ignorují — lepší je ale zadat <code>y</code> ručně.</li>
+                            <li>Kde funkce není definovaná (<code>sqrt</code> záporného čísla, dělení nulou, asymptota), čára se přeruší.</li>
+                            <li>Když se předpis nepodaří přečíst, pod grafem se ukáže hláška, co je špatně (např. <i>neznámý název „foo"</i>). Zbytek grafu se vykreslí.</li>
+                        </ul>
+                    </section>
 
-                <section class="fl-section">
-                    <h6>E-mailový odkaz</h6>
-                    <table class="fl-table">
-                        <tbody>
-                            <tr><td><code>[Napiš nám](mailto:info@tobiso.cz?subject=Dotaz)</code></td><td>Odkaz otevře e-mailového klienta s předvyplněným předmětem (parametr <code>?subject=…</code> je nepovinný)</td></tr>
-                        </tbody>
-                    </table>
-                </section>
+                    <section class="fl-section" id="fl-g-colors">
+                        <h6>Barvy</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><span class="fl-swatch" style="background:#d1495b"></span><code>RED</code> / <code>CERVENA</code></td><td><span class="fl-swatch" style="background:#8f1d2c"></span><code>DARK_RED</code> / <code>TMAVE_CERVENA</code></td></tr>
+                                <tr><td><span class="fl-swatch" style="background:#2f6fdf"></span><code>BLUE</code> / <code>MODRA</code></td><td><span class="fl-swatch" style="background:#3fa7e0"></span><code>LIGHT_BLUE</code> / <code>SVETLE_MODRA</code>, <span class="fl-swatch" style="background:#1d3f8f"></span><code>DARK_BLUE</code> / <code>TMAVE_MODRA</code></td></tr>
+                                <tr><td><span class="fl-swatch" style="background:#3a9d5d"></span><code>GREEN</code> / <code>ZELENA</code></td><td><span class="fl-swatch" style="background:#7cc66e"></span><code>LIGHT_GREEN</code> / <code>SVETLE_ZELENA</code>, <span class="fl-swatch" style="background:#22663a"></span><code>DARK_GREEN</code> / <code>TMAVE_ZELENA</code></td></tr>
+                                <tr><td><span class="fl-swatch" style="background:#e8833a"></span><code>ORANGE</code> / <code>ORANZOVA</code></td><td><span class="fl-swatch" style="background:#d9a400"></span><code>YELLOW</code> / <code>ZLUTA</code></td></tr>
+                                <tr><td><span class="fl-swatch" style="background:#8e5cc4"></span><code>PURPLE</code> / <code>FIALOVA</code></td><td><span class="fl-swatch" style="background:#e05a9b"></span><code>PINK</code> / <code>RUZOVA</code>, <span class="fl-swatch" style="background:#8a5a3b"></span><code>BROWN</code> / <code>HNEDA</code></td></tr>
+                                <tr><td><span class="fl-swatch" style="background:#8a8580"></span><code>GRAY</code> / <code>SEDA</code></td><td><code>BLACK</code> / <code>CERNA</code>, <code>WHITE</code> / <code>BILA</code> — barva textu, v tmavém režimu se sama přepne</td></tr>
+                                <tr><td><code>#1e90ff</code>, <code>#f00</code></td><td>Libovolná barva v hex zápisu</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Na velikosti písmen a diakritice nezáleží (<code>Červená</code>, <code>light-blue</code> fungují). Bez barvy dostane každá čára/bod další barvu z palety.</p>
+                    </section>
 
-                <section class="fl-section">
-                    <h6>Zmínky osob</h6>
-                    <p class="fl-note">Stačí do textu napsat jméno nebo přezdívku známé osoby přirozeně — žádná speciální syntaxe není potřeba, systém jméno sám rozpozná a připojí k němu odkaz.</p>
-                </section>
+                    <section class="fl-section" id="fl-g-view">
+                        <h6>Jak se graf zobrazí</h6>
+                        <ul class="fl-note">
+                            <li>Vpravo vedle textu jako obrázek, na mobilu přes celou šířku. Po kliknutí se otevře přes celou obrazovku i s legendou a poznámkami.</li>
+                            <li>Osy se kříží v počátku [0;0]. Při samých kladných číslech se ukáže jen 1. kvadrant, záporné hodnoty přidají jen ty kvadranty, které jsou potřeba. Ručně zadaný rozsah se použije přesně, jak je napsaný.</li>
+                            <li>Rozsah, který neobsahuje nulu (např. <code>-30..-20</code>), má osu na nejbližším okraji.</li>
+                            <li>Čísla na osách se píšou s desetinnou čárkou. Když se osy kříží uvnitř grafu, nula se v počátku vypíše jen jednou.</li>
+                            <li>Legenda (pod grafem) obsahuje pojmenované křivky, body a všechny funkce.</li>
+                            <li>Co je mimo rozsah os, se ořízne na okraji grafu.</li>
+                        </ul>
+                    </section>
+
+                    <section class="fl-section" id="fl-g-pitfalls">
+                        <h6>Na co si dát pozor</h6>
+                        <ul class="fl-note">
+                            <li>Neznámé nebo překlepnuté řádky se tiše ignorují — když se něco neukáže, zkontroluj název a dvojtečku za ním.</li>
+                            <li>Když v bloku nejsou osy ani žádná data, místo grafu se ukáže rámeček s chybou.</li>
+                            <li>Do popisků os nepiš vzorce <code>$…$</code> — vzorce fungují jen v <code>title</code> a <code>note</code>. Lomítko jako <code>m/s</code> v popisku je v pořádku.</li>
+                            <li>Zlomky, šipky <code>-&gt;</code> ani jiná pravidla formátování se uvnitř grafu nepoužijí.</li>
+                            <li>Uvnitř bloku kódu <code>```</code> se graf nevykreslí (zůstane jako text).</li>
+                        </ul>
+                    </section>
+                }
+                else if (_tab == Tab.Flowcharts)
+                {
+                    <p class="fl-note fl-lead">Vývojový diagram se popíše textem mezi značky <code>[vyvoj1]</code> a <code>[/vyvoj1]</code>: nejdřív uzly, potom šipky mezi nimi. Rozmístění uzlů se spočítá samo. Diagram se vykreslí přes celou šířku, přizpůsobí se světlému i tmavému režimu a po kliknutí se otevře přes celou obrazovku.</p>
+                    <p class="fl-note fl-lead">Nemusíš ho psát ručně: tlačítko <b>Vývojový diagram</b> pod editorem ho poskládá z formuláře s živým náhledem a vloží na místo kurzoru.</p>
+
+                    <section class="fl-section">
+                        <h6>Rychlý start — zkopíruj a uprav</h6>
+                        <pre class="fl-pre">[vyvoj1]
+title: Je číslo sudé?
+start(id: s): Začátek
+io(id: i): Načti číslo n
+decision(id: d): Zbytek po dělení 2 je 0?
+process(id: a): Číslo je sudé
+process(id: b): Číslo je liché
+end(id: e): Konec
+s -&gt; i
+i -&gt; d
+d -&gt; a (ano) GREEN
+d -&gt; b (ne) RED
+a -&gt; e
+b -&gt; e
+[/vyvoj1]</pre>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Uzly</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>start(id: s): Text</code></td><td>Začátek (zaoblený) — česky také <code>zacatek</code></td></tr>
+                                <tr><td><code>end(id: e): Text</code></td><td>Konec (zaoblený) — také <code>konec</code></td></tr>
+                                <tr><td><code>process(id: a): Text</code></td><td>Krok / příkaz (obdélník) — také <code>krok</code>, <code>akce</code></td></tr>
+                                <tr><td><code>decision(id: d): Text?</code></td><td>Podmínka (kosočtverec) — také <code>podminka</code>, <code>rozhodnuti</code></td></tr>
+                                <tr><td><code>io(id: i): Text</code></td><td>Vstup / výstup (rovnoběžník) — také <code>vstup</code>, <code>vystup</code></td></tr>
+                                <tr><td><code>process(id: a, color: BLUE): Text</code></td><td>Uzel s vlastní barvou (jména jako u grafů)</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note"><code>id</code> je krátké jméno uzlu (písmena, čísla, <code>_</code>), podle kterého na něj míří šipky. Musí být v celém diagramu jedinečné.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Šipky</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>a -&gt; b</code></td><td>Šipka z uzlu <code>a</code> do uzlu <code>b</code></td></tr>
+                                <tr><td><code>d -&gt; a (ano)</code></td><td>Šipka s popiskem (hodí se u podmínek)</td></tr>
+                                <tr><td><code>d -&gt; b (ne) RED</code></td><td>Popisek a barva šipky (barva je vždy poslední)</td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Šipka zpět na dřívější uzel vytvoří cyklus — vede se bokem kolem diagramu.</li>
+                            <li>Z podmínky veď dvě šipky s popiskem; vystupují doleva a doprava z kosočtverce.</li>
+                        </ul>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Další řádky a pozor na</h6>
+                        <ul class="fl-note">
+                            <li><code>title: …</code> nadpis, <code>note: …</code> poznámka pod diagramem (lze víc), <code>direction: right</code> kreslí zleva doprava (výchozí je shora dolů). Řádek začínající <code>//</code> se ignoruje.</li>
+                            <li>Šipky na neznámé id, opakovaná id a uzly bez šipky se vypíšou jako upozornění pod diagramem; ostatní se vykreslí normálně.</li>
+                            <li>Když v bloku nejsou žádné uzly, ukáže se rámeček s chybou. Dlouhý text se v uzlu zalamuje.</li>
+                            <li>Šipka <code>-&gt;</code> uvnitř bloku se nepřevádí na ikonu a uvnitř bloku kódu <code>```</code> se diagram nevykreslí (zůstane jako text).</li>
+                        </ul>
+                    </section>
+                }
+                else if (_tab == Tab.Venn)
+                {
+                    <p class="fl-note fl-lead">Vennův diagram (2 nebo 3 množiny) se popíše textem mezi značky <code>[venn1]</code> a <code>[/venn1]</code>. Stačí napsat prvky ke každé množině — co je ve víc množinách, se samo umístí do průniku. Diagram se přizpůsobí světlému i tmavému režimu a po kliknutí se otevře přes celou obrazovku.</p>
+                    <p class="fl-note fl-lead">Nemusíš ho psát ručně: tlačítko <b>Vennův diagram</b> pod editorem ho poskládá z formuláře s živým náhledem a vloží na místo kurzoru.</p>
+
+                    <section class="fl-section">
+                        <h6>Rychlý start — zkopíruj a uprav</h6>
+                        <pre class="fl-pre">[venn1]
+title: Dělitelé čísel 12 a 18
+set(name: D12, color: BLUE): 1; 2; 3; 4; 6; 12
+set(name: D18, color: ORANGE): 1; 2; 3; 6; 9; 18
+note: Průnik tvoří společní dělitelé.
+[/venn1]</pre>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Řádky bloku</h6>
+                        <table class="fl-table fl-table--wrap">
+                            <tbody>
+                                <tr><td><code>set(name: A, color: BLUE): 1; 2; 3</code></td><td>Množina s názvem, barvou a prvky (také <code>mnozina</code>). Nejvýš 3, název i barva jsou nepovinné.</td></tr>
+                                <tr><td><code>outside: 5; 7</code></td><td>Prvky mimo všechny množiny — nakreslí se rámeček „univerzum“ (také <code>mimo</code>)</td></tr>
+                                <tr><td><code>show: prunik A B</code></td><td>Zobrazí pojem: pod diagramem je tlačítko, příslušná část je hned zvýrazněná a vysvětlená (s prvky); čtenář ji může vypnout a zapnout. Druhy: <code>prunik A B</code> (A ∩ B; u tří množin i <code>prunik A B C</code>), <code>sjednoceni A B</code> (A ∪ B), <code>rozdil A B</code> (A \ B), <code>doplnek A</code> (A′). Můžeš jich napsat víc, zvýrazněný je první. Mají-li názvy mezery, odděl je středníkem: <code>show: prunik; D 12; D 18</code>. Také <code>zobraz</code>, <code>pojem</code>.</td></tr>
+                                <tr><td><code>playground: ano</code></td><td>Hravý režim: čtenář dostane tlačítka pro všechny pojmy a zkouší si, co který zvýrazní. Jen některé druhy: <code>playground: prunik, sjednoceni</code> (také <code>rozdil</code>, <code>doplnek</code>). Lze spojit s <code>show</code> (ten pojem je pak zvýrazněný na začátku). Doplněk sám nakreslí rámeček univerza. Také <code>hriste</code>, <code>operations</code>.</td></tr>
+                                <tr><td><code>universe: ano</code></td><td>Rámeček univerza i bez prvků mimo množiny</td></tr>
+                                <tr><td><code>only(A): 4; 12</code></td><td>Prvky jen v množině A (také <code>jen</code>, <code>pouze</code>)</td></tr>
+                                <tr><td><code>both(A, B): 1; 2</code></td><td>Prvky přesně v průniku A a B (také <code>prunik</code>)</td></tr>
+                                <tr><td><code>all: 1</code></td><td>Prvky ve všech množinách (také <code>vse</code>)</td></tr>
+                                <tr><td><code>title: …</code>, <code>note: …</code></td><td>Nadpis a poznámky pod diagramem</td></tr>
+                            </tbody>
+                        </table>
+                        <ul class="fl-note">
+                            <li>Prvky se oddělují středníkem (<code>;</code>); bez středníku čárkou, bez čárky mezerou. Prvky s mezerou proto odděluj středníkem.</li>
+                            <li>Na množiny v <code>only</code> / <code>both</code> se odkazuj názvem nebo pořadím (<code>1</code>, <code>2</code>, <code>3</code>).</li>
+                            <li>U seznamu odděleného mezerami lze za poslední prvek připsat jméno barvy velkými písmeny (<code>1 2 3 BLUE</code>); jistější je <code>color:</code> v závorce.</li>
+                            <li>Za názvem množiny se v diagramu ukáže počet prvků, např. <code>D12 (6)</code>. Když se prvky do oblasti nevejdou, ukáže se upozornění.</li>
+                            <li>Uvnitř bloku kódu <code>```</code> se diagram nevykreslí (zůstane jako text).</li>
+                        </ul>
+                    </section>
+                }
+                else
+                {
+                    <section class="fl-section">
+                        <h6>Základní Markdown</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code># Text</code> … <code>###### Text</code></td><td>Nadpisy úrovně 1–6</td></tr>
+                                <tr><td><code>**tučně**</code></td><td>Tučný text</td></tr>
+                                <tr><td><code>*kurzíva*</code></td><td>Kurzíva</td></tr>
+                                <tr><td><code>- položka</code> / <code>1. položka</code></td><td>Odrážkový / číslovaný seznam</td></tr>
+                                <tr><td><code>[text](https://…)</code></td><td>Odkaz</td></tr>
+                                <tr><td><code>&gt; citace</code></td><td>Citační blok</td></tr>
+                                <tr><td><code>`kód`</code> a <code>```blok kódu```</code></td><td>Vložený kód / blok kódu (uvnitř bloku kódu se vlastní syntaxe dále nevyhodnocuje)</td></tr>
+                                <tr><td><code>| a | b |</code> s řádkem <code>|---|---|</code></td><td>Tabulka</td></tr>
+                                <tr><td><code>&lt;sub&gt;text&lt;/sub&gt;</code></td><td>Dolní index (spodní index), např. H<sub>2</sub>O</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Zlomky</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>1/2</code></td><td>Jednoduchý zlomek z čísel/písmen: <code>1/2</code>, <code>a/b</code>, <code>-3/4</code></td></tr>
+                                <tr><td><code>{'{'}x+1{'}'}/{'{'}2{'}'}</code></td><td>Zlomek s víceznakovým výrazem — každou stranu, která není jediné číslo/písmeno, obal do <code>{'{'} {'}'}</code></td></tr>
+                                <tr><td><code>3,5/2</code></td><td>Desetinná čísla se čárkou fungují (automaticky se převedou na tečku)</td></tr>
+                                <tr><td><code>- 1/2</code></td><td>Mezera + pomlčka před zlomkem se stane záporným zlomkem</td></tr>
+                                <tr><td><code>ano/ne</code></td><td>Výjimka — zůstane jako obyčejný text, nepřevede se na zlomek</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Matematika (KaTeX)</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>$x^2 + y^2$</code></td><td>Vzorec v textu (inline)</td></tr>
+                                <tr><td><code>$$x^2 + y^2 = r^2$$</code></td><td>Vzorec na samostatném řádku (display)</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Škrtnutí</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>#s#text#s#</code></td><td>Škrtne text: <del>text</del></td></tr>
+                                <tr><td><code>{'{'}#s#2#s#{'}'}/{'{'}4{'}'}</code></td><td>Škrtnutí uvnitř zlomku (čitatel nebo jmenovatel) se ve zlomku vykreslí jako přeškrtnuté číslo</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Rámečky (Tip / Zajímavost)</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>!!!tip Text rady !!!</code></td><td>Zvýrazněný rámeček se žárovkou a popiskem „Tip"</td></tr>
+                                <tr><td><code>!!!sidefact Zajímavý fakt !!!</code></td><td>Zvýrazněný rámeček s ikonou „i" a popiskem „Zajímavost"</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Obsah rámečku píšeš mezi klíčové slovo a uzavírací <code>!!!</code>.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Šipka</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>krok 1 -&gt; krok 2</code></td><td>Šipka mezi mezerami se změní na ikonu šipky doprava</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Úvodní odstavec</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>... Krátký úvodní text ...</code></td><td>První výskyt tří teček na začátku a na konci se zvýrazní jako úvodní (lead) odstavec článku</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Tři tečky jsou vyhrazený znak — jinde v textu se jakékoli osamocené <code>...</code> z výstupu odstraní, takže je nepiš jako obyčejnou elipsu.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Obrázek s popiskem a zdrojem</h6>
+                        <pre class="fl-pre">![alt text](/images/obrazek.png)
+
+    Popisek obrázku (nepovinné, může být víc řádků)
+
+    Zdroj: Wikipedia</pre>
+                        <p class="fl-note">Řádek začínající <code>Zdroj:</code> nebo <code>Autor:</code> hned pod obrázkem (a případným popiskem) se použije jako uvedení zdroje. Obsahuje-li „Tobiso", obrázek se považuje za vlastní a zobrazí se mírně jinak než u přebraných obrázků.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Video a dokument</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>*[alt videa](videos/x.mp4)</code></td><td>Vloží přehrávatelné video (musí být samostatný odstavec, prázdný řádek před i po)</td></tr>
+                                <tr><td><code>_[jméno odkazu](documents/x.docx)</code></td><td>Vloží odkaz ke stažení dokumentu (PDF, DOCX, PPTX, XLSX) — otevře se v nové záložce</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Cestu k souboru zkopíruj tlačítkem „Kopírovat URL" v sekci <a href="/videos">Videa</a> / <a href="/documents">Dokumenty</a> — video musí mít příponu <code>.mp4</code>. Videa z YouTube se nevkládají do textu, ale samostatným polem „YouTube URL" v editaci příspěvku.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Dodatek (vysvětlivka v bublině)</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>(--DOD-5--)</code></td><td>Vloží klikací ikonu, která otevře dodatek s ID 5</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="fl-note">Dodatky (jejich text a ID) se spravují v sekci <a href="/addendums">Dodatky</a>.</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>E-mailový odkaz</h6>
+                        <table class="fl-table">
+                            <tbody>
+                                <tr><td><code>[Napiš nám](mailto:info@tobiso.cz?subject=Dotaz)</code></td><td>Odkaz otevře e-mailového klienta s předvyplněným předmětem (parametr <code>?subject=…</code> je nepovinný)</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Grafy</h6>
+                        <p class="fl-note">Grafy (osy, křivky, body, funkce) se píšou do bloku <code>[graf1]</code> … <code>[/graf1]</code> — celý návod je v záložce <a href="" @onclick="() => _tab = Tab.Graphs" @onclick:preventDefault>Grafy</a>.</p>
+                        <p class="fl-note">Vývojové diagramy se píšou do bloku <code>[vyvoj1]</code> … <code>[/vyvoj1]</code> (záložka <a href="" @onclick="() => _tab = Tab.Flowcharts" @onclick:preventDefault>Vývojové diagramy</a>) a Vennovy diagramy do bloku <code>[venn1]</code> … <code>[/venn1]</code> (záložka <a href="" @onclick="() => _tab = Tab.Venn" @onclick:preventDefault>Vennovy diagramy</a>).</p>
+                    </section>
+
+                    <section class="fl-section">
+                        <h6>Zmínky osob</h6>
+                        <p class="fl-note">Stačí do textu napsat jméno nebo přezdívku známé osoby přirozeně — žádná speciální syntaxe není potřeba, systém jméno sám rozpozná a připojí k němu odkaz.</p>
+                    </section>
+
+                }
 
             </div>
         </div>
@@ -147,6 +465,10 @@ Zdroj: Wikipedia</pre>
 @code {
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    private enum Tab { Formatting, Graphs, Flowcharts, Venn }
+
+    private Tab _tab = Tab.Formatting;
 
     private Task Close() => VisibleChanged.InvokeAsync(false);
 

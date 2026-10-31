@@ -32,18 +32,18 @@ public interface IPostService
 
 public class PostService : IPostService
 {
-    private readonly TobisoDbContext _context;
+    private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
     private readonly ILogger<PostService> _logger;
 
-    public PostService(TobisoDbContext context, ILogger<PostService> logger)
+    public PostService(IDbContextFactory<TobisoDbContext> dbFactory, ILogger<PostService> logger)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
-    private static PostVersionResponse ToVersionResponse(PostVersion v) => new()
+    private static PostVersionResponse ToVersionResponse(PostVersion v, DateTime postCreatedAt) => new()
     {
         Id = v.Id,
         PostId = v.PostId,
@@ -51,6 +51,7 @@ public class PostService : IPostService
         GradeName = v.Grade?.Name,
         GradeLevel = v.Grade?.Level,
         Content = v.Content,
+        CreatedAt = postCreatedAt,
         LastFix = v.LastFix,
         LastEdit = v.LastEdit,
         IsChecked = v.IsChecked
@@ -83,7 +84,8 @@ public class PostService : IPostService
             Title = p.Title,
             FilePath = p.FilePath,
             CategoryId = p.CategoryId,
-            Versions = versionsToInclude.Select(ToVersionResponse).ToList()
+            CreatedAt = p.CreatedAt,
+            Versions = versionsToInclude.Select(v => ToVersionResponse(v, p.CreatedAt)).ToList()
         };
     }
 
@@ -91,6 +93,7 @@ public class PostService : IPostService
 
     public async Task<List<PostResponse>> GetAll(int? gradeId = null)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         try
         {
             var posts = await _context.Posts
@@ -133,6 +136,7 @@ public class PostService : IPostService
 
     public async Task<List<PostSummaryResponse>> GetSummaries()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         return await _context.Posts
             .Select(p => new PostSummaryResponse
             {
@@ -155,6 +159,7 @@ public class PostService : IPostService
 
     public async Task<List<PostLinkResponse>> GetLinks()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         return await _context.Posts
             .Select(p => new PostLinkResponse
             {
@@ -167,6 +172,7 @@ public class PostService : IPostService
 
     public async Task<PostResponse?> GetById(int id, int? gradeId = null)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var post = await _context.Posts
             .AsNoTracking()
             .Include(p => p.Versions)
@@ -192,6 +198,7 @@ public class PostService : IPostService
 
     public async Task<PostResponse?> GetBySlug(string slug, int? gradeId = null)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         if (string.IsNullOrWhiteSpace(slug)) return null;
 
         // No dedicated slug column - match by deriving the slug from FilePath in memory.
@@ -208,6 +215,7 @@ public class PostService : IPostService
 
     public async Task<bool> UpdateMetadata(int id, UpdatePostRequest req)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var entity = await _context.Posts.FindAsync(id);
         if (entity == null) return false;
 
@@ -220,6 +228,7 @@ public class PostService : IPostService
 
     public async Task<bool> Delete(int id)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         try
         {
             // Remove any RelatedPost entries that reference this post as RelatedPostId
@@ -256,6 +265,7 @@ public class PostService : IPostService
 
     public async Task<PostLinkResponse?> GetRandomAsync()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var count = await _context.Posts.CountAsync();
         if (count == 0) return null;
         var skip = Random.Shared.Next(count);
@@ -268,6 +278,7 @@ public class PostService : IPostService
 
     public async Task<PostLinkResponse?> GetArticleOfTheDayAsync()
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var posts = await _context.Posts
             .OrderBy(p => p.Id)
             .Select(p => new PostLinkResponse { Id = p.Id, Title = p.Title, FilePath = p.FilePath })
@@ -278,6 +289,7 @@ public class PostService : IPostService
 
     public async Task<PostVideoResponse?> GetVideo(int id)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var video = await _context.PostVideos
             .AsNoTracking()
             .FirstOrDefaultAsync(v => v.PostId == id);
@@ -294,6 +306,7 @@ public class PostService : IPostService
 
     public async Task<PostResponse?> Create(CreatePostRequest req)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         await using var tx = await _context.Database.BeginTransactionAsync();
 
         var entity = new Post
@@ -327,6 +340,7 @@ public class PostService : IPostService
 
     public async Task<List<PostSearchResultDto>> SearchContentAsync(string query, int take = 10)
     {
+        await using var _context = _dbFactory.CreateDbContext();
         var term = query?.Trim() ?? "";
         if (term.Length < 2) return new List<PostSearchResultDto>();
 

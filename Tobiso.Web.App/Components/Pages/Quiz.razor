@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject IQuestionService QuestionService
 @inject IQuestionAttemptService AttemptService
+@inject IPointsWalletService Wallet
 @inject ICategoryService CategoryService
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
@@ -296,7 +297,12 @@
 
     private async Task RecordAttemptSafe(int userId, int questionId, bool correct)
     {
-        try { await AttemptService.RecordAttemptAsync(userId, questionId, correct); }
+        try
+        {
+            await AttemptService.RecordAttemptAsync(userId, questionId, correct);
+            // Graded by this component on the server, so the result is trusted; pays once per question per day.
+            if (correct) await Wallet.AwardAsync(userId, [(questionId, true)]);
+        }
         catch (Exception) when (_disposed) { }
     }
 

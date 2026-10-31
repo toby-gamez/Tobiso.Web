@@ -1,0 +1,48 @@
+.legal-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+
+.legal-banner-icon {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    color: var(--color-accent-600);
+}
+
+.legal-banner-text {
+    flex: 1 1 220px;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text);
+}
+
+.legal-banner-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+@media (max-width: 600px) {
+    .legal-banner {
+        padding: var(--space-4);
+    }
+
+    .legal-banner-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .legal-banner-actions .pill {
+        flex: 1;
+        justify-content: center;
+    }
+}

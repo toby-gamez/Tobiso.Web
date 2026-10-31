@@ -28,6 +28,11 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
+    // forceLoad navigations (login/logout) tear the circuit down while the JS call is in
+    // flight, so the framework logs a harmless TaskCanceledException. Drop that noise.
+    .Filter.ByExcluding(e =>
+        e.Exception is TaskCanceledException tce
+        && (tce.StackTrace?.Contains("RemoteNavigationManager") ?? false))
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -65,12 +70,13 @@ services
     .AddAuthentication("SmartAuth")
     .AddPolicyScheme("SmartAuth", "JWT or Basic", options =>
     {
+        // Basic only when asked for; everything else (Bearer header or the session cookie) is JWT.
         options.ForwardDefaultSelector = ctx =>
         {
             var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
-            return auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? "Bearer"
-                : BasicAuthConstants.Scheme;
+            return auth?.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase) == true
+                ? BasicAuthConstants.Scheme
+                : "Bearer";
         };
     })
     .AddScheme<ManualJwtAuthOptions, ManualJwtAuthHandler>("Bearer", options =>
@@ -81,6 +87,10 @@ services
         options.ValidateIssuer   = true;
         options.ValidateAudience = true;
         options.ValidateLifetime = true;
+        options.CookieName       = SessionCookies.Student;
+        // Revocation: a student token only counts while its security stamp is still current.
+        options.ValidatePrincipalAsync = (principal, ctx) =>
+            SessionCookies.IsStudentSessionValidAsync(principal, ctx.RequestServices.GetRequiredService<IUserService>());
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthHandler>(BasicAuthConstants.Scheme, null)
     .AddCookie("TempCookie", opts => opts.ExpireTimeSpan = TimeSpan.FromMinutes(10));
@@ -100,7 +110,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         });
 }
 
-services.AddAuthorization();
+services.AddTobisoAuthorization();
 
 // Production hosts on IIS with hostingModel=inprocess (see web.config), so IIS terminates
 // the connection itself and RemoteIpAddress already reflects the real client IP - there is
@@ -131,19 +141,32 @@ services.Configure<ForwardedHeadersOptions>(options =>
 // Throttle authentication endpoints (login/register) against online brute-forcing.
 services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("auth", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Partitioned per client IP: a single shared window let anyone lock every user out of
+    // login with 5 requests a minute. 20/min leaves room for a school class behind one NAT IP.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 20,
+            QueueLimit = 0
+        }));
+    options.AddPolicy("pdf", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(1),
+            PermitLimit = 10,
+            QueueLimit = 0
+        }));
 });
 
 services.AddRazorComponents().AddInteractiveServerComponents();
 services.AddCascadingAuthenticationState();
-services.AddScoped<StudentCredentialStore>();
-services.AddScoped<StudentAuthStateProvider>();
-services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<StudentAuthStateProvider>());
+// The circuit's user comes from the HttpOnly session cookie; this re-checks it every minute so a
+// revoked or expired session also ends in already-open tabs.
+services.AddScoped<AuthenticationStateProvider, StudentRevalidatingAuthStateProvider>();
 
 // Register API services from Tobiso.Web.Api.Services
 services.AddScoped<ICategoryService, CategoryService>();
@@ -153,6 +176,8 @@ services.AddScoped<IGradeService, GradeService>();
 services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
+services.AddScoped<IClassService, ClassService>();
+services.AddScoped<ICalendarFeedService, CalendarFeedService>();
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IAddendumService, AddendumService>();
 services.AddScoped<AddendumModalService>();
@@ -163,6 +188,17 @@ services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
 services.AddScoped<IInteractiveExerciseService, InteractiveExerciseService>();
+
+// Kronika (interactive history timeline)
+services.AddMemoryCache();
+services.AddScoped<IChronicleItemService, ChronicleItemService>();
+services.AddScoped<IChronicleCategoryService, ChronicleCategoryService>();
+services.AddScoped<IChronicleLinkService, ChronicleLinkService>();
+services.AddScoped<IChroniclePeriodizationService, ChroniclePeriodizationService>();
+services.AddScoped<IChronicleRegionService, ChronicleRegionService>();
+services.AddScoped<IChroniclePolityService, ChroniclePolityService>();
+services.AddScoped<IChronicleAxisService, ChronicleAxisService>();
+services.AddScoped<IChronicleImportService, ChronicleImportService>();
 // Register PDF service implementation from API assembly so App controllers can use it (pattern used for other services)
 services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.PdfService>();
 
@@ -214,8 +250,15 @@ services.AddEndpointsApiExplorer();
 
 services.AddScoped<JwtTokenService>();
 services.AddScoped<IUserService, UserService>();
+services.AddScoped<IEmailSender, SmtpEmailSender>();
+services.AddScoped<IAccountService, AccountService>();
+services.AddScoped<ILegalNoticeService, LegalNoticeService>();
+services.AddScoped<IUserDataExportService, UserDataExportService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
+services.AddScoped<IStreakService, StreakService>();
 services.AddScoped<IUserProgressService, UserProgressService>();
+services.AddScoped<IGameStateService, GameStateService>();
+services.AddScoped<IPointsWalletService, PointsWalletService>();
 services.AddScoped<IQuestionAttemptService, QuestionAttemptService>();
 services.AddTransient<HttpLoggingHandler>();
 // Register PDF JS interop service for minimal Blazor-JS PDF calls
@@ -344,12 +387,13 @@ app.Use(async (context, next) =>
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "script-src 'self' https://cdn.jsdelivr.net https://www.googletagmanager.com 'unsafe-inline'; " +
         "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline'; " +
         "font-src 'self' https://fonts.gstatic.com; " +
         "img-src 'self' https: data:; " +
         "media-src 'self' https:; " +
-        "connect-src 'self'; " +
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com; " +
+        "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; " +
         "frame-ancestors 'none'";
     await next();
 });

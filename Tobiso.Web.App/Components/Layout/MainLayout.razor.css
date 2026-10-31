@@ -22,3 +22,28 @@
         padding: var(--space-4) var(--space-4) 60px;
     }
 }
+
+.floating-stack {
+    position: fixed;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    z-index: 90;
+    width: calc(100% - 2 * var(--space-4));
+    max-width: 480px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-3);
+    pointer-events: none;
+}
+
+.floating-stack > ::deep * {
+    pointer-events: auto;
+}
+
+@media (max-width: 600px) {
+    .floating-stack {
+        right: var(--space-3);
+        bottom: var(--space-3);
+        width: calc(100% - 2 * var(--space-3));
+    }
+}

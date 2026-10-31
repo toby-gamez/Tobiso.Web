@@ -2,9 +2,23 @@
 @implements IDisposable
 @inject NavigationManager Nav
 @inject IJSRuntime JS
-@inject CredentialStore CredentialStore
 
-<aside class="nav-rail">
+<div class="mobile-topbar">
+    <a href="/" class="brand-link">
+        <span class="brand-logo">T</span>
+        <span class="brand-name">Tobiso Admin</span>
+    </a>
+    <button class="icon-btn" @onclick="ToggleMobileMenu" aria-label="Otevřít menu">
+        <i data-lucide="menu"></i>
+    </button>
+</div>
+
+@if (_mobileMenuOpen)
+{
+    <div class="mobile-overlay" @onclick="CloseMobileMenu"></div>
+}
+
+<aside class="nav-rail @(_mobileMenuOpen ? "open" : "")">
     <a href="/" class="brand-link">
         <span class="brand-logo">T</span>
         <span class="brand-name">Tobiso Admin</span>
@@ -33,6 +47,12 @@
     </div>
 
     <div class="rail-section">
+        <div class="rail-section-label">Uživatelé</div>
+        <a href="/users" class="rail-item @(IsActive("/users") ? "active" : "")"><i data-lucide="users"></i> Účty</a>
+        <a href="/classes" class="rail-item @(IsActive("/classes") ? "active" : "")"><i data-lucide="school"></i> Třídy</a>
+    </div>
+
+    <div class="rail-section">
         <div class="rail-section-label">Média</div>
         <a href="/images" class="rail-item @(IsActive("/images") ? "active" : "")"><i data-lucide="image"></i> Images</a>
         <a href="/videos" class="rail-item @(IsActive("/videos") ? "active" : "")"><i data-lucide="video"></i> Videos</a>
@@ -55,6 +75,11 @@
 
 @code {
     private bool _darkMode;
+    private bool _mobileMenuOpen;
+
+    private void ToggleMobileMenu() => _mobileMenuOpen = !_mobileMenuOpen;
+
+    private void CloseMobileMenu() => _mobileMenuOpen = false;
 
     protected override void OnInitialized()
     {
@@ -66,6 +91,7 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
+        _mobileMenuOpen = false;
         InvokeAsync(StateHasChanged);
     }
 
@@ -97,7 +123,8 @@
     {
         try
         {
-            await CredentialStore.ClearAsync(JS);
+            // The session cookie is HttpOnly - only the server can remove it.
+            await JS.InvokeAsync<object>("tobisoAuthPost", "/api/auth/logout", new { });
             Nav.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception)

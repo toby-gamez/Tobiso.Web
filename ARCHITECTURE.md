@@ -277,6 +277,8 @@ The entire pipeline runs inside `MarkdownContent.razor` via `TransformMarkdownCo
 
 ### Step 1 — Pre-processing (before Markdig)
 
+0. **Graph blocks** — `GraphRenderer.ExtractBlocks` (`Tobiso.Web.Shared/Graphs/GraphRenderer.cs`, shared with the admin graph builder): `[grafN] … [/grafN]` blocks (axes `x(label): 0-10 (step)`, `curveN(name: …): [x;y] … linear|smooth COLOR`, `pointN: [x;y] COLOR`, `function: y = 2x^2 + 1` parsed by `GraphExpression`, `note:`, `title:`) are rendered to inline SVG first and parked behind placeholders; `GraphRenderer.RestoreBlocks` swaps them back in as the very last step, so no other text rule touches them. Same in `PdfController`.
+0. **Flowchart and Venn blocks** — same extract/restore scheme with their own placeholders: `FlowchartRenderer` (`[vyvojN] … [/vyvojN]`: `start|end|process|decision|io(id: x): Text` nodes, `a -> b (label) COLOR` edges, layered auto-layout, loops routed around the diagram) and `VennRenderer` (`[vennN] … [/vennN]`: 2–3 `set(name: A, color: BLUE): 1; 2; 3` lines, elements land in the region given by set membership, plus `only/both/all/outside`). Both live in `Tobiso.Web.Shared/Graphs/`, run right after the graph pass (so `->` inside a flowchart never becomes an icon), are styled by `.post-flowchart` / `.post-venn` in `organic.css`, and have admin builders (`FlowchartBuilder.razor`, `VennBuilder.razor`) plus legend tabs.
 1. **mailto normalization** — `ReplaceMarkdownMailtoInText`: normalizes `mailto:` link syntax.
 2. **Fraction substitution** — `ReplaceFractionsInText`: converts `1/2`, `{n+1}/{n-1}` etc. to `<span class='math-inline' data-math="\frac{1}{2}">` KaTeX spans. Skips content inside code fences.
 3. **Strikethrough** — `ReplaceStrikethroughSyntax`: `#s#text#s#` → `<del>text</del>`
@@ -542,21 +544,24 @@ Exercises are discovered for a post through two paths:
 ### Registration & Login
 
 **Email/password** (`/registrace`):
-1. `POST /api/auth/register` with `RegisterRequest(Email, DisplayName, Password)` (min 8 chars, validated client-side)
-2. `UserService` creates `AppUser`, hashes password with ASP.NET `PasswordHasher<AppUser>`
-3. Grants **20 registration bonus credits** via `AiCreditTransaction`
-4. Returns `StudentLoginResponse { Token, DisplayName, Credits }`
-5. Token stored to `localStorage["tobiso_student_token"]`, auth state notified
+1. `POST /api/auth/register` with `RegisterRequest(Email, DisplayName, Password, AcceptedTerms)` (min 10 chars)
+2. `AccountService` creates an **unverified** `AppUser` (PBKDF2 hash, 20 registration bonus credits) and mails a verification link (`/overeni-emailu?token=…`, valid 48 h). If the email already has an account, its owner gets a password-reset link instead - the response is identical either way, so it doesn't reveal which emails are registered.
+3. The account can't sign in until the link is confirmed (a button on the page, so mail scanners that pre-open links can't confirm it). Signing in unverified returns `403 { code: "email_unverified" }` and re-sends the link.
+4. Website sign-in: `POST /api/auth/session` (called from the browser via `wwwroot/js/auth.js`) sets the **HttpOnly** `tobiso_auth` cookie; the token is never visible to page script. `POST /api/auth/student-login` still returns the token as JSON for Bearer API clients.
+5. Sign-out: `POST /api/auth/logout` (clears the cookie); `POST /api/auth/logout-everywhere` rotates the security stamp.
+
+**Password reset** (`/zapomenute-heslo` → mail → `/obnova-hesla?token=…`): `POST /api/auth/forgot-password` (same answer whether or not the account exists), `POST /api/auth/reset-password` sets the password, confirms the email, rotates the security stamp (ends every other session) and signs the browser in. Links are HMAC-signed, valid 1 h and single-use (they're bound to the security stamp). Mails need the `Email` config section; link host comes from `App:PublicBaseUrl`, never the request.
 
 **Google OAuth** (`/prihlaseni` → Google button):
 1. `GET /api/auth/google-login` → ASP.NET `Challenge("Google")`
-2. Callback at `/api/auth/google-callback` → `UserService.FindOrCreateGoogleUserAsync()` (links to existing email or creates new user with 20 credits)
-3. Issues student JWT, redirects to `/google-auth-complete?token=...`
-4. `GoogleAuthComplete.razor` reads token from query string → stores in `StudentCredentialStore`
+2. Callback at `/api/auth/google-callback` → `UserService.FindOrCreateGoogleUserAsync()` (links to existing email or creates new user with 20 credits; Google proves the email, so it's marked confirmed. Linking drops any unverified password and rotates the stamp)
+3. Sets the `tobiso_auth` session cookie and redirects to `/`
+
+**Sessions and revocation**: every student token carries `sst` = the user's `SecurityStamp`. `ManualJwtAuthHandler` checks it against the DB on each request, and the Blazor circuit re-checks every minute (`StudentRevalidatingAuthStateProvider`). Rotating the stamp (password reset, "log out everywhere", admin password reset, Google link) or deleting the account ends all sessions.
 
 **Admin** (`/login` in admin app):
-1. `POST /api/auth/login` with `{ username, password }` (against `Auth:Basic` config values)
-2. Returns `{ token }` (admin JWT, 24-hour default)
+1. Admin login page → `POST /api/auth/session` on the **admin host**, which calls the main app's `POST /api/auth/login` (`Auth:Basic` credentials, per-IP lockout after 10 failures) and stores the admin JWT (`role=admin`, `Auth:Jwt:ExpiryHours`) in the HttpOnly `tobiso_admin` cookie on the admin host
+2. `POST /api/auth/logout` on the admin host clears it
 3. Stored to `localStorage["tobiso_jwt"]`
 
 ### Credits System
@@ -699,15 +704,11 @@ Configured in both `Program.cs` files. Dispatches based on `Authorization` heade
 
 ### Student Auth State (Blazor)
 
-`StudentAuthStateProvider` extends `AuthenticationStateProvider`. Reads from `StudentCredentialStore`:
-- Singleton store using `AsyncLocal<string?>` (per Blazor circuit) + static `_directToken` fallback
-- Token persisted to `localStorage["tobiso_student_token"]`
-- `UserMenu.razor` calls `StudentCredentialStore.InitializeAsync()` on first render to restore from localStorage
+The session cookie is authenticated by `ManualJwtAuthHandler` (header first, then the `tobiso_auth` cookie; the cookie is ignored on cross-site/same-site requests other than plain page loads, per `Sec-Fetch-Site`). The circuit takes that user from the connection; `StudentRevalidatingAuthStateProvider` re-checks expiry and the security stamp every minute.
 
 ### Admin Auth State (Blazor Admin App)
 
-`TokenAuthenticationStateProvider` — parses JWT claims client-side from `localStorage["tobiso_jwt"]`.  
-`AuthenticationHeaderHandler` — injects `Bearer {token}` into outgoing Refit API calls.
+Same handler with the `tobiso_admin` cookie and `IncludeRawTokenClaim`; `AdminRevalidatingAuthStateProvider` re-checks expiry and `role=admin`. `MainLayout` copies the raw token into the circuit's `CredentialStore`, and `AuthenticationHeaderHandler` sends it as `Bearer` on outgoing Refit calls to the main app.
 
 ### JWT Token Types
 
@@ -890,7 +891,7 @@ Registration order:
 5. **SmartAuth** policy scheme (Bearer JWT + Basic Auth + TempCookie for Google)
 6. **Google OAuth** (optional, requires `Google:ClientId` + `Google:ClientSecret` in config)
 7. **Blazor** (`AddRazorComponents().AddInteractiveServerComponents()`) + cascading auth state
-8. **StudentCredentialStore** (Singleton) + **StudentAuthStateProvider** (Scoped)
+8. **StudentRevalidatingAuthStateProvider** (Scoped; session from the HttpOnly cookie)
 9. **Domain services** (all Scoped): `ICategoryService`, `IPostService`, `IPostVersionService`, `IGradeService`, `IQuestionService`, `IExplanationService`, `IEventService`, `IRelatedPostService`, `IAddendumService`, `IPushNotificationService`, `IDeviceService`, `IFeedbackService`, `IInteractiveExerciseService`, `IPdfService`
 10. **UI services** (Scoped): `AddendumModalService`, `PostsGraphModalService`, `PersonModalService`
 11. **AI services**: `IAiRateLimitService` (Singleton), `IAiService` (Scoped), named `HttpClient("OpenAI")`
@@ -911,9 +912,9 @@ Simpler — no AI services, no student auth, no Google OAuth, no Firebase:
 3. SQL Server DbContext
 4. SmartAuth (JWT + Basic only)
 5. Blazor + cascading auth state
-6. `TokenAuthenticationStateProvider` (reads admin JWT from localStorage)
+6. `AdminRevalidatingAuthStateProvider` (admin session from the HttpOnly `tobiso_admin` cookie)
 7. Same domain services as App (minus AI, PDF, user-specific, modal services)
-8. `CredentialStore` (Singleton), `AuthenticationHeaderHandler` + `HttpLoggingHandler` (Transient)
+8. `CredentialStore` (Scoped, per circuit), `AuthenticationHeaderHandler` + `HttpLoggingHandler` (Transient)
 9. Refit `ITobisoWebApi` with `AuthenticationHeaderHandler` (auto-injects Bearer token)
 10. Swagger
 11. **401-redirect middleware**: any 401 not to `/login` or `/_` → redirect to `/login`
@@ -941,7 +942,9 @@ Simpler — no AI services, no student auth, no Google OAuth, no Firebase:
 | `/profil` | `Profile.razor` | Student profile (auth required) |
 | `/prihlaseni` | `Login.razor` | Student login (EmptyLayout) |
 | `/registrace` | `Register.razor` | Student registration (EmptyLayout) |
-| `/google-auth-complete` | `GoogleAuthComplete.razor` | Google OAuth landing |
+| `/overeni-emailu` | `VerifyEmail.razor` | Confirm email from the verification link |
+| `/zapomenute-heslo` | `ForgotPassword.razor` | Request a password-reset link |
+| `/obnova-hesla` | `ResetPassword.razor` | Set a new password from the reset link |
 | `/Error` | `Error.razor` | Error page |
 
 ### Admin App (`Tobiso.Web.App.Admin`)

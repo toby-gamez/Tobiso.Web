@@ -238,6 +238,15 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CalendarToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("CalendarTypeMask")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(14);
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -258,6 +267,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTime?>("EmailConfirmedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("GoogleId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -271,11 +283,35 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("LastReadBonusAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("LegalNoticeDismissedFor")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
+                    b.Property<int>("PointsBalance")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PreferredGradeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TermsVersion")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CalendarToken")
+                        .IsUnique()
+                        .HasFilter("[CalendarToken] IS NOT NULL");
 
                     b.HasIndex("Email")
                         .IsUnique();
@@ -315,6 +351,533 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.ToTable("Categories");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleAxis", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("ChronicleAxes");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleAxisEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AxisId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ExpandChildren")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OrderOverride")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AxisId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("ChronicleAxisEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_ChronicleAxisEntry_ItemOrCategory", "([ItemId] IS NOT NULL AND [CategoryId] IS NULL) OR ([ItemId] IS NULL AND [CategoryId] IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("ChronicleCategories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleEventPerson", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.HasKey("EventId", "PersonId");
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("ChronicleEventPersons");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<long?>("EndYear")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("Importance")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
+
+                    b.Property<string>("LessonSlug")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("MinGradeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Precision")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Reliability")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReliabilityNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("StartYear")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MinGradeId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("StartYear", "EndYear");
+
+                    b.ToTable("ChronicleItems");
+
+                    b.HasDiscriminator<string>("ItemType").HasValue("ChronicleItem");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemCategory", b =>
+                {
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.HasKey("ItemId", "CategoryId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("ChronicleItemCategories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("FromId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ToId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ToId");
+
+                    b.HasIndex("FromId", "ToId", "Type")
+                        .IsUnique();
+
+                    b.ToTable("ChronicleItemLinks", t =>
+                        {
+                            t.HasCheckConstraint("CK_ChronicleItemLink_DifferentItems", "[FromId] <> [ToId]");
+                        });
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemRegion", b =>
+                {
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RegionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ItemId", "RegionId");
+
+                    b.HasIndex("RegionId");
+
+                    b.ToTable("ChronicleItemRegions");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<bool>("DefaultCollapsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PeriodizationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StartEventId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("StartYear")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartEventId");
+
+                    b.HasIndex("PeriodizationId", "Order")
+                        .IsUnique();
+
+                    b.ToTable("ChroniclePeriods");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePeriodization", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ChroniclePeriodizations");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePolity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("EndYear")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("StartYear")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ChroniclePolities");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePolityTerritory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Coverage")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("FromYear")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("PolityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RegionId")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("ToYear")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("PolityId", "RegionId");
+
+                    b.ToTable("ChroniclePolityTerritories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleRegion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
+
+                    b.HasIndex("Path");
+
+                    b.ToTable("ChronicleRegions");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("ChronicleSources");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ClassGroups");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembership", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("GroupChangePending")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("PendingGroupId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.HasIndex("ClassId", "Status");
+
+                    b.ToTable("ClassMemberships");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembershipGroup", b =>
+                {
+                    b.Property<int>("MembershipId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.HasKey("MembershipId", "GroupId");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("ClassMembershipGroups");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.DeviceToken", b =>
                 {
                     b.Property<int>("Id")
@@ -350,17 +913,20 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ClassId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Color")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(7)
-                        .HasColumnType("nvarchar(7)")
-                        .HasDefaultValue("#007bff");
+                        .HasColumnType("nvarchar(7)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
@@ -368,6 +934,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsAllDay")
                         .HasColumnType("bit");
@@ -386,6 +955,11 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("Scope")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -394,12 +968,56 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("Scope", "StartDate");
+
                     b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.EventTheme", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PostId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("EventThemes", t =>
+                        {
+                            t.HasCheckConstraint("CK_EventThemes_PostOrCategory", "([PostId] IS NOT NULL AND [CategoryId] IS NULL) OR ([PostId] IS NULL AND [CategoryId] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Explanation", b =>
@@ -576,6 +1194,45 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasIndex("PostId");
 
                     b.ToTable("InteractiveExercisePosts");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PointsLedgerEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Ref")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "Kind", "Ref")
+                        .IsUnique()
+                        .HasFilter("[Ref] IS NOT NULL");
+
+                    b.ToTable("PointsLedger");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Post", b =>
@@ -977,6 +1634,50 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.SchoolClass", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int?>("GradeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GradeId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("SchoolClasses");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserActivityDay", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.HasKey("UserId", "Date");
+
+                    b.ToTable("UserActivityDays");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserBookmark", b =>
                 {
                     b.Property<int>("Id")
@@ -1004,6 +1705,28 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("UserBookmarks");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserGameState", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserGameStates");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserNote", b =>
@@ -1079,6 +1802,24 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("UserReadPosts");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleEvent", b =>
+                {
+                    b.HasBaseType("Tobiso.Web.Domain.Entities.ChronicleItem");
+
+                    b.HasDiscriminator().HasValue("Event");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePerson", b =>
+                {
+                    b.HasBaseType("Tobiso.Web.Domain.Entities.ChronicleItem");
+
+                    b.Property<string>("Occupation")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasDiscriminator().HasValue("Person");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.AiChatMessage", b =>
@@ -1160,6 +1901,283 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleAxisEntry", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleAxis", "Axis")
+                        .WithMany("Entries")
+                        .HasForeignKey("AxisId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Axis");
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleCategory", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleCategory", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleEventPerson", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Person");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItem", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.Grade", "MinGrade")
+                        .WithMany()
+                        .HasForeignKey("MinGradeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MinGrade");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemCategory", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleCategory", "Category")
+                        .WithMany("Items")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Item")
+                        .WithMany("Categories")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemLink", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "From")
+                        .WithMany()
+                        .HasForeignKey("FromId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "To")
+                        .WithMany()
+                        .HasForeignKey("ToId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("From");
+
+                    b.Navigation("To");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItemRegion", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Item")
+                        .WithMany("Regions")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleRegion", "Region")
+                        .WithMany("Items")
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Region");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePeriod", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChroniclePeriodization", "Periodization")
+                        .WithMany("Periods")
+                        .HasForeignKey("PeriodizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "StartEvent")
+                        .WithMany()
+                        .HasForeignKey("StartEventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Periodization");
+
+                    b.Navigation("StartEvent");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePolityTerritory", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChroniclePolity", "Polity")
+                        .WithMany("Territories")
+                        .HasForeignKey("PolityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleRegion", "Region")
+                        .WithMany("PolityTerritories")
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Polity");
+
+                    b.Navigation("Region");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleRegion", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleRegion", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleSource", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ChronicleItem", "Item")
+                        .WithMany("Sources")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassGroup", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany("Groups")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembership", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany("Memberships")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembershipGroup", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.ClassGroup", "Group")
+                        .WithMany("Members")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ClassMembership", "Membership")
+                        .WithMany("Groups")
+                        .HasForeignKey("MembershipId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Membership");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.Event", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.ClassGroup", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Class");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.EventTheme", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.Event", "Event")
+                        .WithMany("Themes")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Post");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Explanation", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Question", "Question")
@@ -1217,6 +2235,17 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("InteractiveExercise");
 
                     b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.PointsLedgerEntry", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithMany("PointsLedger")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Post", b =>
@@ -1395,6 +2424,27 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("RelatedPostRef");
                 });
 
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.SchoolClass", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.Grade", "Grade")
+                        .WithMany()
+                        .HasForeignKey("GradeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Grade");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserActivityDay", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithMany("ActivityDays")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserBookmark", b =>
                 {
                     b.HasOne("Tobiso.Web.Domain.Entities.Post", "Post")
@@ -1410,6 +2460,17 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.UserGameState", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
+                        .WithOne("GameState")
+                        .HasForeignKey("Tobiso.Web.Domain.Entities.UserGameState", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -1461,13 +2522,19 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.AppUser", b =>
                 {
+                    b.Navigation("ActivityDays");
+
                     b.Navigation("Bookmarks");
 
                     b.Navigation("ChatSessions");
 
                     b.Navigation("CreditTransactions");
 
+                    b.Navigation("GameState");
+
                     b.Navigation("Notes");
+
+                    b.Navigation("PointsLedger");
 
                     b.Navigation("QuestionAttempts");
 
@@ -1479,6 +2546,59 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("InteractiveExerciseCategories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleAxis", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleCategory", b =>
+                {
+                    b.Navigation("Children");
+
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleItem", b =>
+                {
+                    b.Navigation("Categories");
+
+                    b.Navigation("Regions");
+
+                    b.Navigation("Sources");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePeriodization", b =>
+                {
+                    b.Navigation("Periods");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChroniclePolity", b =>
+                {
+                    b.Navigation("Territories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ChronicleRegion", b =>
+                {
+                    b.Navigation("Items");
+
+                    b.Navigation("PolityTerritories");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassGroup", b =>
+                {
+                    b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.ClassMembership", b =>
+                {
+                    b.Navigation("Groups");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.Event", b =>
+                {
+                    b.Navigation("Themes");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.InteractiveExercise", b =>
@@ -1502,6 +2622,13 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Answers");
 
                     b.Navigation("Explanations");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.SchoolClass", b =>
+                {
+                    b.Navigation("Groups");
+
+                    b.Navigation("Memberships");
                 });
 #pragma warning restore 612, 618
         }

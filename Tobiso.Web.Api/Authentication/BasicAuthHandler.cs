@@ -50,6 +50,10 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
             var username = credentials[0];
             var password = credentials[1];
 
+            var clientIp = Context.Connection.RemoteIpAddress?.ToString();
+            if (AdminLoginThrottle.IsLockedOut(clientIp))
+                return Task.FromResult(AuthenticateResult.Fail("Too many failed attempts"));
+
             var expectedUsername = _config["Auth:Basic:Username"];
             var expectedPasswordHash = _config["Auth:Basic:PasswordHash"];
             var expectedPassword = _config["Auth:Basic:Password"];
@@ -75,14 +79,17 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
 
             if (!usernameMatch || !passwordMatch)
             {
-                Logger.LogWarning("[BasicAuth] Invalid credentials for user: {User}", username);
+                AdminLoginThrottle.RecordFailure(clientIp);
+                Logger.LogWarning("[BasicAuth] Invalid credentials from {Ip}", clientIp);
                 return Task.FromResult(AuthenticateResult.Fail("Invalid Username or Password"));
             }
+            AdminLoginThrottle.RecordSuccess(clientIp);
 
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Name, username),
+                new Claim("role", AuthPolicies.AdminRole),
             };
 
             var identity = new ClaimsIdentity(claims, Scheme.Name);

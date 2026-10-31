@@ -48,9 +48,16 @@
         <div class="editor-toolbar-row">
             <button type="button" class="btn btn-secondary btn-sm" @onclick="CheckGrammar" disabled="@isChecking">Zkontrolovat gramatiku</button>
             <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearGrammarHighlights">Vyčistit zvýraznění</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showGraphBuilder = true"><i data-lucide="chart-spline"></i> Generátor grafu</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showFlowchartBuilder = true"><i data-lucide="workflow"></i> Vývojový diagram</button>
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showVennBuilder = true"><i data-lucide="circles-three"></i> Vennův diagram</button>
             <button type="button" class="btn btn-secondary btn-sm" @onclick="() => _showLegend = true"><i data-lucide="help-circle"></i> Nápověda k formátování</button>
         </div>
         <GrammarCheckPanel Issues="grammarIssues" />
+    </div>
+    <div class="field">
+        <label>Související články</label>
+        <RelatedPostsPicker PostId="null" Title="@request.Title" Content="@request.Content" @bind-Selected="_related" />
     </div>
     <fieldset class="choice-group @(!CanSave ? "choice-group-incomplete" : "")">
         <legend>Typ úpravy <span class="required-mark">*</span></legend>
@@ -113,9 +120,20 @@
 }
 
 <FormattingLegend @bind-Visible="_showLegend" />
+<GraphBuilder @bind-Visible="_showGraphBuilder" ExistingContent="@request.Content" OnInsert="InsertGraph" />
+<FlowchartBuilder @bind-Visible="_showFlowchartBuilder" ExistingContent="@request.Content" OnInsert="InsertGraph" />
+<VennBuilder @bind-Visible="_showVennBuilder" ExistingContent="@request.Content" OnInsert="InsertGraph" />
 
 @code {
     private bool _showLegend = false;
+    private bool _showGraphBuilder = false;
+    private bool _showFlowchartBuilder = false;
+    private bool _showVennBuilder = false;
+
+    private async Task InsertGraph(string block)
+    {
+        if (markdownEditor != null) await markdownEditor.InsertBlockAtCursor(block);
+    }
     private CreatePostRequest request = new();
     private List<CategoryResponse> categories = new();
     private List<GradeResponse> grades = new();
@@ -124,6 +142,7 @@
     private List<Tobiso.Web.Shared.DTOs.GrammarIssue> grammarIssues = new();
     private bool isChecking = false;
     private List<CreateQuestionRequest> pendingQuestions = new();
+    private List<RelatedLinkSelection> _related = new();
 
     /// <summary>"fix" | "edit" | null. Never defaulted - every save requires an explicit, conscious choice.</summary>
     private string? _editType;
@@ -234,6 +253,12 @@
             {
                 q.PostId = created.Id;
                 await Api.CreateQuestion(q);
+            }
+
+            foreach (var rel in _related)
+            {
+                try { await Api.CreateRelatedPost(new CreateRelatedPostRequest { PostId = created.Id, RelatedPostId = rel.PostId, Text = rel.Text, CreateReverse = rel.Bidirectional }); }
+                catch (Exception rex) { errorMessage = $"Článek byl vytvořen, ale propojení s ID {rel.PostId} selhalo: {rex.Message}"; }
             }
 
             Navigation.NavigateTo($"/posts/edit/{created.Id}");
