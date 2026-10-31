@@ -1,0 +1,52 @@
+@implements IDisposable
+@using Tobiso.Web.App.Services
+@inject AccountRequiredModalService ModalService
+@inject IJSRuntime JS
+
+@if (_open)
+{
+    <div class="account-backdrop" @onclick="Close">
+        <div class="account-dialog" @onclick:stopPropagation="true">
+            <button class="account-close" @onclick="Close" aria-label="Zavřít">
+                <i data-lucide="x"></i>
+            </button>
+            <div class="account-icon">
+                <i data-lucide="lock"></i>
+            </div>
+            <h3 class="account-title">Vyžaduje přihlášení</h3>
+            <p class="account-text">@(_message ?? "Pro použití této funkce se musíš přihlásit.")</p>
+            <div class="account-actions">
+                <a class="pill pill-on" href="/prihlaseni">
+                    <i data-lucide="log-in"></i> Přihlásit se
+                </a>
+                <a class="pill" href="/registrace">Zaregistrovat se</a>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _open;
+    private string? _message;
+
+    protected override void OnInitialized()
+    {
+        ModalService.OnShowRequested += HandleShow;
+    }
+
+    private void HandleShow(string? message)
+    {
+        _message = message;
+        _open = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Close() => _open = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_open) await JS.InvokeVoidAsync("initLucide");
+    }
+
+    public void Dispose() => ModalService.OnShowRequested -= HandleShow;
+}
