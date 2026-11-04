@@ -25,10 +25,14 @@
     private int _checkedUserId;
     private bool _disposed;
 
-    protected override void OnInitialized() => AuthState.AuthenticationStateChanged += OnAuthChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        AuthState.AuthenticationStateChanged += OnAuthChanged;
+        // The session cookie already authenticated the circuit, so the state is known right now and
+        // AuthenticationStateChanged won't fire for it (it only fires on login/logout/revalidation).
+        await CheckAsync(AuthState.GetAuthenticationStateAsync());
+    }
 
-    // The JWT is restored from localStorage only after the circuit connects, so the user is
-    // unknown at first render - react to the auth state change instead of OnInitialized.
     private void OnAuthChanged(Task<AuthenticationState> task) => _ = InvokeAsync(() => CheckAsync(task));
 
     private async Task CheckAsync(Task<AuthenticationState> task)
