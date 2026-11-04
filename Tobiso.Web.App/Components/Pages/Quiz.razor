@@ -176,6 +176,8 @@
                 _loading = true;
                 var questions = await LoadQuestions();
                 if (myGeneration != _loadGeneration) return;
+                foreach (var q in questions)
+                    Random.Shared.Shuffle(CollectionsMarshal.AsSpan(q.Answers));
                 _questions = questions;
                 _loading = false;
                 _currentIndex = 0;
