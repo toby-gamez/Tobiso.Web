@@ -254,39 +254,55 @@ else
                         <InputTextArea class="textarea" rows="3" @bind-Value="eventModel.Description" />
                     </div>
 
-                    @if (eventModel.Type is EventType.Test or EventType.Homework)
+                    @if (eventModel.Type != EventType.DayOff)
                     {
-                        <div class="field">
+                        <div class="field tt-picker">
                             <label>Vybrat z rozvrhu</label>
-                            <div class="form-grid-3">
+                            <div class="tt-controls">
                                 <InputText class="input" @bind-Value="timetableSubject" placeholder="Předmět, např. MAT" @onkeydown="OnTimetableKey" />
-                                <InputSelect class="select" @bind-Value="timetableWeek">
-                                    <option value="@TimetableWeek.Actual">Tento týden</option>
-                                    <option value="@TimetableWeek.Next">Příští týden</option>
-                                </InputSelect>
-                                <InputText class="input" @bind-Value="timetableClass" placeholder="Třída" />
+                                <InputText class="input tt-class" @bind-Value="timetableClass" placeholder="Třída" />
+                                <div class="tt-weeks" role="group" aria-label="Týden">
+                                    <button type="button" class="tt-week @(timetableWeek == TimetableWeek.Actual ? "active" : "")" @onclick="() => SetTimetableWeek(TimetableWeek.Actual)">Tento týden</button>
+                                    <button type="button" class="tt-week @(timetableWeek == TimetableWeek.Next ? "active" : "")" @onclick="() => SetTimetableWeek(TimetableWeek.Next)">Příští týden</button>
+                                </div>
+                                <button type="button" class="btn btn-secondary" @onclick="SearchTimetable" disabled="@timetableLoading">
+                                    <i data-lucide="search"></i> @(timetableLoading ? "Načítám..." : "Najít")
+                                </button>
                             </div>
-                            <button type="button" class="btn btn-ghost btn-sm" @onclick="SearchTimetable" disabled="@timetableLoading">
-                                <i data-lucide="search"></i> @(timetableLoading ? "Načítám..." : "Najít hodiny")
-                            </button>
+
                             @if (timetableError != null)
                             {
-                                <p class="event-author-note">@timetableError</p>
+                                <p class="tt-note tt-error">@timetableError</p>
                             }
-                            else if (timetableLessons != null && timetableLessons.Count == 0)
+                            else if (timetableLessons is { Count: 0 })
                             {
-                                <p class="event-author-note">Žádná hodina nenalezena.</p>
+                                <p class="tt-note">Žádná hodina nenalezena.</p>
                             }
-                            @if (timetableLessons is { Count: > 0 })
+                            else if (timetableLessons is { Count: > 0 })
                             {
-                                <div class="calendar-tags">
-                                    @foreach (var l in timetableLessons)
+                                <div class="tt-days">
+                                    @foreach (var day in timetableLessons.GroupBy(l => l.Start.Date))
                                     {
-                                        <button type="button" class="badge" @onclick="() => PickLesson(l)">
-                                            @LessonLabel(l)
-                                        </button>
+                                        <div class="tt-day">
+                                            <span class="tt-day-name">@day.Key.ToString("dddd d. M.", Cs)</span>
+                                            <div class="tt-lessons">
+                                                @foreach (var l in day)
+                                                {
+                                                    var lesson = l;
+                                                    <button type="button" class="tt-lesson @(selectedLessons.Contains(lesson) ? "selected" : "")" aria-pressed="@selectedLessons.Contains(lesson)" @onclick="() => ToggleLesson(lesson)">
+                                                        <span class="tt-time">@lesson.Start.ToString("HH:mm")–@lesson.End.ToString("HH:mm")</span>
+                                                        <span class="tt-subject">@lesson.SubjectAbbrev@(lesson.Group != null ? $" · {lesson.Group}" : "")</span>
+                                                        @if (lesson.Room != null)
+                                                        {
+                                                            <span class="tt-room">@lesson.Room</span>
+                                                        }
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
                                     }
                                 </div>
+                                <p class="tt-note">Hodiny ze stejného dne můžeš vybrat obě – použije se začátek první a konec poslední.</p>
                             }
                         </div>
                     }
@@ -394,12 +410,9 @@ else
     private string timetableSubject = "";
     private TimetableWeek timetableWeek = TimetableWeek.Actual;
     private List<TimetableLesson>? timetableLessons;
+    private readonly HashSet<TimetableLesson> selectedLessons = new();
     private string? timetableError;
     private bool timetableLoading;
-
-    private static string LessonLabel(TimetableLesson l) =>
-        $"{l.Start.ToString("ddd d. M.", Cs)} {l.Start:HH:mm} · {l.SubjectAbbrev}" +
-        (l.Group != null ? $" ({l.Group})" : "") + (l.Room != null ? $" · {l.Room}" : "");
 
     private async Task OnTimetableKey(KeyboardEventArgs e)
     {
@@ -410,6 +423,7 @@ else
     {
         timetableLoading = true;
         timetableError = null;
+        selectedLessons.Clear();
         try
         {
             timetableLessons = await TimetableService.FindLessonsAsync(timetableClass, timetableWeek, timetableSubject);
@@ -425,15 +439,39 @@ else
         }
     }
 
-    private void PickLesson(TimetableLesson lesson)
+    private async Task SetTimetableWeek(TimetableWeek week)
     {
+        timetableWeek = week;
+        if (timetableLessons != null) await SearchTimetable();
+    }
+
+    // Lessons from one day can be combined; picking one from another day starts a new selection.
+    private void ToggleLesson(TimetableLesson lesson)
+    {
+        if (!selectedLessons.Remove(lesson))
+        {
+            selectedLessons.RemoveWhere(l => l.Start.Date != lesson.Start.Date);
+            selectedLessons.Add(lesson);
+        }
+        if (selectedLessons.Count == 0) return;
+
+        var start = selectedLessons.Min(l => l.Start);
+        var end = selectedLessons.Max(l => l.End);
         eventModel.IsAllDay = false;
-        startDate = lesson.Start.Date;
-        startTime = lesson.Start.ToString("HH:mm");
-        endDate = lesson.End.Date;
-        endTime = lesson.End.ToString("HH:mm");
+        startDate = start.Date;
+        startTime = start.ToString("HH:mm");
+        endDate = end.Date;
+        endTime = end.ToString("HH:mm");
         if (string.IsNullOrWhiteSpace(eventModel.Title))
-            eventModel.Title = $"{lesson.SubjectName} – {(eventModel.Type == EventType.Test ? "test" : "úkol")}";
+        {
+            var subject = selectedLessons.OrderBy(l => l.Start).First().SubjectName;
+            eventModel.Title = eventModel.Type switch
+            {
+                EventType.Test => $"{subject} – test",
+                EventType.Homework => $"{subject} – úkol",
+                _ => subject
+            };
+        }
     }
 
     protected override async Task OnInitializedAsync()
