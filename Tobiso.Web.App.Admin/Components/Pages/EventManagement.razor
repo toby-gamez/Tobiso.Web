@@ -7,6 +7,7 @@
    global events, but the admin has to see and edit the ones students add too. *@
 @inject IEventService EventService
 @inject IClassService ClassService
+@inject ITimetableService TimetableService
 @inject ICategoryService CategoryService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
@@ -49,75 +50,82 @@ else
         </select>
     </div>
 
-    <div class="data-table-wrap">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Název</th>
-                    <th>Datum začátku</th>
-                    <th>Datum konce</th>
-                    <th>Typ</th>
-                    <th>Pro koho</th>
-                    <th>Přidal/a</th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!filteredEvents.Any())
+    <div class="ev-chips">
+        <button type="button" class="ev-chip @(filterType == null ? "ev-chip-on" : "")" @onclick="() => SetTypeFilter(null)">
+            Vše <span class="ev-chip-count">@typeCounts.Values.Sum()</span>
+        </button>
+        @foreach (var t in new[] { EventType.Test, EventType.Homework, EventType.DayOff, EventType.Other })
+        {
+            <button type="button" class="ev-chip @(filterType == t ? "ev-chip-on" : "")" @onclick="() => SetTypeFilter(t)">
+                <span class="ev-dot" style="background:@Tobiso.Web.Domain.Entities.Event.DefaultColor(t)"></span>
+                @TypeLabel(t) <span class="ev-chip-count">@(typeCounts.GetValueOrDefault(t))</span>
+            </button>
+        }
+        <button type="button" class="ev-chip ev-chip-end @(onlyUpcoming ? "ev-chip-on" : "")" @onclick="ToggleUpcoming">
+            <i data-lucide="calendar-clock"></i> Dnes a budoucí
+        </button>
+    </div>
+
+    @if (!filteredEvents.Any())
+    {
+        <div class="ev-empty">Žádné události k zobrazení.</div>
+    }
+    else
+    {
+        @foreach (var month in filteredEvents.GroupBy(e => new DateTime(e.StartDate.Year, e.StartDate.Month, 1)))
+        {
+            <div class="ev-month">@month.Key.ToString("MMMM yyyy", Cs)</div>
+            <div class="ev-list">
+                @foreach (var eventItem in month)
                 {
-                    <tr><td colspan="7" class="empty-row">Žádné události k zobrazení.</td></tr>
-                }
-                else
-                {
-                    @foreach (var eventItem in filteredEvents)
-                    {
-                        <tr>
-                            <td>
-                                <div class="event-title-cell">
-                                    <div class="event-color-indicator" style="background-color: @eventItem.Color"></div>
-                                    @eventItem.Title
-                                </div>
-                            </td>
-                            <td>@eventItem.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
-                            <td>@(eventItem.EndDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
-                            <td>
+                    var past = (eventItem.EndDate ?? eventItem.StartDate).Date < DateTime.Today;
+                    <div class="ev-row @(past ? "ev-past" : "")">
+                        <span class="ev-date" style="background:color-mix(in srgb, @eventItem.Color 22%, var(--color-surface)); color:color-mix(in srgb, @eventItem.Color 70%, black)">
+                            <span class="ev-date-day">@eventItem.StartDate.Day</span>
+                            <span class="ev-date-dow">@eventItem.StartDate.ToString("ddd", Cs)</span>
+                        </span>
+                        <div class="ev-main">
+                            <div class="ev-title">
+                                @eventItem.Title
                                 <span class="badge">@TypeLabel(eventItem.Type)</span>
-                                @if (eventItem.IsAllDay)
-                                {
-                                    <span class="badge badge-info">Celodenní</span>
-                                }
                                 @if (eventItem.IsRecurring)
                                 {
-                                    <span class="badge badge-warning">Opakující se</span>
+                                    <i data-lucide="repeat" class="ev-icon" title="Opakující se"></i>
                                 }
-                            </td>
-                            <td>@ScopeLabel(eventItem)</td>
-                            <td>
                                 @if (eventItem.CreatedByUserId != null)
                                 {
-                                    <span class="badge badge-warning">Žák</span> @eventItem.CreatedByName
+                                    <span class="badge badge-warning">Žák</span>
                                 }
-                                else
+                            </div>
+                            <div class="ev-meta">
+                                <span>@FormatWhen(eventItem)</span>
+                                <span>·</span>
+                                <span>@ScopeLabel(eventItem)</span>
+                                @if (eventItem.CreatedByUserId != null)
                                 {
-                                    <span>Admin</span>
+                                    <span>·</span>
+                                    <span>@eventItem.CreatedByName</span>
                                 }
-                            </td>
-                            <td>
-                                <div class="row-actions">
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => ShowEditModal(eventItem)">
-                                        <i data-lucide="pencil-line"></i>
-                                    </button>
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => DeleteEvent(eventItem.Id)">
-                                        <i data-lucide="trash-2"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
+                                @if (!string.IsNullOrWhiteSpace(eventItem.Location))
+                                {
+                                    <span>·</span>
+                                    <span>@eventItem.Location</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="row-actions">
+                            <button class="btn btn-ghost btn-sm" aria-label="Upravit" @onclick="() => ShowEditModal(eventItem)">
+                                <i data-lucide="pencil-line"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-sm" aria-label="Smazat" @onclick="() => DeleteEvent(eventItem.Id)">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
+                    </div>
                 }
-            </tbody>
-        </table>
-    </div>
+            </div>
+        }
+    }
 }
 
 @* Modal pro vytvoření/editaci události *@
@@ -246,6 +254,43 @@ else
                         <InputTextArea class="textarea" rows="3" @bind-Value="eventModel.Description" />
                     </div>
 
+                    @if (eventModel.Type is EventType.Test or EventType.Homework)
+                    {
+                        <div class="field">
+                            <label>Vybrat z rozvrhu</label>
+                            <div class="form-grid-3">
+                                <InputText class="input" @bind-Value="timetableSubject" placeholder="Předmět, např. MAT" @onkeydown="OnTimetableKey" />
+                                <InputSelect class="select" @bind-Value="timetableWeek">
+                                    <option value="@TimetableWeek.Actual">Tento týden</option>
+                                    <option value="@TimetableWeek.Next">Příští týden</option>
+                                </InputSelect>
+                                <InputText class="input" @bind-Value="timetableClass" placeholder="Třída" />
+                            </div>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="SearchTimetable" disabled="@timetableLoading">
+                                <i data-lucide="search"></i> @(timetableLoading ? "Načítám..." : "Najít hodiny")
+                            </button>
+                            @if (timetableError != null)
+                            {
+                                <p class="event-author-note">@timetableError</p>
+                            }
+                            else if (timetableLessons != null && timetableLessons.Count == 0)
+                            {
+                                <p class="event-author-note">Žádná hodina nenalezena.</p>
+                            }
+                            @if (timetableLessons is { Count: > 0 })
+                            {
+                                <div class="calendar-tags">
+                                    @foreach (var l in timetableLessons)
+                                    {
+                                        <button type="button" class="badge" @onclick="() => PickLesson(l)">
+                                            @LessonLabel(l)
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
                     <div class="form-grid-3">
                         <div class="field">
                             <label>Datum začátku *</label>
@@ -328,6 +373,9 @@ else
     private DateTime? filterEndDate;
     private string filterSource = "";
     private int filterClassId;
+    private EventType? filterType;
+    private bool onlyUpcoming = true;
+    private Dictionary<EventType, int> typeCounts = new();
 
     private bool showModal = false;
     private bool isEditing = false;
@@ -339,6 +387,54 @@ else
     private DateTime? endDate;
     private string endTime = "";
     private DateTime? recurrenceEndDate;
+
+    // Výběr z rozvrhu (Bakaláři)
+    private static readonly System.Globalization.CultureInfo Cs = new("cs-CZ");
+    private string timetableClass = "3B";
+    private string timetableSubject = "";
+    private TimetableWeek timetableWeek = TimetableWeek.Actual;
+    private List<TimetableLesson>? timetableLessons;
+    private string? timetableError;
+    private bool timetableLoading;
+
+    private static string LessonLabel(TimetableLesson l) =>
+        $"{l.Start.ToString("ddd d. M.", Cs)} {l.Start:HH:mm} · {l.SubjectAbbrev}" +
+        (l.Group != null ? $" ({l.Group})" : "") + (l.Room != null ? $" · {l.Room}" : "");
+
+    private async Task OnTimetableKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchTimetable();
+    }
+
+    private async Task SearchTimetable()
+    {
+        timetableLoading = true;
+        timetableError = null;
+        try
+        {
+            timetableLessons = await TimetableService.FindLessonsAsync(timetableClass, timetableWeek, timetableSubject);
+        }
+        catch (InvalidOperationException ex)
+        {
+            timetableLessons = null;
+            timetableError = ex.Message;
+        }
+        finally
+        {
+            timetableLoading = false;
+        }
+    }
+
+    private void PickLesson(TimetableLesson lesson)
+    {
+        eventModel.IsAllDay = false;
+        startDate = lesson.Start.Date;
+        startTime = lesson.Start.ToString("HH:mm");
+        endDate = lesson.End.Date;
+        endTime = lesson.End.ToString("HH:mm");
+        if (string.IsNullOrWhiteSpace(eventModel.Title))
+            eventModel.Title = $"{lesson.SubjectName} – {(eventModel.Type == EventType.Test ? "test" : "úkol")}";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -377,15 +473,41 @@ else
     {
         if (events == null) return;
 
-        filteredEvents = events.Where(e =>
+        var matching = events.Where(e =>
             (string.IsNullOrWhiteSpace(searchTerm) ||
              e.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
              (e.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
             (!filterStartDate.HasValue || e.StartDate.Date >= filterStartDate.Value.Date) &&
             (!filterEndDate.HasValue || e.StartDate.Date <= filterEndDate.Value.Date) &&
             (filterSource == "" || (filterSource == "student") == (e.CreatedByUserId != null)) &&
-            (filterClassId == 0 || e.ClassId == filterClassId)
-        ).OrderBy(e => e.StartDate).ToList();
+            (filterClassId == 0 || e.ClassId == filterClassId) &&
+            (!onlyUpcoming || (e.EndDate ?? e.StartDate).Date >= DateTime.Today)
+        ).ToList();
+
+        typeCounts = matching.GroupBy(e => e.Type).ToDictionary(g => g.Key, g => g.Count());
+        filteredEvents = matching.Where(e => filterType == null || e.Type == filterType)
+            .OrderBy(e => e.StartDate).ToList();
+    }
+
+    private void ToggleUpcoming()
+    {
+        onlyUpcoming = !onlyUpcoming;
+        FilterEvents();
+    }
+
+    private void SetTypeFilter(EventType? type)
+    {
+        filterType = type;
+        FilterEvents();
+    }
+
+    private static string FormatWhen(EventResponse e)
+    {
+        if (e.IsAllDay) return e.EndDate is { } end && end.Date != e.StartDate.Date
+            ? $"{e.StartDate:d. M.} – {end:d. M.}" : "Celý den";
+        var s = e.StartDate.ToString("HH:mm");
+        if (e.EndDate is not { } en) return s == "00:00" ? "Celý den" : s;
+        return en.Date == e.StartDate.Date ? $"{s} – {en:HH:mm}" : $"{e.StartDate:d. M. HH:mm} – {en:d. M. HH:mm}";
     }
 
     private void OnSearchChanged()

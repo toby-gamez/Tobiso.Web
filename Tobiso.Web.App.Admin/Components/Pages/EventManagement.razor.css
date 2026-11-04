@@ -80,3 +80,115 @@
     font-size: 14px;
     color: var(--color-neutral-600);
 }
+
+/* ---------- Compact event list ---------- */
+.ev-chips {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+}
+
+.ev-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.ev-chip:hover { background: var(--color-neutral-100); }
+
+.ev-chip-on {
+    background: var(--color-accent-200);
+    border-color: var(--color-accent-400);
+    color: var(--color-accent-800);
+}
+
+.ev-chip-count { opacity: .6; font-weight: 500; }
+
+.ev-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.ev-month {
+    margin: var(--space-4) 0 var(--space-2);
+    font-family: var(--font-heading);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: capitalize;
+    color: var(--color-neutral-600);
+}
+
+.ev-list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.ev-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 6px var(--space-3);
+}
+
+.ev-row + .ev-row { border-top: 1px solid var(--color-divider); }
+.ev-row:hover { background: var(--color-neutral-100); }
+.ev-past { opacity: .7; }
+
+.ev-date {
+    flex: none;
+    width: 40px;
+    padding: 3px 0;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+}
+
+.ev-date-day { font-size: 16px; font-weight: 700; }
+.ev-date-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+
+.ev-main { flex: 1; min-width: 0; }
+
+.ev-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.ev-title .badge { padding: 1px 8px; font-size: 11px; }
+
+.ev-icon { width: 14px; height: 14px; opacity: .6; }
+
+.ev-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--color-neutral-600);
+}
+
+.ev-empty {
+    text-align: center;
+    color: var(--color-neutral-500);
+    padding: var(--space-6);
+}
+
+.ev-chip-end { margin-left: auto; }
+.ev-chip-end i { width: 14px; height: 14px; }

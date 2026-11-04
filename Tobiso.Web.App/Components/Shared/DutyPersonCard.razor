@@ -1,0 +1,67 @@
+@inject IDutyService DutyService
+@inject IJSRuntime JS
+
+@* Profile block: pick which name on the class's duty roster is you, so the duty shows up in your
+   calendar feed. Renders nothing without an approved class or while its roster is empty. *@
+@if (_loaded && _mine is { People.Count: > 0 })
+{
+    <div class="soft duty-card">
+        <h2>Moje služba</h2>
+        <p>Vyber své jméno ze seznamu třídy. Tvoje služba se pak zobrazí v synchronizovaném kalendáři jako pětidenní událost.</p>
+
+        <div class="field">
+            <label for="duty-pick">Jsem</label>
+            <select id="duty-pick" class="input" value="@(_mine.DutyPersonId ?? 0)" disabled="@_busy" @onchange="OnPick">
+                <option value="0">Nevybráno</option>
+                @foreach (var p in _mine.People)
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
+            </select>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="duty-error">@_error</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int UserId { get; set; }
+
+    private bool _loaded;
+    private bool _busy;
+    private string? _error;
+    private MyDutyPersonDto? _mine;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _mine = await DutyService.GetMyPersonAsync(UserId);
+        _loaded = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JS.InvokeVoidAsync("initLucide");
+
+    private async Task OnPick(ChangeEventArgs e)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var id = int.TryParse(e.Value?.ToString(), out var parsed) && parsed != 0 ? parsed : (int?)null;
+            if (!await DutyService.SetMyPersonAsync(UserId, id))
+                _error = "Tohle jméno už ve tvé třídě není.";
+            _mine = await DutyService.GetMyPersonAsync(UserId);
+        }
+        catch (Exception)
+        {
+            _error = "Něco se nepovedlo, zkus to prosím znovu.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

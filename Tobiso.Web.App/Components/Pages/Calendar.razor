@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject IEventService EventService
 @inject IClassService ClassService
+@inject IDutyService DutyService
 @inject IPostService PostService
 @inject ICategoryService CategoryService
 @inject AuthenticationStateProvider AuthState
@@ -137,6 +138,72 @@
         </div>
     }
 
+    @if (_duty is { ThisWeek: not null } or { NextWeek: not null })
+    {
+        <div class="soft calendar-duty">
+            <i data-lucide="clipboard-list"></i>
+            <div>
+                <div class="calendar-duty-title">Služba</div>
+                @foreach (var (label, week) in new[] { ("Tento týden", _duty.ThisWeek), ("Příští týden", _duty.NextWeek) })
+                {
+                    if (week == null) continue;
+                    <div class="calendar-duty-row">
+                        <span class="calendar-duty-when">@label</span>
+                        @if (week.Pair != null)
+                        {
+                            <strong>@week.Pair.Label</strong>
+                            @if (week.Kind == "Penalty") { <span class="calendar-duty-note">(trest)</span> }
+                        }
+                        else
+                        {
+                            <span class="calendar-duty-note">bez služby</span>
+                        }
+                    </div>
+                }
+            </div>
+            <button class="pill calendar-duty-all" @onclick="ShowAllDuty"><i data-lucide="list"></i> Celý rozpis</button>
+        </div>
+    }
+
+    @if (_dutyAll != null)
+    {
+        <div class="calendar-backdrop" @onclick="CloseAllDuty">
+            <div class="calendar-form" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+                <button class="calendar-modal-close" @onclick="CloseAllDuty" aria-label="Zavřít"><i data-lucide="x"></i></button>
+                <h2>Rozpis služeb</h2>
+                @if (_dutyAll.Count == 0)
+                {
+                    <p>Rozpis zatím není sestavený.</p>
+                }
+                else
+                {
+                    <ul class="calendar-duty-list">
+                        @foreach (var w in _dutyAll)
+                        {
+                            var mine = IsMyDuty(w);
+                            <li class="@(w.WeekStart == _dutyThisMonday ? "calendar-duty-now" : "")">
+                                <span class="calendar-duty-dot @(mine ? "on" : "")" title="@(mine ? "Tady máš službu ty" : null)" aria-label="@(mine ? "Tady máš službu ty" : null)"></span>
+                                <div class="calendar-duty-body">
+                                    <span class="calendar-duty-when">@w.WeekStart.ToString("d. M.") – @w.WeekStart.AddDays(4).ToString("d. M. yyyy")</span>
+                                    @if (w.Pair != null)
+                                    {
+                                        <strong>@w.Pair.Label</strong>
+                                        @if (w.Kind == "Penalty") { <span class="calendar-duty-note">(trest)</span> }
+                                    }
+                                    else
+                                    {
+                                        <span class="calendar-duty-note">bez služby</span>
+                                    }
+                            
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+
     <div class="calendar-grid-wrap">
         <div class="calendar-weekdays">
             @foreach (var d in Weekdays)
@@ -237,6 +304,23 @@
     // Null for anonymous visitors (and admins): they see only global events, as before.
     private EventViewer? _viewer;
     private MyClassDto? _myClass;
+    private DutyOverviewDto? _duty;
+    private List<DutyWeekDto>? _dutyAll;
+    private DateOnly _dutyThisMonday;
+    private int? _myDutyPersonId;
+
+    private bool IsMyDuty(DutyWeekDto w) =>
+        _myDutyPersonId is int id && w.Pair is { } p && (p.PersonAId == id || p.PersonBId == id);
+
+    private async Task ShowAllDuty()
+    {
+        if (_viewer?.ClassId is not int classId) return;
+        _dutyThisMonday = Tobiso.Web.Api.Services.DutyService.MondayOf(DateOnly.FromDateTime(DateTime.Today));
+        _myDutyPersonId = (await DutyService.GetMyPersonAsync(_viewer.UserId))?.DutyPersonId;
+        _dutyAll = await DutyService.GetWeeksAsync(classId, _dutyThisMonday, _dutyThisMonday.AddYears(1));
+    }
+
+    private void CloseAllDuty() => _dutyAll = null;
 
     private EventForm? _form;
     private string? _formError;
@@ -350,11 +434,15 @@
         {
             _viewer = await ClassService.GetViewerAsync(userId);
             _myClass = await ClassService.GetMyClassAsync(userId);
+            _duty = _viewer.ClassId is int classId
+                ? await DutyService.GetOverviewAsync(classId, DateOnly.FromDateTime(DateTime.Today))
+                : null;
         }
         else
         {
             _viewer = null;
             _myClass = null;
+            _duty = null;
             _form = null;
         }
     }

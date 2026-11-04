@@ -1,0 +1,12 @@
+.duty-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    align-items: flex-start;
+}
+
+.duty-card h2 { margin: 0; }
+.duty-card p { margin: 0; color: var(--color-neutral-600); }
+.duty-card .field { width: 100%; max-width: 360px; }
+.duty-error { color: var(--color-accent-700) !important; font-weight: 600; }

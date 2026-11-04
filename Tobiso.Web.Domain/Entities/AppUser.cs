@@ -23,10 +23,12 @@ public class AppUser
     public DateTime? LegalNoticeDismissedFor { get; set; }
     // Secret in the personal calendar feed URL (/api/calendar/{token}.ics); null = no feed yet. Regenerating revokes the old URL.
     public string? CalendarToken { get; set; }
-    // Which event types the calendar feed contains: one bit per EventType value (DayOff=1, Test=2, Homework=4, Other=8).
+    // Which event types the calendar feed contains: one bit per EventType value (DayOff=1, Test=2, Homework=4, Other=8),
+    // plus DutyCalendarBit for the class duty (not an EventType, so it never shows up in the event forms).
     // New feeds leave out days off (Volno) until the student switches them on.
     public int CalendarTypeMask { get; set; } = DefaultCalendarTypes;
-    public const int DefaultCalendarTypes = 0b1110;
+    public const int DutyCalendarBit = 0b10000;
+    public const int DefaultCalendarTypes = 0b11110;
     public int? PreferredGradeId { get; set; }
     public DateTime? LastDailyBonusAt { get; set; }
     public DateTime? LastReadBonusAt { get; set; }

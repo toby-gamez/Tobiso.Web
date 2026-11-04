@@ -22,6 +22,10 @@ public class ClassMembership
     /// <summary>The requested group (null = leave the current group). Deliberately not a FK; validated on approval.</summary>
     public int? PendingGroupId { get; set; }
 
+    /// <summary>Which name on the class's duty roster this member is. Deliberately not a cascading FK; DutyService clears it.</summary>
+    public int? DutyPersonId { get; set; }
+    public DutyPerson? DutyPerson { get; set; }
+
     public ICollection<ClassMembershipGroup> Groups { get; set; } = [];
 }
 

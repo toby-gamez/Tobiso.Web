@@ -1,0 +1,395 @@
+@page "/duty"
+@using Tobiso.Web.Api.Services
+@using Tobiso.Web.Shared.DTOs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IClassService ClassService
+@inject IDutyService Duties
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Služby – Admin</PageTitle>
+
+<div class="duty-page">
+    <div class="duty-header">
+        <h1>Služby</h1>
+        <select class="select" value="@classId" @onchange="OnClassChanged" aria-label="Třída">
+            <option value="0">– vyber třídu –</option>
+            @foreach (var c in classes)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="duty-message @(messageIsError ? "error" : "")">@message</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="duty-empty">Načítání…</div>
+    }
+    else if (classId == 0)
+    {
+        <div class="duty-empty">Vyber třídu, jejíž službu chceš upravit.</div>
+    }
+    else
+    {
+        <section class="duty-section">
+            <h2>Jména ve třídě</h2>
+            <div class="duty-chips">
+                @if (people.Count == 0)
+                {
+                    <span class="duty-muted">Zatím žádná jména.</span>
+                }
+                @foreach (var p in people)
+                {
+                    <span class="duty-chip">
+                        @p.Name
+                        <button class="duty-chip-btn" aria-label="Smazat @p.Name" disabled="@busy" @onclick="() => DeletePerson(p)">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </span>
+                }
+            </div>
+            <div class="duty-inline-form">
+                <input class="input" placeholder="Nové jméno" maxlength="@MaxNameLength" @bind="newPersonName" @bind:event="oninput"
+                       @onkeydown="OnNameKey" />
+                <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="AddPerson">
+                    <i data-lucide="plus"></i> Přidat
+                </button>
+            </div>
+        </section>
+
+        <section class="duty-section">
+            <h2>Pořadí dvojic</h2>
+            @if (pairs.Count == 0)
+            {
+                <div class="duty-empty">Žádné dvojice. Přidej alespoň jednu.</div>
+            }
+            else
+            {
+                <ol class="duty-pairs">
+                    @foreach (var p in pairs)
+                    {
+                        <li>
+                            <span class="duty-pair-label">@p.Label</span>
+                            <span class="row-actions">
+                                <button class="btn btn-ghost btn-sm" aria-label="Posunout výš" disabled="@(busy || p == pairs[0])" @onclick="() => MovePair(p, -1)">
+                                    <i data-lucide="arrow-up"></i>
+                                </button>
+                                <button class="btn btn-ghost btn-sm" aria-label="Posunout níž" disabled="@(busy || p == pairs[^1])" @onclick="() => MovePair(p, 1)">
+                                    <i data-lucide="arrow-down"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm" aria-label="Smazat dvojici" disabled="@busy" @onclick="() => DeletePair(p)">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </span>
+                        </li>
+                    }
+                </ol>
+            }
+            <div class="duty-inline-form">
+                <select class="select" @bind="newPairA" aria-label="První osoba">
+                    <option value="0">– první –</option>
+                    @foreach (var p in people)
+                    {
+                        <option value="@p.Id">@p.Name</option>
+                    }
+                </select>
+                <select class="select" @bind="newPairB" aria-label="Druhá osoba">
+                    <option value="0">– druhý –</option>
+                    @foreach (var p in people)
+                    {
+                        <option value="@p.Id">@p.Name</option>
+                    }
+                </select>
+                <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="AddPair">
+                    <i data-lucide="plus"></i> Přidat dvojici
+                </button>
+            </div>
+        </section>
+
+        <section class="duty-section">
+            <h2>Rozpis</h2>
+            <div class="duty-inline-form">
+                <label class="duty-label">Od pondělí
+                    <input type="date" class="input" @bind="generateFrom" />
+                </label>
+                <label class="duty-label">Týdnů
+                    <input type="number" class="input duty-number" min="1" max="@Tobiso.Web.Api.Services.DutyService.MaxGeneratedWeeks" @bind="generateWeeks" />
+                </label>
+                <label class="duty-label">Začít dvojicí
+                    <select class="select" @bind="generateStartPair">
+                        <option value="0">první v pořadí</option>
+                        @foreach (var p in pairs)
+                        {
+                            <option value="@p.Id">@p.Label</option>
+                        }
+                    </select>
+                </label>
+                <button class="btn btn-primary btn-sm" disabled="@(busy || pairs.Count == 0)" @onclick="Generate">
+                    <i data-lucide="wand-sparkles"></i> Vygenerovat
+                </button>
+            </div>
+            <p class="duty-hint">Vygenerování přepíše rozpis od zvoleného pondělí dál. Dřívější týdny zůstanou.</p>
+
+            @if (schedule.Count == 0)
+            {
+                <div class="duty-empty">Rozpis je zatím prázdný.</div>
+            }
+            else
+            {
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Týden</th>
+                                <th>Dvojice</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var w in schedule)
+                            {
+                                <tr class="@(IsCurrent(w) ? "duty-current" : "")">
+                                    <td>
+                                        @w.WeekStart.ToString("dd.MM.yyyy") – @w.WeekStart.AddDays(4).ToString("dd.MM.yyyy")
+                                    </td>
+                                    <td>
+                                        @if (w.Kind == "Off")
+                                        {
+                                            <span class="badge badge-warning">Bez služby</span>
+                                        }
+                                        else
+                                        {
+                                            <select class="select" value="@w.Pair?.Id" disabled="@busy"
+                                                    @onchange="e => ChangePair(w, e.Value?.ToString())" aria-label="Dvojice">
+                                                @foreach (var p in pairs)
+                                                {
+                                                    <option value="@p.Id">@p.Label</option>
+                                                }
+                                            </select>
+                                            @if (w.Kind == "Penalty")
+                                            {
+                                                <span class="badge badge-danger">Trest</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="row-actions">
+                                            @if (w.Kind != "Off")
+                                            {
+                                                <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => AddPenalty(w)">
+                                                    <i data-lucide="gavel"></i> Trest +1 týden
+                                                </button>
+                                                <button class="btn btn-secondary btn-sm" disabled="@busy" @onclick="() => MarkOff(w)">
+                                                    <i data-lucide="calendar-off"></i> Bez služby
+                                                </button>
+                                            }
+                                            <button class="btn btn-danger btn-sm" disabled="@busy" @onclick="() => DeleteFrom(w)">
+                                                <i data-lucide="trash-2"></i> Smazat odsud dál
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="duty-section">
+            <h2>Kdo je kdo</h2>
+            <p class="duty-hint">Jméno si žáci vybírají sami v profilu. Tady ho můžeš nastavit nebo opravit.</p>
+            @if (members.Count == 0)
+            {
+                <div class="duty-empty">Ve třídě nejsou žádní schválení členové.</div>
+            }
+            else
+            {
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Účet</th>
+                                <th>Jméno ve službě</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in members)
+                            {
+                                <tr>
+                                    <td>@m.DisplayName</td>
+                                    <td>
+                                        <select class="select" value="@m.DutyPersonId" disabled="@busy"
+                                                @onchange="e => AssignPerson(m, e.Value?.ToString())" aria-label="Jméno ve službě">
+                                            <option value="0">–</option>
+                                            @foreach (var p in people)
+                                            {
+                                                <option value="@p.Id">@p.Name</option>
+                                            }
+                                        </select>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const int MaxNameLength = Tobiso.Web.Api.Services.DutyService.MaxNameLength;
+
+    private bool isLoading = true;
+    private bool busy;
+    private string? message;
+    private bool messageIsError;
+
+    private List<SchoolClassDto> classes = [];
+    private int classId;
+    private List<DutyPersonDto> people = [];
+    private List<DutyPairDto> pairs = [];
+    private List<DutyWeekDto> schedule = [];
+    private List<DutyMemberDto> members = [];
+
+    private string newPersonName = "";
+    private int newPairA;
+    private int newPairB;
+    private DateTime generateFrom = DateTime.Today;
+    private int generateWeeks = 40;
+    private int generateStartPair;
+
+    protected override async Task OnInitializedAsync()
+    {
+        classes = await ClassService.GetAllAsync();
+        isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) =>
+        await JSRuntime.InvokeVoidAsync("initLucide");
+
+    private async Task OnClassChanged(ChangeEventArgs e)
+    {
+        classId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        message = null;
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        if (classId == 0)
+        {
+            people = []; pairs = []; schedule = []; members = [];
+            return;
+        }
+        people = await Duties.GetPeopleAsync(classId);
+        pairs = await Duties.GetPairsAsync(classId);
+        schedule = await Duties.GetScheduleAsync(classId);
+        members = await Duties.GetMembersAsync(classId);
+    }
+
+    // Runs an action with the buttons disabled, then refreshes everything and shows the outcome.
+    private async Task Run(Func<Task<bool>> action, string ok, string fail)
+    {
+        busy = true;
+        try
+        {
+            var success = await action();
+            message = success ? ok : fail;
+            messageIsError = !success;
+            await Reload();
+        }
+        catch (Exception ex)
+        {
+            message = $"Chyba: {ex.Message}";
+            messageIsError = true;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private Task OnNameKey(KeyboardEventArgs e) => e.Key == "Enter" ? AddPerson() : Task.CompletedTask;
+
+    private async Task AddPerson()
+    {
+        var name = newPersonName;
+        await Run(async () => await Duties.AddPersonAsync(classId, name) != null,
+            $"Jméno {name.Trim()} přidáno.", "Jméno se nepodařilo přidat (prázdné nebo už ve třídě je?).");
+        if (!messageIsError) newPersonName = "";
+    }
+
+    private async Task DeletePerson(DutyPersonDto p)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Smazat jméno {p.Name}? Žákům, kteří si ho vybrali, se výběr zruší.")) return;
+        await Run(() => Duties.DeletePersonAsync(p.Id), $"Jméno {p.Name} smazáno.",
+            "Jméno nejde smazat, dokud je v nějaké dvojici.");
+    }
+
+    private async Task AddPair()
+    {
+        var (a, b) = (newPairA, newPairB);
+        await Run(async () => await Duties.AddPairAsync(classId, new SaveDutyPairRequest(a, b)) != null,
+            "Dvojice přidána.", "Dvojici se nepodařilo přidat (vyber dvě různá jména).");
+        if (!messageIsError) newPairA = newPairB = 0;
+    }
+
+    private Task MovePair(DutyPairDto p, int direction) =>
+        Run(() => Duties.MovePairAsync(p.Id, direction), "Pořadí změněno.", "Dvojice nebyla nalezena.");
+
+    private async Task DeletePair(DutyPairDto p)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Smazat dvojici {p.Label}?")) return;
+        await Run(() => Duties.DeletePairAsync(p.Id), "Dvojice smazána.",
+            "Dvojice je v rozpisu. Nejdřív jí změň týdny nebo rozpis přegeneruj.");
+    }
+
+    private async Task Generate()
+    {
+        if (schedule.Any(w => w.WeekStart >= MondayOf(generateFrom)) &&
+            !await JSRuntime.InvokeAsync<bool>("confirm", "Přepsat rozpis od zvoleného týdne dál?")) return;
+
+        var request = new GenerateDutyScheduleRequest(DateOnly.FromDateTime(generateFrom), generateWeeks, generateStartPair == 0 ? null : generateStartPair);
+        await Run(() => Duties.GenerateAsync(classId, request), "Rozpis vygenerován.",
+            "Rozpis se nepodařilo vygenerovat (chybí dvojice nebo je špatný počet týdnů).");
+    }
+
+    private static DateOnly MondayOf(DateTime date) =>
+        Tobiso.Web.Api.Services.DutyService.MondayOf(DateOnly.FromDateTime(date));
+
+    private Task ChangePair(DutyWeekDto w, string? value) =>
+        int.TryParse(value, out var pairId)
+            ? Run(() => Duties.SetWeekPairAsync(w.Id, pairId), "Dvojice změněna.", "Týden nebo dvojice nebyly nalezeny.")
+            : Task.CompletedTask;
+
+    private Task AddPenalty(DutyWeekDto w) =>
+        Run(() => Duties.AddPenaltyAsync(w.Id), "Trest přidán, další týdny se posunuly.", "Týden nebyl nalezen.");
+
+    private Task MarkOff(DutyWeekDto w) =>
+        Run(() => Duties.MarkOffAsync(w.Id), "Týden je bez služby, další týdny se posunuly.", "Týden nebyl nalezen.");
+
+    private async Task DeleteFrom(DutyWeekDto w)
+    {
+        var count = schedule.Count(x => x.WeekStart >= w.WeekStart);
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Smazat týden od {w.WeekStart:dd.MM.yyyy} a všech {count - 1} následujících? Rozpis tam skončí.")) return;
+        await Run(() => Duties.DeleteFromAsync(w.Id), "Rozpis byl od tohoto týdne smazán.", "Týden nebyl nalezen.");
+    }
+
+    private Task AssignPerson(DutyMemberDto m, string? value) =>
+        Run(() => Duties.AssignPersonAsync(m.MembershipId, int.TryParse(value, out var id) && id != 0 ? id : null),
+            "Jméno uloženo.", "Jméno nepatří do této třídy.");
+
+    private static bool IsCurrent(DutyWeekDto w)
+    {
+        var monday = Tobiso.Web.Api.Services.DutyService.MondayOf(DateOnly.FromDateTime(DateTime.Today));
+        return w.WeekStart == monday;
+    }
+}

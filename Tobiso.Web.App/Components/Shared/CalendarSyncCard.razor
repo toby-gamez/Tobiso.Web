@@ -29,8 +29,15 @@
                         @label
                     </button>
                 }
+                <button class="chip @(_duty ? "chip-sel" : "")" aria-pressed="@_duty" disabled="@_busy" @onclick="ToggleDuty">
+                    @if (_duty)
+                    {
+                        <svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    }
+                    Služba
+                </button>
             </div>
-            @if (_types.Count == 0)
+            @if (_types.Count == 0 && !_duty)
             {
                 <p class="calendar-sync-note">Nic nevybráno – kalendář zůstane prázdný.</p>
             }
@@ -67,6 +74,7 @@
     ];
 
     private HashSet<EventType> _types = [];
+    private bool _duty;
     private string? _https;
     private string _webcal = "";
     private bool _busy, _copied;
@@ -94,6 +102,7 @@
         {
             var token = await getToken();
             _types = await FeedService.GetTypesAsync(UserId);
+            _duty = await FeedService.GetDutyEnabledAsync(UserId);
             _https = $"{Nav.BaseUri.TrimEnd('/')}/api/calendar/{token}.ics";
             _webcal = "webcal://" + _https[(_https.IndexOf("://", StringComparison.Ordinal) + 3)..];
         }
@@ -115,6 +124,22 @@
         {
             await FeedService.SetTypesAsync(UserId, next);
             _types = next;
+        }
+        catch (Exception)
+        {
+            _error = "Výběr se nepodařilo uložit. Zkus to prosím znovu.";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleDuty()
+    {
+        _busy = true;
+        _error = "";
+        try
+        {
+            await FeedService.SetDutyEnabledAsync(UserId, !_duty);
+            _duty = !_duty;
         }
         catch (Exception)
         {

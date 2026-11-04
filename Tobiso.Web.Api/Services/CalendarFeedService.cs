@@ -17,6 +17,9 @@ public interface ICalendarFeedService
     /// <summary>The event types the user's feed contains (all of them until they choose).</summary>
     Task<HashSet<EventType>> GetTypesAsync(int userId);
     Task SetTypesAsync(int userId, IEnumerable<EventType> types);
+    /// <summary>Whether the user's own class duty goes into the feed (on until they switch it off).</summary>
+    Task<bool> GetDutyEnabledAsync(int userId);
+    Task SetDutyEnabledAsync(int userId, bool enabled);
     /// <summary>The .ics body for the token's owner, or null when the token is unknown.</summary>
     Task<string?> BuildFeedAsync(string token, string baseUrl);
 }
@@ -29,12 +32,14 @@ public class CalendarFeedService : ICalendarFeedService
     private readonly IDbContextFactory<TobisoDbContext> _dbFactory;
     private readonly IClassService _classService;
     private readonly IEventService _eventService;
+    private readonly IDutyService _dutyService;
 
-    public CalendarFeedService(IDbContextFactory<TobisoDbContext> dbFactory, IClassService classService, IEventService eventService)
+    public CalendarFeedService(IDbContextFactory<TobisoDbContext> dbFactory, IClassService classService, IEventService eventService, IDutyService dutyService)
     {
         _dbFactory = dbFactory;
         _classService = classService;
         _eventService = eventService;
+        _dutyService = dutyService;
     }
 
     public async Task<string> GetOrCreateTokenAsync(int userId)
@@ -65,8 +70,28 @@ public class CalendarFeedService : ICalendarFeedService
     {
         var mask = types.Where(Enum.IsDefined).Aggregate(0, (m, t) => m | (1 << (int)t));
         await using var db = _dbFactory.CreateDbContext();
+        // The duty bit isn't an event type, so keep whatever the user chose for it.
         await db.Users.Where(u => u.Id == userId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.CalendarTypeMask, mask));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.CalendarTypeMask, u => (u.CalendarTypeMask & AppUser.DutyCalendarBit) | mask));
+    }
+
+    public async Task<bool> GetDutyEnabledAsync(int userId)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        var mask = await db.Users.AsNoTracking().Where(u => u.Id == userId)
+            .Select(u => u.CalendarTypeMask).FirstOrDefaultAsync();
+        return (mask & AppUser.DutyCalendarBit) != 0;
+    }
+
+    public async Task SetDutyEnabledAsync(int userId, bool enabled)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        if (enabled)
+            await db.Users.Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.CalendarTypeMask, u => u.CalendarTypeMask | AppUser.DutyCalendarBit));
+        else
+            await db.Users.Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.CalendarTypeMask, u => u.CalendarTypeMask & ~AppUser.DutyCalendarBit));
     }
 
     private static HashSet<EventType> FromMask(int mask) =>
@@ -90,7 +115,16 @@ public class CalendarFeedService : ICalendarFeedService
 
         var events = await _eventService.GetFeedEvents(viewer, DateTime.Today.AddDays(-HistoryDays));
         events = events.Where(e => types.Contains(e.Type)).ToList();
-        return IcsBuilder.Build(events, className == null ? "Tobiso" : $"Tobiso – {className}", baseUrl);
+
+        // The member's own duty weeks, when they picked their name on the class's roster.
+        var dutyPersonId = viewer.ClassId == null || (userId.CalendarTypeMask & AppUser.DutyCalendarBit) == 0 ? null
+            : await db.ClassMemberships.AsNoTracking()
+                .Where(m => m.UserId == userId.Id && m.Status == ClassMembershipStatus.Approved)
+                .Select(m => m.DutyPersonId).FirstOrDefaultAsync();
+        List<(DateOnly WeekStart, string? Partner)> duties = dutyPersonId == null ? []
+            : await _dutyService.GetWeeksForPersonAsync(dutyPersonId.Value, DateOnly.FromDateTime(DateTime.Today.AddDays(-HistoryDays)));
+
+        return IcsBuilder.Build(events, className == null ? "Tobiso" : $"Tobiso – {className}", baseUrl, duties);
     }
 
     private static string ToBase64Url(byte[] bytes) =>
@@ -100,7 +134,8 @@ public class CalendarFeedService : ICalendarFeedService
 /// <summary>Writes events as an iCalendar (RFC 5545) feed that Apple, Google and Outlook calendars can subscribe to.</summary>
 public static class IcsBuilder
 {
-    public static string Build(IEnumerable<EventResponse> events, string calendarName, string baseUrl)
+    public static string Build(IEnumerable<EventResponse> events, string calendarName, string baseUrl,
+        IEnumerable<(DateOnly WeekStart, string? Partner)>? duties = null)
     {
         var sb = new StringBuilder();
         void Line(string line) => AppendFolded(sb, line);
@@ -160,6 +195,21 @@ public static class IcsBuilder
                 Line(e.IsAllDay ? "TRIGGER:-PT6H" : "TRIGGER:-P1D");
                 Line("END:VALARM");
             }
+            Line("END:VEVENT");
+        }
+
+        // Class duty: one all-day event over Monday to Friday (DTEND is exclusive, so Saturday).
+        foreach (var (weekStart, partner) in duties ?? [])
+        {
+            Line("BEGIN:VEVENT");
+            Line($"UID:duty-{weekStart:yyyyMMdd}@tobiso");
+            Line($"DTSTAMP:{stamp}");
+            Line("SUMMARY:Služba");
+            Line($"DTSTART;VALUE=DATE:{weekStart:yyyyMMdd}");
+            Line($"DTEND;VALUE=DATE:{weekStart.AddDays(5):yyyyMMdd}");
+            if (!string.IsNullOrWhiteSpace(partner)) Line($"DESCRIPTION:{Escape($"Služba s: {partner}")}");
+            Line("CATEGORIES:Služba");
+            Line("TRANSP:TRANSPARENT"); // doesn't mark the whole week as busy
             Line("END:VEVENT");
         }
 

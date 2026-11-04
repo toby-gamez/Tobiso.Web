@@ -146,6 +146,8 @@ services.AddScoped<IQuestionService, QuestionService>();
 services.AddScoped<IExplanationService, ExplanationService>();
 services.AddScoped<IEventService, EventService>();
 services.AddScoped<IClassService, ClassService>();
+services.AddScoped<IDutyService, DutyService>();
+services.AddHttpClient<ITimetableService, TimetableService>(c => c.Timeout = TimeSpan.FromSeconds(15));
 services.AddScoped<IRelatedPostService, RelatedPostService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IFeedbackService, FeedbackService>();

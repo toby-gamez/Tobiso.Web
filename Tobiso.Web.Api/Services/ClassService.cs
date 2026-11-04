@@ -102,6 +102,7 @@ public class ClassService : IClassService
         {
             // A different class (or another try after a rejection) needs approval again.
             membership.ClassId = classId;
+            membership.DutyPersonId = null; // a name from the old class's roster
             membership.Status = ClassMembershipStatus.Pending;
             membership.RequestedAt = DateTime.UtcNow;
             membership.DecidedAt = null;
@@ -284,6 +285,12 @@ public class ClassService : IClassService
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.ClassMembershipGroups.Where(mg => mg.Group.ClassId == classId).ExecuteDeleteAsync();
         await db.Events.Where(e => e.ClassId == classId || (e.Group != null && e.Group.ClassId == classId)).ExecuteDeleteAsync();
+        // Same for the duty roster, whose links between its own tables are NoAction too.
+        await db.ClassMemberships.Where(m => m.ClassId == classId && m.DutyPersonId != null)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.DutyPersonId, (int?)null));
+        await db.DutyWeeks.Where(w => w.ClassId == classId).ExecuteDeleteAsync();
+        await db.DutyPairs.Where(p => p.ClassId == classId).ExecuteDeleteAsync();
+        await db.DutyPeople.Where(p => p.ClassId == classId).ExecuteDeleteAsync();
         await db.SchoolClasses.Where(c => c.Id == classId).ExecuteDeleteAsync();
         await tx.CommitAsync();
         return true;

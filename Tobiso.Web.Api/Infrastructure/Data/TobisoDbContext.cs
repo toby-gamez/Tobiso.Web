@@ -44,6 +44,9 @@ public class TobisoDbContext : DbContext
     public DbSet<ClassGroup> ClassGroups { get; set; }
     public DbSet<ClassMembership> ClassMemberships { get; set; }
     public DbSet<ClassMembershipGroup> ClassMembershipGroups { get; set; }
+    public DbSet<DutyPerson> DutyPeople { get; set; }
+    public DbSet<DutyPair> DutyPairs { get; set; }
+    public DbSet<DutyWeek> DutyWeeks { get; set; }
     public DbSet<RelatedPost> RelatedPosts { get; set; }
     public DbSet<Addendum> Addendums { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
@@ -272,6 +275,60 @@ public class TobisoDbContext : DbContext
                 .HasForeignKey(e => e.GroupId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
+
+        // Class duty roster. Everything cascades from the class; the links between the duty tables are
+        // NoAction (SQL Server rejects multiple cascade paths) and DutyService clears them itself.
+        modelBuilder.Entity<DutyPerson>(entity =>
+        {
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => new { e.ClassId, e.Name }).IsUnique();
+
+            entity.HasOne(e => e.Class)
+                .WithMany()
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DutyPair>(entity =>
+        {
+            entity.HasIndex(e => new { e.ClassId, e.Position });
+
+            entity.HasOne(e => e.Class)
+                .WithMany()
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.PersonA)
+                .WithMany()
+                .HasForeignKey(e => e.PersonAId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(e => e.PersonB)
+                .WithMany()
+                .HasForeignKey(e => e.PersonBId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<DutyWeek>(entity =>
+        {
+            entity.HasIndex(e => new { e.ClassId, e.WeekStart }).IsUnique();
+
+            entity.HasOne(e => e.Class)
+                .WithMany()
+                .HasForeignKey(e => e.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Pair)
+                .WithMany()
+                .HasForeignKey(e => e.PairId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<ClassMembership>()
+            .HasOne(e => e.DutyPerson)
+            .WithMany()
+            .HasForeignKey(e => e.DutyPersonId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         // Configure RelatedPost entity
         modelBuilder.Entity<RelatedPost>(entity =>

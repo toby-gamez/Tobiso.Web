@@ -245,7 +245,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<int>("CalendarTypeMask")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(14);
+                        .HasDefaultValue(30);
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -836,6 +836,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("DecidedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DutyPersonId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("GroupChangePending")
                         .HasColumnType("bit");
 
@@ -854,6 +857,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DutyPersonId");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -903,6 +908,94 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DeviceTokens");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyPair", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonAId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonBId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonAId");
+
+                    b.HasIndex("PersonBId");
+
+                    b.HasIndex("ClassId", "Position");
+
+                    b.ToTable("DutyPairs");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyPerson", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("DutyPeople");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyWeek", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PairId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PairId");
+
+                    b.HasIndex("ClassId", "WeekStart")
+                        .IsUnique();
+
+                    b.ToTable("DutyWeeks");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Event", b =>
@@ -2099,6 +2192,11 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Tobiso.Web.Domain.Entities.DutyPerson", "DutyPerson")
+                        .WithMany()
+                        .HasForeignKey("DutyPersonId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Tobiso.Web.Domain.Entities.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -2106,6 +2204,8 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Class");
+
+                    b.Navigation("DutyPerson");
 
                     b.Navigation("User");
                 });
@@ -2127,6 +2227,62 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Navigation("Group");
 
                     b.Navigation("Membership");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyPair", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.DutyPerson", "PersonA")
+                        .WithMany()
+                        .HasForeignKey("PersonAId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.DutyPerson", "PersonB")
+                        .WithMany()
+                        .HasForeignKey("PersonBId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("PersonA");
+
+                    b.Navigation("PersonB");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyPerson", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.DutyWeek", b =>
+                {
+                    b.HasOne("Tobiso.Web.Domain.Entities.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tobiso.Web.Domain.Entities.DutyPair", "Pair")
+                        .WithMany()
+                        .HasForeignKey("PairId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Pair");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.Event", b =>
