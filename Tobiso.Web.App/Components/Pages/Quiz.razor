@@ -1,6 +1,7 @@
 @page "/practice/quiz"
 @page "/practice/quiz/{PostId:int}"
 @page "/practice/quiz/category/{CategoryId:int}"
+@using System.Runtime.InteropServices
 @using System.Threading
 @implements IDisposable
 @inject IQuestionService QuestionService
@@ -201,7 +202,11 @@
     private async Task<List<QuestionResponse>> LoadQuestions()
     {
         if (PostId.HasValue)
-            return await QuestionService.GetByPostId(PostId.Value);
+        {
+            var postQuestions = await QuestionService.GetByPostId(PostId.Value);
+            Random.Shared.Shuffle(CollectionsMarshal.AsSpan(postQuestions));
+            return postQuestions;
+        }
 
         var userId = await GetUserIdAsync();
 
