@@ -160,6 +160,28 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
         return File(bytes, "application/json", $"tobiso-moje-data-{DateTime.UtcNow:yyyyMMdd}.json");
     }
 
+    // GET /api/user/notes/{postId} - the student's private note on a post ("" when there is none)
+    [HttpGet("notes/{postId:int}")]
+    public async Task<IActionResult> GetNote(int postId)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        return Ok(new UserNoteDto(await progressService.GetNoteAsync(userId.Value, postId) ?? ""));
+    }
+
+    // PUT /api/user/notes/{postId}  body: { content } (empty content deletes the note)
+    [HttpPut("notes/{postId:int}")]
+    public async Task<IActionResult> SaveNote(int postId, [FromBody] UserNoteDto req)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if ((req.Content?.Length ?? 0) > MaxNoteLength) return BadRequest(new { message = "Poznámka je příliš dlouhá." });
+        await progressService.SaveNoteAsync(userId.Value, postId, req.Content ?? "");
+        return NoContent();
+    }
+
+    private const int MaxNoteLength = 10_000;
+
     // GET /api/user/stats
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
@@ -169,5 +191,7 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
         return Ok(await progressService.GetStatsAsync(userId.Value));
     }
 }
+
+public record UserNoteDto(string Content);
 
 public record ReadProgressRequest(int PostId, int ScrollPercent);

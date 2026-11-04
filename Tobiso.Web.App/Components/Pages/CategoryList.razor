@@ -118,7 +118,6 @@
 @code {
     [Parameter] public int? CategoryId { get; set; }
 
-    private bool _loading = true;
     private CategoryResponse? _currentCategory;
     private List<CategoryResponse> _ancestors = [];
     private List<CategoryResponse> _children = [];
@@ -146,10 +145,8 @@
             try
             {
                 if (myGeneration != _loadGeneration) return;
-                _loading = true;
                 await LoadData();
                 if (myGeneration != _loadGeneration) return;
-                _loading = false;
             }
             finally
             {

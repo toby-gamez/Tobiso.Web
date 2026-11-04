@@ -234,6 +234,7 @@ namespace Tobiso.Web.App.Controllers
                 return;
             }
 
+            Response.Headers["X-Remaining-Questions"] = decision.Remaining.ToString();
             Response.Headers["Content-Type"] = "text/event-stream";
             Response.Headers["Cache-Control"] = "no-cache";
             Response.Headers["X-Accel-Buffering"] = "no";

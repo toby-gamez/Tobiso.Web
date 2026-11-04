@@ -26,7 +26,7 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 
 		  _logger.LogDebug(msg);
 
-		  _logger.LogDebug($"{msg} ====== Start API {req.Method} {request.RequestUri.ToString()} ========");
+		  _logger.LogDebug($"{msg} ====== Start API {req.Method} {request.RequestUri?.ToString()} ========");
 		  _logger.LogDebug($"{msg} ");
 
 
@@ -69,7 +69,7 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 
 		  HttpResponseMessage resp = response;
 
-		  _logger.LogDebug($"{msg} {req.RequestUri.Scheme.ToUpper()}/{resp.Version} {(int)resp.StatusCode} {resp.ReasonPhrase}");
+		  _logger.LogDebug($"{msg} {req.RequestUri?.Scheme.ToUpper()}/{resp.Version} {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
 		  foreach (var header in resp.Headers)
 		  {
@@ -110,7 +110,7 @@ public sealed class HttpLoggingHandler : DelegatingHandler
 
 	 bool IsTextBasedContentType(HttpHeaders headers)
 	 {
-		  IEnumerable<string> values;
+		  IEnumerable<string>? values;
 		  if (!headers.TryGetValues("Content-Type", out values))
 		  {
 				return false;

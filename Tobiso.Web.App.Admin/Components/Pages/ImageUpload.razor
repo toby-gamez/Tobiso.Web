@@ -249,7 +249,7 @@
             using var multipart = new MultipartFormDataContent();
             ms.Position = 0;
             var streamContent = new StreamContent(ms);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
             multipart.Add(streamContent, "file", file.Name);
 
             var req = new HttpRequestMessage(HttpMethod.Post, uploadUrl) { Content = multipart };
@@ -262,7 +262,7 @@
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             // Update current image URL
-            currentImageUrl = response.Url;
+            currentImageUrl = response?.Url;
 
             successMessage = "Obrázek byl úspěšně nahrán!";
             Logger.LogInformation("Successfully uploaded image: {FileName}", file.Name);

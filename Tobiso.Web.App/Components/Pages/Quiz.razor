@@ -29,7 +29,7 @@
     {
         <div>
             <div class="quiz-progress-label">
-                <span>@(_postTitle != null ? $"Ověř si porozumění - {_postTitle}" : "Ověř si porozumění")</span>
+                <span>Ověř si porozumění</span>
                 <span>Otázka @(_currentIndex + 1) ze @_questions.Count</span>
             </div>
             <div class="progress-bar"><div class="progress-bar-fill" style="width:@Progress%"></div></div>
@@ -134,7 +134,6 @@
     private string _textAnswer = "";
     private bool _answered;
     private bool _loading = true;
-    private string? _postTitle;
     private int? _userId;
     private bool _userChecked;
 

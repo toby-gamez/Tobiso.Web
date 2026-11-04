@@ -18,7 +18,7 @@ namespace Tobiso.Web.App.Services
             return _js.InvokeVoidAsync("pdfBlazorInterop.generateTextPdf", selector, filename);
         }
 
-        public ValueTask GeneratePdfAsync(string selector, object options = null)
+        public ValueTask GeneratePdfAsync(string selector, object? options = null)
         {
             return _js.InvokeVoidAsync("pdfBlazorInterop.generatePdf", selector, options ?? new { });
         }

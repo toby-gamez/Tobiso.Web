@@ -17,9 +17,8 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock,
         IConfiguration config)
-        : base(options, logger, encoder, clock)
+        : base(options, logger, encoder)
     {
         _config = config;
     }
@@ -88,7 +87,7 @@ public class BasicAuthHandler : AuthenticationHandler<AuthenticationSchemeOption
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.Name, username ?? string.Empty),
                 new Claim("role", AuthPolicies.AdminRole),
             };
 

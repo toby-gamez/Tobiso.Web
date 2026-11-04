@@ -93,7 +93,7 @@ public class JwtTokenService
         var expiry   = DateTime.UtcNow.AddHours(
             int.TryParse(_config["Auth:Jwt:ExpiryHours"], out var h) ? h : 24);
 
-        return CreateToken(secret, userId, username, issuer, audience, expiry,
+        return CreateToken(secret, userId, username ?? string.Empty, issuer, audience, expiry,
             extraClaims: new Dictionary<string, string> { ["role"] = AuthPolicies.AdminRole });
     }
 

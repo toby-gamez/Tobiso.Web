@@ -112,7 +112,7 @@ namespace Tobiso.Web.Api.Services
             var titleNode = doc.DocumentNode.SelectSingleNode("//h1")?.InnerText?.Trim();
             
             // Filter to get actual content nodes (skip the wrapper div and get its children)
-            var contentNodes = doc.DocumentNode.SelectNodes("//div/*") ??
+            HtmlNodeCollection contentNodes = doc.DocumentNode.SelectNodes("//div/*") ??
                               doc.DocumentNode.SelectNodes("//*") ??
                               new HtmlNodeCollection(doc.DocumentNode);
 
@@ -142,7 +142,7 @@ namespace Tobiso.Web.Api.Services
                     page.Content().Column(col =>
                     {
                         col.Spacing(5);
-                        RenderContent(col, contentNodes);
+                        RenderContent(col, contentNodes!);
                     });
                     
                     page.Footer().Element(f => 
@@ -171,19 +171,19 @@ namespace Tobiso.Web.Api.Services
                 
                 if (tagName == "h2")
                 {
-                    column.Item().Text(HtmlEntity.DeEntitize(node.InnerText.Trim())).FontSize(15).Bold();
+                    column.Item().Text(HtmlEntity.DeEntitize((node.InnerText ?? string.Empty).Trim())).FontSize(15).Bold();
                 }
                 else if (tagName == "h3")
                 {
-                    column.Item().Text(HtmlEntity.DeEntitize(node.InnerText.Trim())).FontSize(13).Bold();
+                    column.Item().Text(HtmlEntity.DeEntitize((node.InnerText ?? string.Empty).Trim())).FontSize(13).Bold();
                 }
                 else if (tagName == "h4")
                 {
-                    column.Item().Text(HtmlEntity.DeEntitize(node.InnerText.Trim())).FontSize(12).Bold();
+                    column.Item().Text(HtmlEntity.DeEntitize((node.InnerText ?? string.Empty).Trim())).FontSize(12).Bold();
                 }
                 else if (tagName == "h5" || tagName == "h6")
                 {
-                    column.Item().Text(HtmlEntity.DeEntitize(node.InnerText.Trim())).FontSize(11).Bold();
+                    column.Item().Text(HtmlEntity.DeEntitize((node.InnerText ?? string.Empty).Trim())).FontSize(11).Bold();
                 }
                 else if (tagName == "p")
                 {
