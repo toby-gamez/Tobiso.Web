@@ -1,4 +1,6 @@
 @inject IJSRuntime JS
+@inject Tobiso.Web.App.Services.CookieConsentService ConsentService
+@implements IDisposable
 
 @if (_visible)
 {
@@ -6,6 +8,8 @@
         <i data-lucide="cookie" class="cookie-icon"></i>
         <p class="cookie-text">
             Používáme cookies pro měření návštěvnosti přes Google Analytics. Pomáhá nám to Tobiso vylepšovat.
+            Bez souhlasu se Google Analytics vůbec nenačte. Volbu můžeš kdykoli změnit v menu „Nastavení cookies“.
+            <a href="/pravni-dokumenty">Více informací</a>
         </p>
         <div class="cookie-actions">
             <button class="pill" @onclick="Decline">Odmítnout</button>
@@ -16,6 +20,16 @@
 
 @code {
     private bool _visible;
+
+    protected override void OnInitialized() => ConsentService.OpenRequested += Reopen;
+
+    private void Reopen() => InvokeAsync(() =>
+    {
+        _visible = true;
+        StateHasChanged();
+    });
+
+    public void Dispose() => ConsentService.OpenRequested -= Reopen;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

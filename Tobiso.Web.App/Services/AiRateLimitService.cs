@@ -5,9 +5,6 @@ namespace Tobiso.Web.App.Services
     public class AiRateLimitService : IAiRateLimitService
     {
         private readonly ConcurrentDictionary<string, (int Count, DateTime Date)> _store = new();
-        private readonly ConcurrentDictionary<string, List<(int Count, DateTime ValidUntil)>> _bonusStore = new();
-        private readonly object _bonusLock = new();
-        private readonly ConcurrentDictionary<string, DateTime> _usedGrantSignatures = new();
         private readonly ConcurrentDictionary<string, int> _onceStore = new();
 
         public bool TryConsume(string key, int limit)
@@ -20,6 +17,12 @@ namespace Tobiso.Web.App.Services
             });
 
             var val = _store[key];
+
+            // Per-IP and per-user keys accumulate; drop the ones from earlier days now and then.
+            if (_store.Count > 50_000)
+                foreach (var kv in _store)
+                    if (kv.Value.Date < today) _store.TryRemove(kv.Key, out _);
+
             return val.Count <= limit;
         }
 
@@ -34,25 +37,6 @@ namespace Tobiso.Web.App.Services
             return limit;
         }
 
-        public void AddBonusQuestions(string rateKey, int count, DateTime validUntil)
-        {
-            lock (_bonusLock)
-            {
-                var list = _bonusStore.GetOrAdd(rateKey, _ => new List<(int, DateTime)>());
-                list.Add((count, validUntil));
-            }
-        }
-
-        public int GetBonusTotal(string rateKey)
-        {
-            if (!_bonusStore.TryGetValue(rateKey, out var list)) return 0;
-            var now = DateTime.UtcNow;
-            lock (_bonusLock)
-            {
-                return list.Where(e => e.ValidUntil > now).Sum(e => e.Count);
-            }
-        }
-
         public bool TryConsumeOnce(string key, int limit)
         {
             var count = _onceStore.AddOrUpdate(key, 1, (k, v) => v + 1);
@@ -61,20 +45,5 @@ namespace Tobiso.Web.App.Services
 
         public int GetRemainingOnce(string key, int limit) =>
             _onceStore.TryGetValue(key, out var v) ? Math.Max(0, limit - v) : limit;
-
-        public bool TryRegisterCreditGrant(string signature, DateTime validUntil)
-        {
-            var now = DateTime.UtcNow;
-            if (_usedGrantSignatures.TryGetValue(signature, out var existingExpiry) && existingExpiry > now)
-                return false;
-
-            _usedGrantSignatures[signature] = validUntil;
-
-            // Opportunistic cleanup of expired entries so this doesn't grow unbounded.
-            foreach (var kv in _usedGrantSignatures)
-                if (kv.Value <= now) _usedGrantSignatures.TryRemove(kv.Key, out _);
-
-            return true;
-        }
     }
 }

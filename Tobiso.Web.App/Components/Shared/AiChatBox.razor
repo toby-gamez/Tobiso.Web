@@ -133,6 +133,8 @@
             <i data-lucide="send"></i>
         </button>
     </div>
+    @* Transparency notice (EU AI Act Art. 50): the user must know they are talking to an AI. *@
+    <p class="chat-ai-notice">Odpovídá umělá inteligence (AI) a může se mýlit – důležité informace si ověř. Nepiš sem osobní údaje.</p>
 </div>
 
 @code {
@@ -161,7 +163,7 @@
         new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
     private static MarkupString RenderMarkdown(string? content) =>
-        (MarkupString)Markdown.ToHtml(content ?? string.Empty, _markdownPipeline);
+        (MarkupString)Tobiso.Web.App.Services.AiMarkdown.StripDangerousUrls(Markdown.ToHtml(content ?? string.Empty, _markdownPipeline));
 
     private readonly List<PostSummaryResponse> _attachedPosts = [];
     private List<PostSummaryResponse> _availablePosts = [];

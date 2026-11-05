@@ -92,6 +92,32 @@ namespace Tobiso.Web.App.Services
         // Adds one system message per post the user attached to their question, so the model
         // sees each attached article as additional context alongside the primary PostId article.
         // Capped to avoid unbounded prompt size from a chatty client.
+        // Limits on what a client can put into a chat prompt. The request comes from the browser or the
+        // mobile app, so the history is untrusted: only "user"/"assistant" turns are kept (a client-sent
+        // "system" message would otherwise override the real system prompt), and the number and size of
+        // turns are capped so one request can't carry an arbitrarily large (expensive) prompt.
+        public const int MaxQuestionChars = 4000;
+        public const int MaxHistoryMessages = 20;
+        public const int MaxHistoryMessageChars = 4000;
+
+        public static string Truncate(string? text, int max) =>
+            string.IsNullOrEmpty(text) ? string.Empty : text.Length <= max ? text : text[..max];
+
+        public static void AddSanitizedConversation(List<object> messages, AiChatRequest request)
+        {
+            if (request.ConversationHistory != null)
+            {
+                foreach (var m in request.ConversationHistory
+                             .Where(m => m.Role is "user" or "assistant")
+                             .TakeLast(MaxHistoryMessages))
+                {
+                    messages.Add(new { role = m.Role, content = Truncate(m.Content, MaxHistoryMessageChars) });
+                }
+            }
+
+            messages.Add(new { role = "user", content = Truncate(request.Question, MaxQuestionChars) });
+        }
+
         private async Task AddAttachedPostContextAsync(List<object> messages, AiChatRequest request)
         {
             if (request.AttachedPostIds is not { Count: > 0 }) return;
@@ -134,15 +160,7 @@ namespace Tobiso.Web.App.Services
 
             await AddAttachedPostContextAsync(messages, request);
 
-            if (request.ConversationHistory != null)
-            {
-                foreach (var m in request.ConversationHistory)
-                {
-                    messages.Add(new { role = m.Role, content = m.Content });
-                }
-            }
-
-            messages.Add(new { role = "user", content = request.Question });
+            AddSanitizedConversation(messages, request);
 
             var payload = new
             {
@@ -640,13 +658,7 @@ namespace Tobiso.Web.App.Services
 
             await AddAttachedPostContextAsync(messages, request);
 
-            if (request.ConversationHistory != null)
-            {
-                foreach (var m in request.ConversationHistory)
-                    messages.Add(new { role = m.Role, content = m.Content });
-            }
-
-            messages.Add(new { role = "user", content = request.Question });
+            AddSanitizedConversation(messages, request);
 
             var payload = new { model, messages, max_tokens = 800, stream = true };
 

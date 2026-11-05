@@ -278,3 +278,10 @@
 .chat-markdown th,
 .chat-markdown td { border: 1px solid var(--color-divider); padding: 4px 8px; font-size: .95em; }
 .chat-markdown a { color: inherit; text-decoration: underline; }
+
+.chat-ai-notice {
+    margin: 6px 2px 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-neutral-600);
+}

@@ -5,7 +5,7 @@
 @inject IUserProgressService UserProgressService
 @inject IUserService UserService
 @inject IAnonymousUsageService AnonymousUsage
-@inject IAiRateLimitService AiRateLimit
+@inject Tobiso.Web.Api.Services.IAiBonusService AiBonus
 @inject IConfiguration Configuration
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
@@ -247,7 +247,7 @@
         var deviceId = await JS.InvokeAsync<string>("getDeviceId");
         var key = $"device:{deviceId}";
         var baseLimit = int.TryParse(Configuration["OpenAI:AnonymousDailyRequests"], out var al) ? al : 20;
-        _anonCreditsLimit = baseLimit + AiRateLimit.GetBonusTotal(key);
+        _anonCreditsLimit = baseLimit + await AiBonus.GetBonusTotalAsync(key);
 
         // AnonymousUsage shares the same scoped TobisoDbContext as PostService/UserProgressService/
         // etc. used elsewhere in this component, so this needs the same _dbLock as LoadForUser -

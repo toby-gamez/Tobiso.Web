@@ -17,6 +17,9 @@ namespace Tobiso.Web.App.Controllers
 {
     [ApiController]
     [Route("api/ai")]
+    // Every body here becomes (part of) a paid OpenAI prompt; 64 KB is far above any real question
+    // and bounds what a single request can cost. Admin authoring endpoints opt into more below.
+    [RequestSizeLimit(64 * 1024)]
     public class AiController : ControllerBase
     {
         private readonly Tobiso.Web.Shared.Interfaces.IAiService _aiService;
@@ -29,9 +32,10 @@ namespace Tobiso.Web.App.Controllers
         private readonly TobisoDbContext _db;
         private readonly IRelatedPostService _relatedPostService;
         private readonly IAiUsageGuard _usageGuard;
+        private readonly IAiBonusService _bonusService;
         private readonly IWebHostEnvironment _environment;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard, IWebHostEnvironment environment)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard, IWebHostEnvironment environment, IAiBonusService bonusService)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -43,6 +47,7 @@ namespace Tobiso.Web.App.Controllers
             _db = db;
             _relatedPostService = relatedPostService;
             _usageGuard = usageGuard;
+            _bonusService = bonusService;
             _environment = environment;
         }
 
@@ -146,9 +151,9 @@ namespace Tobiso.Web.App.Controllers
 
         [HttpPost("credits")]
         [AllowAnonymous]
-        public IActionResult AddCredits([FromBody] AddAiCreditsRequest request)
+        public async Task<IActionResult> AddCredits([FromBody] AddAiCreditsRequest request)
         {
-            if (string.IsNullOrEmpty(request.DeviceId))
+            if (string.IsNullOrEmpty(request.DeviceId) || request.DeviceId.Length > 120)
                 return BadRequest(new { message = "DeviceId required" });
 
             int[] allowedCounts = { 5, 10 };
@@ -182,20 +187,18 @@ namespace Tobiso.Web.App.Controllers
 
             var validUntil = DateTimeOffset.FromUnixTimeSeconds(request.ValidUntilUtc).UtcDateTime;
 
-            // Reject replays of an already-consumed signed grant - otherwise the exact same
-            // signed payload (e.g. captured from the requesting device's own traffic) could be
-            // resubmitted repeatedly before it expires to accumulate unlimited bonus quota.
-            if (!_rateLimitService.TryRegisterCreditGrant(request.Signature ?? string.Empty, validUntil))
-                return StatusCode(409, new { message = "Credit grant already redeemed" });
-
+            // Stored in the database, so a purchase survives restarts and a signed grant can be redeemed
+            // only once even across restarts (the unique signature hash rejects replays of a payload
+            // captured from the device's own traffic).
             var rateKey = $"device:{request.DeviceId}";
-            _rateLimitService.AddBonusQuestions(rateKey, request.Count, validUntil);
+            if (!await _bonusService.TryRedeemAsync(rateKey, request.Count, validUntil, request.Signature ?? string.Empty))
+                return StatusCode(409, new { message = "Credit grant already redeemed" });
 
             var clientId = "tobiso-android";
             var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
             var baseLimit = !string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var cl) ? cl
                 : int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(rateKey);
+            var effectiveLimit = baseLimit + await _bonusService.GetBonusTotalAsync(rateKey);
 
             return Ok(new AddAiCreditsResponse
             {
@@ -291,7 +294,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Explain-sentence failed");
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -314,7 +317,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Evaluate-answer failed");
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -337,7 +340,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Flashcard generation failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -360,7 +363,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Practice problem generation failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -383,7 +386,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Grade rewrite failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -405,7 +408,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Real-world applications failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -427,12 +430,13 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Suggest related failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
         // Same admin-only restrictions as above; used by the post add/edit forms where the article may not be saved yet.
         [HttpPost("suggest-related")]
+        [RequestSizeLimit(2 * 1024 * 1024)]
         [Authorize]
         public async Task<IActionResult> SuggestRelatedForDraft([FromBody] SuggestRelatedDraftRequest request)
         {
@@ -448,38 +452,59 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Suggest related (draft) failed");
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
-        // The consumption bucket is anchored to the server-observed client IP. A client cannot rotate
-        // this the way it can the X-Device-Id header, so it can't reset its free daily quota at will.
+        // Generic 502 for a failed AI call (the exception is already logged; its message can carry
+        // upstream response bodies or internals, so it isn't returned). Refunds the credit that
+        // TryConsumeRateLimit charged a student up front.
+        private async Task<IActionResult> AiFailedAsync()
+        {
+            if (Tobiso.Api.Authentication.AuthPolicies.IsStudent(User)
+                && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var studentId))
+            {
+                try { await _userService.RefundCreditsAsync(studentId, 1, "ai_refund"); }
+                catch (Exception ex) { Serilog.Log.Error(ex, "AI credit refund failed for user {UserId}", studentId); }
+            }
+            return StatusCode(502, new { message = "AI teď neodpovídá. Zkus to prosím znovu později." });
+        }
+
+        // Server-observed client IP. Passed to IAiUsageGuard, which enforces a per-IP daily cap for
+        // anonymous callers that the client can't reset by rotating X-Device-Id.
         private string GetRateKey()
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             return $"ip:{ip}";
         }
 
-        // Purchased bonus credits are tied to the device that bought them (see AddCredits). They are
-        // only ever additive to the IP-anchored limit, so keying them on the client-supplied device id
-        // is safe and does not enable quota-reset abuse.
+        // Client-supplied device key (X-Device-Id). Used for the per-device allowance and to find
+        // purchased bonus quota; the guard never relies on it alone (see AiUsageGuard).
         private string GetBonusKey()
         {
             if (Request.Headers.TryGetValue("X-Device-Id", out var dv))
             {
                 var deviceId = dv.FirstOrDefault();
-                if (!string.IsNullOrEmpty(deviceId)) return $"device:{deviceId}";
+                if (!string.IsNullOrEmpty(deviceId) && deviceId.Length <= 120) return $"device:{deviceId}";
             }
             return GetRateKey();
         }
 
-        // Delegates to the same IAiUsageGuard the Blazor Server pages use (AiChatBox, PracticeAi,
-        // PostDetail) so the free-tier quota is enforced identically everywhere, not just for
-        // callers that happen to go over HTTP.
-        private async Task<bool> TryConsumeRateLimit(string rateKey)
+        // Same IAiUsageGuard the Blazor Server pages use, so the free-tier quota is enforced the same
+        // way everywhere. Students are charged one credit up front, atomically: the guard only checks
+        // the balance, and these endpoints have no post-hoc deduction of their own, so without this a
+        // single account could use every tool except /ask for free.
+        private async Task<bool> TryConsumeRateLimit(string rateKey, [System.Runtime.CompilerServices.CallerMemberName] string reason = "ai")
         {
             var decision = await _usageGuard.TryConsumeAsync(User, GetBonusKey());
-            return decision.Allowed;
+            if (!decision.Allowed) return false;
+
+            if (Tobiso.Api.Authentication.AuthPolicies.IsStudent(User)
+                && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var studentId))
+            {
+                return await _userService.DeductCreditsAsync(studentId, 1, $"ai_{reason}".ToLowerInvariant());
+            }
+            return true;
         }
 
         [HttpGet("detect-persons/{postId}")]
@@ -530,6 +555,7 @@ namespace Tobiso.Web.App.Controllers
         // reasoning as SuggestRelatedPosts above: no rate limit or credit cost here, so it must
         // not be reachable by a self-registered student account.
         [HttpPost("generate-question")]
+        [RequestSizeLimit(2 * 1024 * 1024)]
         [Authorize]
         public async Task<IActionResult> GenerateQuestion([FromBody] GenerateQuestionRequest request)
         {
@@ -568,7 +594,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Question generation failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -576,6 +602,7 @@ namespace Tobiso.Web.App.Controllers
         // reasoning as GenerateQuestion above: no rate limit or credit cost here, so it must
         // not be reachable by a self-registered student account.
         [HttpPost("classify-flashcard-eligibility")]
+        [RequestSizeLimit(2 * 1024 * 1024)]
         [Authorize]
         public async Task<IActionResult> ClassifyFlashcardEligibility([FromBody] ClassifyFlashcardEligibilityRequest request)
         {
@@ -603,7 +630,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Person generation failed for {Name}", name);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -625,7 +652,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "What-if scenario failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -647,7 +674,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Rewrite-register failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -696,7 +723,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Fun-facts failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -718,7 +745,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Exam-questions failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -757,7 +784,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Exam-summary failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -780,7 +807,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Comprehension evaluation failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -808,7 +835,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Explain-why failed");
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -856,7 +883,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Key-terms failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -881,7 +908,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Compare failed for PostId={PostId}", request.PostId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -905,7 +932,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Step-solver failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -952,7 +979,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Generate-demo failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -1000,7 +1027,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Concept-map failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -1024,7 +1051,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Formula-vars failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -1074,7 +1101,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Cross-connections failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
 
@@ -1132,7 +1159,7 @@ namespace Tobiso.Web.App.Controllers
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "Related-suggestions failed for PostId={PostId}", postId);
-                return StatusCode(502, new { message = ex.Message });
+                return await AiFailedAsync();
             }
         }
     }

@@ -42,17 +42,21 @@ public class FeedbackService : IFeedbackService
 
     public async Task<FeedbackResponse?> Create(CreateFeedbackDto dto)
     {
+        // Same bounds as CreateFeedbackDto's attributes, enforced here too because the Blazor page
+        // calls this service directly, without model validation.
+        static string Cap(string? v, int max) => string.IsNullOrEmpty(v) ? string.Empty : v.Length <= max ? v : v[..max];
+        var message = Cap(dto.Message, 5000);
         var title = string.IsNullOrWhiteSpace(dto.Title)
-            ? dto.Message[..Math.Min(dto.Message.Length, 80)]
-            : dto.Title;
+            ? message[..Math.Min(message.Length, 80)]
+            : Cap(dto.Title, 200);
 
         var feedback = new Feedback
         {
-            Name      = dto.Name,
-            Email     = dto.Email,
+            Name      = Cap(dto.Name, 100),
+            Email     = Cap(dto.Email, 256),
             Title     = title,
-            Message   = dto.Message,
-            Platform  = dto.Platform,
+            Message   = message,
+            Platform  = Cap(dto.Platform, 50),
             Type      = dto.Type,
             Status    = FeedbackStatus.New,
             CreatedAt = DateTime.UtcNow,

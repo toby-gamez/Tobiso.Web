@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Tobiso.Web.Domain.Entities;
 
 namespace Tobiso.Web.Shared.DTOs;
@@ -13,13 +14,14 @@ public class FeedbackResponse
     public bool IsRead { get; set; }
 }
 
+// Submitted anonymously, so every field is bounded ([ApiController] returns 400 when exceeded).
 public class CreateFeedbackDto
 {
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string Platform { get; set; } = string.Empty;
+    [MaxLength(100)] public string Name { get; set; } = string.Empty;
+    [MaxLength(256)] public string Email { get; set; } = string.Empty;
+    [MaxLength(200)] public string Title { get; set; } = string.Empty;
+    [Required, MaxLength(5000)] public string Message { get; set; } = string.Empty;
+    [MaxLength(50)] public string Platform { get; set; } = string.Empty;
     public FeedbackType Type { get; set; } = FeedbackType.Bug;
 }
 

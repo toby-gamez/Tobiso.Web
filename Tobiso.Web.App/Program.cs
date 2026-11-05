@@ -134,7 +134,7 @@ services.Configure<ForwardedHeadersOptions>(options =>
     {
         var parts = network.Split('/');
         if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var netIp) && int.TryParse(parts[1], out var prefix))
-            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(netIp, prefix));
+            options.KnownIPNetworks.Add(new System.Net.IPNetwork(netIp, prefix));
     }
 });
 
@@ -150,6 +150,14 @@ services.AddRateLimiter(options =>
         {
             Window = TimeSpan.FromMinutes(1),
             PermitLimit = 20,
+            QueueLimit = 0
+        }));
+    options.AddPolicy("feedback", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(10),
+            PermitLimit = 5,
             QueueLimit = 0
         }));
     options.AddPolicy("pdf", ctx => RateLimitPartition.GetFixedWindowLimiter(
@@ -185,6 +193,7 @@ services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
 services.AddScoped<PersonModalService>();
 services.AddScoped<AccountRequiredModalService>();
+services.AddScoped<CookieConsentService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
@@ -206,26 +215,23 @@ services.AddScoped<Tobiso.Web.Api.Services.IPdfService, Tobiso.Web.Api.Services.
 // AI chat services
 services.AddSingleton<Tobiso.Web.App.Services.IAiRateLimitService, Tobiso.Web.App.Services.AiRateLimitService>();
 services.AddScoped<Tobiso.Web.Api.Services.IAnonymousUsageService, Tobiso.Web.Api.Services.AnonymousUsageService>();
+services.AddScoped<Tobiso.Web.Api.Services.IAiBonusService, Tobiso.Web.Api.Services.AiBonusService>();
 services.AddScoped<Tobiso.Web.App.Services.IAiUsageGuard, Tobiso.Web.App.Services.AiUsageGuard>();
 services.AddScoped<Tobiso.Web.App.Services.IAiService, Tobiso.Web.App.Services.AiService>();
 // Also register shared IAiService so API services can receive it via DI when hosted in the App
 services.AddScoped<Tobiso.Web.Shared.Interfaces.IAiService, Tobiso.Web.App.Services.AiService>();
+// Certificate validation for the OpenAI client is never disabled outside Development: the
+// connection carries the API key and every student prompt. (OpenAI:IgnoreInvalidCertificates
+// used to switch it off in any environment.)
 services.AddHttpClient("OpenAI")
     .ConfigurePrimaryHttpMessageHandler(() =>
     {
         var handler = new HttpClientHandler();
-        var ignoreInvalid = false;
-        try
-        {
-            var cfgVal = builder.Configuration["OpenAI:IgnoreInvalidCertificates"]; 
-            ignoreInvalid = string.Equals(cfgVal, "true", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { }
-
-        if (builder.Environment.IsDevelopment() || ignoreInvalid)
+        if (builder.Environment.IsDevelopment()
+            && string.Equals(builder.Configuration["OpenAI:IgnoreInvalidCertificates"], "true", StringComparison.OrdinalIgnoreCase))
         {
             handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-            Serilog.Log.Warning("OpenAI HttpClient SSL validation is disabled. Environment={Environment}, OpenAI:IgnoreInvalidCertificates={Ignore}", builder.Environment.EnvironmentName, ignoreInvalid);
+            Serilog.Log.Warning("OpenAI HttpClient SSL validation is disabled (Development only).");
         }
         return handler;
     });
@@ -255,6 +261,9 @@ services.AddScoped<IEmailSender, SmtpEmailSender>();
 services.AddScoped<IAccountService, AccountService>();
 services.AddScoped<ILegalNoticeService, LegalNoticeService>();
 services.AddScoped<IUserDataExportService, UserDataExportService>();
+// Storage limitation (GDPR Art. 5(1)(e)): periods in the "Retention" config section.
+services.AddScoped<IDataRetentionService, DataRetentionService>();
+services.AddHostedService<DataRetentionHostedService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddScoped<IStreakService, StreakService>();
 services.AddScoped<IUserProgressService, UserProgressService>();

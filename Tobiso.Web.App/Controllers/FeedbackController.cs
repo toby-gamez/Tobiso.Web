@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Tobiso.Api.Authentication;
 using Tobiso.Web.Api.Services;
 using Tobiso.Web.Shared.DTOs;
@@ -17,8 +18,10 @@ public class FeedbackController : ControllerBase
         _feedbackService = feedbackService;
     }
 
-    // Public endpoint - anyone can submit feedback
+    // Public endpoint - anyone can submit feedback. Rate limited: each submission is stored and
+    // also pushes a notification to the admin devices.
     [AllowAnonymous]
+    [EnableRateLimiting("feedback")]
     [HttpPost]
     public async Task<IActionResult> CreateFeedback([FromBody] CreateFeedbackDto dto)
     {
