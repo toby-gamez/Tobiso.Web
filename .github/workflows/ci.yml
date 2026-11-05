@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Tobiso.Web.sln
+
+      - name: Build
+        run: dotnet build Tobiso.Web.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test Tobiso.Web.Tests --no-build --configuration Release
+
+      # Fails the build when any direct or transitive package has a known vulnerability.
+      - name: Vulnerable packages
+        run: |
+          dotnet list Tobiso.Web.sln package --vulnerable --include-transitive 2>&1 | tee vuln.txt
+          if grep -q "has the following vulnerable packages" vuln.txt; then
+            echo "::error::Vulnerable NuGet packages found (see above)."
+            exit 1
+          fi
