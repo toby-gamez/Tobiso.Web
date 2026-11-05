@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -16,6 +16,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="..\Tobiso.Web.Api\Tobiso.Web.Api.csproj" />
+    <ProjectReference Include="..\Tobiso.Web.App\Tobiso.Web.App.csproj" />
   </ItemGroup>
 
 </Project>

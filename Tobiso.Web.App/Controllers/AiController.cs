@@ -452,34 +452,41 @@ namespace Tobiso.Web.App.Controllers
             }
         }
 
-        // The consumption bucket is anchored to the server-observed client IP. A client cannot rotate
-        // this the way it can the X-Device-Id header, so it can't reset its free daily quota at will.
+        // Server-observed client IP. Passed to IAiUsageGuard, which enforces a per-IP daily cap for
+        // anonymous callers that the client can't reset by rotating X-Device-Id.
         private string GetRateKey()
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             return $"ip:{ip}";
         }
 
-        // Purchased bonus credits are tied to the device that bought them (see AddCredits). They are
-        // only ever additive to the IP-anchored limit, so keying them on the client-supplied device id
-        // is safe and does not enable quota-reset abuse.
+        // Client-supplied device key (X-Device-Id). Used for the per-device allowance and to find
+        // purchased bonus quota; the guard never relies on it alone (see AiUsageGuard).
         private string GetBonusKey()
         {
             if (Request.Headers.TryGetValue("X-Device-Id", out var dv))
             {
                 var deviceId = dv.FirstOrDefault();
-                if (!string.IsNullOrEmpty(deviceId)) return $"device:{deviceId}";
+                if (!string.IsNullOrEmpty(deviceId) && deviceId.Length <= 128) return $"device:{deviceId}";
             }
             return GetRateKey();
         }
 
-        // Delegates to the same IAiUsageGuard the Blazor Server pages use (AiChatBox, PracticeAi,
-        // PostDetail) so the free-tier quota is enforced identically everywhere, not just for
-        // callers that happen to go over HTTP.
-        private async Task<bool> TryConsumeRateLimit(string rateKey)
+        // Same IAiUsageGuard the Blazor Server pages use, so the free-tier quota is enforced the same
+        // way everywhere. Students are charged one credit up front, atomically: the guard only checks
+        // the balance, and these endpoints have no post-hoc deduction of their own, so without this a
+        // single account could use every tool except /ask for free.
+        private async Task<bool> TryConsumeRateLimit(string rateKey, [System.Runtime.CompilerServices.CallerMemberName] string reason = "ai")
         {
             var decision = await _usageGuard.TryConsumeAsync(User, GetBonusKey());
-            return decision.Allowed;
+            if (!decision.Allowed) return false;
+
+            if (Tobiso.Api.Authentication.AuthPolicies.IsStudent(User)
+                && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var studentId))
+            {
+                return await _userService.DeductCreditsAsync(studentId, 1, $"ai_{reason}".ToLowerInvariant());
+            }
+            return true;
         }
 
         [HttpGet("detect-persons/{postId}")]
