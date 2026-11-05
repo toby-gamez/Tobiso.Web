@@ -34,7 +34,7 @@
                 @if (!string.IsNullOrEmpty(_person.Bio))
                 {
                     <div id="person-bio" class="person-bio">
-                        <MarkdownContent Content="@_person.Bio" ContainerId="person-bio" />
+                        <MarkdownContent Content="@_person.Bio" Untrusted="true" ContainerId="person-bio" />
                     </div>
                 }
                 @if (!string.IsNullOrEmpty(_person.ExternalLink))

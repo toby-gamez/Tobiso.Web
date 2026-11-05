@@ -161,7 +161,7 @@
         new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
     private static MarkupString RenderMarkdown(string? content) =>
-        (MarkupString)Markdown.ToHtml(content ?? string.Empty, _markdownPipeline);
+        (MarkupString)Tobiso.Web.App.Services.AiMarkdown.StripDangerousUrls(Markdown.ToHtml(content ?? string.Empty, _markdownPipeline));
 
     private readonly List<PostSummaryResponse> _attachedPosts = [];
     private List<PostSummaryResponse> _availablePosts = [];

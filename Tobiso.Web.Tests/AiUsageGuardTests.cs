@@ -35,6 +35,7 @@ public class AiUsageGuardTests
         public Task<AppUser?> LoginAsync(string email, string password) => throw new NotSupportedException();
         public Task SetPreferredGradeAsync(int userId, int? gradeId) => throw new NotSupportedException();
         public Task<bool> DeductCreditsAsync(int userId, int amount, string reason) => throw new NotSupportedException();
+        public Task RefundCreditsAsync(int userId, int amount, string reason) => throw new NotSupportedException();
         public Task<bool> ClaimDailyBonusAsync(int userId, int amount) => throw new NotSupportedException();
         public Task<bool> ClaimReadBonusAsync(int userId, int amount) => throw new NotSupportedException();
         public Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail) => throw new NotSupportedException();

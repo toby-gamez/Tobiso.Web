@@ -210,22 +210,18 @@ services.AddScoped<Tobiso.Web.App.Services.IAiUsageGuard, Tobiso.Web.App.Service
 services.AddScoped<Tobiso.Web.App.Services.IAiService, Tobiso.Web.App.Services.AiService>();
 // Also register shared IAiService so API services can receive it via DI when hosted in the App
 services.AddScoped<Tobiso.Web.Shared.Interfaces.IAiService, Tobiso.Web.App.Services.AiService>();
+// Certificate validation for the OpenAI client is never disabled outside Development: the
+// connection carries the API key and every student prompt. (OpenAI:IgnoreInvalidCertificates
+// used to switch it off in any environment.)
 services.AddHttpClient("OpenAI")
     .ConfigurePrimaryHttpMessageHandler(() =>
     {
         var handler = new HttpClientHandler();
-        var ignoreInvalid = false;
-        try
-        {
-            var cfgVal = builder.Configuration["OpenAI:IgnoreInvalidCertificates"]; 
-            ignoreInvalid = string.Equals(cfgVal, "true", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { }
-
-        if (builder.Environment.IsDevelopment() || ignoreInvalid)
+        if (builder.Environment.IsDevelopment()
+            && string.Equals(builder.Configuration["OpenAI:IgnoreInvalidCertificates"], "true", StringComparison.OrdinalIgnoreCase))
         {
             handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-            Serilog.Log.Warning("OpenAI HttpClient SSL validation is disabled. Environment={Environment}, OpenAI:IgnoreInvalidCertificates={Ignore}", builder.Environment.EnvironmentName, ignoreInvalid);
+            Serilog.Log.Warning("OpenAI HttpClient SSL validation is disabled (Development only).");
         }
         return handler;
     });

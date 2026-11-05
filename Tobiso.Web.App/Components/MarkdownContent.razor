@@ -24,6 +24,11 @@
     /// of the text, or silently lose their ellipsis when stripped.</summary>
     [Parameter] public bool DetectLead { get; set; } = true;
 
+    /// <summary>Set for AI-generated (untrusted) content: raw HTML in the source is escaped and
+    /// script-capable link schemes are removed, while the component's own formatting still applies.
+    /// Leave false only for admin-authored content, which relies on raw HTML.</summary>
+    [Parameter] public bool Untrusted { get; set; }
+
     // Used only for figure caption/source lines so bare URLs (e.g. "Autor: ... https://commons.wikimedia.org/...")
     // render as real links, without turning on auto-linking for the whole article body.
     private static readonly Markdig.MarkdownPipeline _captionPipeline =
@@ -47,6 +52,8 @@
         _lastProcessedPeople = AllPeople;
 
         _renderedHtml = TransformMarkdownContent(Content);
+        if (Untrusted)
+            _renderedHtml = Tobiso.Web.App.Services.AiMarkdown.StripDangerousUrls(_renderedHtml);
         if (OnHeadingsExtracted.HasDelegate)
             await OnHeadingsExtracted.InvokeAsync([.. _headings]);
     }
@@ -66,6 +73,9 @@
     private string TransformMarkdownContent(string? content)
     {
         if (string.IsNullOrEmpty(content)) return string.Empty;
+
+        if (Untrusted)
+            content = Tobiso.Web.App.Services.AiMarkdown.NeutralizeHtml(content);
 
         // Render [grafN]...[/grafN] blocks to SVG FIRST and park them behind placeholders,
         // so none of the text rules below (fractions in "m/s", arrows, "..." lead, links…)

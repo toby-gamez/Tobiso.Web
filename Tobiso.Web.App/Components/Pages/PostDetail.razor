@@ -383,7 +383,7 @@ else
                         else
                         {
                             <div class="ai-tool-markdown ai-tool-exam-summary">
-                                <MarkdownContent Content="@_examSummary" ContainerId="ai-exam-summary" DetectLead="false" />
+                                <MarkdownContent Content="@_examSummary" Untrusted="true" ContainerId="ai-exam-summary" DetectLead="false" />
                             </div>
                             <button class="pill" style="align-self:flex-start" @onclick="GeneratePracticeFromExam">
                                 <i data-lucide="pencil-line"></i> Vygenerovat procvičovací úlohy
@@ -492,7 +492,7 @@ else
                         @if (!string.IsNullOrWhiteSpace(_compareMarkdown))
                         {
                             <div class="ai-tool-markdown ai-tool-compare-table">
-                                <MarkdownContent Content="@_compareMarkdown" ContainerId="ai-compare-table" DetectLead="false" />
+                                <MarkdownContent Content="@_compareMarkdown" Untrusted="true" ContainerId="ai-compare-table" DetectLead="false" />
                             </div>
                         }
                     }
@@ -545,7 +545,7 @@ else
             <div id="article-prose" class="@ProseClass">
                 @if (_rewrittenContent != null)
                 {
-                    <MarkdownContent Content="@_rewrittenContent"
+                    <MarkdownContent Content="@_rewrittenContent" Untrusted="true"
                                      ContainerId="article-prose"
                                      DetectLead="false"
                                      OnHeadingsExtracted="OnHeadingsExtracted" />

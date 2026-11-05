@@ -14,6 +14,7 @@ public interface IUserService
     Task<AppUser?> GetByIdAsync(int id);
     Task SetPreferredGradeAsync(int userId, int? gradeId);
     Task<bool> DeductCreditsAsync(int userId, int amount, string reason);
+    Task RefundCreditsAsync(int userId, int amount, string reason);
     Task<bool> ClaimDailyBonusAsync(int userId, int amount);
     Task<bool> ClaimReadBonusAsync(int userId, int amount);
     Task<DeleteAccountResult> DeleteAccountAsync(int userId, string? password, string? confirmEmail);
@@ -177,6 +178,19 @@ public class UserService : IUserService
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return true;
+    }
+
+    // Gives back credits charged up front for an AI request that then failed.
+    public async Task RefundCreditsAsync(int userId, int amount, string reason)
+    {
+        await using var db = _dbFactory.CreateDbContext();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var rows = await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Credits, u => u.Credits + amount));
+        if (rows == 0) { await tx.RollbackAsync(); return; }
+        db.AiCreditTransactions.Add(new AiCreditTransaction { UserId = userId, Delta = amount, Reason = reason });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     // Same conditional-UPDATE approach: the "already claimed today" check and the credit
