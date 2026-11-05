@@ -107,7 +107,10 @@
         <a href="/feedback" class="rail-item" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
         <a href="/post/134" class="rail-item" style="font-size:14px"><i data-lucide="history"></i> Deník změn</a>
         <a href="/pravni-dokumenty" class="rail-item" style="font-size:14px"><i data-lucide="scale"></i> Právní dokumenty</a>
-        <button @onclick="CookieConsent.Open" class="rail-item" style="font-size:14px; background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="cookie"></i> Nastavení cookies</button>
+        @if (_userName == null)
+        {
+            <button @onclick="CookieConsent.Open" class="rail-item" style="font-size:14px; background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="cookie"></i> Nastavení cookies</button>
+        }
 
         @if (_userName != null)
         {
@@ -211,7 +214,10 @@
             <a href="/feedback" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="message-square-heart"></i> Zpětná vazba</a>
             <a href="/post/134" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="history"></i> Deník změn</a>
             <a href="/pravni-dokumenty" class="rail-item" @onclick="CloseMobileMenu" style="font-size:14px"><i data-lucide="scale"></i> Právní dokumenty</a>
-            <button @onclick="OpenCookieSettings" class="rail-item" style="font-size:14px; background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="cookie"></i> Nastavení cookies</button>
+            @if (_userName == null)
+            {
+                <button @onclick="OpenCookieSettings" class="rail-item" style="font-size:14px; background:transparent; border:0; text-align:left; cursor:pointer; font-family:inherit"><i data-lucide="cookie"></i> Nastavení cookies</button>
+            }
 
             @if (_userName != null)
             {

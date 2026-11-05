@@ -7,6 +7,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject Tobiso.Web.App.Services.CookieConsentService CookieConsent
 
 <PageTitle>Profil - Tobiso</PageTitle>
 
@@ -164,6 +165,12 @@
             <button class="pill" disabled="@_exporting" @onclick="ExportData">
                 @(_exporting ? "Připravuji…" : "Stáhnout má data")
             </button>
+        </div>
+
+        <div class="soft profile-export">
+            <h2>Cookies</h2>
+            <p>Měření návštěvnosti přes Google Analytics se zapne jen s tvým souhlasem. Svou volbu tu můžeš kdykoli změnit.</p>
+            <button class="pill" @onclick="CookieConsent.Open">Nastavení cookies</button>
         </div>
 
         <div class="soft profile-export">
