@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="cs">
 
 <head>
@@ -6,20 +6,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
 
-    <!-- Google Analytics (Consent Mode v2 - analytics_storage stays denied until the cookie banner is accepted) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CDLST0SSK"></script>
+    <!-- Google Analytics: gtag.js is NOT loaded until the visitor accepts the cookie banner
+         (§89(3) zák. 127/2005 Sb. / GDPR). Before that nothing is sent to Google, not even the
+         cookieless pings Consent Mode would send. Accept/decline handlers: js/lucide-init.js. -->
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         window.gtag = gtag;
-        gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied' });
+        window.GA_MEASUREMENT_ID = 'G-1CDLST0SSK';
+        window.loadAnalytics = function () {
+            if (window.__gaLoaded) return;
+            window.__gaLoaded = true;
+            window['ga-disable-' + window.GA_MEASUREMENT_ID] = false;
+            gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+            gtag('js', new Date());
+            gtag('config', window.GA_MEASUREMENT_ID, { anonymize_ip: true });
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + window.GA_MEASUREMENT_ID;
+            document.head.appendChild(s);
+        };
         try {
-            if (localStorage.getItem('tobiso-cookie-consent') === 'accepted') {
-                gtag('consent', 'update', { analytics_storage: 'granted' });
-            }
-        } catch (e) { /* localStorage unavailable */ }
-        gtag('js', new Date());
-        gtag('config', 'G-1CDLST0SSK');
+            if (localStorage.getItem('tobiso-cookie-consent') === 'accepted') window.loadAnalytics();
+        } catch (e) { /* localStorage unavailable: no consent, no analytics */ }
     </script>
 
     <link rel="stylesheet" href="css/variables.css" />

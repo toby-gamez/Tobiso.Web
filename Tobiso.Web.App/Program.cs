@@ -193,6 +193,7 @@ services.AddScoped<AddendumModalService>();
 services.AddScoped<PostsGraphModalService>();
 services.AddScoped<PersonModalService>();
 services.AddScoped<AccountRequiredModalService>();
+services.AddScoped<CookieConsentService>();
 services.AddScoped<IPushNotificationService, PushNotificationService>();
 services.AddScoped<IDeviceService, DeviceService>();
 services.AddScoped<IFeedbackService, FeedbackService>();
@@ -259,6 +260,9 @@ services.AddScoped<IEmailSender, SmtpEmailSender>();
 services.AddScoped<IAccountService, AccountService>();
 services.AddScoped<ILegalNoticeService, LegalNoticeService>();
 services.AddScoped<IUserDataExportService, UserDataExportService>();
+// Storage limitation (GDPR Art. 5(1)(e)): periods in the "Retention" config section.
+services.AddScoped<IDataRetentionService, DataRetentionService>();
+services.AddHostedService<DataRetentionHostedService>();
 services.AddScoped<IAiChatHistoryService, AiChatHistoryService>();
 services.AddScoped<IStreakService, StreakService>();
 services.AddScoped<IUserProgressService, UserProgressService>();

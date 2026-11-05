@@ -237,9 +237,9 @@ window.disposeReadingProgress = () => {
     }
 })();
 
-// Cookie consent (Google Analytics). The default-denied Consent Mode signal is
-// set inline in App.razor's <head>, before gtag.js loads; these just persist
-// the visitor's choice and flip the signal to granted/denied afterward.
+// Cookie consent (Google Analytics). gtag.js is only injected after consent (loadAnalytics in
+// App.razor's <head>); declining - also later, via "Nastavení cookies" - switches it off again and
+// removes the _ga cookies it set.
 window.getCookieConsent = () => {
     try {
         return localStorage.getItem('tobiso-cookie-consent');
@@ -250,12 +250,20 @@ window.getCookieConsent = () => {
 
 window.acceptCookieConsent = () => {
     try { localStorage.setItem('tobiso-cookie-consent', 'accepted'); } catch (e) { /* ignore */ }
-    window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
+    window.loadAnalytics?.();
 };
 
 window.declineCookieConsent = () => {
     try { localStorage.setItem('tobiso-cookie-consent', 'declined'); } catch (e) { /* ignore */ }
+    if (window.GA_MEASUREMENT_ID) window['ga-disable-' + window.GA_MEASUREMENT_ID] = true;
     window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+    // Remove Google Analytics cookies (_ga, _ga_<id>) on this host and its parent domains.
+    const parts = location.hostname.split('.');
+    const domains = [''];
+    for (let i = 0; i < parts.length - 1; i++) domains.push('.' + parts.slice(i).join('.'));
+    document.cookie.split(';').map(c => c.split('=')[0].trim()).filter(n => n === '_ga' || n.startsWith('_ga_') || n === '_gid')
+        .forEach(name => domains.forEach(d =>
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${d ? '; domain=' + d : ''}`));
 };
 
 // Difficulty rating (PostDetail "Jak těžký je tento článek?"): a stable per-browser

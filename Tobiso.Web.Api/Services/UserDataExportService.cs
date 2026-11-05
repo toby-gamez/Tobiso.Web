@@ -64,7 +64,8 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             .Select(m => new
             {
                 ClassName = m.Class.Name, Status = m.Status.ToString(), m.RequestedAt, m.DecidedAt,
-                Groups = m.Groups.Select(g => g.Group.Name)
+                Groups = m.Groups.Select(g => g.Group.Name),
+                DutyRosterName = m.DutyPerson != null ? m.DutyPerson.Name : null
             })
             .FirstOrDefaultAsync();
 
@@ -77,6 +78,13 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
                 ClassName = e.Class != null ? e.Class.Name : null, GroupName = e.Group != null ? e.Group.Name : null,
                 e.CreatedAt, e.UpdatedAt
             })
+            .ToListAsync();
+
+        // Feedback isn't linked to an account; match it by the email the user signed up with.
+        var feedback = await db.Feedbacks.AsNoTracking()
+            .Where(f => f.Email == user.Email)
+            .OrderBy(f => f.CreatedAt)
+            .Select(f => new { f.Name, f.Email, f.Title, f.Message, f.Platform, Type = f.Type.ToString(), Status = f.Status.ToString(), f.CreatedAt })
             .ToListAsync();
 
         var gameState = await db.UserGameStates.AsNoTracking()
@@ -113,6 +121,7 @@ public class UserDataExportService(TobisoDbContext db) : IUserDataExportService
             CalendarEvents = events,
             PointsLedger = pointsLedger,
             ActivityDays = activityDays,
+            Feedback = feedback,
             GameState = gameState == null ? null : new
             {
                 gameState.Revision, gameState.UpdatedAt, State = JsonNode.Parse(gameState.Json)
