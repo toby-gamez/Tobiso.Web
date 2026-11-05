@@ -152,6 +152,14 @@ services.AddRateLimiter(options =>
             PermitLimit = 20,
             QueueLimit = 0
         }));
+    options.AddPolicy("feedback", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            Window = TimeSpan.FromMinutes(10),
+            PermitLimit = 5,
+            QueueLimit = 0
+        }));
     options.AddPolicy("pdf", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions

@@ -18,6 +18,30 @@ public class Config
     public string PublishDirectory { get; set; }
     public string PublishProfilePath { get; set; }
     public string ProjectPath { get; set; }
+    // "Explicit" (FTPS via AUTH TLS, default), "Implicit" (FTPS on port 990) or "None" (plain FTP:
+    // credentials and the deployed binaries travel unencrypted - only for hosts without TLS support).
+    public string FtpEncryption { get; set; } = "Explicit";
+}
+
+// Every FTP connection goes through here so none of them can silently fall back to plain FTP.
+FtpClient CreateFtpClient(Config config)
+{
+    var client = new FtpClient(config.FtpHost, new NetworkCredential(config.FtpUsername, config.FtpPassword));
+    var mode = (config.FtpEncryption ?? "Explicit").Trim();
+    if (mode.Equals("None", StringComparison.OrdinalIgnoreCase))
+    {
+        Warning("FTP encryption is disabled (ftpEncryption=None): credentials and binaries are sent in clear text.");
+        client.EncryptionMode = FtpEncryptionMode.None;
+    }
+    else
+    {
+        client.EncryptionMode = mode.Equals("Implicit", StringComparison.OrdinalIgnoreCase)
+            ? FtpEncryptionMode.Implicit : FtpEncryptionMode.Explicit;
+        client.DataConnectionEncryption = true;
+        // Accept only certificates the OS trusts for this host name.
+        client.ValidateCertificate += (c, e) => e.Accept = e.PolicyErrors == System.Net.Security.SslPolicyErrors.None;
+    }
+    return client;
 }
 
 var configFilePath = "./build-ftp-files.json";
@@ -82,7 +106,7 @@ Task("CleanRemote")
             throw new ArgumentException("FTP password must be provided in the config file.");
         }
 
-        using var client = new FluentFTP.FtpClient(config.FtpHost, new NetworkCredential(config.FtpUsername, config.FtpPassword));
+        using var client = CreateFtpClient(config);
         await client.ConnectAsync();
         LogInformation($"Connected to FTP server {config.FtpHost}");
 
@@ -135,7 +159,7 @@ Task("UploadToFTP")
 
         try
         {
-            using var client = new FtpClient(config.FtpHost, new NetworkCredential(config.FtpUsername, config.FtpPassword));
+            using var client = CreateFtpClient(config);
             await client.ConnectAsync();
             LogInformation($"Connecting to FTP server {config.FtpHost}");
             

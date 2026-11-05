@@ -130,9 +130,14 @@ public class UserService : IUserService
         await using var db = _dbFactory.CreateDbContext();
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant());
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+        {
+            PasswordHasher.VerifyDummy(password); // equal timing for unknown emails
             return null;
+        }
         if (!PasswordHasher.Verify(password, user.PasswordHash))
             return null;
+        if (PasswordHasher.NeedsRehash(user.PasswordHash))
+            user.PasswordHash = PasswordHasher.Hash(password);
         user.LastLoginAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return user;

@@ -5,7 +5,9 @@ namespace Tobiso.Api.Authentication;
 
 public static class PasswordHasher
 {
-    private const int Iterations = 100_000;
+    // OWASP's current recommendation for PBKDF2-HMAC-SHA256. Hashes made with fewer iterations still
+    // verify (the count is stored in the hash) and are upgraded on the next successful login.
+    public const int Iterations = 600_000;
 
     public static string Hash(string password)
     {
@@ -15,6 +17,19 @@ public static class PasswordHasher
             Iterations, HashAlgorithmName.SHA256, 32);
         return $"PBKDF2:{Iterations}:{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
+
+    /// <summary>True when the stored hash uses fewer iterations than <see cref="Iterations"/> (or is not PBKDF2).</summary>
+    public static bool NeedsRehash(string stored)
+    {
+        var parts = stored.Split(':');
+        return parts.Length != 4 || parts[0] != "PBKDF2" || !int.TryParse(parts[1], out var it) || it < Iterations;
+    }
+
+    // A fixed hash for a password nobody has, used to spend the same time on a login for an unknown
+    // email as for a known one, so response timing doesn't reveal which emails are registered.
+    private static readonly Lazy<string> DummyHash = new(() => Hash(Guid.NewGuid().ToString()));
+
+    public static void VerifyDummy(string password) => Verify(password, DummyHash.Value);
 
     public static bool Verify(string password, string stored)
     {
