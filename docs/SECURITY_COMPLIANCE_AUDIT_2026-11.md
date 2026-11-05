@@ -3,6 +3,8 @@
 _Date: 2026-11-05 · Scope: whole solution at commit `63c951e` (87 commits since the July audit in `/AUDIT.md`)_
 _Method: static code and configuration review. No penetration test, no access to production config, database, hosting, or the Terms and Privacy Policy texts (those are stored in the database, not in the repo)._
 
+> **Remediation status (2026-11-05):** every code-level finding except S10 (admin accounts/MFA), L3 (per-account login throttle) and L5 (CSP nonces) is fixed on branch `ccr-95159bd0-la5y1h`. See **section 6** for what changed and what is left for you to do, mostly configuration, deployment and documentation.
+
 > **Not legal advice.** The compliance sections map what the code does against Czech/EU legal requirements and ISO/IEC 27001:2022 controls. Have a lawyer or DPO confirm the conclusions before you rely on them, especially anything about minors and AI.
 
 ---
@@ -154,3 +156,43 @@ ISO 27001 certifies an **organisation's ISMS**, not code. Nothing in the repo sh
 4. **Hardening:** S5, S6, S8, S10, S11, then the Low items.
 5. **Paperwork (GDPR/ISO):** records of processing, DPIA, processor DPAs, incident and breach procedure, backup policy, and a short ISMS (scope, risk register, SoA) if ISO certification is a goal.
 6. **Prevent regressions:** add tests for the AI usage guard (anonymous key rotation, student charging) and CI with `dotnet test` plus vulnerable-package checks.
+
+---
+
+## 6. Remediation log (2026-11-05)
+
+Build: whole solution on .NET 10, 72 tests passing (15 new security tests). The consent flow was checked in a headless browser.
+
+| Finding | Status | What changed |
+|---|---|---|
+| **S1** anonymous AI quota bypass | ✅ Fixed | `AiUsageGuard` enforces a per-IP daily cap (`OpenAI:AnonymousIpDailyRequests`, default 200, sized for a school NAT) before the per-device allowance, plus a global daily circuit breaker (`OpenAI:GlobalDailyRequests`, default 5000). Regression tests in `AiUsageGuardTests`. |
+| **S2** students free on most AI endpoints | ✅ Fixed | The guard refuses students with no credits. `AiController.TryConsumeRateLimit` deducts one credit atomically, and a failed generation refunds it (`IUserService.RefundCreditsAsync`). |
+| **S3** unbounded prompts | ✅ Fixed | 64 KB request limit on `AiController` (2 MB for admin authoring endpoints). Question capped at 4,000 chars and history at 20 turns × 4,000 chars. **Also fixed:** client-sent `system` messages in `ConversationHistory` were forwarded to OpenAI and could override the system prompt. Only `user`/`assistant` turns are kept now. |
+| **S4** DB unencrypted | ⚠️ Template fixed | Production templates use `Encrypt=True`. **You:** set the same in the production `appsettings.json` / env var and make sure the SQL Server certificate is trusted. |
+| **S5** AI output as raw HTML | ✅ Fixed | This had fully regressed: `AiMarkdown` was unused, and the AI person bio rendered raw HTML. `<MarkdownContent Untrusted="true">` escapes `<` and strips `javascript:`/`data:` URLs. It is used for the person bio, exam summary, comparison and rewrite. Chat output also strips script URLs. |
+| **S6** feedback spam | ✅ Fixed | 5 per 10 min per IP, bounded fields (DTO attributes and service-side caps). |
+| **S7** OpenAI TLS flag | ✅ Fixed | Honoured only in Development. |
+| **S8** plain FTP deploy | ✅ Fixed | Cake scripts use explicit FTPS with OS certificate validation (`ftpEncryption` in `build-ftp*.json`). CI added (`.github/workflows/ci.yml`: build, tests, vulnerable-package gate), plus Dependabot. |
+| **S9** .NET 9 EOS | ✅ Fixed | All projects on `net10.0`, EF Core and related packages on 10.0.14. **Also fixed:** a vulnerable transitive `System.Security.Cryptography.Pkcs` 9.0.11 (GHSA-846f-f764-76mx, high), now pinned to 10.0.14. **You:** install the .NET 10 Hosting Bundle on the IIS server before deploying. |
+| **S10** shared admin, no MFA | ❌ Open | This needs a design decision: individual admin accounts with TOTP or passkeys. |
+| **S11** PBKDF2 100k | ✅ Fixed | 600k iterations. Old hashes still verify and are upgraded on next login. The admin `Auth:Basic:PasswordHash` in config keeps its own count, so regenerate it to upgrade. |
+| **L1** login timing | ✅ Fixed | A dummy PBKDF2 run for unknown emails. |
+| **L2** `ex.Message` leaks | ✅ Fixed in `AiController` | Generic 502 message. A few non-AI controllers still return validation-style messages, which is intended. |
+| **L3** per-account login throttle | ❌ Open | |
+| **L5** CSP `unsafe-inline` | ❌ Open | |
+| **L6** no security tests / CI | ✅ Fixed | See S8 and the new tests. |
+| **C-2** GA before consent | ✅ Fixed | `gtag.js` is injected only after "Souhlasím". Declining switches GA off and deletes the `_ga` cookies. |
+| **C-3** withdraw consent | ✅ Fixed | "Nastavení cookies" in both menus reopens the banner. |
+| **C-4** retention | ✅ Mechanism added | `DataRetentionService` runs daily. Defaults: unverified accounts 7 d, anonymous AI counters 7 d, push tokens 180 d, feedback 730 d, expired credit grants 1 d. `AiChatDays` and `InactiveAccountDays` are **off** until you state periods in the Privacy Policy. **You:** set them under `Retention` in config and mirror them in the policy. |
+| **C-6** export gaps | ✅ Fixed | The export now includes the duty-roster name and feedback sent from the account's email. |
+| **C-13** purchased credits lost on restart | ✅ Fixed | New `AiBonusGrants` table (migration `AddAiBonusGrants`). It also makes signed-grant replay protection survive restarts. **You:** apply the migration (`dotnet ef database update`, or generate a script). |
+| **C-15** AI disclosure | ✅ Fixed | The chat and AI tool panels state that the content is AI-generated and may be wrong. The chat also asks users not to enter personal data. |
+| C-8, C-9, C-11, C-12, C-14, C-16 and the ISO organisational controls | ❌ Open, documentation | DPAs and transfer basis for OpenAI and Google, records of processing, DPIA, breach procedure, operator identification in the legal texts, push-notification consent review, AI Act Annex III reasoning, ISMS scope, risk register and SoA. |
+
+### New configuration keys
+```json
+"OpenAI": { "AnonymousIpDailyRequests": "200", "GlobalDailyRequests": "5000" },
+"Retention": { "UnverifiedAccountDays": 7, "AnonymousAiUsageDays": 7, "DeviceTokenDays": 180,
+               "FeedbackDays": 730, "AiChatDays": 0, "InactiveAccountDays": 0 }
+```
+All keys have code defaults, so they are optional.
