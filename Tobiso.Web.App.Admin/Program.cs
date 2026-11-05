@@ -104,7 +104,7 @@ services.Configure<ForwardedHeadersOptions>(options =>
     {
         var parts = network.Split('/');
         if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var netIp) && int.TryParse(parts[1], out var prefix))
-            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(netIp, prefix));
+            options.KnownIPNetworks.Add(new System.Net.IPNetwork(netIp, prefix));
     }
 });
 
