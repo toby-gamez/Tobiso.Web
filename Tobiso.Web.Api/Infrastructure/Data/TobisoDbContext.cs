@@ -1,4 +1,4 @@
-﻿namespace Tobiso.Api.Infrastructure.Data;
+namespace Tobiso.Api.Infrastructure.Data;
 
 using Tobiso.Web.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +68,7 @@ public class TobisoDbContext : DbContext
     public DbSet<UserActivityDay> UserActivityDays { get; set; }
     public DbSet<QuestionAttempt> QuestionAttempts { get; set; }
     public DbSet<AnonymousAiUsage> AnonymousAiUsages { get; set; }
+    public DbSet<AiBonusGrant> AiBonusGrants { get; set; }
 
     public DbSet<PostFunFact> PostFunFacts { get; set; }
     public DbSet<PostDifficultyRating> PostDifficultyRatings { get; set; }
@@ -467,6 +468,14 @@ public class TobisoDbContext : DbContext
             entity.Property(e => e.FirstSeenAt).HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.LastUsedAt).HasDefaultValueSql("GETUTCDATE()");
             entity.HasIndex(e => e.DeviceId).IsUnique();
+        });
+
+        modelBuilder.Entity<AiBonusGrant>(entity =>
+        {
+            entity.Property(e => e.DeviceKey).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SignatureHash).IsRequired().HasMaxLength(64);
+            entity.HasIndex(e => e.SignatureHash).IsUnique();
+            entity.HasIndex(e => new { e.DeviceKey, e.ValidUntil });
         });
 
         // Configure AiChatSession

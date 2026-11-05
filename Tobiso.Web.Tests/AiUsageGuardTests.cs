@@ -27,6 +27,12 @@ public class AiUsageGuardTests
             Task.FromResult(Math.Max(0, limit - _counts.GetValueOrDefault(deviceId)));
     }
 
+    private sealed class NoBonus : IAiBonusService
+    {
+        public Task<bool> TryRedeemAsync(string deviceKey, int count, DateTime validUntil, string signature) => Task.FromResult(true);
+        public Task<int> GetBonusTotalAsync(string deviceKey) => Task.FromResult(0);
+    }
+
     private sealed class FakeUsers(int credits) : IUserService
     {
         public Task<AppUser?> GetByIdAsync(int id) => Task.FromResult<AppUser?>(new AppUser { Id = id, Credits = credits });
@@ -59,7 +65,7 @@ public class AiUsageGuardTests
     public async Task Anonymous_RotatingDeviceId_IsCappedByIp()
     {
         var anon = new InMemoryAnonymousUsage();
-        var guard = new AiUsageGuard(new AiRateLimitService(), anon, Config(anonDaily: 3, ipDaily: 10));
+        var guard = new AiUsageGuard(new AiRateLimitService(), anon, new NoBonus(), Config(anonDaily: 3, ipDaily: 10));
 
         var allowed = 0;
         for (var i = 0; i < 50; i++)
@@ -74,7 +80,7 @@ public class AiUsageGuardTests
     [Fact]
     public async Task Anonymous_SameDevice_IsCappedByDeviceAllowance()
     {
-        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), Config(anonDaily: 3, ipDaily: 10));
+        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), new NoBonus(), Config(anonDaily: 3, ipDaily: 10));
         var results = new List<bool>();
         for (var i = 0; i < 5; i++)
             results.Add((await guard.TryConsumeAsync(null, "device:abc", clientIp: "203.0.113.7")).Allowed);
@@ -84,7 +90,7 @@ public class AiUsageGuardTests
     [Fact]
     public async Task Anonymous_DifferentIps_HaveSeparateCaps()
     {
-        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), Config(anonDaily: 100, ipDaily: 2));
+        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), new NoBonus(), Config(anonDaily: 100, ipDaily: 2));
         Assert.True((await guard.TryConsumeAsync(null, "device:a", clientIp: "198.51.100.1")).Allowed);
         Assert.True((await guard.TryConsumeAsync(null, "device:a", clientIp: "198.51.100.1")).Allowed);
         Assert.False((await guard.TryConsumeAsync(null, "device:a", clientIp: "198.51.100.1")).Allowed);
@@ -94,7 +100,7 @@ public class AiUsageGuardTests
     [Fact]
     public async Task GlobalBudget_StopsEveryone()
     {
-        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), Config(anonDaily: 100, ipDaily: 100, global: 3),
+        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), new NoBonus(), Config(anonDaily: 100, ipDaily: 100, global: 3),
             new FakeUsers(credits: 50));
         Assert.True((await guard.TryConsumeAsync(null, "device:a", clientIp: "198.51.100.1")).Allowed);
         Assert.True((await guard.TryConsumeAsync(null, "device:b", clientIp: "198.51.100.2")).Allowed);
@@ -106,7 +112,7 @@ public class AiUsageGuardTests
     [Fact]
     public async Task Student_WithoutCredits_IsRefused()
     {
-        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), Config(), new FakeUsers(credits: 0));
+        var guard = new AiUsageGuard(new AiRateLimitService(), new InMemoryAnonymousUsage(), new NoBonus(), Config(), new FakeUsers(credits: 0));
         var d = await guard.TryConsumeAsync(Student(7), "device:x");
         Assert.False(d.Allowed);
         Assert.Equal("Nemáš dostatek kreditů.", d.DeniedMessage);
@@ -116,7 +122,7 @@ public class AiUsageGuardTests
     public async Task Student_WithCredits_IsAllowed_AndDoesNotUseFreeAllowance()
     {
         var anon = new InMemoryAnonymousUsage();
-        var guard = new AiUsageGuard(new AiRateLimitService(), anon, Config(), new FakeUsers(credits: 5));
+        var guard = new AiUsageGuard(new AiRateLimitService(), anon, new NoBonus(), Config(), new FakeUsers(credits: 5));
         Assert.True((await guard.TryConsumeAsync(Student(7), "device:x", clientIp: "203.0.113.9")).Allowed);
         Assert.Equal(0, anon.RowsCreated);
     }

@@ -40,15 +40,17 @@ public class AiUsageGuard : IAiUsageGuard
 
     private readonly IAiRateLimitService _rateLimitService;
     private readonly IAnonymousUsageService _anonymousUsage;
+    private readonly IAiBonusService _bonus;
     private readonly IConfiguration _configuration;
     private readonly IUserService? _userService;
     private readonly IHttpContextAccessor? _httpContextAccessor;
 
-    public AiUsageGuard(IAiRateLimitService rateLimitService, IAnonymousUsageService anonymousUsage, IConfiguration configuration,
-        IUserService? userService = null, IHttpContextAccessor? httpContextAccessor = null)
+    public AiUsageGuard(IAiRateLimitService rateLimitService, IAnonymousUsageService anonymousUsage, IAiBonusService bonus,
+        IConfiguration configuration, IUserService? userService = null, IHttpContextAccessor? httpContextAccessor = null)
     {
         _rateLimitService = rateLimitService;
         _anonymousUsage = anonymousUsage;
+        _bonus = bonus;
         _configuration = configuration;
         _userService = userService;
         _httpContextAccessor = httpContextAccessor;
@@ -86,7 +88,7 @@ public class AiUsageGuard : IAiUsageGuard
             if (!string.IsNullOrEmpty(clientId))
                 baseLimit = ConfigInt($"OpenAI:ClientLimits:{clientId}", baseLimit);
 
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(anonymousKey);
+            var effectiveLimit = baseLimit + await _bonus.GetBonusTotalAsync(anonymousKey);
             var allowed = _rateLimitService.TryConsume(key, effectiveLimit);
             var remaining = _rateLimitService.GetRemaining(key, effectiveLimit);
             return new AiUsageDecision(allowed, remaining,
@@ -94,7 +96,7 @@ public class AiUsageGuard : IAiUsageGuard
         }
 
         // Anonymous.
-        var bonus = _rateLimitService.GetBonusTotal(anonymousKey);
+        var bonus = await _bonus.GetBonusTotalAsync(anonymousKey);
         var deniedMessage = "Vyčerpal jsi dnešní limit AI dotazů zdarma. Zkus to zítra, nebo se zaregistruj a získej víc kreditů.";
 
         // Per-IP cap first: it can't be reset by the client, and checking it before the device

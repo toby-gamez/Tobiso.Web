@@ -32,9 +32,10 @@ namespace Tobiso.Web.App.Controllers
         private readonly TobisoDbContext _db;
         private readonly IRelatedPostService _relatedPostService;
         private readonly IAiUsageGuard _usageGuard;
+        private readonly IAiBonusService _bonusService;
         private readonly IWebHostEnvironment _environment;
 
-        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard, IWebHostEnvironment environment)
+        public AiController(Tobiso.Web.Shared.Interfaces.IAiService aiService, IAiRateLimitService rateLimitService, IConfiguration configuration, IHttpClientFactory httpClientFactory, Tobiso.Web.Api.Services.IPostService postService, IAiChatHistoryService chatHistory, IUserService userService, TobisoDbContext db, IRelatedPostService relatedPostService, IAiUsageGuard usageGuard, IWebHostEnvironment environment, IAiBonusService bonusService)
         {
             _aiService = aiService;
             _rateLimitService = rateLimitService;
@@ -46,6 +47,7 @@ namespace Tobiso.Web.App.Controllers
             _db = db;
             _relatedPostService = relatedPostService;
             _usageGuard = usageGuard;
+            _bonusService = bonusService;
             _environment = environment;
         }
 
@@ -149,9 +151,9 @@ namespace Tobiso.Web.App.Controllers
 
         [HttpPost("credits")]
         [AllowAnonymous]
-        public IActionResult AddCredits([FromBody] AddAiCreditsRequest request)
+        public async Task<IActionResult> AddCredits([FromBody] AddAiCreditsRequest request)
         {
-            if (string.IsNullOrEmpty(request.DeviceId))
+            if (string.IsNullOrEmpty(request.DeviceId) || request.DeviceId.Length > 120)
                 return BadRequest(new { message = "DeviceId required" });
 
             int[] allowedCounts = { 5, 10 };
@@ -185,20 +187,18 @@ namespace Tobiso.Web.App.Controllers
 
             var validUntil = DateTimeOffset.FromUnixTimeSeconds(request.ValidUntilUtc).UtcDateTime;
 
-            // Reject replays of an already-consumed signed grant - otherwise the exact same
-            // signed payload (e.g. captured from the requesting device's own traffic) could be
-            // resubmitted repeatedly before it expires to accumulate unlimited bonus quota.
-            if (!_rateLimitService.TryRegisterCreditGrant(request.Signature ?? string.Empty, validUntil))
-                return StatusCode(409, new { message = "Credit grant already redeemed" });
-
+            // Stored in the database, so a purchase survives restarts and a signed grant can be redeemed
+            // only once even across restarts (the unique signature hash rejects replays of a payload
+            // captured from the device's own traffic).
             var rateKey = $"device:{request.DeviceId}";
-            _rateLimitService.AddBonusQuestions(rateKey, request.Count, validUntil);
+            if (!await _bonusService.TryRedeemAsync(rateKey, request.Count, validUntil, request.Signature ?? string.Empty))
+                return StatusCode(409, new { message = "Credit grant already redeemed" });
 
             var clientId = "tobiso-android";
             var confVal = _configuration[$"OpenAI:ClientLimits:{clientId}"];
             var baseLimit = !string.IsNullOrEmpty(confVal) && int.TryParse(confVal, out var cl) ? cl
                 : int.TryParse(_configuration["OpenAI:MaxDailyRequests"], out var l) ? l : 10;
-            var effectiveLimit = baseLimit + _rateLimitService.GetBonusTotal(rateKey);
+            var effectiveLimit = baseLimit + await _bonusService.GetBonusTotalAsync(rateKey);
 
             return Ok(new AddAiCreditsResponse
             {
@@ -485,7 +485,7 @@ namespace Tobiso.Web.App.Controllers
             if (Request.Headers.TryGetValue("X-Device-Id", out var dv))
             {
                 var deviceId = dv.FirstOrDefault();
-                if (!string.IsNullOrEmpty(deviceId) && deviceId.Length <= 128) return $"device:{deviceId}";
+                if (!string.IsNullOrEmpty(deviceId) && deviceId.Length <= 120) return $"device:{deviceId}";
             }
             return GetRateKey();
         }

@@ -87,3 +87,37 @@ public class DataRetentionServiceTests : IDisposable
         Assert.Empty(check.AiChatSessions);
     }
 }
+
+public class AiBonusServiceTests : IDisposable
+{
+    private readonly SqliteConnection _conn = new("DataSource=:memory:");
+    private readonly AiBonusService _service;
+
+    private sealed class Factory(DbContextOptions<TobisoDbContext> o) : IDbContextFactory<TobisoDbContext>
+    {
+        public TobisoDbContext CreateDbContext() => new(o);
+    }
+
+    public AiBonusServiceTests()
+    {
+        _conn.Open();
+        var options = new DbContextOptionsBuilder<TobisoDbContext>().UseSqlite(_conn).Options;
+        using (var db = new TobisoDbContext(options)) db.Database.EnsureCreated();
+        _service = new AiBonusService(new Factory(options));
+    }
+
+    public void Dispose() => _conn.Dispose();
+
+    [Fact]
+    public async Task SignedGrant_CanBeRedeemedOnlyOnce_AndOnlyCountsUntilExpiry()
+    {
+        var until = DateTime.UtcNow.AddHours(5);
+        Assert.True(await _service.TryRedeemAsync("device:a", 10, until, "ABCDEF"));
+        Assert.False(await _service.TryRedeemAsync("device:a", 10, until, "abcdef")); // replay (case-insensitive hex)
+        Assert.False(await _service.TryRedeemAsync("device:b", 10, until, "ABCDEF")); // replay for another device
+        Assert.True(await _service.TryRedeemAsync("device:a", 5, DateTime.UtcNow.AddHours(-1), "expired"));
+
+        Assert.Equal(10, await _service.GetBonusTotalAsync("device:a"));
+        Assert.Equal(0, await _service.GetBonusTotalAsync("device:b"));
+    }
+}

@@ -60,6 +60,11 @@ public class DataRetentionService(IDbContextFactory<TobisoDbContext> dbFactory, 
             .Where(a => a.LastUsedAt < anonCutoff)
             .ExecuteDeleteAsync(ct);
 
+        // Expired bonus grants can no longer be redeemed or counted (ValidUntil is part of the signed
+        // payload, at most 25 h ahead), so their replay-protection rows are no longer needed either.
+        var expiredGrantCutoff = utcNow.AddDays(-1);
+        await db.AiBonusGrants.Where(g => g.ValidUntil < expiredGrantCutoff).ExecuteDeleteAsync(ct);
+
         var devices = o.DeviceTokenDays <= 0 ? 0 : await db.DeviceTokens
             .Where(d => d.LastSeenAt < deviceCutoff)
             .ExecuteDeleteAsync(ct);

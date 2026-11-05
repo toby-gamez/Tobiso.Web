@@ -17,7 +17,7 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -47,6 +47,43 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Addendums");
+                });
+
+            modelBuilder.Entity("Tobiso.Web.Domain.Entities.AiBonusGrant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeviceKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SignatureHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("ValidUntil")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SignatureHash")
+                        .IsUnique();
+
+                    b.HasIndex("DeviceKey", "ValidUntil");
+
+                    b.ToTable("AiBonusGrants");
                 });
 
             modelBuilder.Entity("Tobiso.Web.Domain.Entities.AiChatMessage", b =>
