@@ -88,7 +88,7 @@ namespace Tobiso.Web.App.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Ask([FromBody] AiChatRequest request)
         {
-            string clientId = null;
+            string? clientId = null;
             if (Request.Headers.TryGetValue("X-Client-Id", out var vals))
                 clientId = vals.FirstOrDefault();
 

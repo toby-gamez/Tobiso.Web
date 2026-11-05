@@ -687,10 +687,11 @@ namespace Tobiso.Web.App.Services
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var reader = new System.IO.StreamReader(stream);
 
-            while (!reader.EndOfStream)
+            while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var line = await reader.ReadLineAsync(cancellationToken);
+                if (line == null) break;
                 if (string.IsNullOrEmpty(line) || !line.StartsWith("data: ")) continue;
                 var data = line.Substring(6).Trim();
                 if (data == "[DONE]") break;
