@@ -32,6 +32,13 @@
         <label for="category">Kategorie</label>
         <SearchableCategorySelect Categories="categories" Value="request.CategoryId" ValueChanged="id => request.CategoryId = id" />
     </div>
+    @if (categories.FirstOrDefault(c => c.Id == request.CategoryId)?.SortLabel is { Length: > 0 })
+    {
+        <div class="field">
+            <label for="postPosition">Pozice v kategorii</label>
+            <PostPositionPicker CategoryId="request.CategoryId" @bind-SortFirst="request.SortFirst" @bind-SortAfterPostId="request.SortAfterPostId" />
+        </div>
+    }
     <div class="field">
         <label for="grade">Ročník (verze obsahu)</label>
         <InputSelect id="grade" class="select" @bind-Value="request.GradeId">

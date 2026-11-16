@@ -451,6 +451,67 @@ namespace Tobiso.Web.Api.Services
         private record TextNodes(System.Collections.Generic.List<HtmlNode> Nodes) : ContentSegment;
         private record FractionSeg(string Sign, string Num, string Den) : ContentSegment;
 
+        // Parses "[sign]\frac{num}{den}" where each side may hold balanced braces and nested \frac
+        // (rewritten to "{a}/{b}" text). Anything after the second group is ignored.
+        private static bool TryParseFraction(string math, out string sign, out string num, out string den)
+        {
+            sign = num = den = string.Empty;
+
+            var prefix = System.Text.RegularExpressions.Regex.Match(math, @"^\s*([+\-\u2212\u2013\u2014]?)\\?frac(?=\{)");
+            if (!prefix.Success) return false;
+
+            var pos = prefix.Index + prefix.Length;
+            if (!TryReadBraceGroup(math, ref pos, out var rawNum) || !TryReadBraceGroup(math, ref pos, out var rawDen))
+                return false;
+
+            sign = prefix.Groups[1].Value;
+            num = FracToText(rawNum).Trim();
+            den = FracToText(rawDen).Trim();
+            return true;
+        }
+
+        // Reads a "{...}" group starting at s[i] (balanced nested braces); advances i past the closing brace.
+        private static bool TryReadBraceGroup(string s, ref int i, out string body)
+        {
+            body = string.Empty;
+            if (i >= s.Length || s[i] != '{') return false;
+
+            var depth = 0;
+            for (var j = i; j < s.Length; j++)
+            {
+                if (s[j] == '{') depth++;
+                else if (s[j] == '}' && --depth == 0)
+                {
+                    body = s.Substring(i + 1, j - i - 1);
+                    i = j + 1;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Rewrites nested \frac{a}{b} inside a fraction side to the same "{a}/{b}" text form.
+        private static string FracToText(string latex)
+        {
+            var sb = new System.Text.StringBuilder();
+            var i = 0;
+            while (i < latex.Length)
+            {
+                if (string.CompareOrdinal(latex, i, "\\frac", 0, 5) == 0)
+                {
+                    var j = i + 5;
+                    if (TryReadBraceGroup(latex, ref j, out var n) && TryReadBraceGroup(latex, ref j, out var d))
+                    {
+                        sb.Append('{').Append(FracToText(n)).Append("}/{").Append(FracToText(d)).Append('}');
+                        i = j;
+                        continue;
+                    }
+                }
+                sb.Append(latex[i++]);
+            }
+            return sb.ToString();
+        }
+
         private bool ContainsMathFraction(HtmlNode node)
         {
             var spans = node.SelectNodes(".//span[@data-math]");
@@ -493,14 +554,9 @@ namespace Tobiso.Web.Api.Services
                         if (!string.IsNullOrEmpty(dataMath))
                         {
                             var math = HtmlEntity.DeEntitize(dataMath);
-                            var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
-                            var m = fracRx.Match(math);
-                            if (m.Success)
+                            if (TryParseFraction(math, out var sign, out var num, out var den))
                             {
                                 flushBuffer();
-                                var sign = m.Groups[1].Value ?? string.Empty;
-                                var num = m.Groups[2].Value.Trim();
-                                var den = m.Groups[3].Value.Trim();
                                 list.Add(new FractionSeg(sign, num, den));
                                 continue;
                             }
@@ -715,13 +771,8 @@ namespace Tobiso.Web.Api.Services
                             try
                             {
                                 var math = HtmlEntity.DeEntitize(dataMath);
-                                var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
-                                var m = fracRx.Match(math);
-                                if (m.Success)
+                                if (TryParseFraction(math, out var sign, out var num, out var den))
                                 {
-                                    var sign = m.Groups[1].Value ?? string.Empty;
-                                    var num = m.Groups[2].Value.Trim();
-                                    var den = m.Groups[3].Value.Trim();
                                     if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
                                         text.Span($"-{{{num}}}/{{{den}}}");
                                     else
@@ -806,15 +857,9 @@ namespace Tobiso.Web.Api.Services
                                 // HtmlAgilityPack may return encoded attribute values; de-entitize
                                 var math = HtmlEntity.DeEntitize(dataMath);
                                 // Look for an optional leading sign followed by \frac{num}{den}
-                                var fracRx = new System.Text.RegularExpressions.Regex(@"^\s*([+\-\u2212\u2013\u2014]?)\\?frac\{(.+?)\}\{(.+?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
-                                var m = fracRx.Match(math);
-                                if (m.Success)
+                                if (TryParseFraction(math, out var sign, out var num, out var den))
                                 {
-                                    var mathFull = m.Value;
                                     // If rendering to image is not available, always use textual fallback
-                                    var sign = m.Groups[1].Value ?? string.Empty;
-                                    var num = m.Groups[2].Value.Trim();
-                                    var den = m.Groups[3].Value.Trim();
                                     // Use curly-brace format as canonical textual representation
                                     if (!string.IsNullOrEmpty(sign) && sign.Trim() == "-")
                                         text.Span($"-{{{num}}}/{{{den}}}");

@@ -1,4 +1,4 @@
-using Tobiso.Api.Infrastructure.Data;
+﻿using Tobiso.Api.Infrastructure.Data;
 using Tobiso.Web.Domain.Entities;
 using Tobiso.Web.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +25,13 @@ public class CategoryService : ICategoryService
         _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
     }
 
+    private static string? NormalizeLabel(string? label)
+    {
+        var trimmed = label?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        return trimmed.Length > 64 ? trimmed[..64] : trimmed;
+    }
+
     public async Task<List<CategoryResponse>> GetAll()
     {
         await using var _context = _dbFactory.CreateDbContext();
@@ -33,7 +40,8 @@ public class CategoryService : ICategoryService
             {
                 Id = c.Id,
                 Name = c.Name,
-                ParentId = c.ParentId
+                ParentId = c.ParentId,
+                SortLabel = c.SortLabel
             })
             .ToListAsync();
     }
@@ -67,7 +75,7 @@ public class CategoryService : ICategoryService
 
         var allCats = await _context.Categories
             .AsNoTracking()
-            .Select(c => new { c.Id, c.Name, c.ParentId })
+            .Select(c => new { c.Id, c.Name, c.ParentId, c.SortLabel })
             .ToListAsync();
         var lookup = allCats.ToDictionary(c => c.Id);
 
@@ -75,7 +83,7 @@ public class CategoryService : ICategoryService
         var visited = new HashSet<int>();
         while (lookup.TryGetValue(currentId, out var cat) && visited.Add(cat.Id))
         {
-            result.Insert(0, new CategoryResponse { Id = cat.Id, Name = cat.Name, ParentId = cat.ParentId });
+            result.Insert(0, new CategoryResponse { Id = cat.Id, Name = cat.Name, ParentId = cat.ParentId, SortLabel = cat.SortLabel });
             if (!cat.ParentId.HasValue) break;
             currentId = cat.ParentId.Value;
         }
@@ -121,11 +129,12 @@ public class CategoryService : ICategoryService
         var entity = new Category
         {
             Name = category.Name,
-            ParentId = category.ParentId
+            ParentId = category.ParentId,
+            SortLabel = NormalizeLabel(category.SortLabel)
         };
         _context.Categories.Add(entity);
         await _context.SaveChangesAsync();
-        return new CategoryResponse { Id = entity.Id, Name = entity.Name, ParentId = entity.ParentId };
+        return new CategoryResponse { Id = entity.Id, Name = entity.Name, ParentId = entity.ParentId, SortLabel = entity.SortLabel };
     }
 
     public async Task<CategoryResponse> Update(int id, CategoryResponse category)
@@ -143,8 +152,9 @@ public class CategoryService : ICategoryService
         }
         entity.Name = category.Name;
         entity.ParentId = category.ParentId;
+        entity.SortLabel = NormalizeLabel(category.SortLabel);
         await _context.SaveChangesAsync();
-        return new CategoryResponse { Id = entity.Id, Name = entity.Name, ParentId = entity.ParentId };
+        return new CategoryResponse { Id = entity.Id, Name = entity.Name, ParentId = entity.ParentId, SortLabel = entity.SortLabel };
     }
 
     public async Task Delete(int id)

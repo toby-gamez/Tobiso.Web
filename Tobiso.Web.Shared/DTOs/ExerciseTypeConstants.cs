@@ -12,9 +12,15 @@ public static class ExerciseTypeConstants
     public const string Molecule = "molecule";
     public const string Matching = "matching";
 
+    /// <summary>
+    /// Free-explore physics sandbox. ConfigJson carries a <c>kind</c> discriminator:
+    /// "kepler", "projectile", "gravity-field" or "circuit" (renders the circuit simulator).
+    /// </summary>
+    public const string Simulation = "simulation";
+
     /// <summary>All recognised type values.</summary>
     public static readonly IReadOnlyList<string> All =
-        new[] { Circuit, Timeline, DragDrop, Molecule, Matching };
+        new[] { Circuit, Timeline, DragDrop, Molecule, Matching, Simulation };
 
     /// <summary>Returns true when <paramref name="type"/> is a recognised exercise type.</summary>
     public static bool IsKnown(string? type) =>

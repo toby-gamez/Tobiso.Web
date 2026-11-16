@@ -422,3 +422,4 @@ build/build-ftp-test.json
 # Stray Windows-style log dirs created literally on non-Windows hosts
 **/C:/
 Tobiso.Web.App/tobisofeedback-firebase-adminsdk-fbsvc-3b9e05c870.json
+.mcp.json

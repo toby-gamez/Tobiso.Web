@@ -21,59 +21,20 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Same lazy KaTeX (CDN) bootstrap as MarkdownContent.razor, via the CSP-safe named function
-        // in wwwroot/js/katex-init.js -- never via eval(), which Content-Security-Policy blocks.
-        // renderMarkdownMath targets every [data-math] span in the document (not just this
+        // Same lazy KaTeX (self-hosted) bootstrap as MarkdownContent.razor, via the CSP-safe named
+        // function in wwwroot/js/katex-init.js -- never via eval(), which Content-Security-Policy
+        // blocks. renderMarkdownMath targets every [data-math] span in the document (not just this
         // component's), so it's safe for multiple MathText instances on one page to share the
-        // single window.__katexLoaded load.
+        // single KaTeX load.
         await Js.InvokeVoidAsync("renderMarkdownMath", (string?)null);
     }
 
-    // Mirrors MarkdownContent.ReplaceFractionsInText, but operates on already-HTML-encoded plain
-    // text (this component's input is a raw DB string, not markdown that Markdig will encode).
+    // Same fraction syntax as MarkdownContent (shared FractionMath), but the input is a raw DB
+    // string rather than markdown that Markdig will encode, so HTML-encode it first.
     private static string RenderFractions(string? text)
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
 
-        var encoded = System.Net.WebUtility.HtmlEncode(text);
-
-        var fracRegex = new Regex(
-            @"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
-            RegexOptions.CultureInvariant);
-
-        var replaced = fracRegex.Replace(encoded, match =>
-        {
-            try
-            {
-                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
-                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
-
-                var fracStrikeRx = new Regex(@"#s#(.*?)#s#");
-                num = fracStrikeRx.Replace(num, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
-                den = fracStrikeRx.Replace(den, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
-
-                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
-                    return match.Value;
-
-                num = num.Trim().Replace(',', '.');
-                den = den.Trim().Replace(',', '.');
-
-                var math = $"\\frac{{{num}}}{{{den}}}";
-                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
-            }
-            catch
-            {
-                return match.Value;
-            }
-        });
-
-        // Absorb a leading hyphen separated by space into the math span so that patterns like
-        // "- 1/2" become negative fractions: "-\frac{1}{2}".
-        replaced = Regex.Replace(replaced, "-\\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
-
-        return replaced;
+        return Tobiso.Web.App.Services.FractionMath.Replace(System.Net.WebUtility.HtmlEncode(text));
     }
 }

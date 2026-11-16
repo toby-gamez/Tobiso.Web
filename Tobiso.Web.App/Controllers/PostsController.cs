@@ -72,6 +72,14 @@ public class PostsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("reorder")]
+    public async Task<IActionResult> ReorderPosts([FromBody] ReorderPostsRequest req)
+    {
+        var ok = await _postService.Reorder(req);
+        if (!ok) return NotFound();
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePost(int id)
     {

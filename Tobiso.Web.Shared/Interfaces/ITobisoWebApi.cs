@@ -24,6 +24,9 @@ public interface ITobisoWebApi
     [Put("/api/Posts/{id}")]
     Task UpdatePost(int id, [Body] UpdatePostRequest req);
 
+    [Put("/api/Posts/reorder")]
+    Task ReorderPosts([Body] ReorderPostsRequest req);
+
     [Delete("/api/Posts/{id}")]
     Task DeletePost(int id);
 

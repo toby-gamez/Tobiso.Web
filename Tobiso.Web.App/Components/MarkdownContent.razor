@@ -260,15 +260,19 @@
         try
         {
             var codeRx = new Regex("<code([^>]*)>(.*?)</code>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            // Only the fraction placeholder spans and attribute-less <sub>/<sup> tags are un-escaped;
+            // any other escaped markup in code stays literal.
+            var escapedMathRx = new Regex(@"&lt;span class='math-inline' data-math=&quot;(.*?)&quot;&gt;&lt;/span&gt;", RegexOptions.Singleline);
+            var escapedSubSupRx = new Regex(@"&lt;(/?)(sub|sup)&gt;", RegexOptions.IgnoreCase);
             html = codeRx.Replace(html, m =>
             {
                 var codeAttrs = m.Groups[1].Value;
                 var inner = m.Groups[2].Value;
-                if (inner.Contains("data-math") || inner.IndexOf("&lt;span", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    var decoded = System.Net.WebUtility.HtmlDecode(inner);
-                    return $"<code{codeAttrs}>{decoded}</code>";
-                }
+                var restored = escapedMathRx.Replace(inner, sm =>
+                    $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlDecode(sm.Groups[1].Value)}\"></span>");
+                restored = escapedSubSupRx.Replace(restored, sm => $"<{sm.Groups[1].Value}{sm.Groups[2].Value.ToLowerInvariant()}>");
+                if (restored != inner)
+                    return $"<code{codeAttrs}>{restored}</code>";
                 return m.Value;
             });
         }
@@ -672,51 +676,10 @@
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
 
-        var (protectedText, regions) = ProtectCodeRegions(input);
-
-        var fracRegex = new Regex(
-            @"(?<![\w/\-])(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))\s*/\s*(?:(\{([^}]+)\})|(-?(?:\d+(?:,\d+)?|\p{L})))(?![\w/])",
-            RegexOptions.CultureInvariant);
-
-        var replaced = fracRegex.Replace(protectedText, match =>
-        {
-            try
-            {
-                var num = match.Groups[2].Success ? match.Groups[2].Value : match.Groups[3].Value;
-                var den = match.Groups[5].Success ? match.Groups[5].Value : match.Groups[6].Value;
-
-                // Convert #s#...#s# strikethrough markers to \cancel{} inside KaTeX math
-                var fracStrikeRx = new Regex(@"#s#(.*?)#s#");
-                num = fracStrikeRx.Replace(num, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
-                den = fracStrikeRx.Replace(den, sm => $@"\cancel{{{sm.Groups[1].Value}}}");
-
-                if (string.Equals(num, "ano", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(den, "ano", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(num, "ne", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(den, "ne", StringComparison.OrdinalIgnoreCase))
-                    return match.Value;
-
-                num = num.Trim().Replace(',', '.');
-                den = den.Trim().Replace(',', '.');
-
-                var math = $"\\frac{{{num}}}{{{den}}}";
-                return $"<span class='math-inline' data-math=\"{System.Net.WebUtility.HtmlEncode(math)}\"></span>";
-            }
-            catch
-            {
-                return match.Value;
-            }
-        });
-
-        // Absorb a leading hyphen separated by space into the math span so
-        // that patterns like "- 1/2" become negative fractions: "-\frac{1}{2}".
-        try
-        {
-            replaced = Regex.Replace(replaced, "-\\s*(<span class='math-inline' data-math=\\\")", "<span class='math-inline' data-math=\"-", RegexOptions.CultureInvariant);
-        }
-        catch { }
-
-        return RestoreCodeRegions(replaced, regions);
+        // Fenced code blocks are deliberately not protected: fractions render inside <pre>/<code>
+        // too. Markdig HTML-escapes the placeholder span there; the <code> pass in the render
+        // pipeline turns just those spans back into real ones.
+        return Tobiso.Web.App.Services.FractionMath.Replace(input);
     }
 
     private string ReplacePeopleMentionsInText(string input)

@@ -1,0 +1,57 @@
+@using Tobiso.Web.Shared.DTOs
+@using Tobiso.Web.Shared.Interfaces
+@inject ITobisoWebApi Api
+
+@if (CategoryId.HasValue)
+{
+    <select id="postPosition" class="select" value="@_selected" @onchange="OnChanged">
+        <option value="">Beze změny (automaticky)</option>
+        <option value="first">Na začátek kategorie</option>
+        @foreach (var p in _siblings)
+        {
+            <option value="@p.Id">Za: @p.Title</option>
+        }
+    </select>
+}
+
+@code {
+    /// <summary>Category whose manual order the post is placed in.</summary>
+    [Parameter] public int? CategoryId { get; set; }
+    /// <summary>The post being edited, hidden from the list (null when creating).</summary>
+    [Parameter] public int? ExcludePostId { get; set; }
+    [Parameter] public bool SortFirst { get; set; }
+    [Parameter] public EventCallback<bool> SortFirstChanged { get; set; }
+    [Parameter] public int? SortAfterPostId { get; set; }
+    [Parameter] public EventCallback<int?> SortAfterPostIdChanged { get; set; }
+
+    private List<PostSummaryResponse> _siblings = new();
+    private int? _loadedCategoryId;
+
+    private string _selected => SortFirst ? "first" : SortAfterPostId?.ToString() ?? string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedCategoryId == CategoryId) return;
+        _loadedCategoryId = CategoryId;
+        _siblings = new();
+        if (!CategoryId.HasValue) return;
+
+        var all = await Api.GetPostSummaries();
+        _siblings = all
+            .Where(p => p.CategoryId == CategoryId && p.Id != ExcludePostId)
+            .OrderBy(p => p.SortOrder ?? int.MaxValue)
+            .ThenBy(p => p.Id)
+            .ToList();
+
+        // A position chosen for another category no longer applies.
+        if (SortFirst) await SortFirstChanged.InvokeAsync(false);
+        if (SortAfterPostId.HasValue) await SortAfterPostIdChanged.InvokeAsync(null);
+    }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        await SortFirstChanged.InvokeAsync(value == "first");
+        await SortAfterPostIdChanged.InvokeAsync(int.TryParse(value, out var id) ? id : null);
+    }
+}

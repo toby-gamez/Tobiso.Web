@@ -1,4 +1,5 @@
 // Usage: node render_pdf.js input.html output.pdf
+// KaTeX version below must match Tobiso.Web.App/wwwroot/lib/katex (0.16.8).
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 

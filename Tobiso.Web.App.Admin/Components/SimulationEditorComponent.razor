@@ -1,0 +1,181 @@
+@using System.Globalization
+@using System.Text.Json
+@using System.Text.Json.Nodes
+
+@* Vizuální editor simulace: výběr druhu (kind) + jeho parametry. Výstup je ConfigJson pro SimulationExercise. *@
+<div class="sim-editor">
+    <div class="field">
+        <label>Druh simulace</label>
+        <select class="select" value="@_kind" @onchange="OnKindChanged">
+            <option value="kepler">Keplerovy zákony (oběh planety)</option>
+            <option value="projectile">Hod v gravitačním poli (vodorovný, šikmý, kosmické rychlosti)</option>
+            <option value="gravity-field">Gravitační pole (síla, trajektorie)</option>
+            <option value="circuit">Elektrický obvod</option>
+        </select>
+        <small class="muted">Žák simulaci volně zkoumá, nic se nehodnotí. Níže nastavíš jen výchozí hodnoty – žák je může měnit.</small>
+    </div>
+
+    @switch (_kind)
+    {
+        case "kepler":
+            <div class="field-row">
+                @Num("Excentricita e", "eccentricity", 0, 0.9, 0.05, 0.6)
+                @Num("Hlavní poloosa a (AU)", "semiMajorAxis", 0.3, 6, 0.1, 1)
+                @Num("Počet časových dílů", "sectors", 3, 16, 1, 8)
+            </div>
+            <div class="sim-editor-checks">
+                @Check("Zobrazit poloosy", "showAxes", true)
+                @Check("Zobrazit ohniska", "showFoci", false)
+                @Check("Zobrazit výseče stejného času", "showSectors", true)
+                @Check("Zobrazit vektor rychlosti", "showVelocity", true)
+            </div>
+            break;
+
+        case "projectile":
+            <div class="field">
+                <label>Výchozí pole</label>
+                <select class="select" value="@Mode" @onchange="OnModeChanged">
+                    <option value="flat">Homogenní (g = konst.)</option>
+                    <option value="central">Centrální (Země)</option>
+                </select>
+            </div>
+            <h6>Homogenní pole</h6>
+            <div class="field-row">
+                @Num("Rychlost (m/s)", "speed", 1, 80, 1, 20)
+                @Num("Úhel (°)", "angle", -45, 90, 1, 45)
+                @Num("Výška (m)", "height", 0, 60, 1, 0)
+                @Num("g (m/s²)", "gravity", 1, 26, 0.01, 9.81)
+            </div>
+            <h6>Centrální pole</h6>
+            <div class="field-row">
+                @Num("Rychlost (km/s)", "centralSpeed", 0, 14, 0.05, 7)
+                @Num("Úhel (°)", "centralAngle", -30, 90, 1, 0)
+                @Num("Výška nad povrchem (km)", "altitude", 0, 1000, 10, 300)
+            </div>
+            break;
+
+        case "gravity-field":
+            <div class="field-row">
+                @Num("Exponent síly n (F ∝ 1/rⁿ)", "exponent", 1.5, 3, 0.05, 2)
+                @Num("Hmotnost centrálního tělesa", "mass", 0.3, 3, 0.1, 1)
+                @Num("Rychlost / kruhová rychlost", "speedFactor", 0, 1.6, 0.05, 1)
+            </div>
+            break;
+
+        case "circuit":
+            <CircuitEditorComponent ConfigJson="@ConfigJson" ConfigJsonChanged="OnCircuitChanged" />
+            break;
+    }
+</div>
+
+@code {
+    [Parameter] public string ConfigJson { get; set; } = "{}";
+    [Parameter] public EventCallback<string> ConfigJsonChanged { get; set; }
+
+    private string _kind = "kepler";
+    private JsonObject _cfg = new();
+    private string? _lastEmitted;
+
+    protected override void OnParametersSet()
+    {
+        // Vlastní výstup nenačítáme zpět - jen změny zvenku (načtení cvičení, tlačítko „Načíst příklad“).
+        if (ConfigJson == _lastEmitted) return;
+
+        try
+        {
+            _cfg = JsonNode.Parse(string.IsNullOrWhiteSpace(ConfigJson) ? "{}" : ConfigJson) as JsonObject ?? new JsonObject();
+        }
+        catch (JsonException)
+        {
+            _cfg = new JsonObject();
+        }
+
+        var kind = _cfg["kind"]?.GetValue<string>();
+        _kind = kind is "kepler" or "projectile" or "gravity-field" or "circuit" ? kind : "kepler";
+        if (_cfg["kind"]?.GetValue<string>() != _kind)
+        {
+            // Nové cvičení / bez druhu: ulož výchozí druh hned, ať ho žák skutečně dostane.
+            _cfg["kind"] = _kind;
+            _ = Emit();
+        }
+    }
+
+    private async Task OnKindChanged(ChangeEventArgs e)
+    {
+        _kind = e.Value?.ToString() ?? "kepler";
+        _cfg = new JsonObject { ["kind"] = _kind };
+        await Emit();
+    }
+
+    private async Task OnCircuitChanged(string json)
+    {
+        // Editor obvodu vrací jen svůj JSON; druh doplníme zpět.
+        try
+        {
+            _cfg = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+        _cfg.Remove("kind");
+        var withKind = new JsonObject { ["kind"] = "circuit" };
+        foreach (var (k, v) in _cfg.ToList())
+        {
+            _cfg.Remove(k);
+            withKind[k] = v;
+        }
+        _cfg = withKind;
+        await Emit();
+    }
+
+    private async Task Emit()
+    {
+        var json = _cfg.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        _lastEmitted = json;
+        await ConfigJsonChanged.InvokeAsync(json);
+    }
+
+    private double NumVal(string key, double def)
+        => _cfg[key] is JsonValue v && v.TryGetValue<double>(out var d) ? d : def;
+
+    private string Str(string key, string def)
+        => _cfg[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : def;
+
+    private bool Bool(string key, bool def)
+        => _cfg[key] is JsonValue v && v.TryGetValue<bool>(out var b) ? b : def;
+
+    private Task SetNum(string key, string? raw, double min, double max, double def)
+    {
+        var ok = double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var d);
+        _cfg[key] = Math.Clamp(ok ? d : def, min, max);
+        return Emit();
+    }
+
+    private string Mode => Str("mode", "flat");
+
+    private Task OnModeChanged(ChangeEventArgs e)
+    {
+        _cfg["mode"] = e.Value?.ToString() ?? "flat";
+        return Emit();
+    }
+
+    private Task SetBool(string key, bool value)
+    {
+        _cfg[key] = value;
+        return Emit();
+    }
+
+    private RenderFragment Num(string label, string key, double min, double max, double step, double def) => @<div class="field">
+        <label>@label</label>
+        <input type="number" class="input"
+               min="@min.ToString(CultureInfo.InvariantCulture)" max="@max.ToString(CultureInfo.InvariantCulture)" step="@step.ToString(CultureInfo.InvariantCulture)"
+               value="@NumVal(key, def).ToString(CultureInfo.InvariantCulture)"
+               @onchange="e => SetNum(key, e.Value?.ToString(), min, max, def)" />
+    </div>;
+
+    private RenderFragment Check(string label, string key, bool def) => @<div class="checkbox-field">
+        <input type="checkbox" id="simchk-@key" checked="@Bool(key, def)" @onchange="e => SetBool(key, e.Value is true)" />
+        <label for="simchk-@key">@label</label>
+    </div>;
+}

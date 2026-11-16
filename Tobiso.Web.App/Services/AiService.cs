@@ -267,12 +267,14 @@ namespace Tobiso.Web.App.Services
 
             var userPrompt = $"Return a JSON object for the person \"{name}\" with exactly these keys: " +
                 "name (string, full name), " +
-                "role (string, short description, e.g. \"český skladatel a pianista\"), " +
+                "role (string, short description of the person's profession or significance), " +
                 "birthYear (integer or null), " +
                 "deathYear (integer or null), " +
                 "bio (string, 2-3 factual sentences), " +
                 "externalLink (string, Wikipedia URL or empty string). " +
-                "Write the values of role and bio in Czech (čeština), regardless of the language of the person's name.";
+                "Write the values of role and bio in Czech (čeština), regardless of the language of the person's name. " +
+                "If you cannot reliably identify a specific notable real person with this name (it may be a planet, a god, a brand or a common word), " +
+                "return empty strings for role, bio and externalLink and null for birthYear and deathYear. Never guess a profession.";
 
             var raw = await AskRawJsonAsync(systemPrompt, userPrompt);
             if (string.IsNullOrWhiteSpace(raw))

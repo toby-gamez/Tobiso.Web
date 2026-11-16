@@ -15,6 +15,10 @@ public class Category
     [MaxLength(128)]
     public string Slug { get; set; } = string.Empty;
 
+    /// <summary>How the category's posts are ordered by hand, shown to readers (e.g. "Historicky"). Null/empty = automatic (newest first).</summary>
+    [MaxLength(64)]
+    public string? SortLabel { get; set; }
+
     public int? ParentId { get; set; }
 
     [ForeignKey(nameof(ParentId))]

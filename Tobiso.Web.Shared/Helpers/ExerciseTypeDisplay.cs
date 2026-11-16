@@ -15,6 +15,7 @@ public static class ExerciseTypeDisplay
         ExerciseTypeConstants.Timeline => "history",
         ExerciseTypeConstants.Circuit => "zap",
         ExerciseTypeConstants.Molecule => "atom",
+        ExerciseTypeConstants.Simulation => "orbit",
         _ => "puzzle"
     };
 
@@ -25,6 +26,7 @@ public static class ExerciseTypeDisplay
         ExerciseTypeConstants.Timeline => "Časová osa",
         ExerciseTypeConstants.Circuit => "Obvod",
         ExerciseTypeConstants.Molecule => "Molekula",
+        ExerciseTypeConstants.Simulation => "Simulace",
         _ => "Cvičení"
     };
 }

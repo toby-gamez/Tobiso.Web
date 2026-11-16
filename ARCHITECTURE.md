@@ -310,10 +310,12 @@ Markdig.Markdown.ToHtml(content)  // standard pipeline, default extensions
 
 ### Math Rendering
 
-KaTeX `0.16.8` is loaded dynamically from CDN in `OnAfterRenderAsync`. Delimiters:
+KaTeX `0.16.8` is self-hosted in `wwwroot/lib/katex` (core, auto-render, mhchem, woff2 fonts) and loaded lazily by `wwwroot/js/katex-init.js` from `OnAfterRenderAsync`. Delimiters:
 - `$...$` → inline math
 - `$$...$$` → display math
-- `[data-math]` spans → fraction pre-processing output
+- `[data-math]` spans → fraction pre-processing output (`Services/FractionMath.cs`, shared by `MarkdownContent` and `MathText`; sides may nest balanced braces and inner `{a}/{b}` fractions, and `<sub>`/`<sup>` become `_{}`/`^{}`)
+
+Extras: `\ce{...}` via mhchem, macros `\Q`, `\C`, `\abs{}` (plus KaTeX built-ins `\R`, `\N`, `\Z`), `throwOnError: false` on both render paths. `PdfService` does not use KaTeX; it reads `data-math` and falls back to `{num}/{den}` text.
 
 ### AI Content Rendering
 

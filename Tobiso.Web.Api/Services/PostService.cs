@@ -22,6 +22,8 @@ public interface IPostService
     Task<PostResponse?> GetBySlug(string slug, int? gradeId = null);
     /// <summary>Updates post metadata only (title, filepath, category). Version content is managed via IPostVersionService.</summary>
     Task<bool> UpdateMetadata(int id, UpdatePostRequest req);
+    /// <summary>Sets the manual order of a category's posts to the given sequence; posts not listed follow in their current order.</summary>
+    Task<bool> Reorder(ReorderPostsRequest req);
     Task<bool> Delete(int id);
     Task<PostResponse?> Create(CreatePostRequest req);
     Task<PostLinkResponse?> GetRandomAsync();
@@ -84,6 +86,7 @@ public class PostService : IPostService
             Title = p.Title,
             FilePath = p.FilePath,
             CategoryId = p.CategoryId,
+            SortOrder = p.SortOrder,
             CreatedAt = p.CreatedAt,
             Versions = versionsToInclude.Select(v => ToVersionResponse(v, p.CreatedAt)).ToList()
         };
@@ -143,6 +146,7 @@ public class PostService : IPostService
                 Id = p.Id,
                 Title = p.Title,
                 CategoryId = p.CategoryId,
+                SortOrder = p.SortOrder,
                 FilePath = p.FilePath,
                 CreatedAt = p.CreatedAt,
                 // Aggregate most recent timestamps across all versions for "last updated" display
@@ -219,11 +223,60 @@ public class PostService : IPostService
         var entity = await _context.Posts.FindAsync(id);
         if (entity == null) return false;
 
+        var categoryChanged = entity.CategoryId != req.CategoryId;
         entity.Title = req.Title;
         entity.FilePath = req.FilePath;
         entity.CategoryId = req.CategoryId;
+
+        if (categoryChanged) entity.SortOrder = null;
+        if (req.CategoryId.HasValue && (req.SortFirst || req.SortAfterPostId.HasValue))
+            await PlaceInCategory(_context, entity, req.SortFirst, req.SortAfterPostId);
+
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> Reorder(ReorderPostsRequest req)
+    {
+        await using var _context = _dbFactory.CreateDbContext();
+        var posts = await _context.Posts.Where(p => p.CategoryId == req.CategoryId).ToListAsync();
+        if (posts.Count == 0) return false;
+
+        var byId = posts.ToDictionary(p => p.Id);
+        var ordered = req.PostIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+        ordered.AddRange(EffectiveOrder(posts).Where(p => !ordered.Contains(p)));
+        Renumber(ordered);
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>Manually placed posts first (by SortOrder), then the rest by id.</summary>
+    private static IEnumerable<Post> EffectiveOrder(IEnumerable<Post> posts) => posts
+        .OrderBy(p => p.SortOrder ?? int.MaxValue)
+        .ThenBy(p => p.Id);
+
+    private static void Renumber(List<Post> ordered)
+    {
+        for (var i = 0; i < ordered.Count; i++) ordered[i].SortOrder = i + 1;
+    }
+
+    /// <summary>Inserts <paramref name="entity"/> into its category's manual order at the requested spot and renumbers the category.</summary>
+    private static async Task PlaceInCategory(TobisoDbContext context, Post entity, bool first, int? afterPostId)
+    {
+        var siblings = await context.Posts
+            .Where(p => p.CategoryId == entity.CategoryId && p.Id != entity.Id)
+            .ToListAsync();
+        var ordered = EffectiveOrder(siblings).ToList();
+
+        var index = 0;
+        if (!first && afterPostId.HasValue)
+        {
+            var afterIdx = ordered.FindIndex(p => p.Id == afterPostId.Value);
+            index = afterIdx >= 0 ? afterIdx + 1 : ordered.Count;
+        }
+        ordered.Insert(index, entity);
+        Renumber(ordered);
     }
 
     public async Task<bool> Delete(int id)
@@ -318,6 +371,12 @@ public class PostService : IPostService
         };
         _context.Posts.Add(entity);
         await _context.SaveChangesAsync();
+
+        if (req.CategoryId.HasValue && (req.SortFirst || req.SortAfterPostId.HasValue))
+        {
+            await PlaceInCategory(_context, entity, req.SortFirst, req.SortAfterPostId);
+            await _context.SaveChangesAsync();
+        }
 
         if (req.GradeId.HasValue)
         {

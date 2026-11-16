@@ -1,0 +1,83 @@
+@using System.Text.Json
+@using Tobiso.Web.Shared.DTOs
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+@* Volně prozkoumatelná simulace. ConfigJson.kind: "kepler" | "projectile" | "gravity-field" | "circuit". *@
+@if (_kind == "circuit")
+{
+    <CircuitSimulator Exercise="Exercise" />
+}
+else
+{
+    <div class="exercise-shell sim-shell">
+        <div @ref="_host" class="sim-host" @key="Exercise.Id"></div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public InteractiveExerciseResponse Exercise { get; set; } = null!;
+
+    private ElementReference _host;
+    private string _kind = "";
+    private string _config = "{}";
+    private int? _initializedFor;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _instance;
+
+    protected override void OnParametersSet()
+    {
+        _kind = "kepler";
+        _config = "{}";
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(Exercise.ConfigJson) ? "{}" : Exercise.ConfigJson);
+            if (doc.RootElement.TryGetProperty("kind", out var k) && k.GetString() is { Length: > 0 } kind)
+                _kind = kind;
+            _config = doc.RootElement.GetRawText();
+        }
+        catch (JsonException)
+        {
+            // Neplatný ConfigJson - spustíme výchozí simulaci s výchozími parametry.
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_kind == "circuit" || _initializedFor == Exercise.Id) return;
+
+        await DisposeInstanceAsync();
+        try
+        {
+            _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/simulations.js");
+            _instance = await _module.InvokeAsync<IJSObjectReference>("init", _host, _kind, _config);
+            _initializedFor = Exercise.Id;
+        }
+        catch (JSDisconnectedException)
+        {
+            // Obvod se zavřel dřív, než se simulace stihla načíst.
+        }
+    }
+
+    private async Task DisposeInstanceAsync()
+    {
+        if (_instance is null) return;
+        try
+        {
+            await _instance.InvokeVoidAsync("dispose");
+            await _instance.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        _instance = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeInstanceAsync();
+        if (_module is null) return;
+        try { await _module.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}

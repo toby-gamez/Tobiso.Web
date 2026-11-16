@@ -18,6 +18,10 @@
             {
                 <div class="person-loading">Informace se nepodařilo načíst.</div>
             }
+            else if (_person != null && string.IsNullOrWhiteSpace(_person.Bio) && string.IsNullOrWhiteSpace(_person.Role))
+            {
+                <div class="person-loading">Informace o „@_person.Name“ se nepodařilo spolehlivě najít.</div>
+            }
             else if (_person != null)
             {
                 <h3 class="person-name">

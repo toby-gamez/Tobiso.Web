@@ -1,0 +1,213 @@
+/* Simulation exercises (js/simulations.js): canvas + controls built at runtime inside .sim-host.
+   Uses Organic tokens only, so light/dark follow variables.css. */
+
+.sim-shell {
+    padding: var(--space-4);
+}
+
+.sim-root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.sim-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.sim-canvas-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    min-height: 260px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-divider);
+    overflow: hidden;
+}
+
+.sim-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.sim-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-3) var(--space-5);
+}
+
+.sim-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: 14px;
+}
+
+.sim-field-head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.sim-field-name {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.sim-field-value {
+    color: var(--color-accent-700);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sim-toggle input[type="checkbox"] {
+    accent-color: var(--color-accent-600);
+}
+
+/* Organic range slider: pill track with a terracotta fill (--fill set from JS) and a round thumb. */
+.sim-field input[type="range"] {
+    --track-h: 8px;
+    --thumb: 22px;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: var(--thumb);
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+}
+
+.sim-field input[type="range"]::-webkit-slider-runnable-track {
+    height: var(--track-h);
+    border-radius: 999px;
+    background: linear-gradient(to right,
+        var(--color-accent-500) 0 var(--fill, 0%),
+        var(--color-neutral-300) var(--fill, 0%) 100%);
+}
+
+.sim-field input[type="range"]::-moz-range-track {
+    height: var(--track-h);
+    border-radius: 999px;
+    background: var(--color-neutral-300);
+}
+
+.sim-field input[type="range"]::-moz-range-progress {
+    height: var(--track-h);
+    border-radius: 999px;
+    background: var(--color-accent-500);
+}
+
+.sim-field input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: var(--thumb);
+    height: var(--thumb);
+    margin-top: calc((var(--track-h) - var(--thumb)) / 2);
+    border-radius: 50%;
+    background: var(--color-accent-600);
+    border: 3px solid var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sim-field input[type="range"]::-moz-range-thumb {
+    width: calc(var(--thumb) - 6px);
+    height: calc(var(--thumb) - 6px);
+    border-radius: 50%;
+    background: var(--color-accent-600);
+    border: 3px solid var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sim-field input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.1); }
+.sim-field input[type="range"]:hover::-moz-range-thumb { transform: scale(1.1); }
+.sim-field input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.18); box-shadow: var(--shadow-md); }
+.sim-field input[type="range"]:active::-moz-range-thumb { transform: scale(1.18); box-shadow: var(--shadow-md); }
+
+.sim-field input[type="range"]:focus-visible {
+    outline: none;
+}
+
+.sim-field input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px var(--color-accent-300);
+}
+
+.sim-field input[type="range"]:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px var(--color-accent-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sim-field input[type="range"]::-webkit-slider-thumb,
+    .sim-field input[type="range"]::-moz-range-thumb {
+        transition: none;
+    }
+}
+
+.sim-toggles,
+.sim-actions,
+.sim-segmented {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+}
+
+.sim-actions,
+.sim-segmented {
+    gap: var(--space-2);
+}
+
+.sim-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.sim-readouts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-2);
+}
+
+.sim-readout {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+}
+
+.sim-readout-label {
+    font-size: 12px;
+    color: var(--color-neutral-700);
+}
+
+.sim-readout-value {
+    font-family: var(--font-heading);
+    font-size: 17px;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.sim-note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-neutral-700);
+}
+
+@media (max-width: 600px) {
+    .sim-canvas-wrap {
+        aspect-ratio: 4 / 3;
+    }
+}

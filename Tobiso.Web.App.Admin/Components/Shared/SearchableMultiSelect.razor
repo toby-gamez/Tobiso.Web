@@ -1,0 +1,136 @@
+@using System.Globalization
+@using System.Text
+@inject IJSRuntime JS
+
+@* Vícenásobný výběr s vyhledáváním: vybrané položky jsou čipy, nabídka se filtruje při psaní. *@
+<div class="multi-select">
+    @if (Selected.Count > 0)
+    {
+        <div class="multi-select-chips">
+            @foreach (var id in Selected)
+            {
+                var chipId = id;
+                <span class="multi-select-chip">
+                    <span class="multi-select-chip-label" title="@LabelOf(chipId)">@LabelOf(chipId)</span>
+                    <button type="button" class="multi-select-chip-remove" aria-label="Odebrat" @onclick="() => Remove(chipId)">
+                        <i data-lucide="x"></i>
+                    </button>
+                </span>
+            }
+        </div>
+    }
+
+    <div class="search-select-wrap">
+        <input type="text"
+               class="input"
+               placeholder="@Placeholder"
+               value="@_search"
+               @oninput="OnSearchInput"
+               @onfocus="() => _showDropdown = true"
+               @onblur="HideDropdownDelayed"
+               @onkeydown="OnKeyDown" />
+        @if (_showDropdown)
+        {
+            var (matches, total) = GetMatches();
+            <div class="post-search-dropdown multi-select-dropdown">
+                @if (matches.Count == 0)
+                {
+                    <div class="dropdown-empty">@EmptyText</div>
+                }
+                @foreach (var item in matches)
+                {
+                    var itemId = item.Id;
+                    <button type="button" class="dropdown-item"
+                            @onmousedown:preventDefault="true"
+                            @onclick="() => Add(itemId)">
+                        @if (item.Depth > 0)
+                        {
+                            <span class="multi-select-indent" style="width:@(item.Depth * 14)px"></span>
+                        }
+                        @item.Label
+                    </button>
+                }
+                @if (total > matches.Count)
+                {
+                    <div class="dropdown-empty">…a dalších @(total - matches.Count). Zpřesněte hledání.</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    public record Item(int Id, string Label, int Depth = 0);
+
+    [Parameter] public List<Item> Items { get; set; } = new();
+    [Parameter] public List<int> Selected { get; set; } = new();
+    [Parameter] public EventCallback<List<int>> SelectedChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Hledat...";
+    [Parameter] public string EmptyText { get; set; } = "Nic nenalezeno";
+    [Parameter] public int MaxVisible { get; set; } = 30;
+
+    private string _search = string.Empty;
+    private bool _showDropdown;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("initLucide");
+    }
+
+    private string LabelOf(int id) => Items.FirstOrDefault(i => i.Id == id)?.Label ?? $"ID: {id}";
+
+    private (List<Item> Matches, int Total) GetMatches()
+    {
+        var q = Normalize(_search);
+        var all = Items.Where(i => !Selected.Contains(i.Id)
+                                   && (q.Length == 0 || Normalize(i.Label).Contains(q))).ToList();
+        return (all.Take(MaxVisible).ToList(), all.Count);
+    }
+
+    // Hledání bez ohledu na velikost písmen a diakritiku ("zeme" najde "Země").
+    private static string Normalize(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+        var sb = new StringBuilder();
+        foreach (var ch in s.Trim().Normalize(NormalizationForm.FormD))
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                sb.Append(char.ToLowerInvariant(ch));
+        return sb.ToString();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        _showDropdown = true;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            var (matches, _) = GetMatches();
+            if (matches.Count > 0) await Add(matches[0].Id);
+        }
+        else if (e.Key == "Escape")
+        {
+            _showDropdown = false;
+        }
+    }
+
+    private async Task HideDropdownDelayed()
+    {
+        await Task.Delay(150);
+        _showDropdown = false;
+        StateHasChanged();
+    }
+
+    private async Task Add(int id)
+    {
+        if (Selected.Contains(id)) return;
+        _search = string.Empty;
+        await SelectedChanged.InvokeAsync(new List<int>(Selected) { id });
+    }
+
+    private Task Remove(int id) =>
+        SelectedChanged.InvokeAsync(Selected.Where(x => x != id).ToList());
+}

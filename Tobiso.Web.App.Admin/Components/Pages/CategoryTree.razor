@@ -43,6 +43,32 @@
                         }
                     </select>
                 </div>
+                <div class="field">
+                    <label for="sortLabelInput">Řazení článků</label>
+                    <input id="sortLabelInput" class="input" list="sortLabelOptions" placeholder="Automaticky (nejnovější první)" maxlength="64" @bind="sortLabel" @bind:event="oninput" />
+                    <datalist id="sortLabelOptions">
+                        <option value="Historicky"></option>
+                        <option value="Postupně"></option>
+                    </datalist>
+                    <small class="muted">Vyber nebo napiš vlastní. Prázdné = články se řadí automaticky. Zobrazí se čtenářům.</small>
+                </div>
+                @if (editCategoryId != null && !string.IsNullOrWhiteSpace(sortLabel) && sortablePosts.Count > 0)
+                {
+                    <div class="field">
+                        <label>Pořadí článků</label>
+                        <ol class="sort-list">
+                            @for (var i = 0; i < sortablePosts.Count; i++)
+                            {
+                                var index = i;
+                                <li class="sort-item">
+                                    <span class="sort-title">@sortablePosts[index].Title</span>
+                                    <button type="button" class="btn btn-ghost btn-sm" aria-label="Posunout nahoru" disabled="@(index == 0)" @onclick="() => MovePost(index, -1)"><i data-lucide="arrow-up"></i></button>
+                                    <button type="button" class="btn btn-ghost btn-sm" aria-label="Posunout dolů" disabled="@(index == sortablePosts.Count - 1)" @onclick="() => MovePost(index, 1)"><i data-lucide="arrow-down"></i></button>
+                                </li>
+                            }
+                        </ol>
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" @onclick="CloseCategoryModal">Zrušit</button>
@@ -170,6 +196,10 @@ else
     private int? editCategoryId = null;
     private int? parentCategoryId = null;
 
+    private List<PostSummaryResponse> sortablePosts = new();
+    private bool sortChanged;
+    private string? sortLabel;
+
     private IList<CategoryResponse> allCategories = new List<CategoryResponse>();
 
     protected override async Task OnInitializedAsync()
@@ -293,17 +323,35 @@ else
         parentCategoryId = null;
     }
 
-    private void ShowEditCategoryModal(CategoryTreeResponse category)
+    private async Task ShowEditCategoryModal(CategoryTreeResponse category)
     {
         showCategoryModal = true;
+        sortChanged = false;
+        sortLabel = allCategories.FirstOrDefault(c => c.Id == category.Id)?.SortLabel;
+        sortablePosts = (await Api.GetPostSummaries())
+            .Where(p => p.CategoryId == category.Id)
+            .OrderBy(p => p.SortOrder ?? int.MaxValue)
+            .ThenBy(p => p.Id)
+            .ToList();
         categoryName = category.Name;
         editCategoryId = category.Id;
         var cat = allCategories.FirstOrDefault(c => c.Id == category.Id);
         parentCategoryId = cat?.ParentId;
     }
 
+    private void MovePost(int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= sortablePosts.Count) return;
+        (sortablePosts[index], sortablePosts[target]) = (sortablePosts[target], sortablePosts[index]);
+        sortChanged = true;
+    }
+
     private void CloseCategoryModal()
     {
+        sortablePosts = new();
+        sortChanged = false;
+        sortLabel = null;
         showCategoryModal = false;
         categoryName = string.Empty;
         editCategoryId = null;
@@ -316,12 +364,14 @@ else
         if (editCategoryId == null)
         {
             // Přidání nové kategorie
-            await Api.CreateCategory(new CategoryResponse { Name = categoryName, ParentId = parentCategoryId });
+            await Api.CreateCategory(new CategoryResponse { Name = categoryName, ParentId = parentCategoryId, SortLabel = sortLabel });
         }
         else
         {
             // Úprava existující kategorie
-            await Api.UpdateCategory(editCategoryId.Value, new CategoryResponse { Name = categoryName, ParentId = parentCategoryId });
+            await Api.UpdateCategory(editCategoryId.Value, new CategoryResponse { Name = categoryName, ParentId = parentCategoryId, SortLabel = sortLabel });
+            if (sortChanged)
+                await Api.ReorderPosts(new ReorderPostsRequest { CategoryId = editCategoryId.Value, PostIds = sortablePosts.Select(p => p.Id).ToList() });
         }
 
         await LoadCategories();

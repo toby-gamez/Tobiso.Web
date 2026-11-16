@@ -381,6 +381,10 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("SortLabel")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ParentId");
@@ -1382,6 +1386,9 @@ namespace Tobiso.Web.Api.Infrastructure.Data.Migrations
                     b.Property<string>("FilePath")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SortOrder")
+                        .HasColumnType("int");
 
                     b.Property<string>("Title")
                         .IsRequired()

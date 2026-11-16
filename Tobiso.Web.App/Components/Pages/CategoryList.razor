@@ -36,7 +36,13 @@
         }
         else
         {
-            <p>@(CzechPlural.Clanky(PostCountFor(_currentCategory!.Id)))@(_children.Count > 0 ? $" · {CzechPlural.Oblasti(_children.Count)}" : "").</p>
+            <p class="category-meta">
+                @(CzechPlural.Clanky(PostCountFor(_currentCategory!.Id)))@(_children.Count > 0 ? $" · {CzechPlural.Oblasti(_children.Count)}" : "").
+                @if (IsSorted)
+                {
+                    <span class="sorted-badge" title="Články jsou seřazeny v doporučeném pořadí, ne podle data"><i data-lucide="arrow-down-wide-narrow"></i> Řazeno: @_currentCategory!.SortLabel!.ToLowerInvariant()</span>
+                }
+            </p>
         }
     </div>
 
@@ -185,7 +191,8 @@
             _introPost = inCategory.FirstOrDefault(p => IsIntro(p, _currentCategory));
             _postsInCategory = [.. inCategory
                 .Where(p => p != _introPost)
-                .OrderByDescending(LastUpdated)];
+                .OrderBy(p => IsSorted ? p.SortOrder ?? int.MaxValue : 0)
+                .ThenByDescending(LastUpdated)];
         }
         else
         {
@@ -207,6 +214,8 @@
     // A post titled the same as its category is that category's intro ("Úvod"), not a regular article.
     private static bool IsIntro(PostSummaryResponse post, CategoryResponse? category)
         => category != null && string.Equals(post.Title?.Trim(), category.Name?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private bool IsSorted => !string.IsNullOrWhiteSpace(_currentCategory?.SortLabel);
 
     private static bool IsMore(string name) => string.Equals(name?.Trim(), "More", StringComparison.OrdinalIgnoreCase);
 

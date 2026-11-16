@@ -12,6 +12,8 @@ public class PostResponse
     public string Title { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
+    /// <summary>Manual position within the category (1-based); null when not manually placed.</summary>
+    public int? SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<PostVersionResponse> Versions { get; set; } = new();
 }

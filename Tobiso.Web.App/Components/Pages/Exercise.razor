@@ -66,6 +66,10 @@ else
         {
             <CircuitSimulator Exercise="_exercise" />
         }
+        else if (_exercise.Type == ExerciseTypeConstants.Simulation)
+        {
+            <SimulationExercise Exercise="_exercise" />
+        }
 
         @if (_suggestions.Count > 0)
         {

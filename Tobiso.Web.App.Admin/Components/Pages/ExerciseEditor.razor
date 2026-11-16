@@ -63,30 +63,22 @@ else
                     <div class="panel-body">
                         <div class="field">
                             <label>Přiřazené články</label>
-                            <div class="checklist-box">
-                                @foreach (var p in _allPosts)
-                                {
-                                    <div class="checkbox-field">
-                                        <input type="checkbox" id="postchk-@p.Id" checked="@(_model.PostIds?.Contains(p.Id) == true)" @onchange="(e) => TogglePost(p.Id, e.Value?.ToString())" />
-                                        <label for="postchk-@p.Id">@p.Title</label>
-                                    </div>
-                                }
-                            </div>
-                            <small class="muted">Zaškrtněte všechny články, ke kterým má být cvičení přiřazeno.</small>
+                            <SearchableMultiSelect Items="_postItems"
+                                                   Selected="_model.PostIds ?? new List<int>()"
+                                                   SelectedChanged="ids => _model.PostIds = ids"
+                                                   Placeholder="Hledat článek podle názvu..."
+                                                   EmptyText="Žádný článek nenalezen" />
+                            <small class="muted">Vyhledejte články, ke kterým má být cvičení přiřazeno.</small>
                         </div>
 
                         <div class="field">
                             <label>Přiřazené kategorie</label>
-                            <div class="checklist-box">
-                                @foreach (var c in _allCategories)
-                                {
-                                    <div class="checkbox-field">
-                                        <input type="checkbox" id="catchk-@c.Id" checked="@(_model.CategoryIds?.Contains(c.Id) == true)" @onchange="(e) => ToggleCategory(c.Id, e.Value?.ToString())" />
-                                        <label for="catchk-@c.Id">@BuildCategoryLabel(c)</label>
-                                    </div>
-                                }
-                            </div>
-                            <small class="muted">Kategorie dědí cvičení na všechny články v nich (rekurzivně).</small>
+                            <SearchableMultiSelect Items="_categoryItems"
+                                                   Selected="_model.CategoryIds ?? new List<int>()"
+                                                   SelectedChanged="ids => _model.CategoryIds = ids"
+                                                   Placeholder="Hledat kategorii nebo podkategorii..."
+                                                   EmptyText="Žádná kategorie nenalezena" />
+                            <small class="muted">Vybraná kategorie předá cvičení všem článkům v ní i ve všech jejích podkategoriích.</small>
                         </div>
 
                         <div class="field">
@@ -104,6 +96,7 @@ else
                                 <option value="drag-drop">Přetahování do kategorií</option>
                                 <option value="molecule">Chemická molekula</option>
                                 <option value="matching">Párování</option>
+                                <option value="simulation">Simulace (volné zkoumání)</option>
                             </InputSelect>
                             <ValidationMessage For="@(() => _model.Type)" />
                         </div>
@@ -161,6 +154,9 @@ else
                                     <DragDropEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                             SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
                                     break;
+                                case ExerciseTypeConstants.Simulation:
+                                    <SimulationEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged" />
+                                    break;
                                 case ExerciseTypeConstants.Matching:
                                     <MatchingEditorComponent ConfigJson="@_model.ConfigJson" ConfigJsonChanged="OnConfigChanged"
                                                             SolutionJson="@_model.SolutionJson" SolutionJsonChanged="OnSolutionChanged" />
@@ -196,6 +192,8 @@ else
                     </div>
                 </div>
 
+                @if (HasSolution)
+                {
                 <div class="panel">
                     <div class="panel-header">
                         <span>Správné řešení (JSON) *</span>
@@ -221,6 +219,7 @@ else
                         </button>
                     </div>
                 </div>
+                }
             </div>
 
             <div class="editor-side">
@@ -237,7 +236,7 @@ else
                             {
                                 case ExerciseTypeConstants.Circuit:
                                     <h6>Fyzikální obvod</h6>
-                                    <p class="muted">Jde o volnou hernu (playground), ne o testované cvičení - žák si obvod jen poskládá a zkouší. ConfigJson určuje předvyplněné komponenty a nabídku k přidání; SolutionJson se u tohoto typu nepoužívá, ale je stále povinné (stačí <code>{}</code> nebo poznámka).</p>
+                                    <p class="muted">Jde o volnou hernu (playground), ne o testované cvičení - žák si obvod jen poskládá a zkouší. ConfigJson určuje předvyplněné komponenty a nabídku k přidání. Správné řešení se u tohoto typu nezadává.</p>
                                     <p><strong>Příklad ConfigJson:</strong></p>
                                     <pre class="code-preview">@GetCircuitExample()</pre>
                                     break;
@@ -255,6 +254,12 @@ else
                                     <h6>Molekula</h6>
                                     <p><strong>Příklad ConfigJson:</strong></p>
                                     <pre class="code-preview">@GetMoleculeExample()</pre>
+                                    break;
+                                case ExerciseTypeConstants.Simulation:
+                                    <h6>Simulace</h6>
+                                    <p class="muted">Volně prozkoumatelná simulace, ne testované cvičení. Druh simulace (Keplerovy zákony, hod v gravitačním poli, gravitační pole, obvod) vybereš ve vizuálním editoru; v JSONu je to pole <code>kind</code>. Správné řešení se nezadává.</p>
+                                    <p><strong>Příklad ConfigJson:</strong></p>
+                                    <pre class="code-preview">@GetSimulationConfigExample(CurrentSimulationKind())</pre>
                                     break;
                                 case ExerciseTypeConstants.Matching:
                                     <h6>Párování</h6>
@@ -297,6 +302,8 @@ else
     private PostResponse? _post;
     private List<PostLinkResponse> _allPosts = new();
     private List<CategoryResponse> _allCategories = new();
+    private List<SearchableMultiSelect.Item> _postItems = new();
+    private List<SearchableMultiSelect.Item> _categoryItems = new();
     private ExerciseEditorModel _model = new();
     private bool _loading = true;
     private bool _saving = false;
@@ -371,6 +378,8 @@ else
             // načíst seznam postů a kategorií pro multi-select
             _allPosts = await PostService.GetLinks();
             _allCategories = await CategoryService.GetAll();
+            _postItems = _allPosts.OrderBy(p => p.Title).Select(p => new SearchableMultiSelect.Item(p.Id, p.Title)).ToList();
+            _categoryItems = BuildCategoryItems();
         }
         catch (Exception ex)
         {
@@ -396,6 +405,8 @@ else
                 _error = $"Chybný ConfigJson: {configError}";
                 return;
             }
+
+            if (!HasSolution) _model.SolutionJson = "{}";
 
             if (!ValidateJson(_model.SolutionJson, out var solutionError))
             {
@@ -518,9 +529,13 @@ else
         }
     }
 
+    // Volné hřiště (obvod, simulace) se nehodnotí, takže nemá správné řešení.
+    private bool HasSolution => _model.Type is not (ExerciseTypeConstants.Circuit or ExerciseTypeConstants.Simulation);
+
     private void OnTypeChanged(ChangeEventArgs e)
     {
         _model.Type = e.Value?.ToString() ?? "";
+        if (!HasSolution) _model.SolutionJson = "{}";
     }
 
     private void OnConfigChanged(string json)
@@ -535,37 +550,25 @@ else
         StateHasChanged();
     }
 
-    private void TogglePost(int postId, string? value)
+    // Kategorie ve stromovém pořadí; popisek je celá cesta ("Matematika > Geometrie"), takže jde hledat i podle nadřazené kategorie.
+    private List<SearchableMultiSelect.Item> BuildCategoryItems()
     {
-        if (_model.PostIds == null) _model.PostIds = new List<int>();
-        if (_model.PostIds.Contains(postId))
-            _model.PostIds.Remove(postId);
-        else
-            _model.PostIds.Add(postId);
-    }
+        var items = new List<SearchableMultiSelect.Item>();
+        var byParent = _allCategories.ToLookup(c => c.ParentId);
+        var known = _allCategories.Select(c => c.Id).ToHashSet();
 
-    private void ToggleCategory(int categoryId, string? value)
-    {
-        if (_model.CategoryIds == null) _model.CategoryIds = new List<int>();
-        if (_model.CategoryIds.Contains(categoryId))
-            _model.CategoryIds.Remove(categoryId);
-        else
-            _model.CategoryIds.Add(categoryId);
-    }
-
-    private string BuildCategoryLabel(CategoryResponse c)
-    {
-        // Build simple label with parent info
-        var names = new List<string> { c.Name };
-        var current = c.ParentId;
-        while (current.HasValue)
+        void Walk(CategoryResponse c, string path, int depth)
         {
-            var parent = _allCategories.FirstOrDefault(x => x.Id == current.Value);
-            if (parent == null) break;
-            names.Insert(0, parent.Name);
-            current = parent.ParentId;
+            var label = path.Length == 0 ? c.Name : $"{path} > {c.Name}";
+            items.Add(new SearchableMultiSelect.Item(c.Id, label, depth));
+            foreach (var child in byParent[c.Id].OrderBy(x => x.Name))
+                Walk(child, label, depth + 1);
         }
-        return string.Join(" > ", names);
+
+        // kořeny = bez rodiče, nebo s rodičem, který neexistuje
+        foreach (var root in _allCategories.Where(c => c.ParentId == null || !known.Contains(c.ParentId.Value)).OrderBy(c => c.Name))
+            Walk(root, "", 0);
+        return items;
     }
 
     private void LoadExampleConfig()
@@ -577,6 +580,7 @@ else
             ExerciseTypeConstants.DragDrop => GetDragDropConfigExample(),
             ExerciseTypeConstants.Molecule => GetMoleculeConfigExample(),
             ExerciseTypeConstants.Matching => GetMatchingConfigExample(),
+            ExerciseTypeConstants.Simulation => GetSimulationConfigExample(CurrentSimulationKind()),
             _ => "{}"
         };
     }
@@ -600,6 +604,51 @@ else
     }
 
     // Helper methods pro příklady
+    // Druh simulace (pole "kind") z aktuálního ConfigJson; bez něj kepler.
+    private string CurrentSimulationKind()
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(_model.ConfigJson) ? "{}" : _model.ConfigJson);
+            if (doc.RootElement.TryGetProperty("kind", out var k) && k.GetString() is { Length: > 0 } kind)
+                return kind;
+        }
+        catch (JsonException) { }
+        return "kepler";
+    }
+
+    private string GetSimulationConfigExample(string kind) => kind switch
+    {
+        "projectile" => @"{
+  ""kind"": ""projectile"",
+  ""mode"": ""flat"",
+  ""speed"": 20,
+  ""angle"": 45,
+  ""height"": 0,
+  ""gravity"": 9.81,
+  ""centralSpeed"": 7,
+  ""centralAngle"": 0,
+  ""altitude"": 300
+}",
+        "gravity-field" => @"{
+  ""kind"": ""gravity-field"",
+  ""exponent"": 2,
+  ""mass"": 1,
+  ""speedFactor"": 0.8
+}",
+        "circuit" => @"{
+  ""kind"": ""circuit"",
+  ""components"": [...],
+  ""availableComponents"": [...]
+}",
+        _ => @"{
+  ""kind"": ""kepler"",
+  ""eccentricity"": 0.6,
+  ""semiMajorAxis"": 1,
+  ""sectors"": 8
+}"
+    };
+
     private string GetCircuitExample() => "{\n  \"components\": [...],\n  \"availableComponents\": [...]\n}";
     private string GetTimelineExample() => "{\n  \"events\": [...],\n  \"timeRange\": {...}\n}";
     private string GetDragDropExample() => "{\n  \"items\": [...],\n  \"categories\": [...]\n}";

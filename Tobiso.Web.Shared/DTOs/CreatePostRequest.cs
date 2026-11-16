@@ -8,6 +8,10 @@ public class CreatePostRequest
     public string Title { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
+    /// <summary>Place the post right after this post in the category's manual order.</summary>
+    public int? SortAfterPostId { get; set; }
+    /// <summary>Place the post first in the category's manual order (takes precedence over SortAfterPostId).</summary>
+    public bool SortFirst { get; set; }
 
     // Initial version data - when GradeId is null no version is created (e.g. bulk import)
     public int? GradeId { get; set; }

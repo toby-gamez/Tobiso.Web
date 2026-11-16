@@ -347,6 +347,9 @@ note: Průnik tvoří společní dělitelé.
                             <tbody>
                                 <tr><td><code>1/2</code></td><td>Jednoduchý zlomek z čísel/písmen: <code>1/2</code>, <code>a/b</code>, <code>-3/4</code></td></tr>
                                 <tr><td><code>{'{'}x+1{'}'}/{'{'}2{'}'}</code></td><td>Zlomek s víceznakovým výrazem — každou stranu, která není jediné číslo/písmeno, obal do <code>{'{'} {'}'}</code></td></tr>
+                                <tr><td><code>{'{'}a&lt;sub&gt;1&lt;/sub&gt;{'}'}/{'{'}b{'}'}</code></td><td>Dolní index ve zlomku — obal stranu do <code>{'{'} {'}'}</code> a použij <code>&lt;sub&gt;</code> jako obvykle</td></tr>
+                                <tr><td><code>{'{'}x&lt;sup&gt;2&lt;/sup&gt;{'}'}/{'{'}2{'}'}</code></td><td>Horní index (mocnina) ve zlomku — stejně jako <code>&lt;sub&gt;</code></td></tr>
+                                <tr><td><code>{'{'}{'{'}a{'}'}/{'{'}b{'}'} + 1{'}'}/{'{'}2{'}'}</code></td><td>Zlomek ve zlomku — vnitřní zlomek musí mít obě strany ve složených závorkách</td></tr>
                                 <tr><td><code>3,5/2</code></td><td>Desetinná čísla se čárkou fungují (automaticky se převedou na tečku)</td></tr>
                                 <tr><td><code>- 1/2</code></td><td>Mezera + pomlčka před zlomkem se stane záporným zlomkem</td></tr>
                                 <tr><td><code>ano/ne</code></td><td>Výjimka — zůstane jako obyčejný text, nepřevede se na zlomek</td></tr>
@@ -360,6 +363,8 @@ note: Průnik tvoří společní dělitelé.
                             <tbody>
                                 <tr><td><code>$x^2 + y^2$</code></td><td>Vzorec v textu (inline)</td></tr>
                                 <tr><td><code>$$x^2 + y^2 = r^2$$</code></td><td>Vzorec na samostatném řádku (display)</td></tr>
+                                <tr><td><code>$\ce{'{'}H2O{'}'}$</code></td><td>Chemický vzorec nebo rovnice (mhchem), např. <code>$\ce{'{'}2H2 + O2 -&gt; 2H2O{'}'}$</code></td></tr>
+                                <tr><td><code>$\Q$</code>, <code>$\C$</code>, <code>$\abs{'{'}x{'}'}$</code></td><td>Zkratky: ℚ, ℂ a absolutní hodnota (ℝ, ℕ, ℤ jsou <code>\R</code>, <code>\N</code>, <code>\Z</code>)</td></tr>
                             </tbody>
                         </table>
                     </section>

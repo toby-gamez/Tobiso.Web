@@ -1,4 +1,5 @@
 // Minimal renderer: read LaTeX from stdin and output PNG bytes to stdout
+// KaTeX version below must match Tobiso.Web.App/wwwroot/lib/katex (0.16.8).
 // Usage: node render_katex.js "\\frac{1}{2}" > out.png
 
 const fs = require('fs');

@@ -47,6 +47,13 @@ else
             <label for="category">Kategorie</label>
             <SearchableCategorySelect Categories="categories" Value="post.CategoryId" ValueChanged="id => post.CategoryId = id" />
         </div>
+    @if (categories.FirstOrDefault(c => c.Id == post.CategoryId)?.SortLabel is { Length: > 0 })
+    {
+            <div class="field">
+                <label for="postPosition">Pozice v kategorii</label>
+                <PostPositionPicker CategoryId="post.CategoryId" ExcludePostId="Id" @bind-SortFirst="_sortFirst" @bind-SortAfterPostId="_sortAfterPostId" />
+            </div>
+    }
         <div class="field">
             <label for="grade">Ročník (verze)</label>
             @* Use Value+ValueChanged instead of @bind-Value+@onchange - Blazor's @bind-Value already
@@ -370,6 +377,9 @@ else
     private string _videoLabel = "";
     private string? _videoSaveMsg;
 
+    private bool _sortFirst;
+    private int? _sortAfterPostId;
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -526,7 +536,9 @@ else
             {
                 Title = post.Title,
                 FilePath = post.FilePath ?? string.Empty,
-                CategoryId = post.CategoryId
+                CategoryId = post.CategoryId,
+                SortFirst = _sortFirst,
+                SortAfterPostId = _sortAfterPostId
             });
 
             // 2. Save version content for the selected grade

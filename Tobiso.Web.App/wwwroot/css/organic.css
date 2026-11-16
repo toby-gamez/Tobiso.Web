@@ -254,6 +254,37 @@ a.sage-tint {
     color: var(--color-accent-800);
 }
 
+/* Markdown "> citace" — same language as the callouts: filled, fully rounded block with a
+   big Baloo quote mark instead of a side bar; neutral ground so it doesn't compete with them. */
+#article-prose blockquote {
+    position: relative;
+    margin: var(--space-6) 0;
+    max-width: 68ch;
+    padding: var(--space-5) var(--space-6) var(--space-5) 64px;
+    background: var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+    color: var(--color-neutral-800);
+}
+
+#article-prose blockquote::before {
+    content: "\201E";
+    position: absolute;
+    left: var(--space-5);
+    top: 6px;
+    font-family: var(--font-heading);
+    font-size: 64px;
+    line-height: 1;
+    color: var(--color-accent-500);
+}
+
+#article-prose blockquote > :first-child {
+    margin-top: 0;
+}
+
+#article-prose blockquote > :last-child {
+    margin-bottom: 0;
+}
+
 /* MarkdownContent wraps every rendered <table> in this, but it was never styled anywhere -
    without it a wide table (e.g. many comparison columns) overflows and forces the whole
    page to scroll horizontally on narrow viewports instead of just the table. */

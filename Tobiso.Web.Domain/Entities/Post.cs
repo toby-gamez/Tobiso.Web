@@ -10,6 +10,8 @@ public class Post
     public ICollection<PostVersion> Versions { get; set; } = new List<PostVersion>();
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
+    /// <summary>Manual position within the category (1-based). Null = not manually placed; such posts follow the sorted ones.</summary>
+    public int? SortOrder { get; set; }
     public ICollection<Question> Questions { get; set; } = new List<Question>();
     public ICollection<InteractiveExercisePost> InteractiveExercisePosts { get; set; } = new List<InteractiveExercisePost>();
 }

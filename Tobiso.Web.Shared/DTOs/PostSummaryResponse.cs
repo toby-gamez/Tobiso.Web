@@ -9,6 +9,8 @@ public class PostSummaryResponse
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
+    /// <summary>Manual position within the category (1-based); null when not manually placed.</summary>
+    public int? SortOrder { get; set; }
     public string FilePath { get; set; } = string.Empty;
     /// <summary>Most recent LastEdit timestamp across all versions, for "last updated" display.</summary>
     public DateTime? LastEdit { get; set; }

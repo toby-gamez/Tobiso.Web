@@ -34,3 +34,22 @@
     align-items: center;
     gap: 6px;
 }
+
+.sort-list {
+    list-style: decimal inside;
+    margin: 0;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.sort-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+}
+
+.sort-title {
+    flex: 1;
+}
