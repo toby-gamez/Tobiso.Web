@@ -21,6 +21,7 @@ public interface IQuestionService
     Task<FlashcardEligibilityStats> GetFlashcardEligibilityStatsAsync();
     Task SetFlashcardEligibilityAsync(Dictionary<int, bool> results);
     Task ResetAllFlashcardEligibilityAsync();
+    Task<HashSet<int>> GetPostIdsWithQuestionsAsync();
 }
 
 public class QuestionService : IQuestionService
@@ -395,6 +396,16 @@ public class QuestionService : IQuestionService
                 QuestionId = a.QuestionId
             }).ToList()
         }).ToList();
+    }
+
+    public async Task<HashSet<int>> GetPostIdsWithQuestionsAsync()
+    {
+        var ids = await _context.Questions
+            .AsNoTracking()
+            .Select(q => q.PostId)
+            .Distinct()
+            .ToListAsync();
+        return ids.ToHashSet();
     }
 
     public async Task<FlashcardEligibilityStats> GetFlashcardEligibilityStatsAsync()

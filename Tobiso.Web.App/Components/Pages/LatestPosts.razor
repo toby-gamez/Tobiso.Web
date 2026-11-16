@@ -62,6 +62,7 @@
     private List<PostSummaryResponse> _posts = [];
     private List<CategoryTreeResponse> _rootCategories = [];
     private Dictionary<int, string> _categoryPaths = [];
+    private Dictionary<int, int?> _parentIds = [];
     private int? _activeFilter;
 
     private bool _disposed;
@@ -73,11 +74,12 @@
             var cats = await CategoryService.GetAll();
             _rootCategories = [.. (await CategoryService.GetTree()).Where(c => !IsMore(c.Name))];
 
+            _parentIds = cats.ToDictionary(c => c.Id, c => c.ParentId);
             var moreIds = cats.Where(c => IsMore(c.Name)).Select(c => c.Id).ToHashSet();
 
             _posts = await PostService.GetSummaries();
             _posts = [.. _posts
-                .Where(p => p.CategoryId.HasValue && !moreIds.Contains(p.CategoryId.Value))
+                .Where(p => p.CategoryId.HasValue && !IsInAny(p.CategoryId.Value, moreIds))
                 .OrderByDescending(LastUpdated)];
 
             // Build category path lookup
@@ -107,13 +109,19 @@
 
     private IEnumerable<PostSummaryResponse> FilteredPosts => _activeFilter == null
         ? _posts
-        : _posts.Where(p => p.CategoryId == _activeFilter || IsDescendant(p.CategoryId));
+        : _posts.Where(p => p.CategoryId.HasValue && IsInAny(p.CategoryId.Value, [_activeFilter.Value]));
 
-    private bool IsDescendant(int? catId)
+    /// <summary>True if the category is one of <paramref name="ancestors"/> or nested at any depth below one.</summary>
+    private bool IsInAny(int catId, ICollection<int> ancestors)
     {
-        if (catId == null || _activeFilter == null) return false;
-        var found = _rootCategories.FirstOrDefault(r => r.Id == _activeFilter);
-        return found?.Children?.Any(c => c.Id == catId) == true;
+        int? current = catId;
+        var guard = 0;
+        while (current.HasValue && guard++ < 100)
+        {
+            if (ancestors.Contains(current.Value)) return true;
+            current = _parentIds.TryGetValue(current.Value, out var parent) ? parent : null;
+        }
+        return false;
     }
 
     private string CategoryPath(int? id) => id.HasValue && _categoryPaths.TryGetValue(id.Value, out var p) ? p : "";

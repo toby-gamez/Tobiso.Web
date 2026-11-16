@@ -127,3 +127,41 @@
         grid-template-columns: 1fr;
     }
 }
+
+.filter-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.bulk-default {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.count-input {
+    width: 4.5rem;
+}
+
+.gen-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.gen-error {
+    color: var(--color-danger, #c0392b);
+}

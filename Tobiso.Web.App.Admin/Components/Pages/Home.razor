@@ -74,6 +74,10 @@
             <option value="Id">ID</option>
             <option value="FilePath">Cesta</option>
         </select>
+        <label class="filter-check">
+            <input type="checkbox" @bind="OnlyWithoutQuestions" />
+            <span>Bez otázek</span>
+        </label>
         <button class="btn btn-secondary btn-sm" aria-label="Přepnout směr řazení" @onclick="ToggleSortDirection">
             <i data-lucide="@(SortDescending ? "chevron-down" : "chevron-up")"></i>
         </button>
@@ -84,6 +88,38 @@
 {
     <div class="alert-error">
         <strong>Error:</strong> @errorMessage
+    </div>
+}
+
+@if (selectedCounts.Count > 0)
+{
+    <div class="panel bulk-bar">
+        <strong>Vybráno: @selectedCounts.Count</strong>
+        <label class="bulk-default">
+            Všem nastavit
+            <input type="number" class="input count-input" min="1" max="20" @bind="bulkDefaultCount" />
+            otázek
+        </label>
+        <button type="button" class="btn btn-secondary btn-sm" @onclick="ApplyBulkDefault" disabled="@isBulkGenerating">Použít</button>
+        <button type="button" class="btn btn-primary btn-sm" @onclick="GenerateForSelected" disabled="@isBulkGenerating">
+            @if (isBulkGenerating)
+            {
+                <i data-lucide="loader-2" class="spinner"></i>
+                <span>Generuji… (@bulkDone/@bulkTotal)</span>
+            }
+            else
+            {
+                <span>Vygenerovat otázky</span>
+            }
+        </button>
+        @if (isBulkGenerating)
+        {
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => stopBulkRequested = true">Zastavit</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="ClearSelection">Zrušit výběr</button>
+        }
     </div>
 }
 
@@ -101,6 +137,9 @@ else
         <table class="data-table">
             <thead>
                 <tr>
+                    <th scope="col" style="width: 40px;">
+                        <input type="checkbox" aria-label="Vybrat vše zobrazené" checked="@AllVisibleSelected" @onchange="e => ToggleSelectAll((bool)e.Value!)" />
+                    </th>
                     <th scope="col">ID</th>
                     <th scope="col">Title</th>
                     <th scope="col">Category</th>
@@ -113,9 +152,24 @@ else
                 @foreach (var post in posts)
                 {
                     <tr>
+                        <td>
+                            <input type="checkbox" aria-label="Vybrat článek" checked="@selectedCounts.ContainsKey(post.Id)" disabled="@isBulkGenerating" @onchange="e => ToggleSelect(post.Id, (bool)e.Value!)" />
+                        </td>
                         <td>@post.Id</td>
                         <td>
                             <a href="/posts/edit/@post.Id" class="post-title-link">@post.Title</a>
+                            @if (selectedCounts.TryGetValue(post.Id, out var qCount))
+                            {
+                                <div class="gen-row">
+                                    <input type="number" class="input count-input" min="1" max="20" value="@qCount" disabled="@isBulkGenerating"
+                                           @onchange="e => SetCount(post.Id, e.Value?.ToString())" />
+                                    <span class="muted">otázek</span>
+                                    @if (generationStatus.TryGetValue(post.Id, out var status))
+                                    {
+                                        <small class="@(status.StartsWith("Chyba") ? "gen-error" : "muted")">@status</small>
+                                    }
+                                </div>
+                            }
                         </td>
                         <td>
                             @if (post.CategoryId.HasValue)
@@ -266,6 +320,110 @@ else
         {
             if (_sortBy == value) return;
             _sortBy = value;
+            ApplyFilters();
+        }
+    }
+    private bool _onlyWithoutQuestions;
+    private bool OnlyWithoutQuestions
+    {
+        get => _onlyWithoutQuestions;
+        set
+        {
+            if (_onlyWithoutQuestions == value) return;
+            _onlyWithoutQuestions = value;
+            ApplyFilters();
+        }
+    }
+    private HashSet<int> postIdsWithQuestions = new();
+
+    // selected post id -> number of questions to generate
+    private readonly Dictionary<int, int> selectedCounts = new();
+    private readonly Dictionary<int, string> generationStatus = new();
+    private int bulkDefaultCount = 5;
+    private bool isBulkGenerating;
+    private bool stopBulkRequested;
+    private int bulkDone;
+    private int bulkTotal;
+
+    private bool AllVisibleSelected => posts != null && posts.Count > 0 && posts.All(p => selectedCounts.ContainsKey(p.Id));
+
+    private void ToggleSelect(int id, bool selected)
+    {
+        if (selected) selectedCounts.TryAdd(id, Math.Clamp(bulkDefaultCount, 1, 20));
+        else { selectedCounts.Remove(id); generationStatus.Remove(id); }
+    }
+
+    private void ToggleSelectAll(bool selected)
+    {
+        if (posts == null) return;
+        foreach (var p in posts) ToggleSelect(p.Id, selected);
+    }
+
+    private void SetCount(int id, string? value)
+    {
+        if (int.TryParse(value, out var n)) selectedCounts[id] = Math.Clamp(n, 1, 20);
+    }
+
+    private void ApplyBulkDefault()
+    {
+        var n = Math.Clamp(bulkDefaultCount, 1, 20);
+        foreach (var id in selectedCounts.Keys.ToList()) selectedCounts[id] = n;
+    }
+
+    private void ClearSelection()
+    {
+        selectedCounts.Clear();
+        generationStatus.Clear();
+    }
+
+    private async Task GenerateForSelected()
+    {
+        isBulkGenerating = true;
+        stopBulkRequested = false;
+        generationStatus.Clear();
+        var queue = selectedCounts.ToList();
+        bulkTotal = queue.Count;
+        bulkDone = 0;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var (postId, count) in queue)
+            {
+                if (stopBulkRequested) break;
+                generationStatus[postId] = "Generuji…";
+                StateHasChanged();
+                try
+                {
+                    var existing = (await QuestionService.GetByPostId(postId)).Select(q => q.QuestionText).ToList();
+                    var generated = await Api.GenerateQuestions(new GenerateQuestionRequest
+                    {
+                        PostId = postId,
+                        Count = count,
+                        ExistingQuestions = existing
+                    });
+
+                    var saved = 0;
+                    foreach (var q in generated)
+                    {
+                        q.PostId = postId;
+                        if (await QuestionService.Create(q) != null) saved++;
+                    }
+                    if (saved > 0) postIdsWithQuestions.Add(postId);
+                    generationStatus[postId] = $"Uloženo {saved}";
+                }
+                catch (Exception ex)
+                {
+                    generationStatus[postId] = $"Chyba: {ex.Message}";
+                    Logger.LogError(ex, "Bulk question generation failed for post {PostId}", postId);
+                }
+                bulkDone++;
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            isBulkGenerating = false;
             ApplyFilters();
         }
     }
@@ -426,6 +584,7 @@ else
 
             var loaded = await Api.GetPostSummaries();
             allPosts = loaded ?? new List<PostSummaryResponse>();
+            postIdsWithQuestions = await QuestionService.GetPostIdsWithQuestionsAsync();
 
             ApplyFilters();
 
@@ -466,6 +625,11 @@ else
         if (!string.IsNullOrWhiteSpace(SearchTerm))
         {
             query = query.Where(p => !string.IsNullOrEmpty(p.Title) && p.Title.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (OnlyWithoutQuestions)
+        {
+            query = query.Where(p => !postIdsWithQuestions.Contains(p.Id));
         }
 
         switch (SortBy)
