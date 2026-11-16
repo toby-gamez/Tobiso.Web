@@ -1797,3 +1797,19 @@ svg.lucide {
         width: auto;
     }
 }
+
+/* KaTeX: use the body font for plain text, digits and \text{} (the base .katex rule sets KaTeX_Main, Times New Roman).
+   Variables (.mathnormal, .mathit) follow too, upright rather than italic. Symbols and stretchy delimiters keep their KaTeX fonts,
+   whose metrics the layout depends on.
+   katex.min.css is injected after this file, so html / .text raise the specificity to keep these rules winning. */
+html .katex,
+html .katex .mathnormal,
+html .katex .mathit,
+.katex .text .textrm {
+    font-family: var(--font-body);
+}
+
+html .katex .mathnormal,
+html .katex .mathit {
+    font-style: normal;
+}
