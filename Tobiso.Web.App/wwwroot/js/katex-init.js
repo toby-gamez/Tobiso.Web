@@ -57,10 +57,11 @@ const renderMath = (containerId) => {
         document.querySelectorAll('[data-math]').forEach((el) => {
             try {
                 const math = el.getAttribute('data-math');
+                const display = el.getAttribute('data-display') === 'true';
                 // Already rendered from this exact source: nothing to do.
                 if (!math || (el.__mathSrc === math && el.firstChild)) return;
                 if (window.katex && typeof window.katex.render === 'function') {
-                    window.katex.render(math, el, { throwOnError: false, displayMode: false, macros: katexMacros() });
+                    window.katex.render(math, el, { throwOnError: false, displayMode: display, macros: katexMacros() });
                     el.__mathSrc = math;
                 }
             } catch (_) { /* per-element failures must not abort the loop */ }

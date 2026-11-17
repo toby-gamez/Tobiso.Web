@@ -206,7 +206,7 @@ public class AuthController : ControllerBase
                 return Unauthorized();
             var user = await _userService.GetByIdAsync(userId);
             if (user == null) return NotFound();
-            return Ok(new StudentProfileDto(user.DisplayName, user.Email, user.Credits, "student"));
+            return Ok(new StudentProfileDto(user.DisplayName, user.Email, user.Credits, "student", user.PreferredGradeId));
         }
         return Ok(new StudentProfileDto(User.Identity?.Name ?? "", "", 0, "admin"));
     }

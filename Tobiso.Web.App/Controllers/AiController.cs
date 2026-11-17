@@ -146,7 +146,9 @@ namespace Tobiso.Web.App.Controllers
                 return Unauthorized();
 
             var messages = await _chatHistory.GetSessionMessagesAsync(sessionId, userId);
-            return Ok(messages);
+            // Project to a flat shape: the entities link back to their session (and its messages), which
+            // makes System.Text.Json fail with a reference cycle.
+            return Ok(messages.Select(m => new { m.Id, m.Role, m.Content, m.CreatedAt }));
         }
 
         [HttpPost("credits")]

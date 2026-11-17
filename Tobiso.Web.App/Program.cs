@@ -261,6 +261,7 @@ services.AddScoped<IEmailSender, SmtpEmailSender>();
 services.AddScoped<IAccountService, AccountService>();
 services.AddScoped<ILegalNoticeService, LegalNoticeService>();
 services.AddScoped<IUserDataExportService, UserDataExportService>();
+services.AddScoped<IAccountDeletionService, AccountDeletionService>();
 // Storage limitation (GDPR Art. 5(1)(e)): periods in the "Retention" config section.
 services.AddScoped<IDataRetentionService, DataRetentionService>();
 services.AddHostedService<DataRetentionHostedService>();

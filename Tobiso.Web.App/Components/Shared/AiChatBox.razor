@@ -163,7 +163,7 @@
         new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
     private static MarkupString RenderMarkdown(string? content) =>
-        (MarkupString)Tobiso.Web.App.Services.AiMarkdown.StripDangerousUrls(Markdown.ToHtml(content ?? string.Empty, _markdownPipeline));
+        (MarkupString)Tobiso.Web.App.Services.AiMarkdown.ToSafeHtmlWithMath(content, _markdownPipeline);
 
     private readonly List<PostSummaryResponse> _attachedPosts = [];
     private List<PostSummaryResponse> _availablePosts = [];
@@ -320,6 +320,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JS.InvokeVoidAsync("initLucide");
+        await JS.InvokeVoidAsync("renderMarkdownMath", (string?)null);
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)

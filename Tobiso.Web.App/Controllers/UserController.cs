@@ -11,7 +11,8 @@ namespace Tobiso.Web.App.Controllers;
 [Route("api/user")]
 [Authorize(Policy = AuthPolicies.AnyUser)]
 public class UserController(IUserProgressService progressService, IUserDataExportService exportService,
-    IGameStateService gameStateService, IPointsWalletService walletService, IStreakService streakService) : ControllerBase
+    IGameStateService gameStateService, IPointsWalletService walletService, IStreakService streakService,
+    IUserService userService, IGradeService gradeService, IAccountDeletionService accountDeletionService, ILegalNoticeService legalNoticeService) : ControllerBase
 {
     // Students only: an admin token's "sub" is a config value that could collide with a real user id.
     private int? GetUserId()
@@ -182,6 +183,52 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
 
     private const int MaxNoteLength = 10_000;
 
+    // PUT /api/user/preferred-grade  body: { gradeId } (null clears it). The current value is on GET /api/auth/me.
+    [HttpPut("preferred-grade")]
+    public async Task<IActionResult> SetPreferredGrade([FromBody] PreferredGradeRequest req)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (req.GradeId != null && await gradeService.GetById(req.GradeId.Value) == null)
+            return BadRequest(new { message = "Neznámý ročník." });
+        await userService.SetPreferredGradeAsync(userId.Value, req.GradeId);
+        return NoContent();
+    }
+
+    // GET /api/user/legal-notice - date of a material change to the Terms/Privacy Policy the user has not seen yet
+    // (ChangedAt is null when nothing is pending). The text itself is at /pravni-dokumenty on the web.
+    [HttpGet("legal-notice")]
+    public async Task<IActionResult> GetLegalNotice()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        return Ok(new LegalNoticeDto(await legalNoticeService.GetPendingChangeAsync(userId.Value)));
+    }
+
+    // POST /api/user/legal-notice/dismiss  body: { changedAt } - the user closed the notice for that change
+    [HttpPost("legal-notice/dismiss")]
+    public async Task<IActionResult> DismissLegalNotice([FromBody] LegalNoticeDto req)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (req.ChangedAt == null) return BadRequest(new { message = "Chybí datum změny." });
+        await legalNoticeService.DismissAsync(userId.Value, req.ChangedAt.Value);
+        return NoContent();
+    }
+
+    // DELETE /api/user  body: { confirm: true } - permanently deletes the account and all personal data (GDPR art. 17).
+    [HttpDelete]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest req)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (!req.Confirm) return BadRequest(new { message = "Smazání účtu je potřeba potvrdit." });
+        if (!await accountDeletionService.DeleteAsync(userId.Value)) return NotFound();
+        Serilog.Log.Information("Account {UserId} deleted at the owner's request", userId.Value);
+        SessionCookies.Delete(Response, SessionCookies.Student);
+        return NoContent();
+    }
+
     // GET /api/user/stats
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
@@ -193,5 +240,11 @@ public class UserController(IUserProgressService progressService, IUserDataExpor
 }
 
 public record UserNoteDto(string Content);
+
+public record PreferredGradeRequest(int? GradeId);
+
+public record DeleteAccountRequest(bool Confirm);
+
+public record LegalNoticeDto(DateTime? ChangedAt);
 
 public record ReadProgressRequest(int PostId, int ScrollPercent);
